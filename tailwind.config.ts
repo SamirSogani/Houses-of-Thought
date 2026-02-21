@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['"Playfair Display"', 'serif'],
+        body: ['"Source Sans 3"', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,6 +51,34 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Trapasso colors
+        "pov-individual": {
+          DEFAULT: "hsl(var(--pov-individual))",
+          bg: "hsl(var(--pov-individual-bg))",
+        },
+        "pov-group": {
+          DEFAULT: "hsl(var(--pov-group))",
+          bg: "hsl(var(--pov-group-bg))",
+        },
+        "pov-ideas": {
+          DEFAULT: "hsl(var(--pov-ideas))",
+          bg: "hsl(var(--pov-ideas-bg))",
+        },
+        assumption: {
+          DEFAULT: "hsl(var(--assumption-yellow))",
+          bg: "hsl(var(--assumption-yellow-bg))",
+        },
+        atmosphere: {
+          DEFAULT: "hsl(var(--atmosphere-blue))",
+          bg: "hsl(var(--atmosphere-blue-bg))",
+        },
+        roof: "hsl(var(--roof-slate))",
+        ceiling: "hsl(var(--ceiling-dark))",
+        foundation: {
+          DEFAULT: "hsl(var(--foundation-stone))",
+          bg: "hsl(var(--foundation-stone-bg))",
+        },
+        blueprint: "hsl(var(--blueprint-line))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -65,25 +97,22 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.4s ease-out",
       },
     },
   },
