@@ -19,6 +19,8 @@ export type Database = {
           consequences: string
           created_at: string
           id: string
+          is_draft: boolean
+          is_public: boolean
           overarching_conclusion: string
           overarching_question: string
           purpose: string
@@ -31,6 +33,8 @@ export type Database = {
           consequences?: string
           created_at?: string
           id?: string
+          is_draft?: boolean
+          is_public?: boolean
           overarching_conclusion?: string
           overarching_question?: string
           purpose?: string
@@ -43,6 +47,8 @@ export type Database = {
           consequences?: string
           created_at?: string
           id?: string
+          is_draft?: boolean
+          is_public?: boolean
           overarching_conclusion?: string
           overarching_question?: string
           purpose?: string
@@ -117,33 +123,80 @@ export type Database = {
           },
         ]
       }
+      pov_labels: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          id: string
+          label: string
+          parent_category: string
+          sort_order: number
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          id?: string
+          label?: string
+          parent_category?: string
+          sort_order?: number
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          parent_category?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pov_labels_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          about_me: string
           biological: string
           created_at: string
+          current_project: string
           familial: string
           id: string
           individual: string
+          location_context: string
+          role_title: string
           social: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          about_me?: string
           biological?: string
           created_at?: string
+          current_project?: string
           familial?: string
           id?: string
           individual?: string
+          location_context?: string
+          role_title?: string
           social?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          about_me?: string
           biological?: string
           created_at?: string
+          current_project?: string
           familial?: string
           id?: string
           individual?: string
+          location_context?: string
+          role_title?: string
           social?: string
           updated_at?: string
           user_id?: string
@@ -156,7 +209,9 @@ export type Database = {
           created_at: string
           id: string
           information: string
+          is_draft: boolean
           pov_category: string
+          pov_label_id: string | null
           question: string
           sort_order: number
           sub_conclusion: string
@@ -167,7 +222,9 @@ export type Database = {
           created_at?: string
           id?: string
           information?: string
+          is_draft?: boolean
           pov_category?: string
+          pov_label_id?: string | null
           question?: string
           sort_order?: number
           sub_conclusion?: string
@@ -178,7 +235,9 @@ export type Database = {
           created_at?: string
           id?: string
           information?: string
+          is_draft?: boolean
           pov_category?: string
+          pov_label_id?: string | null
           question?: string
           sort_order?: number
           sub_conclusion?: string
@@ -190,6 +249,13 @@ export type Database = {
             columns: ["analysis_id"]
             isOneToOne: false
             referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sub_questions_pov_label_id_fkey"
+            columns: ["pov_label_id"]
+            isOneToOne: false
+            referencedRelation: "pov_labels"
             referencedColumns: ["id"]
           },
         ]
@@ -204,6 +270,7 @@ export type Database = {
         Args: { p_sub_question_id: string }
         Returns: boolean
       }
+      is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

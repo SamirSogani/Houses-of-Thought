@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, LogOut, Home, Settings } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -15,6 +17,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   useEffect(() => {
     fetchAnalyses();
@@ -36,30 +40,50 @@ export default function Dashboard() {
       .insert({ title: "Untitled Analysis" })
       .select()
       .single();
-    if (error) {
-      toast.error(error.message);
-    } else if (data) {
-      navigate(`/analysis/${data.id}`);
-    }
+    if (error) toast.error(error.message);
+    else if (data) navigate(`/analysis/${data.id}`);
   };
 
-  const deleteAnalysis = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteAnalysis = async (id: string) => {
     const { error } = await supabase.from("analyses").delete().eq("id", id);
     if (error) toast.error(error.message);
     else setAnalyses((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const renameAnalysis = async (id: string) => {
+    if (!renameValue.trim()) return;
+    await supabase.from("analyses").update({ title: renameValue.trim(), updated_at: new Date().toISOString() }).eq("id", id);
+    setAnalyses((prev) => prev.map((a) => (a.id === id ? { ...a, title: renameValue.trim() } : a)));
+    setRenamingId(null);
+    toast.success("Renamed");
+  };
+
+  const togglePublic = async (a: Analysis) => {
+    const newVal = !(a as any).is_public;
+    await supabase.from("analyses").update({ is_public: newVal, updated_at: new Date().toISOString() } as any).eq("id", a.id);
+    setAnalyses((prev) => prev.map((x) => (x.id === a.id ? { ...x, is_public: newVal } as any : x)));
+    toast.success(newVal ? "Analysis is now public" : "Analysis is now private");
+  };
+
+  const copyShareLink = (id: string) => {
+    const url = `${window.location.origin}/public/${id}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Share link copied!");
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Home className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-display font-bold text-foreground">House of Reason</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" onClick={createNewAnalysis}>
+              <Plus className="h-4 w-4 mr-1" /> New House
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
               <Settings className="h-4 w-4 mr-1" /> Profile
             </Button>
@@ -76,9 +100,6 @@ export default function Dashboard() {
             <h2 className="text-3xl font-display font-bold text-foreground">Your Analyses</h2>
             <p className="text-muted-foreground mt-1">Build and explore your Houses of Reason</p>
           </div>
-          <Button onClick={createNewAnalysis}>
-            <Plus className="h-4 w-4 mr-2" /> New Analysis
-          </Button>
         </div>
 
         {loading ? (
@@ -109,29 +130,65 @@ export default function Dashboard() {
             {analyses.map((a, i) => (
               <Card
                 key={a.id}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-primary/30 animate-fade-in group"
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-primary/30 animate-fade-in group relative"
                 style={{ animationDelay: `${i * 60}ms` }}
                 onClick={() => navigate(`/analysis/${a.id}`)}
               >
+                {/* Three-dot menu */}
+                <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setRenamingId(a.id); setRenameValue(a.title); }}>
+                        <Pencil className="h-4 w-4 mr-2" /> Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => togglePublic(a)}>
+                        {(a as any).is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                        {(a as any).is_public ? "Make Private" : "Make Public"}
+                      </DropdownMenuItem>
+                      {(a as any).is_public && (
+                        <DropdownMenuItem onClick={() => copyShareLink(a.id)}>
+                          <Share2 className="h-4 w-4 mr-2" /> Copy Share Link
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem className="text-destructive" onClick={() => deleteAnalysis(a.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-display truncate">{a.title}</CardTitle>
+                  {renamingId === a.id ? (
+                    <div onClick={(e) => e.stopPropagation()} className="flex gap-2">
+                      <Input
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => renameAnalysis(a.id)}
+                        onKeyDown={(e) => e.key === "Enter" && renameAnalysis(a.id)}
+                        autoFocus
+                        className="text-sm"
+                      />
+                    </div>
+                  ) : (
+                    <CardTitle className="text-lg font-display truncate pr-8">{a.title}</CardTitle>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground truncate mb-3">
                     {a.overarching_question || "No question set yet"}
                   </p>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
                       {new Date(a.updated_at).toLocaleDateString()}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                      onClick={(e) => deleteAnalysis(a.id, e)}
-                    >
-                      Delete
-                    </Button>
+                    {(a as any).is_public && (
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Public</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
