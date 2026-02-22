@@ -1,1 +1,4 @@
 project_id = "xihbiywibjuvoexupdcn"
+
+[functions.groq-chat]
+verify_jwt = false

@@ -5,10 +5,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CloudUpload, Pencil } from "lucide-react";
+import { ArrowLeft, CloudUpload, Pencil, Bot } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
+import AISidebar from "@/components/ai/AISidebar";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -22,15 +23,18 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
 
   useEffect(() => {
     if (id) loadData();
   }, [id]);
 
   const loadData = async () => {
-    const [analysisRes, sqRes] = await Promise.all([
+    const [analysisRes, sqRes, profileRes] = await Promise.all([
       supabase.from("analyses").select("*").eq("id", id!).maybeSingle(),
       supabase.from("sub_questions").select("*").eq("analysis_id", id!).order("sort_order"),
+      supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle(),
     ]);
     if (analysisRes.error || !analysisRes.data) {
       toast.error("Analysis not found");
@@ -40,6 +44,7 @@ export default function AnalysisPage() {
     setAnalysis(analysisRes.data);
     setTitleDraft(analysisRes.data.title);
     setSubQuestions(sqRes.data || []);
+    setProfile(profileRes.data || null);
     setLoading(false);
   };
 
@@ -79,6 +84,24 @@ export default function AnalysisPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* AI Toggle Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+        onClick={() => setAiOpen(true)}
+      >
+        <Bot className="h-5 w-5" />
+      </Button>
+
+      <AISidebar
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        analysis={analysis}
+        subQuestions={subQuestions}
+        profile={profile}
+      />
+
       <div className="page-container max-w-6xl">
         {/* Breadcrumb */}
         <div className="breadcrumb-nav">
