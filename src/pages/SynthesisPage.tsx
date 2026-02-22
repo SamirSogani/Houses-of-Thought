@@ -95,7 +95,7 @@ export default function SynthesisPage() {
         {/* Overarching conclusion */}
         <Card className="house-zone house-zone-ceiling">
           <CardHeader>
-            <CardTitle className="text-xl font-display text-primary-foreground">Your Overarching Conclusion</CardTitle>
+            <CardTitle className="text-xl font-display text-foreground">Your Overarching Conclusion</CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
