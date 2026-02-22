@@ -15,6 +15,7 @@ import SubQuestionAnalysisPage from "./pages/SubQuestionAnalysisPage";
 import AssumptionsPage from "./pages/AssumptionsPage";
 import SynthesisPage from "./pages/SynthesisPage";
 import ConsequencesPage from "./pages/ConsequencesPage";
+import PublicViewPage from "./pages/PublicViewPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/analysis/:analysisId/sub-question/:subQuestionId/assumptions" element={<ProtectedRoute><AssumptionsPage /></ProtectedRoute>} />
             <Route path="/analysis/:analysisId/synthesis" element={<ProtectedRoute><SynthesisPage /></ProtectedRoute>} />
             <Route path="/analysis/:analysisId/consequences" element={<ProtectedRoute><ConsequencesPage /></ProtectedRoute>} />
+            <Route path="/public/:id" element={<PublicViewPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

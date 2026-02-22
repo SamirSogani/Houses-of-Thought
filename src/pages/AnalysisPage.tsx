@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CloudUpload, Pencil, Bot } from "lucide-react";
+import { ArrowLeft, Pencil, Bot } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -26,15 +26,12 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
 
-  useEffect(() => {
-    if (id) loadData();
-  }, [id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!id || !user) return;
     const [analysisRes, sqRes, profileRes] = await Promise.all([
-      supabase.from("analyses").select("*").eq("id", id!).maybeSingle(),
-      supabase.from("sub_questions").select("*").eq("analysis_id", id!).order("sort_order"),
-      supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle(),
+      supabase.from("analyses").select("*").eq("id", id).maybeSingle(),
+      supabase.from("sub_questions").select("*").eq("analysis_id", id).order("sort_order"),
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
     if (analysisRes.error || !analysisRes.data) {
       toast.error("Analysis not found");
@@ -46,16 +43,16 @@ export default function AnalysisPage() {
     setSubQuestions(sqRes.data || []);
     setProfile(profileRes.data || null);
     setLoading(false);
-  };
+  }, [id, user, navigate]);
+
+  useEffect(() => {
+    if (id && user) loadData();
+  }, [id, user, loadData]);
 
   const autoSave = useCallback(
     async (field: keyof Analysis, value: string) => {
       if (!id) return;
-      const { error } = await supabase
-        .from("analyses")
-        .update({ [field]: value, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) toast.error("Save failed: " + error.message);
+      await supabase.from("analyses").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", id);
     },
     [id]
   );
@@ -72,6 +69,30 @@ export default function AnalysisPage() {
     setEditingTitle(false);
   };
 
+  const acceptAllDrafts = async () => {
+    if (!id) return;
+    await Promise.all([
+      supabase.from("analyses").update({ is_draft: false, updated_at: new Date().toISOString() } as any).eq("id", id),
+      supabase.from("sub_questions").update({ is_draft: false, updated_at: new Date().toISOString() } as any).eq("analysis_id", id),
+    ]);
+    toast.success("All drafts accepted!");
+    loadData();
+  };
+
+  const declineAllDrafts = async () => {
+    if (!id || !analysis) return;
+    // Clear drafted analysis fields and delete drafted sub-questions
+    await Promise.all([
+      supabase.from("analyses").update({
+        purpose: "", sub_purposes: "", overarching_question: "", consequences: "",
+        is_draft: false, updated_at: new Date().toISOString(),
+      } as any).eq("id", id),
+      supabase.from("sub_questions").delete().eq("analysis_id", id).eq("is_draft" as any, true),
+    ]);
+    toast.success("Drafts declined");
+    loadData();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -84,7 +105,6 @@ export default function AnalysisPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* AI Toggle Button */}
       <Button
         variant="outline"
         size="icon"
@@ -100,10 +120,10 @@ export default function AnalysisPage() {
         analysis={analysis}
         subQuestions={subQuestions}
         profile={profile}
+        onDraftComplete={loadData}
       />
 
       <div className="page-container max-w-6xl">
-        {/* Breadcrumb */}
         <div className="breadcrumb-nav">
           <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Dashboard
@@ -112,7 +132,6 @@ export default function AnalysisPage() {
           <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
         </div>
 
-        {/* Title */}
         <div className="flex items-center gap-3 mb-8">
           {editingTitle ? (
             <div className="flex items-center gap-2 flex-1">
@@ -136,12 +155,13 @@ export default function AnalysisPage() {
           )}
         </div>
 
-        {/* House Visualization */}
         <HouseVisualization
           analysis={analysis}
           subQuestions={subQuestions}
           onUpdateField={updateField}
           onNavigate={navigate}
+          onAcceptDraft={acceptAllDrafts}
+          onDeclineDraft={declineAllDrafts}
         />
       </div>
     </div>
