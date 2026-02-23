@@ -203,6 +203,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sidebar_chats: {
+        Row: {
+          analysis_id: string
+          chat_title: string
+          created_at: string
+          id: string
+          messages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          chat_title?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          analysis_id?: string
+          chat_title?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sidebar_chats_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sub_questions: {
         Row: {
           analysis_id: string
