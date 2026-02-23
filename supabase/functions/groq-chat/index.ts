@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
@@ -36,21 +35,36 @@ Deno.serve(async (req) => {
 
     const { messages, mode, batchIndex, totalBatches } = await req.json();
 
-    // For batch/recursive generation, inject batch context into the system message
     let finalMessages = [...messages];
     if (batchIndex !== undefined && totalBatches !== undefined && batchIndex > 0) {
-      // Add a continuation instruction
       finalMessages.push({
         role: "user",
         content: `Continue generating the next batch (batch ${batchIndex + 1} of ${totalBatches}). Pick up exactly where you left off. Do NOT repeat any previously generated sub-questions. Return ONLY the new sub-questions in the same JSON array format.`,
       });
     }
 
-    // Inject a "never truncate" instruction into the system message
+    // Inject strict instructions into system message
     if (finalMessages.length > 0 && finalMessages[0].role === "system") {
       finalMessages[0] = {
         ...finalMessages[0],
-        content: finalMessages[0].content + "\n\nCRITICAL INSTRUCTIONS:\n- NEVER summarize, truncate, or shortcut your response.\n- If the user requests a specific quantity of items (e.g. 20 sub-questions), you MUST provide EXACTLY that quantity.\n- Do NOT stop early or provide fewer items than requested.\n- Use the full token budget available to you.\n- Each item must be unique and substantive.",
+        content: finalMessages[0].content + `\n\nCRITICAL INSTRUCTIONS:
+- NEVER summarize, truncate, or shortcut your response.
+- If the user requests a specific quantity of items (e.g. 20 sub-questions), you MUST provide EXACTLY that quantity.
+- Do NOT stop early or provide fewer items than requested.
+- Use the full token budget available to you.
+- Each item must be unique and substantive.
+
+ACTION MODE INSTRUCTIONS:
+When the user asks you to directly edit/update/change/fix any part of the House of Thought (Purpose, Sub-purposes, Overarching Question, Consequences, Sub-questions, Overarching Conclusion), you MUST respond with a JSON action block.
+
+For analysis field updates, respond with:
+{"action":"update_analysis","fields":{"purpose":"...","sub_purposes":"...","overarching_question":"...","consequences":"...","overarching_conclusion":"..."},"explanation":"Brief explanation of what you changed"}
+
+Only include fields that need changing. For sub-question operations:
+{"action":"update_sub_questions","operations":[{"op":"add","question":"...","pov_category":"individual|group|ideas_disciplines","information":"...","sub_conclusion":"..."},{"op":"update","id":"<sub_question_id>","question":"...","information":"...","sub_conclusion":"..."},{"op":"delete","id":"<sub_question_id>"}],"explanation":"Brief explanation"}
+
+If the user is NOT asking for a direct edit, respond normally with text. Only use action blocks when the user explicitly wants to change House data.
+IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
       };
     }
 
@@ -63,8 +77,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: finalMessages,
-        temperature: mode === 'draft' ? 0.2 : 0.2,
-        max_tokens: 4096,
+        temperature: mode === 'draft' ? 0.2 : 0.3,
+        max_tokens: 8192,
       }),
     });
 
@@ -77,8 +91,6 @@ Deno.serve(async (req) => {
     }
 
     const data = await groqResponse.json();
-    
-    // Check if the response was truncated (finish_reason !== 'stop')
     const finishReason = data?.choices?.[0]?.finish_reason;
     data._meta = {
       finish_reason: finishReason,
