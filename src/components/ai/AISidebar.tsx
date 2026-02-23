@@ -45,8 +45,9 @@ function buildSystemPrompt(analysis?: Analysis | null, subQuestions?: SubQuestio
   return ctx;
 }
 
-function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null): string {
+function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, requestedCount?: number): string {
   const p = profile as any;
+  const count = requestedCount || 6;
   return `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason EXCEPT the Overarching Conclusion (7.2).
 
 Return ONLY valid JSON in this EXACT format (no markdown, no code fences):
@@ -57,7 +58,7 @@ Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile
 ${analysis?.purpose ? `Current Purpose: ${analysis.purpose}` : ""}
 ${analysis?.overarching_question ? `Current Question: ${analysis.overarching_question}` : ""}
 
-Generate 3-6 sub-questions across individual, group, and ideas_disciplines categories. Be thorough but concise.`;
+CRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive. Never summarize or shortcut. Provide the EXACT quantity requested.`;
 }
 
 export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete }: AISidebarProps) {
@@ -122,38 +123,86 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         { role: "user", content: `My goal: ${goalInput}` },
       ];
 
-      const res = await supabase.functions.invoke("groq-chat", {
-        body: { messages: apiMessages, mode: "draft" },
-      });
+      // Parse requested count from input (e.g. "generate 25 sub-questions")
+      const countMatch = goalInput.match(/(\d+)\s*sub.?questions?/i);
+      const requestedCount = countMatch ? parseInt(countMatch[1]) : undefined;
+      const batchSize = 20;
+      const needsBatching = requestedCount && requestedCount > batchSize;
+      const totalBatches = needsBatching ? Math.ceil(requestedCount / batchSize) : 1;
 
-      if (res.error) throw new Error(res.error.message);
-      const reply = res.data?.choices?.[0]?.message?.content || "";
+      let allSubQuestions: any[] = [];
 
-      // Parse JSON from reply
-      let draft: any;
-      try {
-        // Try to extract JSON from the response
-        const jsonMatch = reply.match(/\{[\s\S]*\}/);
-        draft = JSON.parse(jsonMatch ? jsonMatch[0] : reply);
-      } catch {
-        setMessages((prev) => [...prev, { role: "assistant", content: "Failed to parse draft. Raw:\n" + reply }]);
-        toast.error("AI returned invalid format. Try again.");
-        setDraftLoading(false);
-        return;
+      for (let batch = 0; batch < totalBatches; batch++) {
+        const batchCount = needsBatching
+          ? Math.min(batchSize, requestedCount - allSubQuestions.length)
+          : requestedCount || 6;
+
+        const apiMessages: Message[] = [
+          { role: "system", content: buildDraftPrompt(analysis, profile, batchCount) },
+          { role: "user", content: `My goal: ${goalInput}` },
+        ];
+
+        if (batch > 0 && allSubQuestions.length > 0) {
+          apiMessages.push({
+            role: "assistant",
+            content: `Previously generated ${allSubQuestions.length} sub-questions: ${JSON.stringify(allSubQuestions.map(sq => sq.question))}`,
+          });
+          apiMessages.push({
+            role: "user",
+            content: `Generate the next ${batchCount} UNIQUE sub-questions. Do NOT repeat any of the above.`,
+          });
+        }
+
+        const res = await supabase.functions.invoke("groq-chat", {
+          body: { messages: apiMessages, mode: "draft", batchIndex: batch, totalBatches },
+        });
+
+        if (res.error) throw new Error(res.error.message);
+        const reply = res.data?.choices?.[0]?.message?.content || "";
+
+        let draft: any;
+        try {
+          const jsonMatch = reply.match(/\{[\s\S]*\}/);
+          draft = JSON.parse(jsonMatch ? jsonMatch[0] : reply);
+        } catch {
+          // Try parsing as array
+          try {
+            const arrMatch = reply.match(/\[[\s\S]*\]/);
+            draft = { sub_questions: JSON.parse(arrMatch ? arrMatch[0] : "[]") };
+          } catch {
+            setMessages((prev) => [...prev, { role: "assistant", content: "Failed to parse draft batch " + (batch + 1) + ". Raw:\n" + reply }]);
+            toast.error("AI returned invalid format on batch " + (batch + 1));
+            break;
+          }
+        }
+
+        // Only write analysis fields on first batch
+        if (batch === 0) {
+          const analysisUpdate: any = { is_draft: true, updated_at: new Date().toISOString() };
+          if (draft.purpose) analysisUpdate.purpose = draft.purpose;
+          if (draft.sub_purposes) analysisUpdate.sub_purposes = draft.sub_purposes;
+          if (draft.overarching_question) analysisUpdate.overarching_question = draft.overarching_question;
+          if (draft.consequences) analysisUpdate.consequences = draft.consequences;
+          await supabase.from("analyses").update(analysisUpdate).eq("id", analysis.id);
+        }
+
+        if (draft.sub_questions?.length) {
+          allSubQuestions = [...allSubQuestions, ...draft.sub_questions];
+        }
+
+        // Update progress
+        if (needsBatching) {
+          setMessages((prev) => {
+            const progressMsg = `⏳ Generated ${allSubQuestions.length}/${requestedCount} sub-questions (batch ${batch + 1}/${totalBatches})...`;
+            const existing = prev.filter(m => !m.content.startsWith("⏳"));
+            return [...existing, { role: "assistant", content: progressMsg }];
+          });
+        }
       }
 
-      // Write draft directly to database
-      const analysisUpdate: any = { is_draft: true, updated_at: new Date().toISOString() };
-      if (draft.purpose) analysisUpdate.purpose = draft.purpose;
-      if (draft.sub_purposes) analysisUpdate.sub_purposes = draft.sub_purposes;
-      if (draft.overarching_question) analysisUpdate.overarching_question = draft.overarching_question;
-      if (draft.consequences) analysisUpdate.consequences = draft.consequences;
-
-      await supabase.from("analyses").update(analysisUpdate).eq("id", analysis.id);
-
-      // Insert sub-questions as drafts
-      if (draft.sub_questions?.length) {
-        const sqInserts = draft.sub_questions.map((sq: any, i: number) => ({
+      // Insert all sub-questions as drafts
+      if (allSubQuestions.length) {
+        const sqInserts = allSubQuestions.map((sq: any, i: number) => ({
           analysis_id: analysis.id,
           question: sq.question || "",
           pov_category: sq.pov_category || "individual",
@@ -165,13 +214,16 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         await supabase.from("sub_questions").insert(sqInserts as any);
       }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: "✅ Draft written directly to your House! Review the yellow-highlighted elements and Accept or Decline." },
-      ]);
+      setMessages((prev) => {
+        const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
+        return [
+          ...cleaned,
+          { role: "user", content: `Draft Full House for: "${goalInput}"` },
+          { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length} sub-questions. Review the yellow-highlighted elements and Accept or Decline.` },
+        ];
+      });
       setInput("");
-      toast.success("Draft applied to your House!");
+      toast.success(`Draft applied with ${allSubQuestions.length} sub-questions!`);
       onDraftComplete?.();
     } catch (err: any) {
       toast.error(err.message || "Draft failed");

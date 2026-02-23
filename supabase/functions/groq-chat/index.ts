@@ -34,7 +34,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 500, headers: corsHeaders });
     }
 
-    const { messages, mode } = await req.json();
+    const { messages, mode, batchIndex, totalBatches } = await req.json();
+
+    // For batch/recursive generation, inject batch context into the system message
+    let finalMessages = [...messages];
+    if (batchIndex !== undefined && totalBatches !== undefined && batchIndex > 0) {
+      // Add a continuation instruction
+      finalMessages.push({
+        role: "user",
+        content: `Continue generating the next batch (batch ${batchIndex + 1} of ${totalBatches}). Pick up exactly where you left off. Do NOT repeat any previously generated sub-questions. Return ONLY the new sub-questions in the same JSON array format.`,
+      });
+    }
+
+    // Inject a "never truncate" instruction into the system message
+    if (finalMessages.length > 0 && finalMessages[0].role === "system") {
+      finalMessages[0] = {
+        ...finalMessages[0],
+        content: finalMessages[0].content + "\n\nCRITICAL INSTRUCTIONS:\n- NEVER summarize, truncate, or shortcut your response.\n- If the user requests a specific quantity of items (e.g. 20 sub-questions), you MUST provide EXACTLY that quantity.\n- Do NOT stop early or provide fewer items than requested.\n- Use the full token budget available to you.\n- Each item must be unique and substantive.",
+      };
+    }
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -44,9 +62,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: mode === 'draft' ? 0.7 : 0.5,
-        max_tokens: mode === 'draft' ? 4096 : 2048,
+        messages: finalMessages,
+        temperature: mode === 'draft' ? 0.2 : 0.2,
+        max_tokens: 4096,
       }),
     });
 
@@ -59,6 +77,14 @@ Deno.serve(async (req) => {
     }
 
     const data = await groqResponse.json();
+    
+    // Check if the response was truncated (finish_reason !== 'stop')
+    const finishReason = data?.choices?.[0]?.finish_reason;
+    data._meta = {
+      finish_reason: finishReason,
+      was_truncated: finishReason === 'length',
+    };
+
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
