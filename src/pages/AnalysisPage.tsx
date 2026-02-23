@@ -87,7 +87,7 @@ export default function AnalysisPage() {
         purpose: "", sub_purposes: "", overarching_question: "", consequences: "",
         is_draft: false, updated_at: new Date().toISOString(),
       } as any).eq("id", id),
-      supabase.from("sub_questions").delete().eq("analysis_id", id).eq("is_draft" as any, true),
+      supabase.from("sub_questions").delete().eq("analysis_id", id).eq("is_draft", true as any),
     ]);
     toast.success("Drafts declined");
     loadData();
