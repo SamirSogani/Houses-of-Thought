@@ -17,6 +17,8 @@ export default function ProposedChangeCard({ action, onApply, onDismiss }: Propo
     try {
       await onApply(action);
       setApplied(true);
+    } catch {
+      // Error already handled by parent via toast
     } finally {
       setApplying(false);
     }
