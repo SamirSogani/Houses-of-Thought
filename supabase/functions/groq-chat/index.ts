@@ -37,6 +37,17 @@ Deno.serve(async (req) => {
 
     // Strip non-standard properties (like 'action') that Groq rejects
     let finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content }));
+
+    // Truncate message history to avoid exceeding Groq's token limits
+    // Keep system message + last few messages, trim middle if too long
+    const MAX_CHARS = 24000; // ~6K tokens, safe for 12K TPM
+    let totalChars = finalMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0);
+    while (totalChars > MAX_CHARS && finalMessages.length > 2) {
+      // Remove the second message (keep system prompt at index 0 and latest messages)
+      const removed = finalMessages.splice(1, 1);
+      totalChars -= removed[0]?.content?.length || 0;
+    }
+
     if (batchIndex !== undefined && totalBatches !== undefined && batchIndex > 0) {
       finalMessages.push({
         role: "user",
