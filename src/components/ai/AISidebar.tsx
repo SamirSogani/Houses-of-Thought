@@ -179,7 +179,17 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     setSyncing(true);
     try {
       if (action.action === "update_analysis") {
-        const fields = action.fields || {};
+        const rawFields = action.fields || {};
+        // Whitelist only valid analysis columns to prevent AI hallucinating column names
+        const validKeys = ["purpose", "sub_purposes", "overarching_question", "overarching_conclusion", "consequences", "title"];
+        const fields: Record<string, any> = {};
+        for (const key of Object.keys(rawFields)) {
+          const normalized = key.replace(/-/g, "_"); // fix AI using hyphens instead of underscores
+          if (validKeys.includes(normalized)) {
+            fields[normalized] = rawFields[key];
+          }
+        }
+        if (Object.keys(fields).length === 0) throw new Error("No valid fields to update");
         const { error } = await supabase.from("analyses").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", analysis.id);
         if (error) throw new Error(error.message);
         toast.success("House updated!");
