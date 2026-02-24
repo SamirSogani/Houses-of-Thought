@@ -175,17 +175,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
   };
 
   const applyAction = async (action: any) => {
-    if (!analysis) return;
+    if (!analysis) throw new Error("No analysis loaded");
     setSyncing(true);
     try {
       if (action.action === "update_analysis") {
         const fields = action.fields || {};
-        await supabase.from("analyses").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", analysis.id);
+        const { error } = await supabase.from("analyses").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", analysis.id);
+        if (error) throw new Error(error.message);
         toast.success("House updated!");
       } else if (action.action === "update_sub_questions") {
         for (const op of action.operations || []) {
           if (op.op === "add") {
-            await supabase.from("sub_questions").insert({
+            const { error } = await supabase.from("sub_questions").insert({
               analysis_id: analysis.id,
               question: op.question || "",
               pov_category: op.pov_category || "individual",
@@ -193,15 +194,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               sub_conclusion: op.sub_conclusion || "",
               sort_order: (subQuestions?.length || 0),
             } as any);
+            if (error) throw new Error(error.message);
           } else if (op.op === "update" && op.id) {
             const updates: any = {};
             if (op.question !== undefined) updates.question = op.question;
             if (op.information !== undefined) updates.information = op.information;
             if (op.sub_conclusion !== undefined) updates.sub_conclusion = op.sub_conclusion;
             if (op.pov_category !== undefined) updates.pov_category = op.pov_category;
-            await supabase.from("sub_questions").update(updates).eq("id", op.id);
+            const { error } = await supabase.from("sub_questions").update(updates).eq("id", op.id);
+            if (error) throw new Error(error.message);
           } else if (op.op === "delete" && op.id) {
-            await supabase.from("sub_questions").delete().eq("id", op.id);
+            const { error } = await supabase.from("sub_questions").delete().eq("id", op.id);
+            if (error) throw new Error(error.message);
           }
         }
         toast.success("Sub-questions updated!");
@@ -209,6 +213,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       onDraftComplete?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to apply changes");
+      throw err; // Re-throw so ProposedChangeCard knows it failed
     } finally {
       setSyncing(false);
     }
