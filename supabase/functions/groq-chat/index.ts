@@ -35,7 +35,8 @@ Deno.serve(async (req) => {
 
     const { messages, mode, batchIndex, totalBatches } = await req.json();
 
-    let finalMessages = [...messages];
+    // Strip non-standard properties (like 'action') that Groq rejects
+    let finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content }));
     if (batchIndex !== undefined && totalBatches !== undefined && batchIndex > 0) {
       finalMessages.push({
         role: "user",
