@@ -2,12 +2,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Bot, Send, Sparkles, Loader2, ArrowLeft, List } from "lucide-react";
+import { Bot, Send, Sparkles, Loader2, ArrowLeft, List, Search, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import ChatListView from "./ChatListView";
 import ProposedChangeCard from "./ProposedChangeCard";
+import TextSelectionToolbar from "./TextSelectionToolbar";
+import DraftInfoPage, { type DraftInfo } from "./DraftInfoPage";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -15,7 +17,7 @@ type SubQuestion = Tables<"sub_questions">;
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
-  action?: any; // parsed action for proposed changes
+  action?: any;
 }
 
 interface AISidebarProps {
@@ -37,7 +39,14 @@ interface ChatRecord {
   created_at: string;
 }
 
-function buildSystemPrompt(analysis?: Analysis | null, subQuestions?: SubQuestion[], profile?: Tables<"profiles"> | null): string {
+// ─── Prompt Builders ────────────────────────────────────────
+
+function buildSystemPrompt(
+  analysis?: Analysis | null,
+  subQuestions?: SubQuestion[],
+  profile?: Tables<"profiles"> | null,
+  researchMode?: boolean
+): string {
   let ctx = `You are the House of Reason AI.
 
 Your role is to apply structured reasoning tools to the user's topic or question.
@@ -73,6 +82,20 @@ House of Reason Thinking Tools:
 OUTPUT STYLE: Use clear labeled sections and concise bullet points unless explanation is requested.
 
 `;
+
+  if (researchMode) {
+    ctx += `## RESEARCH MODE ACTIVE
+You are in enhanced research mode. Apply these rules:
+- Provide thorough, well-reasoned analysis with deeper investigation.
+- Evaluate the reliability and credibility of information sources.
+- Avoid citing unreliable, unverified, or speculative sources.
+- Only provide specific citations when the user explicitly requests them.
+- Distinguish between established facts, expert consensus, and contested claims.
+- Flag areas where evidence is weak or conflicting.
+
+`;
+  }
+
   if (profile) {
     const p = profile as any;
     ctx += `## User Profile\n- Role: ${p.role_title || "Not set"}\n- Location: ${p.location_context || "Not set"}\n- About: ${p.about_me || "Not set"}\n\n`;
@@ -92,10 +115,10 @@ OUTPUT STYLE: Use clear labeled sections and concise bullet points unless explan
   return ctx;
 }
 
-function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, requestedCount?: number): string {
+function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, draftInfo?: DraftInfo): string {
   const p = profile as any;
-  const count = requestedCount || 6;
-  return `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason EXCEPT the Overarching Conclusion (7.2).
+  const count = draftInfo?.subQuestionCount || 6;
+  let prompt = `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason EXCEPT the Overarching Conclusion (7.2).
 
 Return ONLY valid JSON in this EXACT format (no markdown, no code fences):
 {"purpose":"...","sub_purposes":"...","overarching_question":"...","consequences":"...","sub_questions":[{"question":"...","pov_category":"individual","information":"...","sub_conclusion":"..."}]}
@@ -103,9 +126,16 @@ Return ONLY valid JSON in this EXACT format (no markdown, no code fences):
 User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
 Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile?.social || "Not set"}, Familial: ${profile?.familial || "Not set"}, Individual: ${profile?.individual || "Not set"}
 ${analysis?.purpose ? `Current Purpose: ${analysis.purpose}` : ""}
-${analysis?.overarching_question ? `Current Question: ${analysis.overarching_question}` : ""}
+${analysis?.overarching_question ? `Current Question: ${analysis.overarching_question}` : ""}`;
 
-CRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive.`;
+  if (draftInfo) {
+    if (draftInfo.background) prompt += `\nBackground Context: ${draftInfo.background}`;
+    if (draftInfo.stakeholders) prompt += `\nKey Stakeholders: ${draftInfo.stakeholders}`;
+    if (draftInfo.constraints) prompt += `\nConstraints: ${draftInfo.constraints}`;
+  }
+
+  prompt += `\n\nCRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive.`;
+  return prompt;
 }
 
 function parseActionFromReply(reply: string): { action: any | null; textContent: string } {
@@ -122,21 +152,27 @@ function parseActionFromReply(reply: string): { action: any | null; textContent:
   return { action: null, textContent: reply };
 }
 
+// ─── Main Component ─────────────────────────────────────────
+
 export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [autoImplement, setAutoImplement] = useState(false);
+  const [researchMode, setResearchMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Multi-chat state
-  const [view, setView] = useState<"chat" | "list">("chat");
+  // View state: "chat" | "list" | "draft-info"
+  const [view, setView] = useState<"chat" | "list" | "draft-info">("chat");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatsLoaded, setChatsLoaded] = useState(false);
 
-  // Load chats when sidebar opens or analysis changes
+  // ─── Chat management ────────────────────────────────────
+
   const loadChats = useCallback(async () => {
     if (!analysis) return;
     const { data } = await supabase
@@ -152,7 +188,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     if (open && analysis) loadChats();
   }, [open, analysis, loadChats]);
 
-  // Auto-create a chat if none exist
   useEffect(() => {
     if (chatsLoaded && chats.length === 0 && analysis && !activeChatId) {
       createNewChat();
@@ -208,17 +243,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       .eq("id", activeChatId);
   };
 
+  // ─── Apply action to House ──────────────────────────────
+
   const applyAction = async (action: any) => {
     if (!analysis) throw new Error("No analysis loaded");
     setSyncing(true);
     try {
       if (action.action === "update_analysis") {
         const rawFields = action.fields || {};
-        // Whitelist only valid analysis columns to prevent AI hallucinating column names
         const validKeys = ["purpose", "sub_purposes", "overarching_question", "overarching_conclusion", "consequences", "title"];
         const fields: Record<string, any> = {};
         for (const key of Object.keys(rawFields)) {
-          const normalized = key.replace(/-/g, "_"); // fix AI using hyphens instead of underscores
+          const normalized = key.replace(/-/g, "_");
           if (validKeys.includes(normalized)) {
             fields[normalized] = rawFields[key];
           }
@@ -257,26 +293,37 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       onDraftComplete?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to apply changes");
-      throw err; // Re-throw so ProposedChangeCard knows it failed
+      throw err;
     } finally {
       setSyncing(false);
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg: Message = { role: "user", content: input.trim() };
+  // ─── Send message ───────────────────────────────────────
+
+  const sendMessage = async (overrideInput?: string) => {
+    const text = overrideInput ?? input.trim();
+    if (!text || loading) return;
+    const userMsg: Message = { role: "user", content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    setInput("");
+    if (!overrideInput) setInput("");
     setLoading(true);
+
+    const shouldAutoImplement = autoImplement;
+    if (autoImplement) setAutoImplement(false); // reset after use
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setLoading(false); return; }
 
+      let systemContent = buildSystemPrompt(analysis, subQuestions, profile, researchMode);
+      if (shouldAutoImplement) {
+        systemContent += `\nAUTO-IMPLEMENT MODE: The user wants your suggestions applied directly. Respond with a JSON action block to update the House. Always include an action block in your response.\n`;
+      }
+
       const apiMessages: Message[] = [
-        { role: "system", content: buildSystemPrompt(analysis, subQuestions, profile) },
+        { role: "system", content: systemContent },
         ...newMessages,
       ];
 
@@ -292,6 +339,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const updatedMessages = [...newMessages, assistantMsg];
       setMessages(updatedMessages);
       persistMessages(updatedMessages);
+
+      // Auto-implement: if toggled and action exists, apply it immediately
+      if (shouldAutoImplement && action) {
+        try {
+          await applyAction(action);
+        } catch { /* toast already shown */ }
+      }
     } catch (err: any) {
       toast.error(err.message || "AI request failed");
     } finally {
@@ -299,13 +353,26 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     }
   };
 
-  const draftFullHouse = async () => {
+  // ─── Text selection handlers ────────────────────────────
+
+  const handleAskGroq = (text: string) => {
+    setInput(`Regarding this: "${text}"\n\n`);
+  };
+
+  const handleImplementChange = (text: string) => {
+    const implementMsg = `Implement this change to the House of Reason: "${text}"`;
+    sendMessage(implementMsg);
+  };
+
+  // ─── Draft Full House ───────────────────────────────────
+
+  const draftFullHouse = async (draftInfo: DraftInfo) => {
     if (draftLoading || !analysis) return;
     setDraftLoading(true);
 
-    const goalInput = input.trim() || analysis?.purpose || analysis?.overarching_question || "";
+    const goalInput = draftInfo.goal;
     if (!goalInput) {
-      toast.error("Enter a goal or set a Purpose/Question first");
+      toast.error("Enter a goal first");
       setDraftLoading(false);
       return;
     }
@@ -314,10 +381,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
 
-      const countMatch = goalInput.match(/(\d+)\s*sub.?questions?/i);
-      const requestedCount = countMatch ? parseInt(countMatch[1]) : undefined;
+      const requestedCount = draftInfo.subQuestionCount;
       const batchSize = 20;
-      const needsBatching = requestedCount && requestedCount > batchSize;
+      const needsBatching = requestedCount > batchSize;
       const totalBatches = needsBatching ? Math.ceil(requestedCount / batchSize) : 1;
 
       let allSubQuestions: any[] = [];
@@ -325,10 +391,10 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       for (let batch = 0; batch < totalBatches; batch++) {
         const batchCount = needsBatching
           ? Math.min(batchSize, requestedCount - allSubQuestions.length)
-          : requestedCount || 6;
+          : requestedCount;
 
         const apiMessages: Message[] = [
-          { role: "system", content: buildDraftPrompt(analysis, profile, batchCount) },
+          { role: "system", content: buildDraftPrompt(analysis, profile, draftInfo) },
           { role: "user", content: `My goal: ${goalInput}` },
         ];
 
@@ -375,7 +441,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         if (draft.sub_questions?.length) {
           allSubQuestions = [...allSubQuestions, ...draft.sub_questions];
-          // Stream to DB: save each batch immediately
           const sqInserts = draft.sub_questions.map((sq: any, i: number) => ({
             analysis_id: analysis.id,
             question: sq.question || "",
@@ -387,15 +452,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }));
           await supabase.from("sub_questions").insert(sqInserts as any);
         }
-
-        if (needsBatching) {
-          setMessages((prev) => {
-            const existing = prev.filter(m => !m.content.startsWith("⏳"));
-            return [...existing, { role: "assistant", content: `⏳ Generated ${allSubQuestions.length}/${requestedCount} sub-questions (batch ${batch + 1}/${totalBatches})...` }];
-          });
-        }
       }
 
+      setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
         { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length} sub-questions. Review the yellow-highlighted elements and Accept or Decline.` },
@@ -405,7 +464,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         return [...cleaned, ...draftMsg];
       });
       persistMessages([...messages, ...draftMsg]);
-      setInput("");
       toast.success(`Draft applied with ${allSubQuestions.length} sub-questions!`);
       onDraftComplete?.();
     } catch (err: any) {
@@ -415,25 +473,28 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     }
   };
 
-  const showChatView = view === "chat";
+  // ─── Render ─────────────────────────────────────────────
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0">
+        {/* Header */}
         <SheetHeader className="px-4 py-3 border-b border-border">
           <SheetTitle className="flex items-center gap-2 text-foreground">
-            {showChatView && activeChatId && (
+            {view === "chat" && activeChatId && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
             <Bot className="h-5 w-5 text-primary" />
             <span className="flex-1">
-              {showChatView
+              {view === "chat"
                 ? chats.find((c) => c.id === activeChatId)?.chat_title || "AI Assistant"
+                : view === "draft-info"
+                ? "Draft Full House"
                 : "Chat History"}
             </span>
-            {showChatView && (
+            {view === "chat" && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
                 <List className="h-4 w-4" />
               </Button>
@@ -447,7 +508,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           </div>
         )}
 
-        {!showChatView ? (
+        {/* Views */}
+        {view === "list" ? (
           <ChatListView
             chats={chats}
             onSelectChat={(id) => selectChat(id)}
@@ -455,40 +517,55 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             onRenameChat={renameChat}
             onDeleteChat={deleteChat}
           />
+        ) : view === "draft-info" ? (
+          <DraftInfoPage
+            onBack={() => setView("chat")}
+            onDraft={draftFullHouse}
+            loading={draftLoading}
+            defaultGoal={analysis?.purpose || analysis?.overarching_question || ""}
+          />
         ) : (
           <>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-              {messages.length === 0 && (
-                <div className="text-center text-muted-foreground text-sm py-8">
-                  <Bot className="h-10 w-10 mx-auto mb-3 text-primary/40" />
-                  <p>Ask me anything about your analysis, or hit <strong>Draft Full House</strong> to auto-generate content.</p>
-                  <p className="mt-2 text-xs">Try: "Update the Purpose to..." for direct edits.</p>
-                </div>
-              )}
-              {messages.filter((m) => m.role !== "system").map((m, i) => (
-                <div key={i} className="space-y-2">
-                  <div className={`text-sm rounded-lg px-3 py-2 ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground ml-8"
-                      : "bg-muted text-foreground mr-8"
-                  }`}>
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+            {/* Messages area with text selection toolbar */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 relative">
+              <div ref={messagesContainerRef} className="relative">
+                <TextSelectionToolbar
+                  containerRef={messagesContainerRef}
+                  onAskGroq={handleAskGroq}
+                  onImplementChange={handleImplementChange}
+                />
+                {messages.length === 0 && (
+                  <div className="text-center text-muted-foreground text-sm py-8">
+                    <Bot className="h-10 w-10 mx-auto mb-3 text-primary/40" />
+                    <p>Ask me anything about your analysis, or hit <strong>Draft Full House</strong> to auto-generate content.</p>
+                    <p className="mt-2 text-xs">Try: "Update the Purpose to..." for direct edits.</p>
                   </div>
-                  {m.action && (
-                    <div className="mr-8">
-                      <ProposedChangeCard
-                        action={m.action}
-                        onApply={applyAction}
-                        onDismiss={() => {
-                          setMessages((prev) =>
-                            prev.map((msg, idx) => idx === i ? { ...msg, action: undefined } : msg)
-                          );
-                        }}
-                      />
+                )}
+                {messages.filter((m) => m.role !== "system").map((m, i) => (
+                  <div key={i} className="space-y-2 mb-3">
+                    <div className={`text-sm rounded-lg px-3 py-2 ${
+                      m.role === "user"
+                        ? "bg-primary text-primary-foreground ml-8"
+                        : "bg-muted text-foreground mr-8"
+                    }`}>
+                      <p className="whitespace-pre-wrap">{m.content}</p>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {m.action && (
+                      <div className="mr-8">
+                        <ProposedChangeCard
+                          action={m.action}
+                          onApply={applyAction}
+                          onDismiss={() => {
+                            setMessages((prev) =>
+                              prev.map((msg, idx) => idx === i ? { ...msg, action: undefined } : msg)
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
               {loading && (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm mr-8">
                   <Loader2 className="h-4 w-4 animate-spin" /> Thinking...
@@ -496,19 +573,43 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               )}
             </div>
 
+            {/* Bottom controls */}
             <div className="border-t border-border px-4 py-3 space-y-2">
+              {/* Toggle row */}
+              <div className="flex gap-2">
+                <Button
+                  variant={researchMode ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 gap-1.5 text-xs h-8"
+                  onClick={() => setResearchMode(!researchMode)}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Research {researchMode ? "On" : "Off"}
+                </Button>
+                <Button
+                  variant={autoImplement ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 gap-1.5 text-xs h-8"
+                  onClick={() => setAutoImplement(!autoImplement)}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  Auto-Implement {autoImplement ? "On" : "Off"}
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
                 className="w-full justify-center gap-2 text-sm"
-                onClick={draftFullHouse}
+                onClick={() => setView("draft-info")}
                 disabled={draftLoading}
               >
                 {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Draft Full House
               </Button>
+
               <div className="flex gap-2">
                 <Textarea
-                  placeholder="Ask the AI or type a goal for Draft..."
+                  placeholder={autoImplement ? "Next message will auto-implement..." : "Ask the AI or type a goal..."}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   className="min-h-[44px] max-h-[120px] text-sm resize-none"
@@ -516,7 +617,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
                   }}
                 />
-                <Button size="icon" onClick={sendMessage} disabled={loading || !input.trim()}>
+                <Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
