@@ -119,21 +119,39 @@ You are in enhanced research mode. Apply these rules:
 function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, draftInfo?: DraftInfo): string {
   const p = profile as any;
   const count = draftInfo?.subQuestionCount || 6;
-  let prompt = `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason EXCEPT the Overarching Conclusion (7.2).
+  let prompt = `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason.
 
-Return ONLY valid JSON in this EXACT format (no markdown, no code fences):
-{"purpose":"...","sub_purposes":"...","overarching_question":"...","consequences":"...","points_of_view":["..."],"implications":["..."],"evidence_needs":["..."],"research":["..."],"sub_questions":[{"question":"...","pov_category":"individual","information":"...","sub_conclusion":"...","assumptions":["..."]}]}
+YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation text before or after. Just the raw JSON object.
 
-REQUIRED sections (must always be populated):
-- purpose, sub_purposes, overarching_question, consequences
-- sub_questions (each with question, pov_category, information, sub_conclusion, assumptions)
-- Each sub_question MUST have at least 2 assumptions
+The JSON object must have this structure:
+{
+  "purpose": "string - the overarching purpose of the analysis",
+  "sub_purposes": "string - supporting sub-purposes",
+  "overarching_question": "string - the main question to investigate",
+  "consequences": "string - what follows from the analysis",
+  "concepts": [{"term": "string", "definition": "string"}],
+  "implications": ["string - specific implication"],
+  "sub_questions": [
+    {
+      "question": "string - a specific sub-question",
+      "pov_category": "individual" or "group" or "ideas_disciplines",
+      "information": "string - relevant facts, data, or evidence that helps answer this sub-question",
+      "sub_conclusion": "string - a direct answer to the sub-question based on the information provided. This must ANSWER the question, not explain why it is important.",
+      "assumptions": ["string - an underlying assumption"]
+    }
+  ]
+}
 
-OPTIONAL sections (populate by default):
-- points_of_view: List 3-5 distinct stakeholder perspectives
-- implications: List 3-5 key implications if the question's answer is true/false
-- evidence_needs: List 3-5 types of evidence needed to evaluate the claim
-- research: List 3-5 research directions or sources to investigate
+CRITICAL RULES FOR sub_conclusion:
+- Each sub_conclusion MUST directly answer its corresponding sub-question.
+- BAD example: "This question is important because it helps us understand..." 
+- GOOD example: "Based on available evidence, the answer is X because Y and Z."
+- Think of sub_conclusion as: "If I had to answer this sub-question right now, my best answer would be..."
+
+Generate 3-5 concepts with clear definitions relevant to the topic.
+Generate 3-5 implications.
+Generate EXACTLY ${count} sub_questions distributed across individual, group, and ideas_disciplines categories.
+Each sub_question MUST have at least 2 assumptions.
 
 User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
 Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile?.social || "Not set"}, Familial: ${profile?.familial || "Not set"}, Individual: ${profile?.individual || "Not set"}
@@ -146,7 +164,7 @@ ${analysis?.overarching_question ? `Current Question: ${analysis.overarching_que
     if (draftInfo.constraints) prompt += `\nConstraints: ${draftInfo.constraints}`;
   }
 
-  prompt += `\n\nCRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive. Each MUST include assumptions.`;
+  prompt += `\n\nREMEMBER: Return ONLY the JSON object. No other text. Generate exactly ${count} sub-questions. Each sub_conclusion must ANSWER its question.`;
   return prompt;
 }
 
@@ -456,13 +474,16 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         let draft: any;
         try {
-          const jsonMatch = reply.match(/\{[\s\S]*\}/);
-          draft = JSON.parse(jsonMatch ? jsonMatch[0] : reply);
+          // Strip markdown code fences if present
+          let cleanReply = reply.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+          const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
+          draft = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
         } catch {
           try {
             const arrMatch = reply.match(/\[[\s\S]*\]/);
             draft = { sub_questions: JSON.parse(arrMatch ? arrMatch[0] : "[]") };
           } catch {
+            console.error("Failed to parse draft response:", reply.substring(0, 500));
             toast.error("AI returned invalid format on batch " + (batch + 1));
             break;
           }
@@ -474,7 +495,22 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           if (draft.sub_purposes) analysisUpdate.sub_purposes = draft.sub_purposes;
           if (draft.overarching_question) analysisUpdate.overarching_question = draft.overarching_question;
           if (draft.consequences) analysisUpdate.consequences = draft.consequences;
+          // Store implications in consequences if present
+          if (draft.implications?.length) {
+            const implicationsText = draft.implications.join("\n• ");
+            analysisUpdate.consequences = (analysisUpdate.consequences || "") + "\n\nImplications:\n• " + implicationsText;
+          }
           await supabase.from("analyses").update(analysisUpdate).eq("id", analysis.id);
+
+          // Insert concepts
+          if (draft.concepts?.length) {
+            const conceptInserts = draft.concepts.map((c: any) => ({
+              analysis_id: analysis.id,
+              term: c.term || "",
+              definition: c.definition || "",
+            }));
+            await supabase.from("concepts").insert(conceptInserts);
+          }
         }
 
         if (draft.sub_questions?.length) {
