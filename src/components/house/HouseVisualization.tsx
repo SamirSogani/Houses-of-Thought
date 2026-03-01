@@ -177,22 +177,6 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
         </CardContent>
       </Card>
 
-      {/* THE FIRST FLOOR — Assumptions (Elements 5.1, 5.2, 5.3) */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Unknown Unknowns", element: "5.1" },
-          { label: "Foundational Concepts", element: "5.2" },
-          { label: "Concepts that Shape Inferences", element: "5.3" },
-        ].map((item) => (
-          <Card key={item.element} className="house-zone house-zone-assumption">
-            <CardContent className="py-4 text-center">
-              <p className="text-xs font-mono text-muted-foreground mb-1">{item.element}</p>
-              <h4 className="text-sm font-display font-semibold">{item.label}</h4>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {/* THE FOUNDATION — Personal POV (Element 4.2) */}
       <Card className="house-zone house-zone-foundation">
         <CardContent className="py-4">
