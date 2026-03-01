@@ -10,6 +10,7 @@ import ChatListView from "./ChatListView";
 import ProposedChangeCard from "./ProposedChangeCard";
 import TextSelectionToolbar from "./TextSelectionToolbar";
 import DraftInfoPage, { type DraftInfo } from "./DraftInfoPage";
+import PlacementSelector from "./PlacementSelector";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -121,7 +122,18 @@ function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles
   let prompt = `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason EXCEPT the Overarching Conclusion (7.2).
 
 Return ONLY valid JSON in this EXACT format (no markdown, no code fences):
-{"purpose":"...","sub_purposes":"...","overarching_question":"...","consequences":"...","sub_questions":[{"question":"...","pov_category":"individual","information":"...","sub_conclusion":"..."}]}
+{"purpose":"...","sub_purposes":"...","overarching_question":"...","consequences":"...","points_of_view":["..."],"implications":["..."],"evidence_needs":["..."],"research":["..."],"sub_questions":[{"question":"...","pov_category":"individual","information":"...","sub_conclusion":"...","assumptions":["..."]}]}
+
+REQUIRED sections (must always be populated):
+- purpose, sub_purposes, overarching_question, consequences
+- sub_questions (each with question, pov_category, information, sub_conclusion, assumptions)
+- Each sub_question MUST have at least 2 assumptions
+
+OPTIONAL sections (populate by default):
+- points_of_view: List 3-5 distinct stakeholder perspectives
+- implications: List 3-5 key implications if the question's answer is true/false
+- evidence_needs: List 3-5 types of evidence needed to evaluate the claim
+- research: List 3-5 research directions or sources to investigate
 
 User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
 Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile?.social || "Not set"}, Familial: ${profile?.familial || "Not set"}, Individual: ${profile?.individual || "Not set"}
@@ -134,7 +146,7 @@ ${analysis?.overarching_question ? `Current Question: ${analysis.overarching_que
     if (draftInfo.constraints) prompt += `\nConstraints: ${draftInfo.constraints}`;
   }
 
-  prompt += `\n\nCRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive.`;
+  prompt += `\n\nCRITICAL: Generate EXACTLY ${count} sub-questions across individual, group, and ideas_disciplines categories. Do NOT generate fewer than ${count}. Each must be unique and substantive. Each MUST include assumptions.`;
   return prompt;
 }
 
@@ -162,6 +174,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
   const [syncing, setSyncing] = useState(false);
   const [autoImplement, setAutoImplement] = useState(false);
   const [researchMode, setResearchMode] = useState(false);
+  const [pendingPlacement, setPendingPlacement] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -360,8 +373,33 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
   };
 
   const handleImplementChange = (text: string) => {
-    const implementMsg = `Implement this change to the House of Reason: "${text}"`;
-    sendMessage(implementMsg);
+    setPendingPlacement(text);
+  };
+
+  const handlePlacementSelect = (section: string) => {
+    if (!pendingPlacement) return;
+    const text = pendingPlacement;
+    setPendingPlacement(null);
+
+    if (section === "sub_question") {
+      // Add as new sub-question via action
+      const implementMsg = `Implement this as a new sub-question in the House of Reason: "${text}". Respond with a JSON action block to add it.`;
+      sendMessage(implementMsg);
+    } else {
+      // Direct field update
+      const fieldMap: Record<string, string> = {
+        overarching_question: "overarching_question",
+        purpose: "purpose",
+        sub_purposes: "sub_purposes",
+        consequences: "consequences",
+        overarching_conclusion: "overarching_conclusion",
+      };
+      const field = fieldMap[section];
+      if (field) {
+        const implementMsg = `Update the ${section.replace(/_/g, " ")} of the House of Reason to: "${text}". Respond with a JSON action block.`;
+        sendMessage(implementMsg);
+      }
+    }
   };
 
   // ─── Draft Full House ───────────────────────────────────
@@ -450,7 +488,27 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             sort_order: (subQuestions?.length || 0) + allSubQuestions.length - draft.sub_questions.length + i,
             is_draft: true,
           }));
-          await supabase.from("sub_questions").insert(sqInserts as any);
+          const { data: insertedSqs } = await supabase.from("sub_questions").insert(sqInserts as any).select();
+
+          // Insert assumptions for each sub-question
+          if (insertedSqs) {
+            const assumptionInserts: any[] = [];
+            insertedSqs.forEach((insertedSq: any, idx: number) => {
+              const originalSq = draft.sub_questions[idx];
+              if (originalSq?.assumptions?.length) {
+                originalSq.assumptions.forEach((assumption: string) => {
+                  assumptionInserts.push({
+                    sub_question_id: insertedSq.id,
+                    content: assumption,
+                    assumption_type: "unknown_unknowns",
+                  });
+                });
+              }
+            });
+            if (assumptionInserts.length > 0) {
+              await supabase.from("assumptions").insert(assumptionInserts);
+            }
+          }
         }
       }
 
@@ -565,6 +623,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
                     )}
                   </div>
                 ))}
+                {pendingPlacement && (
+                  <PlacementSelector
+                    text={pendingPlacement}
+                    onSelect={handlePlacementSelect}
+                    onCancel={() => setPendingPlacement(null)}
+                  />
+                )}
               </div>
               {loading && (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm mr-8">

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
+import DeleteAccountSection from "@/components/ai/DeleteAccountSection";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -142,6 +143,10 @@ export default function ProfilePage() {
           <Button onClick={saveProfile} disabled={saving}>
             <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save Profile"}
           </Button>
+        </div>
+
+        <div className="mt-12">
+          <DeleteAccountSection />
         </div>
       </div>
     </div>
