@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
 import AISidebar from "@/components/ai/AISidebar";
+import TodoPanel from "@/components/house/TodoPanel";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -154,6 +155,8 @@ export default function AnalysisPage() {
             </h1>
           )}
         </div>
+
+        <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />
 
         <HouseVisualization
           analysis={analysis}
