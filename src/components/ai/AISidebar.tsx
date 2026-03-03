@@ -116,56 +116,72 @@ You are in enhanced research mode. Apply these rules:
   return ctx;
 }
 
-function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, draftInfo?: DraftInfo): string {
+function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, draftInfo?: DraftInfo, batchMode?: { batch: number; batchCount: number; previousQuestions: string[] }): string {
   const p = profile as any;
-  const count = draftInfo?.subQuestionCount || 6;
-  let prompt = `You are a critical thinking assistant. Generate a COMPLETE draft for every element of the House of Reason.
-
-YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation text before or after. Just the raw JSON object.
-
-The JSON object must have this structure:
-{
-  "purpose": "string - the overarching purpose of the analysis",
-  "sub_purposes": "string - supporting sub-purposes",
-  "overarching_question": "string - the main question to investigate",
-  "consequences": "string - what follows from the analysis",
-  "concepts": [{"term": "string", "definition": "string"}],
-  "implications": ["string - specific implication"],
-  "sub_questions": [
-    {
-      "question": "string - a specific sub-question",
-      "pov_category": "individual" or "group" or "ideas_disciplines",
-      "information": "string - relevant facts, data, or evidence that helps answer this sub-question",
-      "sub_conclusion": "string - a direct answer to the sub-question based on the information provided. This must ANSWER the question, not explain why it is important.",
-      "assumptions": ["string - an underlying assumption"]
-    }
-  ]
-}
-
-CRITICAL RULES FOR sub_conclusion:
-- Each sub_conclusion MUST directly answer its corresponding sub-question.
-- BAD example: "This question is important because it helps us understand..." 
-- GOOD example: "Based on available evidence, the answer is X because Y and Z."
-- Think of sub_conclusion as: "If I had to answer this sub-question right now, my best answer would be..."
-
-Generate 3-5 concepts with clear definitions relevant to the topic.
-Generate 3-5 implications.
-Generate EXACTLY ${count} sub_questions distributed across individual, group, and ideas_disciplines categories.
-Each sub_question MUST have at least 2 assumptions.
-
-User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
+  const profileCtx = `User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
 Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile?.social || "Not set"}, Familial: ${profile?.familial || "Not set"}, Individual: ${profile?.individual || "Not set"}
 ${analysis?.purpose ? `Current Purpose: ${analysis.purpose}` : ""}
 ${analysis?.overarching_question ? `Current Question: ${analysis.overarching_question}` : ""}`;
 
+  let extraCtx = "";
   if (draftInfo) {
-    if (draftInfo.background) prompt += `\nBackground Context: ${draftInfo.background}`;
-    if (draftInfo.stakeholders) prompt += `\nKey Stakeholders: ${draftInfo.stakeholders}`;
-    if (draftInfo.constraints) prompt += `\nConstraints: ${draftInfo.constraints}`;
+    if (draftInfo.background) extraCtx += `\nBackground Context: ${draftInfo.background}`;
+    if (draftInfo.stakeholders) extraCtx += `\nKey Stakeholders: ${draftInfo.stakeholders}`;
+    if (draftInfo.constraints) extraCtx += `\nConstraints: ${draftInfo.constraints}`;
   }
 
-  prompt += `\n\nREMEMBER: Return ONLY the JSON object. No other text. Generate exactly ${count} sub-questions. Each sub_conclusion must ANSWER its question.`;
-  return prompt;
+  // Batch mode: only generate sub-questions (no analysis fields)
+  if (batchMode && batchMode.batch > 0) {
+    return `You are a critical thinking assistant. YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation.
+
+Generate exactly ${batchMode.batchCount} NEW sub-questions. Do NOT repeat any of these existing questions:
+${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+Return this JSON structure:
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","information":"string - facts/evidence","sub_conclusion":"string - direct answer to the question","assumptions":["string"]}]}
+
+CRITICAL: sub_conclusion must ANSWER the question, not explain importance.
+Each sub_question MUST have at least 2 assumptions.
+Distribute across individual, group, and ideas_disciplines categories.
+
+${profileCtx}${extraCtx}
+
+RETURN ONLY THE JSON OBJECT. Generate exactly ${batchMode.batchCount} sub-questions.`;
+  }
+
+  // First batch or small request: generate full house structure
+  const count = batchMode ? batchMode.batchCount : (draftInfo?.subQuestionCount || 6);
+  return `You are a critical thinking assistant. Generate a COMPLETE draft for the House of Reason.
+
+YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation text before or after.
+
+{
+  "purpose": "string",
+  "sub_purposes": "string",
+  "overarching_question": "string",
+  "consequences": "string",
+  "concepts": [{"term": "string", "definition": "string"}],
+  "implications": ["string"],
+  "sub_questions": [
+    {
+      "question": "string",
+      "pov_category": "individual" or "group" or "ideas_disciplines",
+      "information": "string - relevant facts/evidence",
+      "sub_conclusion": "string - a DIRECT ANSWER to the sub-question",
+      "assumptions": ["string"]
+    }
+  ]
+}
+
+CRITICAL: sub_conclusion must ANSWER the question directly.
+- BAD: "This question is important because..."
+- GOOD: "Based on evidence, X because Y and Z."
+
+Generate 3-5 concepts, 3-5 implications, EXACTLY ${count} sub_questions (distributed across individual, group, ideas_disciplines). Each must have at least 2 assumptions.
+
+${profileCtx}${extraCtx}
+
+RETURN ONLY THE JSON OBJECT.`;
 }
 
 function parseActionFromReply(reply: string): { action: any | null; textContent: string } {
@@ -438,32 +454,30 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
 
       const requestedCount = draftInfo.subQuestionCount;
-      const batchSize = 20;
-      const needsBatching = requestedCount > batchSize;
-      const totalBatches = needsBatching ? Math.ceil(requestedCount / batchSize) : 1;
+      const batchSize = 5; // Small batches to avoid token truncation
+      const firstBatchSize = Math.min(batchSize, requestedCount);
+      const totalBatches = 1 + Math.ceil(Math.max(0, requestedCount - firstBatchSize) / batchSize);
 
       let allSubQuestions: any[] = [];
 
       for (let batch = 0; batch < totalBatches; batch++) {
-        const batchCount = needsBatching
-          ? Math.min(batchSize, requestedCount - allSubQuestions.length)
-          : requestedCount;
+        const batchCount = batch === 0
+          ? firstBatchSize
+          : Math.min(batchSize, requestedCount - allSubQuestions.length);
+
+        if (batchCount <= 0) break;
+
+        toast.info(`Generating batch ${batch + 1}/${totalBatches}...`);
+
+        const systemPrompt = buildDraftPrompt(
+          analysis, profile, draftInfo,
+          { batch, batchCount, previousQuestions: allSubQuestions.map(sq => sq.question) }
+        );
 
         const apiMessages: Message[] = [
-          { role: "system", content: buildDraftPrompt(analysis, profile, draftInfo) },
+          { role: "system", content: systemPrompt },
           { role: "user", content: `My goal: ${goalInput}` },
         ];
-
-        if (batch > 0 && allSubQuestions.length > 0) {
-          apiMessages.push({
-            role: "assistant",
-            content: `Previously generated ${allSubQuestions.length} sub-questions: ${JSON.stringify(allSubQuestions.map(sq => sq.question))}`,
-          });
-          apiMessages.push({
-            role: "user",
-            content: `Generate the next ${batchCount} UNIQUE sub-questions. Do NOT repeat any of the above.`,
-          });
-        }
 
         const res = await supabase.functions.invoke("groq-chat", {
           body: { messages: apiMessages, mode: "draft", batchIndex: batch, totalBatches },
