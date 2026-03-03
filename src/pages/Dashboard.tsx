@@ -59,9 +59,9 @@ export default function Dashboard() {
   };
 
   const togglePublic = async (a: Analysis) => {
-    const newVal = !(a as any).is_public;
-    await supabase.from("analyses").update({ is_public: newVal, updated_at: new Date().toISOString() } as any).eq("id", a.id);
-    setAnalyses((prev) => prev.map((x) => (x.id === a.id ? { ...x, is_public: newVal } as any : x)));
+    const newVal = !a.is_public;
+    await supabase.from("analyses").update({ is_public: newVal, updated_at: new Date().toISOString() }).eq("id", a.id);
+    setAnalyses((prev) => prev.map((x) => (x.id === a.id ? { ...x, is_public: newVal } : x)));
     toast.success(newVal ? "Analysis is now public" : "Analysis is now private");
   };
 
@@ -147,10 +147,10 @@ export default function Dashboard() {
                         <Pencil className="h-4 w-4 mr-2" /> Rename
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => togglePublic(a)}>
-                        {(a as any).is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
-                        {(a as any).is_public ? "Make Private" : "Make Public"}
+                        {a.is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                        {a.is_public ? "Make Private" : "Make Public"}
                       </DropdownMenuItem>
-                      {(a as any).is_public && (
+                      {a.is_public && (
                         <DropdownMenuItem onClick={() => copyShareLink(a.id)}>
                           <Share2 className="h-4 w-4 mr-2" /> Copy Share Link
                         </DropdownMenuItem>
@@ -186,10 +186,25 @@ export default function Dashboard() {
                     <span className="text-xs text-muted-foreground">
                       {new Date(a.updated_at).toLocaleDateString()}
                     </span>
-                    {(a as any).is_public && (
+                    {a.is_public && (
                       <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Public</span>
                     )}
                   </div>
+                  {a.is_public && (
+                    <div className="mt-3 pt-3 border-t border-border" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          readOnly
+                          value={`${window.location.origin}/public/${a.id}`}
+                          className="text-xs h-7 bg-muted/50 cursor-text"
+                          onFocus={(e) => e.target.select()}
+                        />
+                        <Button variant="outline" size="sm" className="h-7 px-2 shrink-0" onClick={() => copyShareLink(a.id)}>
+                          <Share2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
