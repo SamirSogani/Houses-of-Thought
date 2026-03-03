@@ -138,10 +138,13 @@ Generate exactly ${batchMode.batchCount} NEW sub-questions. Do NOT repeat any of
 ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","information":"string - facts/evidence","sub_conclusion":"string - direct answer to the question","assumptions":["string"]}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - the specific perspective label","information":"string - facts/evidence","sub_conclusion":"string - direct answer to the question","assumptions":{"foundational_concepts":["string"],"unknown_unknowns":["string"],"concepts_shaping_inferences":["string"]}}]}
 
 CRITICAL: sub_conclusion must ANSWER the question, not explain importance.
-Each sub_question MUST have at least 2 assumptions.
+Each sub_question MUST have at least 1 assumption in EACH of the three categories:
+- foundational_concepts: Core premises or established knowledge the reasoning depends on
+- unknown_unknowns: Hidden factors or blind spots not yet considered
+- concepts_shaping_inferences: Mental models, frameworks, or theories influencing how conclusions are drawn
 Distribute across individual, group, and ideas_disciplines categories.
 
 ${profileCtx}${extraCtx}
@@ -162,13 +165,23 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
   "consequences": "string",
   "concepts": [{"term": "string", "definition": "string"}],
   "implications": ["string"],
+  "pov_labels": {
+    "individual": ["string - at least 2-3 specific individual perspectives, e.g. 'Student', 'Parent', 'Teacher'"],
+    "group": ["string - at least 2-3 group perspectives, e.g. 'Government', 'Community Organizations', 'Industry Leaders'"],
+    "ideas_disciplines": ["string - at least 2-3 disciplines/frameworks, e.g. 'Economics', 'Psychology', 'Ethics'"]
+  },
   "sub_questions": [
     {
       "question": "string",
       "pov_category": "individual" or "group" or "ideas_disciplines",
+      "pov_label": "string - must match one of the labels from pov_labels above",
       "information": "string - relevant facts/evidence",
       "sub_conclusion": "string - a DIRECT ANSWER to the sub-question",
-      "assumptions": ["string"]
+      "assumptions": {
+        "foundational_concepts": ["string - at least 1"],
+        "unknown_unknowns": ["string - at least 1"],
+        "concepts_shaping_inferences": ["string - at least 1"]
+      }
     }
   ]
 }
@@ -177,7 +190,12 @@ CRITICAL: sub_conclusion must ANSWER the question directly.
 - BAD: "This question is important because..."
 - GOOD: "Based on evidence, X because Y and Z."
 
-Generate 3-5 concepts, 3-5 implications, EXACTLY ${count} sub_questions (distributed across individual, group, ideas_disciplines). Each must have at least 2 assumptions.
+Assumption types:
+- foundational_concepts: Core premises or established knowledge the reasoning depends on
+- unknown_unknowns: Hidden factors or blind spots not yet considered
+- concepts_shaping_inferences: Mental models, frameworks, or theories influencing how conclusions are drawn
+
+Generate 3-5 concepts, 3-5 implications, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories). Each sub-question must have at least 1 assumption in EACH of the three assumption types.
 
 ${profileCtx}${extraCtx}
 
@@ -525,28 +543,76 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             }));
             await supabase.from("concepts").insert(conceptInserts);
           }
+
+          // Insert POV labels
+          if (draft.pov_labels) {
+            const povInserts: any[] = [];
+            for (const category of ["individual", "group", "ideas_disciplines"]) {
+              const labels = draft.pov_labels[category];
+              if (Array.isArray(labels)) {
+                labels.forEach((label: string, idx: number) => {
+                  povInserts.push({
+                    analysis_id: analysis.id,
+                    parent_category: category,
+                    label: label,
+                    sort_order: idx,
+                  });
+                });
+              }
+            }
+            if (povInserts.length > 0) {
+              await supabase.from("pov_labels").insert(povInserts);
+            }
+          }
         }
 
         if (draft.sub_questions?.length) {
           allSubQuestions = [...allSubQuestions, ...draft.sub_questions];
-          const sqInserts = draft.sub_questions.map((sq: any, i: number) => ({
-            analysis_id: analysis.id,
-            question: sq.question || "",
-            pov_category: sq.pov_category || "individual",
-            information: sq.information || "",
-            sub_conclusion: sq.sub_conclusion || "",
-            sort_order: (subQuestions?.length || 0) + allSubQuestions.length - draft.sub_questions.length + i,
-            is_draft: true,
-          }));
+
+          // Fetch POV labels to link sub-questions to them
+          const { data: existingLabels } = await supabase
+            .from("pov_labels")
+            .select("id, label, parent_category")
+            .eq("analysis_id", analysis.id);
+          const labelMap = new Map((existingLabels || []).map((l: any) => [`${l.parent_category}:${l.label}`, l.id]));
+
+          const sqInserts = draft.sub_questions.map((sq: any, i: number) => {
+            const povLabelId = sq.pov_label ? labelMap.get(`${sq.pov_category}:${sq.pov_label}`) || null : null;
+            return {
+              analysis_id: analysis.id,
+              question: sq.question || "",
+              pov_category: sq.pov_category || "individual",
+              pov_label_id: povLabelId,
+              information: sq.information || "",
+              sub_conclusion: sq.sub_conclusion || "",
+              sort_order: (subQuestions?.length || 0) + allSubQuestions.length - draft.sub_questions.length + i,
+              is_draft: true,
+            };
+          });
           const { data: insertedSqs } = await supabase.from("sub_questions").insert(sqInserts as any).select();
 
-          // Insert assumptions for each sub-question
+          // Insert assumptions for each sub-question (distributed across all types)
           if (insertedSqs) {
             const assumptionInserts: any[] = [];
             insertedSqs.forEach((insertedSq: any, idx: number) => {
               const originalSq = draft.sub_questions[idx];
-              if (originalSq?.assumptions?.length) {
-                originalSq.assumptions.forEach((assumption: string) => {
+              const assumptions = originalSq?.assumptions;
+              if (assumptions && typeof assumptions === 'object' && !Array.isArray(assumptions)) {
+                // New typed format: { foundational_concepts: [], unknown_unknowns: [], concepts_shaping_inferences: [] }
+                for (const [type, items] of Object.entries(assumptions)) {
+                  if (Array.isArray(items)) {
+                    (items as string[]).forEach((assumption: string) => {
+                      assumptionInserts.push({
+                        sub_question_id: insertedSq.id,
+                        content: assumption,
+                        assumption_type: type,
+                      });
+                    });
+                  }
+                }
+              } else if (Array.isArray(assumptions)) {
+                // Legacy flat array format fallback
+                assumptions.forEach((assumption: string) => {
                   assumptionInserts.push({
                     sub_question_id: insertedSq.id,
                     content: assumption,
