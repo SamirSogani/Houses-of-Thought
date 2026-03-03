@@ -80,24 +80,48 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
       };
     }
 
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: finalMessages,
-        temperature: mode === 'draft' ? 0.2 : 0.3,
-        max_tokens: 8192,
-      }),
-    });
+    const maxRetries = 3;
+    let groqResponse: Response | null = null;
 
-    if (!groqResponse.ok) {
-      const errText = await groqResponse.text();
-      return new Response(JSON.stringify({ error: `Groq API error: ${errText}` }), {
-        status: groqResponse.status,
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: finalMessages,
+          temperature: mode === 'draft' ? 0.2 : 0.3,
+          max_tokens: 8192,
+        }),
+      });
+
+      if (groqResponse.status === 429) {
+        // Parse retry-after from error or use exponential backoff
+        const errBody = await groqResponse.text();
+        const retryMatch = errBody.match(/try again in (\d+\.?\d*)s/);
+        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 1 : (attempt + 1) * 10;
+        console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}), waiting ${waitSecs}s...`);
+        await new Promise(r => setTimeout(r, waitSecs * 1000));
+        continue;
+      }
+
+      if (!groqResponse.ok) {
+        const errText = await groqResponse.text();
+        return new Response(JSON.stringify({ error: `Groq API error: ${errText}` }), {
+          status: groqResponse.status,
+          headers: corsHeaders,
+        });
+      }
+
+      break; // success
+    }
+
+    if (!groqResponse || !groqResponse.ok) {
+      return new Response(JSON.stringify({ error: 'Groq API rate limit exceeded after retries. Please wait a moment and try again.' }), {
+        status: 429,
         headers: corsHeaders,
       });
     }
