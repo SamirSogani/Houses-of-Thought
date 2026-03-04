@@ -116,7 +116,12 @@ You are in enhanced research mode. Apply these rules:
   return ctx;
 }
 
-function buildDraftPrompt(analysis?: Analysis | null, profile?: Tables<"profiles"> | null, draftInfo?: DraftInfo, batchMode?: { batch: number; batchCount: number; previousQuestions: string[] }): string {
+function buildDraftPrompt(
+  analysis?: Analysis | null,
+  profile?: Tables<"profiles"> | null,
+  draftInfo?: DraftInfo,
+  batchMode?: { batch: number; batchCount: number; previousQuestions: string[] }
+): string {
   const p = profile as any;
   const profileCtx = `User Profile: Role: ${p?.role_title || "Not set"}, Location: ${p?.location_context || "Not set"}
 Personal Foundation: Bio: ${profile?.biological || "Not set"}, Social: ${profile?.social || "Not set"}, Familial: ${profile?.familial || "Not set"}, Individual: ${profile?.individual || "Not set"}
@@ -130,22 +135,48 @@ ${analysis?.overarching_question ? `Current Question: ${analysis.overarching_que
     if (draftInfo.constraints) extraCtx += `\nConstraints: ${draftInfo.constraints}`;
   }
 
+  const researchInstructions = `
+## RESEARCH MODE (ACTIVE FOR DRAFTING)
+Before generating content, you must mentally research and synthesize:
+- Established facts and expert consensus relevant to the topic
+- Key theoretical frameworks and academic perspectives
+- Known debates, controversies, and unresolved questions
+- Practical real-world considerations and evidence
+Prioritize reliable, well-established sources. Avoid speculative or low-quality reasoning.
+All "information" fields must contain substantive, research-backed content — not vague placeholders.
+`;
+
+  const assumptionInstructions = `
+## ASSUMPTIONS (MUST BE COMPREHENSIVE)
+Each sub-question MUST have ALL FOUR assumption categories fully populated:
+1. "explicit_premises": Stated premises the reasoning openly relies on (at least 2)
+2. "hidden_premises": Unstated or implicit beliefs that silently shape the argument (at least 2)
+3. "conceptual_frameworks": Theoretical frameworks, mental models, or paradigms that shape how inferences are drawn (at least 1)
+4. "background_definitions": Key definitions, terms, or background beliefs that influence reasoning (at least 1)
+NEVER leave any assumption category empty or with fewer items than specified.
+`;
+
   // Batch mode: only generate sub-questions (no analysis fields)
   if (batchMode && batchMode.batch > 0) {
-    return `You are a critical thinking assistant. YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation.
+    return `You are a critical thinking assistant with research capabilities. YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation.
+${researchInstructions}
+${assumptionInstructions}
 
 Generate exactly ${batchMode.batchCount} NEW sub-questions. Do NOT repeat any of these existing questions:
 ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
-Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - the specific perspective label","information":"string - facts/evidence","sub_conclusion":"string - direct answer to the question","assumptions":{"foundational_concepts":["string"],"unknown_unknowns":["string"],"concepts_shaping_inferences":["string"]}}]}
+Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
-CRITICAL: sub_conclusion must ANSWER the question, not explain importance.
-Each sub_question MUST have at least 1 assumption in EACH of the three categories:
-- foundational_concepts: Core premises or established knowledge the reasoning depends on
-- unknown_unknowns: Hidden factors or blind spots not yet considered
-- concepts_shaping_inferences: Mental models, frameworks, or theories influencing how conclusions are drawn
-Distribute across individual, group, and ideas_disciplines categories.
+Return this JSON structure:
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","sub_conclusion":"string - a precise intermediate conclusion that DIRECTLY ANSWERS this sub-question, logically derived from the information and assumptions","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
+
+CRITICAL RULES:
+- sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION that directly answers the sub-question. It should be logically derived from the sub-question's information and assumptions.
+  BAD: "This question is important because..."
+  GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+- "information" must contain substantive, researched content — not generic filler.
+- Each pov_label must be UNIQUE and DISTINCT. Never use the same label twice.
+- Distribute evenly across individual, group, and ideas_disciplines categories.
 
 ${profileCtx}${extraCtx}
 
@@ -154,48 +185,49 @@ RETURN ONLY THE JSON OBJECT. Generate exactly ${batchMode.batchCount} sub-questi
 
   // First batch or small request: generate full house structure
   const count = batchMode ? batchMode.batchCount : (draftInfo?.subQuestionCount || 6);
-  return `You are a critical thinking assistant. Generate a COMPLETE draft for the House of Reason.
+  return `You are a critical thinking assistant with research capabilities. Generate a COMPLETE draft for the House of Reason.
+${researchInstructions}
+${assumptionInstructions}
 
 YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no explanation text before or after.
 
 {
-  "purpose": "string",
-  "sub_purposes": "string",
-  "overarching_question": "string",
-  "consequences": "string",
+  "purpose": "string - clear statement of the analysis purpose",
+  "sub_purposes": "string - supporting purposes",
+  "overarching_question": "string - the central question to be answered",
   "concepts": [{"term": "string", "definition": "string"}],
-  "implications": ["string"],
   "pov_labels": {
-    "individual": ["string - at least 2-3 specific individual perspectives, e.g. 'Student', 'Parent', 'Teacher'"],
-    "group": ["string - at least 2-3 group perspectives, e.g. 'Government', 'Community Organizations', 'Industry Leaders'"],
-    "ideas_disciplines": ["string - at least 2-3 disciplines/frameworks, e.g. 'Economics', 'Psychology', 'Ethics'"]
+    "individual": ["string - each label must be UNIQUE and specific, e.g. 'Student', 'Parent', 'Teacher'. Provide 2-3 distinct labels"],
+    "group": ["string - each label must be UNIQUE, e.g. 'Government', 'Community Organizations', 'Industry Leaders'. Provide 2-3 distinct labels"],
+    "ideas_disciplines": ["string - each label must be UNIQUE, e.g. 'Economics', 'Psychology', 'Ethics'. Provide 2-3 distinct labels"]
   },
   "sub_questions": [
     {
-      "question": "string",
+      "question": "string - precise, distinct question",
       "pov_category": "individual" or "group" or "ideas_disciplines",
-      "pov_label": "string - must match one of the labels from pov_labels above",
-      "information": "string - relevant facts/evidence",
-      "sub_conclusion": "string - a DIRECT ANSWER to the sub-question",
+      "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
+      "information": "string - thoroughly researched facts and evidence, minimum 2 sentences",
+      "sub_conclusion": "string - a PRECISE INTERMEDIATE CONCLUSION that directly answers this sub-question, logically derived from the information and assumptions",
       "assumptions": {
-        "foundational_concepts": ["string - at least 1"],
-        "unknown_unknowns": ["string - at least 1"],
-        "concepts_shaping_inferences": ["string - at least 1"]
+        "explicit_premises": ["string - at least 2 stated premises"],
+        "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
+        "conceptual_frameworks": ["string - at least 1 theoretical framework or mental model"],
+        "background_definitions": ["string - at least 1 key definition or background belief"]
       }
     }
   ]
 }
 
-CRITICAL: sub_conclusion must ANSWER the question directly.
-- BAD: "This question is important because..."
-- GOOD: "Based on evidence, X because Y and Z."
+CRITICAL RULES:
+1. sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION — a logically derived answer to the sub-question based on information and assumptions.
+   BAD: "This question is important because..."
+   GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+2. "information" must contain substantive, researched content.
+3. All 4 assumption categories must be fully populated for EVERY sub-question.
+4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
+5. DO NOT include "consequences" or "implications" — these are generated separately later.
 
-Assumption types:
-- foundational_concepts: Core premises or established knowledge the reasoning depends on
-- unknown_unknowns: Hidden factors or blind spots not yet considered
-- concepts_shaping_inferences: Mental models, frameworks, or theories influencing how conclusions are drawn
-
-Generate 3-5 concepts, 3-5 implications, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories). Each sub-question must have at least 1 assumption in EACH of the three assumption types.
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
@@ -434,11 +466,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     setPendingPlacement(null);
 
     if (section === "sub_question") {
-      // Add as new sub-question via action
       const implementMsg = `Implement this as a new sub-question in the House of Reason: "${text}". Respond with a JSON action block to add it.`;
       sendMessage(implementMsg);
     } else {
-      // Direct field update
       const fieldMap: Record<string, string> = {
         overarching_question: "overarching_question",
         purpose: "purpose",
@@ -472,24 +502,30 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
 
       const requestedCount = draftInfo.subQuestionCount;
-      const batchSize = 5; // Small batches to avoid token truncation
+      const batchSize = 5;
       const firstBatchSize = Math.min(batchSize, requestedCount);
-      const totalBatches = 1 + Math.ceil(Math.max(0, requestedCount - firstBatchSize) / batchSize);
+      const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
 
       let allSubQuestions: any[] = [];
+      let retryRound = 0;
 
-      for (let batch = 0; batch < totalBatches; batch++) {
-        const batchCount = batch === 0
-          ? firstBatchSize
-          : Math.min(batchSize, requestedCount - allSubQuestions.length);
+      // Keep generating until we hit the exact requested count (with retry limit)
+      while (allSubQuestions.length < requestedCount && retryRound <= maxRetryAttempts) {
+        const remaining = requestedCount - allSubQuestions.length;
+        const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
+        const batchCount = isFirstBatch
+          ? Math.min(firstBatchSize, remaining)
+          : Math.min(batchSize, remaining);
+        const batchNum = isFirstBatch ? 0 : allSubQuestions.length;
+        const totalEstimated = Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
 
-        toast.info(`Generating batch ${batch + 1}/${totalBatches}...`);
+        toast.info(`Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
 
         const systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
-          { batch, batchCount, previousQuestions: allSubQuestions.map(sq => sq.question) }
+          { batch: isFirstBatch ? 0 : 1, batchCount, previousQuestions: allSubQuestions.map(sq => sq.question) }
         );
 
         const apiMessages: Message[] = [
@@ -498,7 +534,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         ];
 
         const res = await supabase.functions.invoke("groq-chat", {
-          body: { messages: apiMessages, mode: "draft", batchIndex: batch, totalBatches },
+          body: { messages: apiMessages, mode: "draft", batchIndex: isFirstBatch ? 0 : 1, totalBatches: totalEstimated },
         });
 
         if (res.error) throw new Error(res.error.message);
@@ -506,7 +542,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         let draft: any;
         try {
-          // Strip markdown code fences if present
           let cleanReply = reply.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
           const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
           draft = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
@@ -516,22 +551,19 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             draft = { sub_questions: JSON.parse(arrMatch ? arrMatch[0] : "[]") };
           } catch {
             console.error("Failed to parse draft response:", reply.substring(0, 500));
-            toast.error("AI returned invalid format on batch " + (batch + 1));
-            break;
+            toast.error("AI returned invalid format, retrying...");
+            retryRound++;
+            continue;
           }
         }
 
-        if (batch === 0) {
+        // First batch: save analysis-level fields
+        if (isFirstBatch) {
           const analysisUpdate: any = { is_draft: true, updated_at: new Date().toISOString() };
           if (draft.purpose) analysisUpdate.purpose = draft.purpose;
           if (draft.sub_purposes) analysisUpdate.sub_purposes = draft.sub_purposes;
           if (draft.overarching_question) analysisUpdate.overarching_question = draft.overarching_question;
-          if (draft.consequences) analysisUpdate.consequences = draft.consequences;
-          // Store implications in consequences if present
-          if (draft.implications?.length) {
-            const implicationsText = draft.implications.join("\n• ");
-            analysisUpdate.consequences = (analysisUpdate.consequences || "") + "\n\nImplications:\n• " + implicationsText;
-          }
+          // DO NOT set consequences — those are generated separately
           await supabase.from("analyses").update(analysisUpdate).eq("id", analysis.id);
 
           // Insert concepts
@@ -544,19 +576,24 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             await supabase.from("concepts").insert(conceptInserts);
           }
 
-          // Insert POV labels
+          // Insert POV labels (deduplicate)
           if (draft.pov_labels) {
             const povInserts: any[] = [];
+            const seenLabels = new Set<string>();
             for (const category of ["individual", "group", "ideas_disciplines"]) {
               const labels = draft.pov_labels[category];
               if (Array.isArray(labels)) {
                 labels.forEach((label: string, idx: number) => {
-                  povInserts.push({
-                    analysis_id: analysis.id,
-                    parent_category: category,
-                    label: label,
-                    sort_order: idx,
-                  });
+                  const key = `${category}:${label}`;
+                  if (!seenLabels.has(key)) {
+                    seenLabels.add(key);
+                    povInserts.push({
+                      analysis_id: analysis.id,
+                      parent_category: category,
+                      label: label,
+                      sort_order: idx,
+                    });
+                  }
                 });
               }
             }
@@ -566,17 +603,26 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
         }
 
-        if (draft.sub_questions?.length) {
-          allSubQuestions = [...allSubQuestions, ...draft.sub_questions];
+        // Process sub-questions from this batch
+        const newSqs = draft.sub_questions || [];
+        // Deduplicate against existing questions
+        const existingQuestionSet = new Set(allSubQuestions.map((sq: any) => sq.question.toLowerCase().trim()));
+        const uniqueNewSqs = newSqs.filter((sq: any) => {
+          const key = sq.question?.toLowerCase().trim();
+          if (!key || existingQuestionSet.has(key)) return false;
+          existingQuestionSet.add(key);
+          return true;
+        });
 
-          // Fetch POV labels to link sub-questions to them
+        if (uniqueNewSqs.length > 0) {
+          // Fetch POV labels to link sub-questions
           const { data: existingLabels } = await supabase
             .from("pov_labels")
             .select("id, label, parent_category")
             .eq("analysis_id", analysis.id);
           const labelMap = new Map((existingLabels || []).map((l: any) => [`${l.parent_category}:${l.label}`, l.id]));
 
-          const sqInserts = draft.sub_questions.map((sq: any, i: number) => {
+          const sqInserts = uniqueNewSqs.map((sq: any, i: number) => {
             const povLabelId = sq.pov_label ? labelMap.get(`${sq.pov_category}:${sq.pov_label}`) || null : null;
             return {
               analysis_id: analysis.id,
@@ -585,33 +631,43 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               pov_label_id: povLabelId,
               information: sq.information || "",
               sub_conclusion: sq.sub_conclusion || "",
-              sort_order: (subQuestions?.length || 0) + allSubQuestions.length - draft.sub_questions.length + i,
+              sort_order: (subQuestions?.length || 0) + allSubQuestions.length + i,
               is_draft: true,
             };
           });
           const { data: insertedSqs } = await supabase.from("sub_questions").insert(sqInserts as any).select();
 
-          // Insert assumptions for each sub-question (distributed across all types)
+          // Insert assumptions for each sub-question
           if (insertedSqs) {
             const assumptionInserts: any[] = [];
             insertedSqs.forEach((insertedSq: any, idx: number) => {
-              const originalSq = draft.sub_questions[idx];
+              const originalSq = uniqueNewSqs[idx];
               const assumptions = originalSq?.assumptions;
               if (assumptions && typeof assumptions === 'object' && !Array.isArray(assumptions)) {
-                // New typed format: { foundational_concepts: [], unknown_unknowns: [], concepts_shaping_inferences: [] }
-                for (const [type, items] of Object.entries(assumptions)) {
+                // Map new 4-category format to DB assumption_type
+                const typeMapping: Record<string, string> = {
+                  explicit_premises: "foundational_concepts",
+                  hidden_premises: "unknown_unknowns",
+                  conceptual_frameworks: "concepts_shaping_inferences",
+                  background_definitions: "foundational_concepts",
+                  // Also support old format keys
+                  foundational_concepts: "foundational_concepts",
+                  unknown_unknowns: "unknown_unknowns",
+                  concepts_shaping_inferences: "concepts_shaping_inferences",
+                };
+                for (const [key, items] of Object.entries(assumptions)) {
+                  const dbType = typeMapping[key] || "unknown_unknowns";
                   if (Array.isArray(items)) {
                     (items as string[]).forEach((assumption: string) => {
                       assumptionInserts.push({
                         sub_question_id: insertedSq.id,
                         content: assumption,
-                        assumption_type: type,
+                        assumption_type: dbType,
                       });
                     });
                   }
                 }
               } else if (Array.isArray(assumptions)) {
-                // Legacy flat array format fallback
                 assumptions.forEach((assumption: string) => {
                   assumptionInserts.push({
                     sub_question_id: insertedSq.id,
@@ -625,13 +681,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               await supabase.from("assumptions").insert(assumptionInserts);
             }
           }
+
+          allSubQuestions = [...allSubQuestions, ...uniqueNewSqs];
+        } else if (newSqs.length === 0) {
+          // No sub-questions returned at all — count as a retry
+          retryRound++;
         }
       }
 
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length} sub-questions. Review the yellow-highlighted elements and Accept or Decline.` },
+        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Consequences/Implications are NOT included in the draft — use the Consequences page to generate predictive outcomes after finalizing your conclusion.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
