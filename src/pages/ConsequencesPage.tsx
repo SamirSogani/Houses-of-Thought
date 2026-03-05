@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 type SubQuestion = Tables<"sub_questions">;
@@ -26,6 +28,7 @@ export default function ConsequencesPage() {
   const navigate = useNavigate();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -46,6 +49,63 @@ export default function ConsequencesPage() {
       .from("analyses")
       .update({ consequences: value, updated_at: new Date().toISOString() })
       .eq("id", analysisId!);
+  };
+
+  const generateConsequences = async () => {
+    if (!analysis || generating) return;
+    setGenerating(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Not authenticated"); return; }
+
+      const subConclusionsSummary = subQuestions
+        .filter(sq => sq.sub_conclusion)
+        .map((sq, i) => `${i + 1}. [${sq.pov_category}] "${sq.question}" → ${sq.sub_conclusion}`)
+        .join("\n");
+
+      const systemPrompt = `You are the House of Reason AI. Generate predictive consequences and implications.
+
+Given the user's overarching conclusion and sub-conclusions, predict what COULD HAPPEN as a result. These are forward-looking outcomes — not summaries of existing reasoning.
+
+Rules:
+- Focus on predictive, actionable consequences
+- Cover short-term, medium-term, and long-term implications
+- Consider consequences across individual, group, and systemic levels
+- Be specific and substantive — no vague generalities
+- Format as clear numbered points grouped by timeframe or category
+- Write in flowing prose paragraphs, not just bullet lists
+
+## Current Analysis: "${analysis.title}"
+- Overarching Question: ${analysis.overarching_question || "Not set"}
+- Overarching Conclusion: ${analysis.overarching_conclusion || "Not set"}
+- Purpose: ${analysis.purpose || "Not set"}
+
+## Sub-Conclusions:
+${subConclusionsSummary || "None yet"}`;
+
+      const res = await supabase.functions.invoke("groq-chat", {
+        body: {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Based on the overarching conclusion "${analysis.overarching_conclusion || analysis.overarching_question}", generate comprehensive predictive consequences and implications. What could happen if this conclusion is accepted and acted upon?` },
+          ],
+          mode: "chat",
+        },
+      });
+
+      if (res.error) throw new Error(res.error.message);
+      const reply = res.data?.choices?.[0]?.message?.content || "";
+
+      if (reply) {
+        await updateConsequences(reply);
+        toast.success("Predictive consequences generated!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate consequences");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   if (!analysis) {
@@ -70,8 +130,24 @@ export default function ConsequencesPage() {
           <span className="text-foreground">Consequences & Implications</span>
         </div>
 
-        <h1 className="text-3xl font-display font-bold mb-2">Consequences & Implications</h1>
-        <p className="text-muted-foreground mb-8">Element 8 — Predict outcomes based on your analysis</p>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-display font-bold">Consequences & Implications</h1>
+          <Button
+            onClick={generateConsequences}
+            disabled={generating || !analysis.overarching_conclusion}
+            variant="outline"
+            className="gap-2"
+          >
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {generating ? "Generating..." : "Generate from AI"}
+          </Button>
+        </div>
+        <p className="text-muted-foreground mb-8">
+          Element 8 — Predict outcomes based on your overarching conclusion
+          {!analysis.overarching_conclusion && (
+            <span className="text-destructive ml-2 text-xs">(Set an overarching conclusion first to enable AI generation)</span>
+          )}
+        </p>
 
         {/* POV Reference Cards (non-clickable) */}
         <div className="space-y-6 mb-8">
@@ -98,7 +174,7 @@ export default function ConsequencesPage() {
           </CardHeader>
           <CardContent>
             <Textarea
-              placeholder="What consequences and implications follow from your analysis?"
+              placeholder="What consequences and implications follow from your overarching conclusion? Click 'Generate from AI' to auto-populate."
               value={analysis.consequences}
               onChange={(e) => updateConsequences(e.target.value)}
               className="min-h-[200px] bg-card"
