@@ -145,10 +145,7 @@ export default function FrameworkPage() {
             The House of Thought Framework
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            A structured method for rigorous reasoning and critical thinking.
-          </p>
-          <p className="text-base text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            The House of Thought organizes reasoning from verified information through assumptions and logical inference to well-supported conclusions — ensuring every step is transparent, traceable, and defensible.
+            A structured method for rigorous reasoning and critical thinking — based on John Trapasso's model, derived from the Paul-Elder framework for critical thinking.
           </p>
           <div className="flex items-center justify-center gap-4 pt-4">
             <Button onClick={scrollToDiagram} variant="outline" size="lg" className="gap-2">
