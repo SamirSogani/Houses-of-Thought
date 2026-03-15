@@ -168,12 +168,11 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","sub_conclusion":"string - a precise intermediate conclusion that DIRECTLY ANSWERS this sub-question, logically derived from the information and assumptions","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
-- sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION that directly answers the sub-question. It should be logically derived from the sub-question's information and assumptions.
-  BAD: "This question is important because..."
-  GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+- DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
+- DO NOT include "consequences" or "implications" — these are handled separately.
 - "information" must contain substantive, researched content — not generic filler.
 - Each pov_label must be UNIQUE and DISTINCT. Never use the same label twice.
 - Distribute evenly across individual, group, and ideas_disciplines categories.
