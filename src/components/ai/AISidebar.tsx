@@ -688,7 +688,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Consequences/Implications are NOT included in the draft — use the Consequences page to generate predictive outcomes after finalizing your conclusion.` },
+        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated — enter them yourself as they unfold. Use the Consequences page to generate AI-predicted implications.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));

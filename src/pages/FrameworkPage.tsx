@@ -361,7 +361,7 @@ export default function FrameworkPage() {
             <div className="flex items-start gap-3">
               <Lightbulb className="h-5 w-5 text-primary mt-0.5 shrink-0" />
               <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">Draft Full House</strong> — The AI researches your topic, generates sub-questions from multiple points of view, populates comprehensive assumptions, applies logical reasoning, and produces sub-conclusions — all in one structured draft.
+                <strong className="text-foreground">Draft Full House</strong> — The AI researches your topic, generates sub-questions from multiple points of view, and populates comprehensive assumptions — all in one structured draft. Sub-conclusions and consequences are left for you to derive.
               </p>
             </div>
             <div className="flex items-start gap-3">

@@ -29,6 +29,7 @@ export default function ConsequencesPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [implications, setImplications] = useState("");
 
   useEffect(() => {
     loadData();
@@ -41,17 +42,53 @@ export default function ConsequencesPage() {
     ]);
     setAnalysis(aRes.data);
     setSubQuestions(sqRes.data || []);
+    // Load implications from consequences field (stored together)
+    if (aRes.data) {
+      try {
+        const parsed = JSON.parse(aRes.data.consequences || "{}");
+        setImplications(parsed.implications || "");
+        // Keep consequences as user-entered text
+      } catch {
+        // Legacy: if consequences is plain text, treat as user-entered consequences
+        setImplications("");
+      }
+    }
   };
 
-  const updateConsequences = async (value: string) => {
-    setAnalysis((prev) => (prev ? { ...prev, consequences: value } : prev));
+  const updateConsequences = async (consequences: string, newImplications?: string) => {
+    const impl = newImplications !== undefined ? newImplications : implications;
+    const stored = JSON.stringify({ consequences, implications: impl });
+    setAnalysis((prev) => (prev ? { ...prev, consequences: stored } : prev));
     await supabase
       .from("analyses")
-      .update({ consequences: value, updated_at: new Date().toISOString() })
+      .update({ consequences: stored, updated_at: new Date().toISOString() })
       .eq("id", analysisId!);
   };
 
-  const generateConsequences = async () => {
+  const getUserConsequences = (): string => {
+    if (!analysis?.consequences) return "";
+    try {
+      const parsed = JSON.parse(analysis.consequences);
+      return parsed.consequences || "";
+    } catch {
+      return analysis.consequences || "";
+    }
+  };
+
+  const setUserConsequences = (value: string) => {
+    setAnalysis((prev) => {
+      if (!prev) return prev;
+      const stored = JSON.stringify({ consequences: value, implications });
+      return { ...prev, consequences: stored };
+    });
+    const stored = JSON.stringify({ consequences: value, implications });
+    supabase
+      .from("analyses")
+      .update({ consequences: stored, updated_at: new Date().toISOString() })
+      .eq("id", analysisId!);
+  };
+
+  const generateImplications = async () => {
     if (!analysis || generating) return;
     setGenerating(true);
 
@@ -59,20 +96,25 @@ export default function ConsequencesPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); return; }
 
+      const userConsequences = getUserConsequences();
+
       const subConclusionsSummary = subQuestions
         .filter(sq => sq.sub_conclusion)
         .map((sq, i) => `${i + 1}. [${sq.pov_category}] "${sq.question}" → ${sq.sub_conclusion}`)
         .join("\n");
 
-      const systemPrompt = `You are the House of Reason AI. Generate predictive consequences and implications.
+      const systemPrompt = `You are the House of Reason AI. Generate predicted implications (predicted consequences).
 
-Given the user's overarching conclusion and sub-conclusions, predict what COULD HAPPEN as a result. These are forward-looking outcomes — not summaries of existing reasoning.
+Given the user's overarching conclusion, predict what SHOULD logically follow if the conclusion is correct. These are PREDICTED outcomes — forward-looking projections, NOT summaries of existing reasoning.
+
+${userConsequences ? `The user has already entered ACTUAL consequences that have unfolded. Use these to REFINE and UPDATE your predictions — acknowledge what has already happened and predict what may follow next.\n\nActual Consequences (entered by user):\n${userConsequences}\n` : ""}
 
 Rules:
-- Focus on predictive, actionable consequences
-- Cover short-term, medium-term, and long-term implications
-- Consider consequences across individual, group, and systemic levels
+- Focus on predictive, forward-looking implications
+- Cover short-term, medium-term, and long-term predictions
+- Consider implications across individual, group, and systemic levels
 - Be specific and substantive — no vague generalities
+- If actual consequences are provided, distinguish between confirmed outcomes and remaining predictions
 - Format as clear numbered points grouped by timeframe or category
 - Write in flowing prose paragraphs, not just bullet lists
 
@@ -88,7 +130,7 @@ ${subConclusionsSummary || "None yet"}`;
         body: {
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `Based on the overarching conclusion "${analysis.overarching_conclusion || analysis.overarching_question}", generate comprehensive predictive consequences and implications. What could happen if this conclusion is accepted and acted upon?` },
+            { role: "user", content: `Based on the overarching conclusion "${analysis.overarching_conclusion || analysis.overarching_question}", generate comprehensive predicted implications. What should logically follow if this conclusion is correct?${userConsequences ? " Factor in the actual consequences already entered." : ""}` },
           ],
           mode: "chat",
         },
@@ -98,11 +140,12 @@ ${subConclusionsSummary || "None yet"}`;
       const reply = res.data?.choices?.[0]?.message?.content || "";
 
       if (reply) {
-        await updateConsequences(reply);
-        toast.success("Predictive consequences generated!");
+        setImplications(reply);
+        await updateConsequences(getUserConsequences(), reply);
+        toast.success("Predicted implications generated!");
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate consequences");
+      toast.error(err.message || "Failed to generate implications");
     } finally {
       setGenerating(false);
     }
@@ -130,26 +173,12 @@ ${subConclusionsSummary || "None yet"}`;
           <span className="text-foreground">Consequences & Implications</span>
         </div>
 
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-display font-bold">Consequences & Implications</h1>
-          <Button
-            onClick={generateConsequences}
-            disabled={generating || !analysis.overarching_conclusion}
-            variant="outline"
-            className="gap-2"
-          >
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generating ? "Generating..." : "Generate from AI"}
-          </Button>
-        </div>
+        <h1 className="text-3xl font-display font-bold mb-2">Consequences & Implications</h1>
         <p className="text-muted-foreground mb-8">
-          Element 8 — Predict outcomes based on your overarching conclusion
-          {!analysis.overarching_conclusion && (
-            <span className="text-destructive ml-2 text-xs">(Set an overarching conclusion first to enable AI generation)</span>
-          )}
+          Element 8 — Enter actual consequences as they unfold, and generate AI-predicted implications
         </p>
 
-        {/* POV Reference Cards (non-clickable) */}
+        {/* POV Reference Cards */}
         <div className="space-y-6 mb-8">
           {Object.entries(grouped).map(([pov, questions]) => (
             <div key={pov}>
@@ -159,7 +188,7 @@ ${subConclusionsSummary || "None yet"}`;
                   <Card key={sq.id} className={`${POV_CLASSES[pov] || ""} opacity-80`}>
                     <CardContent className="pt-3 pb-3">
                       <p className="font-medium text-sm">{sq.question}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{sq.sub_conclusion || "No conclusion"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{sq.sub_conclusion || "No conclusion yet"}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -168,17 +197,56 @@ ${subConclusionsSummary || "None yet"}`;
           ))}
         </div>
 
-        <Card className="house-zone house-zone-roof">
+        {/* Consequences — User-entered only */}
+        <Card className="house-zone house-zone-roof mb-6">
           <CardHeader>
-            <CardTitle className="text-xl font-display">Predicted Consequences & Implications</CardTitle>
+            <CardTitle className="text-xl font-display">Consequences (Actual Outcomes)</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Enter real-world consequences as they unfold. These are actual outcomes — not predictions. Updating these will refine the AI's predicted implications.
+            </p>
             <Textarea
-              placeholder="What consequences and implications follow from your overarching conclusion? Click 'Generate from AI' to auto-populate."
-              value={analysis.consequences}
-              onChange={(e) => updateConsequences(e.target.value)}
-              className="min-h-[200px] bg-card"
+              placeholder="What has actually happened as a result of this conclusion? Enter observed outcomes here..."
+              value={getUserConsequences()}
+              onChange={(e) => setUserConsequences(e.target.value)}
+              className="min-h-[120px] bg-card"
             />
+          </CardContent>
+        </Card>
+
+        {/* Implications — AI-predicted */}
+        <Card className="house-zone house-zone-roof">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-display">Implications (AI-Predicted Outcomes)</CardTitle>
+              <Button
+                onClick={generateImplications}
+                disabled={generating || !analysis.overarching_conclusion}
+                variant="outline"
+                className="gap-2"
+              >
+                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generating ? "Generating..." : "Generate Implications"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!analysis.overarching_conclusion && (
+              <p className="text-destructive text-xs mb-3">Set an overarching conclusion first to enable AI generation.</p>
+            )}
+            <p className="text-sm text-muted-foreground mb-3">
+              AI-predicted outcomes — what should logically follow if the conclusion is correct. Re-generate after entering actual consequences to get updated predictions.
+            </p>
+            {implications ? (
+              <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap border rounded-md p-4 bg-card">
+                {implications}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground border rounded-md bg-card">
+                <p>No implications generated yet. Click "Generate Implications" to predict outcomes.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
