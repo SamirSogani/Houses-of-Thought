@@ -385,6 +385,18 @@ export default function FrameworkPage() {
           </div>
         </div>
       </section>
+      {/* ── ATTRIBUTION ── */}
+      <footer className="py-10 px-6 border-t border-border bg-muted/20">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-sm text-muted-foreground">
+            Based on John Trapasso's <em>House of Reason</em> model for critical thinking,
+            derived from the <strong>Paul-Elder Framework</strong> for Critical Thinking.
+          </p>
+          <p className="text-xs text-muted-foreground mt-2 opacity-60">
+            Critical Thinking Humanities by John Trapasso © 2021
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
