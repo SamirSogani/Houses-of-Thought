@@ -206,7 +206,6 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
       "information": "string - thoroughly researched facts and evidence, minimum 2 sentences",
-      "sub_conclusion": "string - a PRECISE INTERMEDIATE CONCLUSION that directly answers this sub-question, logically derived from the information and assumptions",
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
@@ -218,13 +217,11 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 }
 
 CRITICAL RULES:
-1. sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION — a logically derived answer to the sub-question based on information and assumptions.
-   BAD: "This question is important because..."
-   GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
 2. "information" must contain substantive, researched content.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
-5. DO NOT include "consequences" or "implications" — these are generated separately later.
+5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
 Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories).
 
