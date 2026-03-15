@@ -84,6 +84,9 @@ export default function Dashboard() {
             <Button size="sm" onClick={createNewAnalysis}>
               <Plus className="h-4 w-4 mr-1" /> New House
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
+              <BookOpen className="h-4 w-4 mr-1" /> Framework
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
               <Settings className="h-4 w-4 mr-1" /> Profile
             </Button>
