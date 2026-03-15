@@ -16,6 +16,7 @@ import AssumptionsPage from "./pages/AssumptionsPage";
 import SynthesisPage from "./pages/SynthesisPage";
 import ConsequencesPage from "./pages/ConsequencesPage";
 import PublicViewPage from "./pages/PublicViewPage";
+import FrameworkPage from "./pages/FrameworkPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
