@@ -168,12 +168,11 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","sub_conclusion":"string - a precise intermediate conclusion that DIRECTLY ANSWERS this sub-question, logically derived from the information and assumptions","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
-- sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION that directly answers the sub-question. It should be logically derived from the sub-question's information and assumptions.
-  BAD: "This question is important because..."
-  GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+- DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
+- DO NOT include "consequences" or "implications" — these are handled separately.
 - "information" must contain substantive, researched content — not generic filler.
 - Each pov_label must be UNIQUE and DISTINCT. Never use the same label twice.
 - Distribute evenly across individual, group, and ideas_disciplines categories.
@@ -207,7 +206,6 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
       "information": "string - thoroughly researched facts and evidence, minimum 2 sentences",
-      "sub_conclusion": "string - a PRECISE INTERMEDIATE CONCLUSION that directly answers this sub-question, logically derived from the information and assumptions",
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
@@ -219,13 +217,11 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 }
 
 CRITICAL RULES:
-1. sub_conclusion must be a PRECISE INTERMEDIATE CONCLUSION — a logically derived answer to the sub-question based on information and assumptions.
-   BAD: "This question is important because..."
-   GOOD: "Based on available evidence, X leads to Y because Z, which means..."
+1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
 2. "information" must contain substantive, researched content.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
-5. DO NOT include "consequences" or "implications" — these are generated separately later.
+5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
 Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories).
 
@@ -630,7 +626,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               pov_category: sq.pov_category || "individual",
               pov_label_id: povLabelId,
               information: sq.information || "",
-              sub_conclusion: sq.sub_conclusion || "",
+              sub_conclusion: "",
               sort_order: (subQuestions?.length || 0) + allSubQuestions.length + i,
               is_draft: true,
             };
@@ -692,7 +688,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Consequences/Implications are NOT included in the draft — use the Consequences page to generate predictive outcomes after finalizing your conclusion.` },
+        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated — enter them yourself as they unfold. Use the Consequences page to generate AI-predicted implications.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
