@@ -626,7 +626,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               pov_category: sq.pov_category || "individual",
               pov_label_id: povLabelId,
               information: sq.information || "",
-              sub_conclusion: sq.sub_conclusion || "",
+              sub_conclusion: "",
               sort_order: (subQuestions?.length || 0) + allSubQuestions.length + i,
               is_draft: true,
             };
