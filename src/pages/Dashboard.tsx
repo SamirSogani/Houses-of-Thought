@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock } from "lucide-react";
+import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -83,6 +83,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={createNewAnalysis}>
               <Plus className="h-4 w-4 mr-1" /> New House
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
+              <BookOpen className="h-4 w-4 mr-1" /> Framework
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
               <Settings className="h-4 w-4 mr-1" /> Profile
