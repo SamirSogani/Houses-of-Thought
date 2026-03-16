@@ -122,7 +122,7 @@ export default function Dashboard() {
                   stroke="currentColor" strokeWidth="1.5" fill="hsl(var(--primary) / 0.08)" className="text-muted-foreground" />
               </svg>
               <h3 className="text-lg font-display font-semibold text-foreground mb-2">No analyses yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first House of Reason to start thinking critically.</p>
+              <p className="text-muted-foreground mb-4">Create your first House of Thought to start thinking critically.</p>
               <Button onClick={createNewAnalysis}>
                 <Plus className="h-4 w-4 mr-2" /> Create First Analysis
               </Button>
