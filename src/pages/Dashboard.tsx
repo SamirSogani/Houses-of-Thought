@@ -101,7 +101,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-display font-bold text-foreground">Your Analyses</h2>
-            <p className="text-muted-foreground mt-1">Build and explore your Houses of Reason</p>
+            <p className="text-muted-foreground mt-1">Build and explore your Houses of Thought</p>
           </div>
         </div>
 
