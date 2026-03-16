@@ -78,7 +78,7 @@ export default function Dashboard() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Home className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-display font-bold text-foreground">House of Reason</h1>
+            <h1 className="text-xl font-display font-bold text-foreground">House of Thought</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={createNewAnalysis}>
