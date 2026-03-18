@@ -178,23 +178,75 @@ Return:
     const data = await groqResponse.json();
     const content = data?.choices?.[0]?.message?.content || "";
 
-    // Try to parse JSON from the response
-    let parsed;
-    try {
-      // Try direct parse first
-      parsed = JSON.parse(content);
-    } catch {
-      // Try extracting from code fences
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        try { parsed = JSON.parse(jsonMatch[1].trim()); } catch { parsed = null; }
+    // Try to parse JSON from the response, with repair for common LLM mistakes
+    function tryParseJSON(str: string): any {
+      try { return JSON.parse(str); } catch { return null; }
+    }
+
+    function repairAndParse(str: string): any {
+      // Try as-is first
+      let result = tryParseJSON(str);
+      if (result) return result;
+
+      // Common LLM mistakes: mismatched brackets
+      // Fix "] where it should be "} by counting brace depth
+      let repaired = str;
+      // Replace common pattern: ..."}] should be ..."}}}
+      // Strategy: try multiple bracket fixes
+      const fixes = [
+        // Fix: closing ] used instead of } 
+        () => {
+          let s = str;
+          // Balance braces: count { and } and [ and ]
+          const opens = (s.match(/\{/g) || []).length;
+          const closes = (s.match(/\}/g) || []).length;
+          const openBrackets = (s.match(/\[/g) || []).length;
+          const closeBrackets = (s.match(/\]/g) || []).length;
+          
+          if (opens > closes && closeBrackets > openBrackets) {
+            // Replace excess ] with } from the end
+            let diff = opens - closes;
+            for (let i = 0; i < diff; i++) {
+              const lastBracket = s.lastIndexOf(']');
+              if (lastBracket >= 0) {
+                s = s.substring(0, lastBracket) + '}' + s.substring(lastBracket + 1);
+              }
+            }
+          }
+          return s;
+        },
+        // Fix trailing commas before } or ]
+        () => str.replace(/,\s*([}\]])/g, '$1'),
+      ];
+
+      for (const fix of fixes) {
+        const fixed = fix();
+        result = tryParseJSON(fixed);
+        if (result) return result;
       }
-      if (!parsed) {
-        // Try finding JSON object in text
-        const objMatch = content.match(/\{[\s\S]*\}/);
-        if (objMatch) {
-          try { parsed = JSON.parse(objMatch[0]); } catch { parsed = null; }
-        }
+
+      return null;
+    }
+
+    let jsonText = content;
+    // Extract from code fences if present
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[1].trim();
+    }
+
+    let parsed = repairAndParse(jsonText);
+
+    if (!parsed && jsonText !== content) {
+      // Try the raw content too
+      parsed = repairAndParse(content);
+    }
+
+    if (!parsed) {
+      // Last resort: find JSON object in text
+      const objMatch = content.match(/\{[\s\S]*\}/);
+      if (objMatch) {
+        parsed = repairAndParse(objMatch[0]);
       }
     }
 
