@@ -91,5 +91,6 @@ export default function AuthPage() {
       </Card>
     </div>
     <SiteFooter />
-  </>;
+    </div>
+  );
 }
