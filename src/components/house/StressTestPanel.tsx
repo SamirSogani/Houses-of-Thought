@@ -151,7 +151,7 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
 
           {/* Assessment */}
           <div className="bg-primary/5 border border-primary/20 rounded p-2">
-            <p className="text-[10px] text-foreground leading-relaxed">{result.overall_assessment}</p>
+            <p className="text-[10px] text-foreground leading-relaxed break-words whitespace-pre-wrap">{result.overall_assessment}</p>
           </div>
 
           {/* Vulnerabilities */}
@@ -159,15 +159,15 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground">Vulnerabilities Found ({result.vulnerabilities.length})</p>
               {result.vulnerabilities.map((v, i) => (
-                <div key={i} className="bg-card border border-border rounded p-2 space-y-1.5">
+                <div key={i} className="bg-card border border-border rounded p-2 space-y-1.5 overflow-hidden">
                   <div className="flex items-start justify-between gap-1">
                     <div className="flex items-center gap-1">
                       <SeverityIcon severity={v.severity} />
-                      <span className="text-[10px] font-medium truncate">{v.target}</span>
+                      <span className="text-[10px] font-medium break-words min-w-0">{v.target}</span>
                     </div>
                     <SeverityBadge severity={v.severity} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">{v.counter_argument}</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed break-words whitespace-pre-wrap">{v.counter_argument}</p>
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[9px] h-4">{v.pov}</Badge>
                   </div>

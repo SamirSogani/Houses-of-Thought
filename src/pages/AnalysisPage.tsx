@@ -150,9 +150,12 @@ export default function AnalysisPage() {
         </button>
       </aside>
 
-      {/* Collapsible Tool Panel */}
+      {/* Resizable Tool Panel */}
       {showToolPanel && (
-        <aside className="w-72 shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col">
+        <aside
+          className="shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col resize-x overflow-auto"
+          style={{ width: 288, minWidth: 220, maxWidth: 600 }}
+        >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-display font-semibold text-muted-foreground">
               {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
