@@ -4,11 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Pencil, Bot } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
+import InteractiveHouseBuilder from "@/components/house/InteractiveHouseBuilder";
 import AISidebar from "@/components/ai/AISidebar";
 import TodoPanel from "@/components/house/TodoPanel";
 
@@ -26,6 +26,7 @@ export default function AnalysisPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [viewMode, setViewMode] = useState<"standard" | "builder">("standard");
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -82,7 +83,6 @@ export default function AnalysisPage() {
 
   const declineAllDrafts = async () => {
     if (!id || !analysis) return;
-    // Clear drafted analysis fields and delete drafted sub-questions
     await Promise.all([
       supabase.from("analyses").update({
         purpose: "", sub_purposes: "", overarching_question: "", consequences: "",
@@ -105,67 +105,99 @@ export default function AnalysisPage() {
   if (!analysis) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-        onClick={() => setAiOpen(true)}
-      >
-        <Bot className="h-5 w-5" />
-      </Button>
+    <div className="min-h-screen bg-background flex">
+      {/* Left Sidebar — View Toggle */}
+      <aside className="w-14 shrink-0 border-r border-border bg-card/80 flex flex-col items-center py-4 gap-2 sticky top-0 h-screen">
+        <button
+          onClick={() => setViewMode("standard")}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Standard Editing View"
+        >
+          <LayoutGrid className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => setViewMode("builder")}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "builder" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Interactive House Builder"
+        >
+          <Building2 className="h-5 w-5" />
+        </button>
+      </aside>
 
-      <AISidebar
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        analysis={analysis}
-        subQuestions={subQuestions}
-        profile={profile}
-        onDraftComplete={loadData}
-      />
+      {/* Main Content */}
+      <div className="flex-1 min-w-0">
+        {/* AI FAB */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={() => setAiOpen(true)}
+        >
+          <Bot className="h-5 w-5" />
+        </Button>
 
-      <div className="page-container max-w-6xl">
-        <div className="breadcrumb-nav">
-          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Dashboard
-          </button>
-          <span>/</span>
-          <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-8">
-          {editingTitle ? (
-            <div className="flex items-center gap-2 flex-1">
-              <Input
-                value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                className="text-2xl font-display font-bold"
-                autoFocus
-                onBlur={saveTitle}
-                onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-              />
-            </div>
-          ) : (
-            <h1
-              className="text-3xl font-display font-bold text-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
-              onClick={() => setEditingTitle(true)}
-            >
-              {analysis.title}
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </h1>
-          )}
-        </div>
-
-        <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />
-
-        <HouseVisualization
+        <AISidebar
+          open={aiOpen}
+          onOpenChange={setAiOpen}
           analysis={analysis}
           subQuestions={subQuestions}
-          onUpdateField={updateField}
-          onNavigate={navigate}
-          onAcceptDraft={acceptAllDrafts}
-          onDeclineDraft={declineAllDrafts}
+          profile={profile}
+          onDraftComplete={loadData}
         />
+
+        <div className="page-container max-w-6xl">
+          <div className="breadcrumb-nav">
+            <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Dashboard
+            </button>
+            <span>/</span>
+            <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
+          </div>
+
+          <div className="flex items-center gap-3 mb-8">
+            {editingTitle ? (
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  className="text-2xl font-display font-bold"
+                  autoFocus
+                  onBlur={saveTitle}
+                  onKeyDown={(e) => e.key === "Enter" && saveTitle()}
+                />
+              </div>
+            ) : (
+              <h1
+                className="text-3xl font-display font-bold text-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
+                onClick={() => setEditingTitle(true)}
+              >
+                {analysis.title}
+                <Pencil className="h-4 w-4 text-muted-foreground" />
+              </h1>
+            )}
+          </div>
+
+          {viewMode === "standard" ? (
+            <>
+              <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />
+              <HouseVisualization
+                analysis={analysis}
+                subQuestions={subQuestions}
+                onUpdateField={updateField}
+                onNavigate={navigate}
+                onAcceptDraft={acceptAllDrafts}
+                onDeclineDraft={declineAllDrafts}
+              />
+            </>
+          ) : (
+            <InteractiveHouseBuilder
+              analysis={analysis}
+              subQuestions={subQuestions}
+              profile={profile}
+              onNavigate={navigate}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
