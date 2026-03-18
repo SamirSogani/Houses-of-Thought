@@ -62,6 +62,7 @@ const HOUSE_LAYERS = [
 /* ─── Component ─── */
 export default function FrameworkPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
 
   return (
@@ -69,8 +70,8 @@ export default function FrameworkPage() {
       {/* ── HERO ── */}
       <section className="relative py-24 px-6 text-center border-b border-border">
         <div className="max-w-3xl mx-auto space-y-6">
-          <button onClick={() => navigate("/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto mb-4">
-            <ArrowLeft className="h-4 w-4" /> Back to Home
+          <button onClick={() => navigate(user ? "/dashboard" : "/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto mb-4">
+            <ArrowLeft className="h-4 w-4" /> {user ? "Back to Dashboard" : "Back to Home"}
           </button>
           <p className="text-xs font-mono tracking-[0.3em] uppercase text-muted-foreground">Critical Thinking Framework</p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight">
