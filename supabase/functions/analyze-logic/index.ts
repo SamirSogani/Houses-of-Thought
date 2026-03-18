@@ -131,6 +131,25 @@ Return:
   ]
 }`;
       userPrompt = `Suggest credible sources for this fact:\n\n${analysisContext}`;
+    } else if (mode === "rate_evidence") {
+      systemPrompt = `You are a strict evidence quality evaluator for academic reasoning. Rate the strength of evidence claims HONESTLY and HARSHLY. Most casual claims without citations are "weak" or "unsupported". Be fair but demanding.
+
+Rating criteria:
+- "very_strong": Backed by peer-reviewed research, verified data, direct measurements, or government statistics. Extremely rare for unsubstantiated claims.
+- "strong": Well-sourced from reputable institutions, strong statistical backing, expert consensus. Requires clear specificity.
+- "moderate": Reasonable claim with some basis but lacks specific evidence or citations. Partially supported.
+- "weak": Anecdotal, vague, overgeneralized, or opinion-based. No specific data cited.
+- "unsupported": No evidence whatsoever, purely speculative, or demonstrably false.
+
+IMPORTANT: Default to "weak" or "unsupported" unless the claim contains specific, verifiable information. Vague statements like "studies show" without specifics are "weak". Personal opinions are "unsupported".
+
+Return ONLY valid JSON:
+{
+  "ratings": [
+    {"index": 0, "rating": "very_strong|strong|moderate|weak|unsupported", "reason": "string - brief explanation"}
+  ]
+}`;
+      userPrompt = `Rate the evidence strength of these facts:\n\n${analysisContext}`;
     } else {
       return new Response(JSON.stringify({ error: 'Invalid mode' }), { status: 400, headers: corsHeaders });
     }

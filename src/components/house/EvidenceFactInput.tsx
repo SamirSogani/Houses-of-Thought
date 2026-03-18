@@ -57,12 +57,46 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
   const [newSourceTitle, setNewSourceTitle] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [findingSourcesFor, setFindingSourcesFor] = useState<number | null>(null);
+  const [ratingIndex, setRatingIndex] = useState<number | null>(null);
+
+  const autoRateEvidence = async (factText: string, index: number, currentItems: FactEntry[]) => {
+    setRatingIndex(index);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const ctx = analysisContext
+        ? `Facts:\n${index}. "${factText}"\n\nContext: ${analysisContext}`
+        : `Facts:\n${index}. "${factText}"`;
+
+      const res = await supabase.functions.invoke("analyze-logic", {
+        body: { mode: "rate_evidence", analysisContext: ctx },
+      });
+
+      if (res.error || !res.data?.ratings) return;
+
+      const rating = res.data.ratings[0];
+      if (rating?.rating) {
+        const updated = currentItems.map((item, i) =>
+          i === index ? { ...item, evidenceStrength: rating.rating as FactEntry["evidenceStrength"] } : item
+        );
+        onChange(updated);
+      }
+    } catch {
+      // Silently fail - user can still manually rate
+    } finally {
+      setRatingIndex(null);
+    }
+  };
 
   const addItem = () => {
     const trimmed = newItem.trim();
     if (!trimmed) return;
-    onChange([...items, { text: trimmed, evidenceStrength: "moderate", sources: [] }]);
+    const newItems = [...items, { text: trimmed, evidenceStrength: "unsupported" as const, sources: [] }];
+    onChange(newItems);
     setNewItem("");
+    // Auto-rate in background
+    autoRateEvidence(trimmed, newItems.length - 1, newItems);
   };
 
   const removeItem = (index: number) => {
