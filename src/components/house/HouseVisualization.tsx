@@ -76,7 +76,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
           onClick={() => onNavigate(`/analysis/${analysisId}/consequences`)}
         >
           <CardContent className="py-4 text-center">
-            <p className="text-xs font-mono text-muted-foreground mb-1">8</p>
+            <p className="text-xs font-mono text-muted-foreground mb-1">8b</p>
             <h4 className="text-sm font-display font-semibold">Consequences</h4>
           </CardContent>
         </Card>
