@@ -180,15 +180,57 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
     }
   };
 
+  const rateAllEvidence = async () => {
+    if (items.length === 0) return;
+    setRatingIndex(-1); // -1 means rating all
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Please sign in"); return; }
+
+      const factsText = items.map((item, i) => `${i}. "${item.text}"`).join("\n");
+      const ctx = analysisContext ? `Facts:\n${factsText}\n\nContext: ${analysisContext}` : `Facts:\n${factsText}`;
+
+      const res = await supabase.functions.invoke("analyze-logic", {
+        body: { mode: "rate_evidence", analysisContext: ctx },
+      });
+
+      if (res.error) throw new Error(res.error.message);
+      const ratings = res.data?.ratings || [];
+      if (ratings.length > 0) {
+        const updated = items.map((item, i) => {
+          const rating = ratings.find((r: any) => r.index === i);
+          return rating ? { ...item, evidenceStrength: rating.rating as FactEntry["evidenceStrength"] } : item;
+        });
+        onChange(updated);
+        toast.success("Evidence ratings updated");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to rate evidence");
+    } finally {
+      setRatingIndex(null);
+    }
+  };
+
   return (
     <div className="space-y-2">
       {items.length > 0 && (
-        <ul className="space-y-2">
+        <>
+          <div className="flex justify-end">
+            <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1" onClick={rateAllEvidence} disabled={ratingIndex !== null}>
+              {ratingIndex === -1 ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Search className="h-2.5 w-2.5" />}
+              Rate All Evidence
+            </Button>
+          </div>
+          <ul className="space-y-2">
           {items.map((item, index) => (
             <li key={index} className="border border-border rounded-lg p-2 space-y-1.5 bg-card/50">
               {/* Fact text */}
               <div className="flex items-start gap-2 group">
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${strengthDots[item.evidenceStrength]}`} />
+                {ratingIndex === index ? (
+                  <Loader2 className="w-3 h-3 mt-1.5 shrink-0 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${strengthDots[item.evidenceStrength]}`} />
+                )}
                 {editingIndex === index ? (
                   <div className="flex-1 flex items-center gap-1">
                     <Input value={editValue} onChange={(e) => setEditValue(e.target.value)}
