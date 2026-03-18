@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowDown, ChevronRight, BookOpen, Lightbulb, Target, Eye,
+  ArrowDown, ArrowLeft, ChevronRight, BookOpen, Lightbulb, Target, Eye,
   HelpCircle, Layers, Brain, CheckCircle2, AlertTriangle,
   ArrowRight, RefreshCw, HelpingHand, Zap, BarChart3, Shield,
   Users, GraduationCap, Beaker, Scale,
