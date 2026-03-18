@@ -150,6 +150,7 @@ export default function ProfilePage() {
           <DeleteAccountSection />
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

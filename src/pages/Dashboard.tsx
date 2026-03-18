@@ -215,6 +215,7 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+      <SiteFooter />
     </div>
   );
 }

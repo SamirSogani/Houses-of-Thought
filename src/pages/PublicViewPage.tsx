@@ -131,6 +131,7 @@ export default function PublicViewPage() {
           </Card>
         )}
       </div>
+      <SiteFooter />
     </div>
   );
 }

@@ -499,6 +499,7 @@ export default function FrameworkPage() {
           </p>
         </div>
       </footer>
+      <SiteFooter />
     </div>
   );
 }

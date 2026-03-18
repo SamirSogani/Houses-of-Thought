@@ -90,6 +90,7 @@ export default function PrivacyPage() {
           </section>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
