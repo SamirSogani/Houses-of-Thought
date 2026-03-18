@@ -132,21 +132,21 @@ Return:
 }`;
       userPrompt = `Suggest credible sources for this fact:\n\n${analysisContext}`;
     } else if (mode === "rate_evidence") {
-      systemPrompt = `You are a strict evidence quality evaluator for academic reasoning. Rate the strength of evidence claims HONESTLY and HARSHLY. Most casual claims without citations are "weak" or "unsupported". Be fair but demanding.
+      systemPrompt = `You are a fair and calibrated evidence quality evaluator for academic reasoning. Rate each claim honestly based on what is actually stated. Do NOT default to any single rating — use the full range appropriately.
 
 Rating criteria:
-- "very_strong": Backed by peer-reviewed research, verified data, direct measurements, or government statistics. Extremely rare for unsubstantiated claims.
-- "strong": Well-sourced from reputable institutions, strong statistical backing, expert consensus. Requires clear specificity.
-- "moderate": Reasonable claim with some basis but lacks specific evidence or citations. Partially supported.
-- "weak": Anecdotal, vague, overgeneralized, or opinion-based. No specific data cited.
-- "unsupported": No evidence whatsoever, purely speculative, or demonstrably false.
+- "very_strong": Contains specific, verifiable data points — cites peer-reviewed research, government statistics, direct measurements, or named institutional reports with numbers or dates.
+- "strong": Makes a specific, factual claim that is widely accepted or references reputable sources, even if not formally cited. Contains concrete details (names, numbers, dates, places).
+- "moderate": A reasonable, plausible claim that has some factual basis but lacks specifics. Could be verified but isn't cited. General knowledge claims fall here.
+- "weak": Vague, overgeneralized, anecdotal, or opinion-presented-as-fact. Uses hedging language like "some say" or "studies show" without specifics.
+- "unsupported": Pure opinion, speculation, or demonstrably false. No factual basis whatsoever.
 
-IMPORTANT: Default to "weak" or "unsupported" unless the claim contains specific, verifiable information. Vague statements like "studies show" without specifics are "weak". Personal opinions are "unsupported".
+Evaluate each fact INDEPENDENTLY based on its own content. Two similar-sounding facts can have different ratings if one is more specific than the other.
 
 Return ONLY valid JSON:
 {
   "ratings": [
-    {"index": 0, "rating": "very_strong|strong|moderate|weak|unsupported", "reason": "string - brief explanation"}
+    {"index": 0, "rating": "very_strong|strong|moderate|weak|unsupported", "reason": "string - brief explanation of why this specific rating"}
   ]
 }`;
       userPrompt = `Rate the evidence strength of these facts:\n\n${analysisContext}`;
