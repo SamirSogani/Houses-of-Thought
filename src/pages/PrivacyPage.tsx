@@ -1,14 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import SiteFooter from "@/components/layout/SiteFooter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-16">
-        <button onClick={() => navigate("/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Back to Home
+        <button onClick={() => navigate(user ? "/dashboard" : "/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> {user ? "Back to Dashboard" : "Back to Home"}
         </button>
         <h1 className="text-4xl font-display font-bold mb-2">Privacy Policy</h1>
         <p className="text-muted-foreground mb-10">Last updated: March 18, 2026</p>
