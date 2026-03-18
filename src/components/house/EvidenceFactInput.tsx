@@ -92,7 +92,7 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
   const addItem = () => {
     const trimmed = newItem.trim();
     if (!trimmed) return;
-    const newItems = [...items, { text: trimmed, evidenceStrength: "unsupported" as const, sources: [] }];
+    const newItems = [...items, { text: trimmed, evidenceStrength: "moderate" as const, sources: [] }];
     onChange(newItems);
     setNewItem("");
     // Auto-rate in background
