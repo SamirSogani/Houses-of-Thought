@@ -317,6 +317,7 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
             </li>
           ))}
         </ul>
+        </>
       )}
 
       <div className="flex items-center gap-2">
