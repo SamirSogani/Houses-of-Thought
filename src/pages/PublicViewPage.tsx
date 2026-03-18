@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Home } from "lucide-react";
+import SiteFooter from "@/components/layout/SiteFooter";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Analysis = Tables<"analyses">;
