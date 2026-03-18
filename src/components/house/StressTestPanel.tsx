@@ -167,7 +167,7 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
                     </div>
                     <SeverityBadge severity={v.severity} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">{v.counter_argument}</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed break-words whitespace-pre-wrap">{v.counter_argument}</p>
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="text-[9px] h-4">{v.pov}</Badge>
                   </div>
