@@ -685,10 +685,152 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
       }
 
+      // ─── Auto-Test & Auto-Refine Loop ───────────────────
+      toast.info("Draft complete. Running auto-evaluation...");
+      onDraftComplete?.(); // reload data first
+
+      const MAX_REFINE_ITERATIONS = 3;
+      let iteration = 0;
+      let finalLogicScore = 0;
+      let finalResilienceScore = 0;
+
+      while (iteration < MAX_REFINE_ITERATIONS) {
+        iteration++;
+        toast.info(`Auto-evaluation round ${iteration}...`);
+
+        // Reload fresh data for evaluation
+        const [freshAnalysis, freshSqs] = await Promise.all([
+          supabase.from("analyses").select("*").eq("id", analysis.id).maybeSingle(),
+          supabase.from("sub_questions").select("*").eq("analysis_id", analysis.id).order("sort_order"),
+        ]);
+        const currentAnalysis = freshAnalysis.data || analysis;
+        const currentSqs = freshSqs.data || [];
+
+        // Build context for evaluation
+        let evalCtx = `Title: ${currentAnalysis.title}\nPurpose: ${currentAnalysis.purpose || "N/A"}\nQuestion: ${currentAnalysis.overarching_question || "N/A"}\nConclusion: ${currentAnalysis.overarching_conclusion || "N/A"}\nConsequences: ${currentAnalysis.consequences || "N/A"}\n\n`;
+        if (profile) {
+          evalCtx += `POV: Bio=${profile.biological}, Social=${profile.social}, Familial=${profile.familial}, Individual=${profile.individual}\n\n`;
+        }
+        currentSqs.forEach((sq: any, i: number) => {
+          evalCtx += `SQ${i + 1} [${sq.pov_category}]: "${sq.question}" Info: ${sq.information || "None"} Conclusion: ${sq.sub_conclusion || "None"}\n`;
+        });
+
+        // Run logic strength + stress test in parallel
+        const [logicRes, stressRes] = await Promise.all([
+          supabase.functions.invoke("analyze-logic", { body: { mode: "analyze", analysisContext: evalCtx } }),
+          supabase.functions.invoke("analyze-logic", { body: { mode: "stress_test", analysisContext: evalCtx } }),
+        ]);
+
+        const logicData = logicRes.data;
+        const stressData = stressRes.data;
+        finalLogicScore = logicData?.score || 0;
+        finalResilienceScore = stressData?.resilience_score || 0;
+
+        // Check if overarching_question was user-provided (existed before draft)
+        const userProvidedQuestion = !!analysis.overarching_question?.trim();
+
+        // Determine effective logic score (exclude completeness penalty if no user question)
+        let effectiveLogicScore = finalLogicScore;
+        if (!userProvidedQuestion && logicData?.categories?.completeness) {
+          // Recalculate without completeness: scale remaining 3 categories to 100
+          const cats = logicData.categories;
+          const nonCompletenessTotal = (cats.evidence_strength?.score || 0) + (cats.assumption_reliability?.score || 0) + (cats.logical_consistency?.score || 0);
+          effectiveLogicScore = Math.round((nonCompletenessTotal / 75) * 100);
+        }
+
+        toast.info(`Round ${iteration}: Logic ${effectiveLogicScore}/100, Resilience ${finalResilienceScore}/100`);
+
+        // If both >= 95, we're done
+        if (effectiveLogicScore >= 95 && finalResilienceScore >= 95) {
+          toast.success(`Auto-refinement complete! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
+          break;
+        }
+
+        // If last iteration, don't refine further
+        if (iteration >= MAX_REFINE_ITERATIONS) {
+          toast.info(`Max refinement rounds reached. Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
+          break;
+        }
+
+        // Build refinement prompt from weaknesses
+        let refineFeedback = "REFINEMENT NEEDED. Fix these issues:\n\n";
+        if (effectiveLogicScore < 95 && logicData?.suggestions) {
+          refineFeedback += "Logic weaknesses:\n" + logicData.suggestions.map((s: string) => `- ${s}`).join("\n") + "\n\n";
+          if (logicData.categories) {
+            for (const [key, cat] of Object.entries(logicData.categories) as any) {
+              if (key === "completeness" && !userProvidedQuestion) continue;
+              if (cat.status !== "strong") {
+                refineFeedback += `- ${key}: ${cat.details}\n`;
+              }
+            }
+          }
+        }
+        if (finalResilienceScore < 95 && stressData?.vulnerabilities) {
+          refineFeedback += "\nStress test vulnerabilities:\n";
+          stressData.vulnerabilities.forEach((v: any) => {
+            refineFeedback += `- [${v.severity}] ${v.target}: ${v.counter_argument} → Suggestion: ${v.suggestion}\n`;
+          });
+        }
+
+        toast.info(`Refining draft (round ${iteration + 1})...`);
+
+        // Ask AI to refine the information fields of sub-questions
+        const refinePrompt = `You are a critical thinking refinement assistant. Given the current analysis and feedback, improve the INFORMATION fields of existing sub-questions to strengthen evidence, fix logical issues, and address vulnerabilities.
+
+${refineFeedback}
+
+Current sub-questions:
+${currentSqs.map((sq: any, i: number) => `${i + 1}. [id:${sq.id}] "${sq.question}" — Current info: "${sq.information}"`).join("\n")}
+
+Return ONLY valid JSON:
+{"updates": [{"id": "sub_question_id", "information": "improved information text with stronger evidence and reasoning"}]}
+
+Rules:
+- Only update sub-questions that need improvement
+- Make information more specific, evidence-based, and well-reasoned
+- Do NOT add sub-conclusions — leave those for the user
+- Do NOT change the questions themselves`;
+
+        const refineRes = await supabase.functions.invoke("groq-chat", {
+          body: {
+            messages: [
+              { role: "system", content: refinePrompt },
+              { role: "user", content: `Refine based on scores: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
+            ],
+            mode: "draft",
+          },
+        });
+
+        if (!refineRes.error) {
+          const refineReply = refineRes.data?.choices?.[0]?.message?.content || "";
+          try {
+            let cleanReply = refineReply.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
+            const refineData = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
+            if (refineData.updates && Array.isArray(refineData.updates)) {
+              for (const update of refineData.updates) {
+                if (update.id && update.information) {
+                  await supabase.from("sub_questions").update({
+                    information: update.information,
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", update.id);
+                }
+              }
+              toast.success(`Refined ${refineData.updates.length} sub-questions`);
+            }
+          } catch (e) {
+            console.error("Failed to parse refinement response:", e);
+          }
+        }
+      }
+
+      // Final reload
+      onDraftComplete?.();
+
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete! Generated ${allSubQuestions.length}/${requestedCount} sub-questions with comprehensive assumptions. Review the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated — enter them yourself as they unfold. Use the Consequences page to generate AI-predicted implications.` },
+        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length}/${requestedCount} sub-questions.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
@@ -696,7 +838,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       });
       persistMessages([...messages, ...draftMsg]);
       toast.success(`Draft applied with ${allSubQuestions.length} sub-questions!`);
-      onDraftComplete?.();
     } catch (err: any) {
       toast.error(err.message || "Draft failed");
     } finally {
