@@ -85,15 +85,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteNavbar />
 
-      {/* Attribution Banner */}
-      <div className="bg-primary/5 border-b border-primary/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-center">
-          <p className="text-sm text-muted-foreground">
-            Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
-          </p>
-        </div>
-      </div>
-
       {/* HERO */}
       <section className="relative overflow-hidden">
         {/* Blueprint grid background */}
@@ -112,6 +103,9 @@ export default function HomePage() {
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed">
                 House of Thought is an AI-powered reasoning system that helps you break down complex questions, examine different perspectives, and build stronger conclusions.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button size="lg" onClick={() => navigate("/auth")}>
