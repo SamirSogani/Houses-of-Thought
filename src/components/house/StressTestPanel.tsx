@@ -163,7 +163,7 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
                   <div className="flex items-start justify-between gap-1">
                     <div className="flex items-center gap-1">
                       <SeverityIcon severity={v.severity} />
-                      <span className="text-[10px] font-medium truncate">{v.target}</span>
+                      <span className="text-[10px] font-medium break-words min-w-0">{v.target}</span>
                     </div>
                     <SeverityBadge severity={v.severity} />
                   </div>
