@@ -151,41 +151,38 @@ export default function AnalysisPage() {
         </button>
       </aside>
 
-      {/* Collapsible Tool Panel */}
+      {/* Resizable Tool Panel */}
       {showToolPanel && (
-        <aside className="shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col" style={{ width: 'var(--tool-panel-width, 288px)' }}>
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={100} minSize={50}>
-              <div className="h-full flex flex-col">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="text-xs font-display font-semibold text-muted-foreground">
-                    {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
-                  </span>
-                  <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                </div>
-                <ScrollArea className="flex-1 p-3">
-                  {toolPanel === "logic" && (
-                    <LogicStrengthPanel
-                      analysis={analysis}
-                      subQuestions={subQuestions}
-                      profile={profile}
-                      onStartStressTest={() => setToolPanel("stress")}
-                    />
-                  )}
-                  {toolPanel === "stress" && (
-                    <StressTestPanel
-                      analysis={analysis}
-                      subQuestions={subQuestions}
-                      profile={profile}
-                      onBack={() => setToolPanel("logic")}
-                    />
-                  )}
-                </ScrollArea>
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+        <aside
+          className="shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col resize-x overflow-auto"
+          style={{ width: 288, minWidth: 220, maxWidth: 600 }}
+        >
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-xs font-display font-semibold text-muted-foreground">
+              {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
+            </span>
+            <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+          <ScrollArea className="flex-1 p-3">
+            {toolPanel === "logic" && (
+              <LogicStrengthPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onStartStressTest={() => setToolPanel("stress")}
+              />
+            )}
+            {toolPanel === "stress" && (
+              <StressTestPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onBack={() => setToolPanel("logic")}
+              />
+            )}
+          </ScrollArea>
         </aside>
       )}
 
