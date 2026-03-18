@@ -4,13 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
 import InteractiveHouseBuilder from "@/components/house/InteractiveHouseBuilder";
 import AISidebar from "@/components/ai/AISidebar";
 import TodoPanel from "@/components/house/TodoPanel";
+import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
+import StressTestPanel from "@/components/house/StressTestPanel";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -27,6 +30,8 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "builder">("standard");
+  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress">("none");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -104,10 +109,13 @@ export default function AnalysisPage() {
 
   if (!analysis) return null;
 
+  const showToolPanel = toolPanel !== "none" && !sidebarCollapsed;
+
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Sidebar — View Toggle */}
+      {/* Left Sidebar — View Toggle + Tools */}
       <aside className="w-14 shrink-0 border-r border-border bg-card/80 flex flex-col items-center py-4 gap-2 sticky top-0 h-screen">
+        {/* View toggles */}
         <button
           onClick={() => setViewMode("standard")}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
@@ -122,7 +130,57 @@ export default function AnalysisPage() {
         >
           <Building2 className="h-5 w-5" />
         </button>
+
+        <div className="w-8 border-t border-border my-1" />
+
+        {/* Tool toggles */}
+        <button
+          onClick={() => { setToolPanel(toolPanel === "logic" ? "none" : "logic"); setSidebarCollapsed(false); }}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "logic" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Logic Strength Meter"
+        >
+          <TrendingUp className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => { setToolPanel(toolPanel === "stress" ? "none" : "stress"); setSidebarCollapsed(false); }}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "stress" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Reasoning Stress Test"
+        >
+          <Shield className="h-5 w-5" />
+        </button>
       </aside>
+
+      {/* Collapsible Tool Panel */}
+      {showToolPanel && (
+        <aside className="w-72 shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-xs font-display font-semibold text-muted-foreground">
+              {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
+            </span>
+            <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+          <ScrollArea className="flex-1 p-3">
+            {toolPanel === "logic" && (
+              <LogicStrengthPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onStartStressTest={() => setToolPanel("stress")}
+              />
+            )}
+            {toolPanel === "stress" && (
+              <StressTestPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onBack={() => setToolPanel("logic")}
+              />
+            )}
+          </ScrollArea>
+        </aside>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 min-w-0">
