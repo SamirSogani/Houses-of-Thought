@@ -151,7 +151,7 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
 
           {/* Assessment */}
           <div className="bg-primary/5 border border-primary/20 rounded p-2">
-            <p className="text-[10px] text-foreground leading-relaxed">{result.overall_assessment}</p>
+            <p className="text-[10px] text-foreground leading-relaxed break-words whitespace-pre-wrap">{result.overall_assessment}</p>
           </div>
 
           {/* Vulnerabilities */}
