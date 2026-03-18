@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AuthPage() {
+  const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
