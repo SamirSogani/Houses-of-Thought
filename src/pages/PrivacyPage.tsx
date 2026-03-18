@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import SiteFooter from "@/components/layout/SiteFooter";
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
@@ -89,6 +90,7 @@ export default function PrivacyPage() {
           </section>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

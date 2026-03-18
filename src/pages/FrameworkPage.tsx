@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import SiteFooter from "@/components/layout/SiteFooter";
 import {
   Tooltip,
   TooltipContent,
@@ -499,6 +500,7 @@ export default function FrameworkPage() {
           </p>
         </div>
       </footer>
+      <SiteFooter />
     </div>
   );
 }

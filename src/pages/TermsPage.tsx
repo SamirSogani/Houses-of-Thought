@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import SiteFooter from "@/components/layout/SiteFooter";
 
 export default function TermsPage() {
   const navigate = useNavigate();
@@ -86,6 +87,7 @@ export default function TermsPage() {
           </section>
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
