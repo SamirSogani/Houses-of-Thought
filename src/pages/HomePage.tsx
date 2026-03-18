@@ -275,6 +275,15 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Attribution */}
+      <section className="py-8 px-6 border-t border-border bg-muted/20">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-sm text-muted-foreground">
+            Built by <strong className="text-foreground">Samir Sogani</strong>, based on John Trapasso's <em>House of Reason</em> model, derived from the <strong>Paul-Elder Framework</strong> for Critical Thinking.
+          </p>
+        </div>
+      </section>
+
       <SiteFooter />
     </div>
   );
