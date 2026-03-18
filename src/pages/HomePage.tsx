@@ -85,6 +85,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteNavbar />
 
+      {/* Attribution Banner */}
+      <div className="bg-primary/5 border-b border-primary/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
+          </p>
+        </div>
+      </div>
+
       {/* HERO */}
       <section className="relative overflow-hidden">
         {/* Blueprint grid background */}
