@@ -6,16 +6,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
-import BulletListInput from "@/components/ui/BulletListInput";
+import EvidenceFactInput, { type FactEntry } from "@/components/house/EvidenceFactInput";
 
 type SubQuestion = Tables<"sub_questions">;
+
+// Parse information field: supports both legacy string[] and new FactEntry[] format
+function parseInfoItems(raw: string): FactEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return raw ? [{ text: raw, evidenceStrength: "moderate" as const, sources: [] }] : [];
+    // Check if it's the new format (objects with text field) or legacy (plain strings)
+    if (parsed.length === 0) return [];
+    if (typeof parsed[0] === "string") {
+      // Legacy format: convert strings to FactEntry
+      return parsed.map((s: string) => ({ text: s, evidenceStrength: "moderate" as const, sources: [] }));
+    }
+    // New format
+    return parsed.map((item: any) => ({
+      text: item.text || "",
+      evidenceStrength: item.evidenceStrength || "moderate",
+      sources: item.sources || [],
+    }));
+  } catch {
+    return raw ? [{ text: raw, evidenceStrength: "moderate" as const, sources: [] }] : [];
+  }
+}
 
 export default function SubQuestionAnalysisPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
   const [sq, setSq] = useState<SubQuestion | null>(null);
   const [analysisTitle, setAnalysisTitle] = useState("");
-  const [infoItems, setInfoItems] = useState<string[]>([]);
+  const [infoItems, setInfoItems] = useState<FactEntry[]>([]);
 
   useEffect(() => { loadData(); }, [subQuestionId]);
 
@@ -26,18 +49,8 @@ export default function SubQuestionAnalysisPage() {
     ]);
     setSq(sqRes.data);
     setAnalysisTitle(aRes.data?.title || "");
-    // Parse information as bullet list or legacy text
     if (sqRes.data?.information) {
-      try {
-        const parsed = JSON.parse(sqRes.data.information);
-        if (Array.isArray(parsed)) {
-          setInfoItems(parsed);
-        } else {
-          setInfoItems(sqRes.data.information ? [sqRes.data.information] : []);
-        }
-      } catch {
-        setInfoItems(sqRes.data.information ? [sqRes.data.information] : []);
-      }
+      setInfoItems(parseInfoItems(sqRes.data.information));
     }
   };
 
@@ -46,7 +59,7 @@ export default function SubQuestionAnalysisPage() {
     await supabase.from("sub_questions").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", subQuestionId!);
   };
 
-  const handleInfoChange = useCallback((items: string[]) => {
+  const handleInfoChange = useCallback((items: FactEntry[]) => {
     setInfoItems(items);
     const serialized = JSON.stringify(items);
     setSq(prev => prev ? { ...prev, information: serialized } : prev);
@@ -86,17 +99,18 @@ export default function SubQuestionAnalysisPage() {
             </CardContent>
           </Card>
 
-          {/* Information - Bullet List */}
+          {/* Information - Evidence Fact Input */}
           <Card className="house-zone">
             <CardHeader>
               <CardTitle className="text-lg font-display">Information / Facts</CardTitle>
-              <p className="text-sm text-muted-foreground">Element 6</p>
+              <p className="text-sm text-muted-foreground">Element 6 — with Evidence Strength & Sources</p>
             </CardHeader>
             <CardContent>
-              <BulletListInput
+              <EvidenceFactInput
                 items={infoItems}
                 onChange={handleInfoChange}
                 placeholder="Add a fact or piece of evidence..."
+                analysisContext={`Analysis: ${analysisTitle}\nSub-question: ${sq.question}`}
               />
             </CardContent>
           </Card>
