@@ -32,7 +32,8 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex-1 flex flex-col items-center justify-center px-4">
       <button onClick={() => navigate("/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
         <ArrowLeft className="h-4 w-4" /> Back to Home
       </button>
