@@ -102,10 +102,10 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
 
         <Card
           className={`house-zone house-zone-roof cursor-pointer ${draftClass}`}
-          onClick={() => onNavigate(`/analysis/${analysisId}/consequences`)}
+          onClick={() => onNavigate(`/analysis/${analysisId}/implications`)}
         >
           <CardContent className="py-4 text-center">
-            <p className="text-xs font-mono text-muted-foreground mb-1">8</p>
+            <p className="text-xs font-mono text-muted-foreground mb-1">8a</p>
             <h4 className="text-sm font-display font-semibold">Implications</h4>
           </CardContent>
         </Card>
