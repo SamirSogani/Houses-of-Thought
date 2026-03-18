@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SiteFooter() {
+  const { user } = useAuth();
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -23,7 +26,7 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-3">Product</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/#features" className="hover:text-foreground transition-colors">Features</Link></li>
+              {!user && <li><Link to="/#features" className="hover:text-foreground transition-colors">Features</Link></li>}
               <li><Link to="/framework" className="hover:text-foreground transition-colors">Framework</Link></li>
               <li><Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
             </ul>
