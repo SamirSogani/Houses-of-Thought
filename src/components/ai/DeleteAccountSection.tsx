@@ -49,7 +49,7 @@ export default function DeleteAccountSection() {
       // Sign out (actual auth user deletion requires admin/service role)
       await supabase.auth.signOut();
       toast.success("Account data deleted. You have been signed out.");
-      window.location.href = "/auth";
+      window.location.href = "/";
     } catch (err: any) {
       toast.error(err.message || "Failed to delete account");
     } finally {
