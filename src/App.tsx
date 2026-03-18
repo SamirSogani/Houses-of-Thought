@@ -64,6 +64,8 @@ const App = () => (
             <Route path="/analysis/:analysisId/implications" element={<ProtectedRoute><ImplicationsPage /></ProtectedRoute>} />
             <Route path="/public/:id" element={<PublicViewPage />} />
             <Route path="/framework" element={<FrameworkPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
