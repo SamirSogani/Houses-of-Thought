@@ -689,14 +689,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       toast.info("Draft complete. Running auto-evaluation...");
       onDraftComplete?.(); // reload data first
 
-      const MAX_REFINE_ITERATIONS = 3;
+      const MAX_REFINE_ITERATIONS = 10;
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
+      let effectiveLogicScore = 0;
 
       while (iteration < MAX_REFINE_ITERATIONS) {
         iteration++;
-        toast.info(`Auto-evaluation round ${iteration}...`);
+        toast.info(`🔍 Auto-evaluation round ${iteration}/${MAX_REFINE_ITERATIONS}...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
@@ -706,13 +707,28 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         const currentAnalysis = freshAnalysis.data || analysis;
         const currentSqs = freshSqs.data || [];
 
-        // Build context for evaluation
-        let evalCtx = `Title: ${currentAnalysis.title}\nPurpose: ${currentAnalysis.purpose || "N/A"}\nQuestion: ${currentAnalysis.overarching_question || "N/A"}\nConclusion: ${currentAnalysis.overarching_conclusion || "N/A"}\nConsequences: ${currentAnalysis.consequences || "N/A"}\n\n`;
+        // Also fetch assumptions for full context
+        const sqIds = currentSqs.map((sq: any) => sq.id);
+        const { data: assumptions } = sqIds.length > 0
+          ? await supabase.from("assumptions").select("*").in("sub_question_id", sqIds)
+          : { data: [] };
+        const assumptionsByQ = new Map<string, any[]>();
+        (assumptions || []).forEach((a: any) => {
+          if (!assumptionsByQ.has(a.sub_question_id)) assumptionsByQ.set(a.sub_question_id, []);
+          assumptionsByQ.get(a.sub_question_id)!.push(a);
+        });
+
+        // Build rich context for evaluation
+        let evalCtx = `Title: ${currentAnalysis.title}\nPurpose: ${currentAnalysis.purpose || "N/A"}\nSub-Purposes: ${currentAnalysis.sub_purposes || "N/A"}\nQuestion: ${currentAnalysis.overarching_question || "N/A"}\nConclusion: ${currentAnalysis.overarching_conclusion || "N/A"}\nConsequences: ${currentAnalysis.consequences || "N/A"}\n\n`;
         if (profile) {
           evalCtx += `POV: Bio=${profile.biological}, Social=${profile.social}, Familial=${profile.familial}, Individual=${profile.individual}\n\n`;
         }
         currentSqs.forEach((sq: any, i: number) => {
-          evalCtx += `SQ${i + 1} [${sq.pov_category}]: "${sq.question}" Info: ${sq.information || "None"} Conclusion: ${sq.sub_conclusion || "None"}\n`;
+          evalCtx += `SQ${i + 1} [${sq.pov_category}] (id:${sq.id}): "${sq.question}"\n  Info: ${sq.information || "None"}\n  Conclusion: ${sq.sub_conclusion || "None"}\n`;
+          const sqAssumptions = assumptionsByQ.get(sq.id) || [];
+          if (sqAssumptions.length > 0) {
+            evalCtx += `  Assumptions: ${sqAssumptions.map((a: any) => `[${a.assumption_type}] ${a.content}`).join("; ")}\n`;
+          }
         });
 
         // Run logic strength + stress test in parallel
@@ -730,9 +746,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         const userProvidedQuestion = !!analysis.overarching_question?.trim();
 
         // Determine effective logic score (exclude completeness penalty if no user question)
-        let effectiveLogicScore = finalLogicScore;
+        effectiveLogicScore = finalLogicScore;
         if (!userProvidedQuestion && logicData?.categories?.completeness) {
-          // Recalculate without completeness: scale remaining 3 categories to 100
           const cats = logicData.categories;
           const nonCompletenessTotal = (cats.evidence_strength?.score || 0) + (cats.assumption_reliability?.score || 0) + (cats.logical_consistency?.score || 0);
           effectiveLogicScore = Math.round((nonCompletenessTotal / 75) * 100);
@@ -742,85 +757,200 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         // If both >= 95, we're done
         if (effectiveLogicScore >= 95 && finalResilienceScore >= 95) {
-          toast.success(`Auto-refinement complete! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
+          toast.success(`✅ Target reached! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
           break;
         }
 
-        // If last iteration, don't refine further
-        if (iteration >= MAX_REFINE_ITERATIONS) {
-          toast.info(`Max refinement rounds reached. Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
-          break;
-        }
-
-        // Build refinement prompt from weaknesses
-        let refineFeedback = "REFINEMENT NEEDED. Fix these issues:\n\n";
-        if (effectiveLogicScore < 95 && logicData?.suggestions) {
-          refineFeedback += "Logic weaknesses:\n" + logicData.suggestions.map((s: string) => `- ${s}`).join("\n") + "\n\n";
-          if (logicData.categories) {
-            for (const [key, cat] of Object.entries(logicData.categories) as any) {
-              if (key === "completeness" && !userProvidedQuestion) continue;
-              if (cat.status !== "strong") {
-                refineFeedback += `- ${key}: ${cat.details}\n`;
-              }
-            }
+        // Build comprehensive refinement feedback
+        let refineFeedback = "SCORES ARE BELOW 95. YOU MUST FIX ALL ISSUES.\n\n";
+        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= 95.\n\n`;
+        
+        if (effectiveLogicScore < 95 && logicData?.categories) {
+          refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
+          for (const [key, cat] of Object.entries(logicData.categories) as any) {
+            if (key === "completeness" && !userProvidedQuestion) continue;
+            refineFeedback += `${key}: ${cat.score}/25 (${cat.status}) — ${cat.details}\n`;
           }
+          if (logicData.suggestions) {
+            refineFeedback += "\nSuggestions:\n" + logicData.suggestions.map((s: string) => `- ${s}`).join("\n") + "\n";
+          }
+          refineFeedback += `\nSummary: ${logicData.reasoning_summary || ""}\n\n`;
         }
         if (finalResilienceScore < 95 && stressData?.vulnerabilities) {
-          refineFeedback += "\nStress test vulnerabilities:\n";
+          refineFeedback += "=== STRESS TEST VULNERABILITIES ===\n";
+          refineFeedback += `Resilience: ${finalResilienceScore}/100\nAssessment: ${stressData.overall_assessment || ""}\n\n`;
           stressData.vulnerabilities.forEach((v: any) => {
-            refineFeedback += `- [${v.severity}] ${v.target}: ${v.counter_argument} → Suggestion: ${v.suggestion}\n`;
+            refineFeedback += `[${v.severity}] Target: ${v.target}\n  Counter: ${v.counter_argument}\n  Fix: ${v.suggestion}\n\n`;
           });
         }
 
-        toast.info(`Refining draft (round ${iteration + 1})...`);
+        toast.info(`🔧 Refining draft (round ${iteration})...`);
 
-        // Ask AI to refine the information fields of sub-questions
-        const refinePrompt = `You are a critical thinking refinement assistant. Given the current analysis and feedback, improve the INFORMATION fields of existing sub-questions to strengthen evidence, fix logical issues, and address vulnerabilities.
+        // Comprehensive refinement prompt
+        const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
+
+The current analysis scored Logic=${effectiveLogicScore}/100 and Resilience=${finalResilienceScore}/100. BOTH must reach 95+.
 
 ${refineFeedback}
 
+Current analysis fields:
+- Purpose: "${currentAnalysis.purpose}"
+- Sub-purposes: "${currentAnalysis.sub_purposes}"  
+- Overarching Question: "${currentAnalysis.overarching_question}"
+
 Current sub-questions:
-${currentSqs.map((sq: any, i: number) => `${i + 1}. [id:${sq.id}] "${sq.question}" — Current info: "${sq.information}"`).join("\n")}
+${currentSqs.map((sq: any, i: number) => {
+  const sqA = assumptionsByQ.get(sq.id) || [];
+  return `${i + 1}. [id:${sq.id}] [${sq.pov_category}] "${sq.question}"
+   Info: "${sq.information}"
+   Assumptions (${sqA.length}): ${sqA.map((a: any) => `[${a.assumption_type}] ${a.content}`).join("; ")}`;
+}).join("\n\n")}
 
-Return ONLY valid JSON:
-{"updates": [{"id": "sub_question_id", "information": "improved information text with stronger evidence and reasoning"}]}
+Return ONLY valid JSON with this structure:
+{
+  "analysis_updates": {
+    "purpose": "improved purpose (or null to skip)",
+    "sub_purposes": "improved sub-purposes (or null to skip)",
+    "overarching_question": "improved question (or null to skip)"
+  },
+  "sub_question_updates": [
+    {
+      "id": "existing sub_question_id",
+      "information": "dramatically improved, specific, evidence-based information with concrete facts, statistics, and named sources"
+    }
+  ],
+  "new_sub_questions": [
+    {
+      "question": "new sub-question to fill gaps",
+      "pov_category": "individual|group|ideas_disciplines",
+      "information": "thorough research-backed information",
+      "assumptions": {
+        "explicit_premises": ["premise1", "premise2"],
+        "hidden_premises": ["hidden1", "hidden2"],
+        "conceptual_frameworks": ["framework1"],
+        "background_definitions": ["definition1"]
+      }
+    }
+  ],
+  "new_assumptions": [
+    {
+      "sub_question_id": "id of existing sub-question",
+      "content": "new assumption text",
+      "assumption_type": "foundational_concepts|unknown_unknowns|concepts_shaping_inferences"
+    }
+  ]
+}
 
-Rules:
-- Only update sub-questions that need improvement
-- Make information more specific, evidence-based, and well-reasoned
-- Do NOT add sub-conclusions — leave those for the user
-- Do NOT change the questions themselves`;
+CRITICAL RULES:
+- Make information DRAMATICALLY more specific: include named studies, specific statistics, concrete examples, named institutions
+- Address EVERY vulnerability and weakness listed above
+- Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
+- Add new assumptions ONLY if assumption reliability is flagged as weak
+- Do NOT add sub-conclusions — those are user-derived
+- Do NOT add consequences
+- Set fields to null in analysis_updates if they don't need changes
+- new_sub_questions and new_assumptions can be empty arrays if not needed`;
 
         const refineRes = await supabase.functions.invoke("groq-chat", {
           body: {
             messages: [
               { role: "system", content: refinePrompt },
-              { role: "user", content: `Refine based on scores: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
+              { role: "user", content: `Fix all issues to reach 95+ on both scores. Current: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
             ],
             mode: "draft",
           },
         });
 
-        if (!refineRes.error) {
-          const refineReply = refineRes.data?.choices?.[0]?.message?.content || "";
-          try {
-            let cleanReply = refineReply.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-            const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
-            const refineData = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
-            if (refineData.updates && Array.isArray(refineData.updates)) {
-              for (const update of refineData.updates) {
-                if (update.id && update.information) {
-                  await supabase.from("sub_questions").update({
-                    information: update.information,
-                    updated_at: new Date().toISOString(),
-                  }).eq("id", update.id);
-                }
-              }
-              toast.success(`Refined ${refineData.updates.length} sub-questions`);
+        if (refineRes.error) {
+          console.error("Refinement API error:", refineRes.error);
+          continue;
+        }
+
+        const refineReply = refineRes.data?.choices?.[0]?.message?.content || "";
+        try {
+          let cleanReply = refineReply.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+          const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
+          const refineData = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
+
+          // 1. Update analysis fields
+          if (refineData.analysis_updates) {
+            const au = refineData.analysis_updates;
+            const updateFields: any = { updated_at: new Date().toISOString() };
+            if (au.purpose) updateFields.purpose = au.purpose;
+            if (au.sub_purposes) updateFields.sub_purposes = au.sub_purposes;
+            if (au.overarching_question) updateFields.overarching_question = au.overarching_question;
+            if (Object.keys(updateFields).length > 1) {
+              await supabase.from("analyses").update(updateFields).eq("id", analysis.id);
             }
-          } catch (e) {
-            console.error("Failed to parse refinement response:", e);
           }
+
+          // 2. Update existing sub-question information
+          if (refineData.sub_question_updates && Array.isArray(refineData.sub_question_updates)) {
+            for (const update of refineData.sub_question_updates) {
+              if (update.id && update.information) {
+                await supabase.from("sub_questions").update({
+                  information: update.information,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", update.id);
+              }
+            }
+            toast.success(`Updated ${refineData.sub_question_updates.length} sub-questions`);
+          }
+
+          // 3. Add new sub-questions if needed
+          if (refineData.new_sub_questions && Array.isArray(refineData.new_sub_questions) && refineData.new_sub_questions.length > 0) {
+            const newSqInserts = refineData.new_sub_questions.map((sq: any, i: number) => ({
+              analysis_id: analysis.id,
+              question: sq.question || "",
+              pov_category: sq.pov_category || "individual",
+              information: sq.information || "",
+              sub_conclusion: "",
+              sort_order: currentSqs.length + i,
+              is_draft: true,
+            }));
+            const { data: insertedSqs } = await supabase.from("sub_questions").insert(newSqInserts as any).select();
+
+            // Insert assumptions for new sub-questions
+            if (insertedSqs) {
+              const assumptionInserts: any[] = [];
+              insertedSqs.forEach((insertedSq: any, idx: number) => {
+                const originalSq = refineData.new_sub_questions[idx];
+                const assumptions = originalSq?.assumptions;
+                if (assumptions && typeof assumptions === 'object') {
+                  const typeMapping: Record<string, string> = {
+                    explicit_premises: "foundational_concepts",
+                    hidden_premises: "unknown_unknowns",
+                    conceptual_frameworks: "concepts_shaping_inferences",
+                    background_definitions: "foundational_concepts",
+                  };
+                  for (const [key, items] of Object.entries(assumptions)) {
+                    const dbType = typeMapping[key] || "unknown_unknowns";
+                    if (Array.isArray(items)) {
+                      (items as string[]).forEach((content: string) => {
+                        assumptionInserts.push({ sub_question_id: insertedSq.id, content, assumption_type: dbType });
+                      });
+                    }
+                  }
+                }
+              });
+              if (assumptionInserts.length > 0) {
+                await supabase.from("assumptions").insert(assumptionInserts);
+              }
+            }
+            toast.success(`Added ${refineData.new_sub_questions.length} new sub-questions`);
+          }
+
+          // 4. Add new assumptions to existing sub-questions
+          if (refineData.new_assumptions && Array.isArray(refineData.new_assumptions) && refineData.new_assumptions.length > 0) {
+            const validAssumptions = refineData.new_assumptions.filter((a: any) => a.sub_question_id && a.content);
+            if (validAssumptions.length > 0) {
+              await supabase.from("assumptions").insert(validAssumptions);
+              toast.success(`Added ${validAssumptions.length} new assumptions`);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse refinement response:", e, refineReply?.substring(0, 500));
+          // Don't break — try again next iteration
         }
       }
 
