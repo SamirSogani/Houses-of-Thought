@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowDown, ChevronRight, BookOpen, Lightbulb, Target, Eye,
+  ArrowDown, ArrowLeft, ChevronRight, BookOpen, Lightbulb, Target, Eye,
   HelpCircle, Layers, Brain, CheckCircle2, AlertTriangle,
   ArrowRight, RefreshCw, HelpingHand, Zap, BarChart3, Shield,
   Users, GraduationCap, Beaker, Scale,
@@ -67,6 +67,9 @@ export default function FrameworkPage() {
       {/* ── HERO ── */}
       <section className="relative py-24 px-6 text-center border-b border-border">
         <div className="max-w-3xl mx-auto space-y-6">
+          <button onClick={() => navigate("/")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto mb-4">
+            <ArrowLeft className="h-4 w-4" /> Back to Home
+          </button>
           <p className="text-xs font-mono tracking-[0.3em] uppercase text-muted-foreground">Critical Thinking Framework</p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight">
             The House of Thought Framework
