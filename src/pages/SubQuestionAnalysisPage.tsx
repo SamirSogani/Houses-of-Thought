@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import BulletListInput from "@/components/ui/BulletListInput";
 
 type SubQuestion = Tables<"sub_questions">;
 
@@ -15,10 +15,9 @@ export default function SubQuestionAnalysisPage() {
   const navigate = useNavigate();
   const [sq, setSq] = useState<SubQuestion | null>(null);
   const [analysisTitle, setAnalysisTitle] = useState("");
+  const [infoItems, setInfoItems] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, [subQuestionId]);
+  useEffect(() => { loadData(); }, [subQuestionId]);
 
   const loadData = async () => {
     const [sqRes, aRes] = await Promise.all([
@@ -27,19 +26,35 @@ export default function SubQuestionAnalysisPage() {
     ]);
     setSq(sqRes.data);
     setAnalysisTitle(aRes.data?.title || "");
+    // Parse information as bullet list or legacy text
+    if (sqRes.data?.information) {
+      try {
+        const parsed = JSON.parse(sqRes.data.information);
+        if (Array.isArray(parsed)) {
+          setInfoItems(parsed);
+        } else {
+          setInfoItems(sqRes.data.information ? [sqRes.data.information] : []);
+        }
+      } catch {
+        setInfoItems(sqRes.data.information ? [sqRes.data.information] : []);
+      }
+    }
   };
 
   const updateField = async (field: "information" | "sub_conclusion", value: string) => {
-    setSq((prev) => (prev ? { ...prev, [field]: value } : prev));
+    setSq(prev => (prev ? { ...prev, [field]: value } : prev));
     await supabase.from("sub_questions").update({ [field]: value, updated_at: new Date().toISOString() }).eq("id", subQuestionId!);
   };
 
+  const handleInfoChange = useCallback((items: string[]) => {
+    setInfoItems(items);
+    const serialized = JSON.stringify(items);
+    setSq(prev => prev ? { ...prev, information: serialized } : prev);
+    supabase.from("sub_questions").update({ information: serialized, updated_at: new Date().toISOString() }).eq("id", subQuestionId!);
+  }, [subQuestionId]);
+
   if (!sq) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-pulse text-muted-foreground">Loading...</div></div>;
   }
 
   return (
@@ -71,18 +86,17 @@ export default function SubQuestionAnalysisPage() {
             </CardContent>
           </Card>
 
-          {/* Information */}
+          {/* Information - Bullet List */}
           <Card className="house-zone">
             <CardHeader>
-              <CardTitle className="text-lg font-display">Information</CardTitle>
+              <CardTitle className="text-lg font-display">Information / Facts</CardTitle>
               <p className="text-sm text-muted-foreground">Element 6</p>
             </CardHeader>
             <CardContent>
-              <Textarea
-                placeholder="Enter relevant data and evidence..."
-                value={sq.information}
-                onChange={(e) => updateField("information", e.target.value)}
-                className="min-h-[150px] bg-card"
+              <BulletListInput
+                items={infoItems}
+                onChange={handleInfoChange}
+                placeholder="Add a fact or piece of evidence..."
               />
             </CardContent>
           </Card>

@@ -90,7 +90,7 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
               <Settings className="h-4 w-4 mr-1" /> Profile
             </Button>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/"); }}>
               <LogOut className="h-4 w-4 mr-1" /> Sign Out
             </Button>
           </div>
