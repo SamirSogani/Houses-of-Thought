@@ -159,7 +159,7 @@ export default function StressTestPanel({ analysis, subQuestions, profile, onBac
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground">Vulnerabilities Found ({result.vulnerabilities.length})</p>
               {result.vulnerabilities.map((v, i) => (
-                <div key={i} className="bg-card border border-border rounded p-2 space-y-1.5">
+                <div key={i} className="bg-card border border-border rounded p-2 space-y-1.5 overflow-hidden">
                   <div className="flex items-start justify-between gap-1">
                     <div className="flex items-center gap-1">
                       <SeverityIcon severity={v.severity} />
