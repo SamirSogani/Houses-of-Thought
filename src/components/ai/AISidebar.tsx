@@ -732,11 +732,25 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
         });
 
-        // Run logic strength + stress test in parallel
-        const [logicRes, stressRes] = await Promise.all([
-          supabase.functions.invoke("analyze-logic", { body: { mode: "analyze", analysisContext: evalCtx } }),
-          supabase.functions.invoke("analyze-logic", { body: { mode: "stress_test", analysisContext: evalCtx } }),
-        ]);
+        // Helper to invoke with client-side retry on 429
+        const invokeWithRetry = async (fnName: string, body: any, retries = 3): Promise<any> => {
+          for (let r = 0; r < retries; r++) {
+            const res = await supabase.functions.invoke(fnName, { body });
+            if (res.error && typeof res.error === 'object' && 'message' in res.error && String(res.error.message).includes('429')) {
+              const wait = (r + 1) * 15;
+              toast.info(`⏳ Rate limited, waiting ${wait}s...`);
+              await new Promise(resolve => setTimeout(resolve, wait * 1000));
+              continue;
+            }
+            return res;
+          }
+          return { data: null, error: 'Rate limit exhausted' };
+        };
+
+        // Run logic strength first, then stress test (sequential to avoid rate limits)
+        const logicRes = await invokeWithRetry("analyze-logic", { mode: "analyze", analysisContext: evalCtx });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // 3s gap
+        const stressRes = await invokeWithRetry("analyze-logic", { mode: "stress_test", analysisContext: evalCtx });
 
         const logicData = logicRes.data;
         const stressData = stressRes.data;
