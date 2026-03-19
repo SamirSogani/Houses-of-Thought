@@ -1051,7 +1051,7 @@ CRITICAL RULES:
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length}/${requestedCount} sub-questions.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
