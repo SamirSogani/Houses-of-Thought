@@ -154,7 +154,7 @@ Return ONLY valid JSON:
       return new Response(JSON.stringify({ error: 'Invalid mode' }), { status: 400, headers: corsHeaders });
     }
 
-    const maxRetries = 3;
+    const maxRetries = 5;
     let groqResponse: Response | null = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -178,7 +178,8 @@ Return ONLY valid JSON:
       if (groqResponse.status === 429) {
         const errBody = await groqResponse.text();
         const retryMatch = errBody.match(/try again in (\d+\.?\d*)s/);
-        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 1 : (attempt + 1) * 10;
+        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 2 : (attempt + 1) * 15;
+        console.log(`Rate limited, waiting ${waitSecs}s (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(r => setTimeout(r, waitSecs * 1000));
         continue;
       }
