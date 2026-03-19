@@ -695,9 +695,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
 
-      while (iteration < MAX_REFINE_ITERATIONS) {
+      while (true) {
         iteration++;
-        toast.info(`🔍 Auto-evaluation round ${iteration}/${MAX_REFINE_ITERATIONS}...`);
+        toast.info(`🔍 Auto-evaluation round ${iteration}...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
