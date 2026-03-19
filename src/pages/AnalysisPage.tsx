@@ -153,7 +153,7 @@ export default function AnalysisPage() {
       {/* Resizable Tool Panel */}
       {showToolPanel && (
         <aside
-          className="shrink-0 border-r border-border bg-card/50 sticky top-0 h-screen flex flex-col resize-x overflow-auto"
+          className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col resize-x overflow-auto relative group"
           style={{ width: 288, minWidth: 220, maxWidth: 600 }}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
@@ -182,6 +182,10 @@ export default function AnalysisPage() {
               />
             )}
           </ScrollArea>
+          {/* Drag handle indicator */}
+          <div className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize flex items-center justify-center border-r border-border hover:border-primary hover:bg-primary/10 transition-colors group-hover:bg-muted/50">
+            <div className="w-0.5 h-8 rounded-full bg-muted-foreground/30 group-hover:bg-primary/50 transition-colors" />
+          </div>
         </aside>
       )}
 
