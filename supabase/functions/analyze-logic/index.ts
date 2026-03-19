@@ -204,45 +204,45 @@ Return ONLY valid JSON:
     }
 
     function repairAndParse(str: string): any {
-      // Try as-is first
       let result = tryParseJSON(str);
       if (result) return result;
 
-      // Common LLM mistakes: mismatched brackets
-      // Fix "] where it should be "} by counting brace depth
-      let repaired = str;
-      // Replace common pattern: ..."}] should be ..."}}}
-      // Strategy: try multiple bracket fixes
-      const fixes = [
-        // Fix: closing ] used instead of } 
-        () => {
-          let s = str;
-          // Balance braces: count { and } and [ and ]
-          const opens = (s.match(/\{/g) || []).length;
-          const closes = (s.match(/\}/g) || []).length;
-          const openBrackets = (s.match(/\[/g) || []).length;
-          const closeBrackets = (s.match(/\]/g) || []).length;
-          
-          if (opens > closes && closeBrackets > openBrackets) {
-            // Replace excess ] with } from the end
-            let diff = opens - closes;
-            for (let i = 0; i < diff; i++) {
-              const lastBracket = s.lastIndexOf(']');
-              if (lastBracket >= 0) {
-                s = s.substring(0, lastBracket) + '}' + s.substring(lastBracket + 1);
-              }
-            }
-          }
-          return s;
-        },
-        // Fix trailing commas before } or ]
-        () => str.replace(/,\s*([}\]])/g, '$1'),
-      ];
+      // Fix trailing commas
+      let cleaned = str.replace(/,\s*([}\]])/g, '$1');
+      result = tryParseJSON(cleaned);
+      if (result) return result;
 
-      for (const fix of fixes) {
-        const fixed = fix();
-        result = tryParseJSON(fixed);
-        if (result) return result;
+      // Try replacing each ] with } one at a time to find the broken one
+      const opens = (str.match(/\{/g) || []).length;
+      const closes = (str.match(/\}/g) || []).length;
+      if (opens > closes) {
+        const diff = opens - closes;
+        // Find all ] positions and try replacing combinations
+        const positions: number[] = [];
+        for (let i = 0; i < str.length; i++) {
+          if (str[i] === ']') positions.push(i);
+        }
+        // Try replacing each single ] with } 
+        for (const pos of positions) {
+          let s = str.substring(0, pos) + '}' + str.substring(pos + 1);
+          result = tryParseJSON(s);
+          if (result) return result;
+          // Also try with trailing comma fix
+          result = tryParseJSON(s.replace(/,\s*([}\]])/g, '$1'));
+          if (result) return result;
+        }
+        // Try replacing from innermost positions (more likely to be the error)
+        if (diff <= positions.length) {
+          for (let i = 0; i <= positions.length - diff; i++) {
+            let s = str;
+            for (let j = 0; j < diff; j++) {
+              const p = positions[i + j] + j * 0; // positions don't shift since same length
+              s = s.substring(0, positions[i + j]) + '}' + s.substring(positions[i + j] + 1);
+            }
+            result = tryParseJSON(s);
+            if (result) return result;
+          }
+        }
       }
 
       return null;
