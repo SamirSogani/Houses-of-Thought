@@ -197,7 +197,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           id: `info-${sq.id}-${i}`,
           label: item,
           layer: "information",
-          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}`),
+          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
           color: "bg-foundation-bg border-foundation text-foreground",
         });
       });
@@ -208,7 +208,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           id: `sc-${sq.id}`,
           label: sq.sub_conclusion,
           layer: "sub-conclusion",
-          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}`),
+          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
           color: "bg-primary/10 border-primary text-foreground",
         });
       }
@@ -219,7 +219,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
       id: `sq-${sq.id}`,
       label: sq.question || "Untitled",
       layer: "sub-questions",
-      onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}`),
+      onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
       color: sq.pov_category === "individual" ? "bg-pov-individual-bg border-pov-individual text-foreground" :
              sq.pov_category === "group" ? "bg-pov-group-bg border-pov-group text-foreground" :
              "bg-pov-ideas-bg border-pov-ideas text-foreground",
@@ -230,7 +230,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
       id: `impl-${i}`,
       label: item,
       layer: "implications",
-      onClick: () => onNavigate(`/analysis/${analysisId}/implications`),
+      onClick: () => onNavigate(`/analysis/${analysisId}/implications?view=builder`),
       color: "bg-atmosphere-bg border-atmosphere text-foreground",
     }));
 
@@ -239,7 +239,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
       id: `cons-${i}`,
       label: item,
       layer: "consequences",
-      onClick: () => onNavigate(`/analysis/${analysisId}/consequences`),
+      onClick: () => onNavigate(`/analysis/${analysisId}/consequences?view=builder`),
       color: "bg-assumption-bg border-assumption text-foreground",
     }));
 
@@ -270,7 +270,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         id: "oc",
         label: analysis.overarching_conclusion,
         layer: "conclusion",
-        onClick: () => onNavigate(`/analysis/${analysisId}/synthesis`),
+        onClick: () => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`),
         color: "bg-roof/10 border-roof text-foreground",
       });
     }
@@ -326,14 +326,14 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
             element="8a"
             blocks={layers.implicationBlocks}
             colorClass="bg-atmosphere-bg/50 border-atmosphere"
-            onClick={() => onNavigate(`/analysis/${analysisId}/implications`)}
+            onClick={() => onNavigate(`/analysis/${analysisId}/implications?view=builder`)}
           />
           <HouseLayer
             label="Consequences"
             element="8b"
             blocks={layers.consequenceBlocks}
             colorClass="bg-assumption-bg/50 border-assumption"
-            onClick={() => onNavigate(`/analysis/${analysisId}/consequences`)}
+            onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
           />
         </div>
 
@@ -343,7 +343,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="7.2"
           blocks={layers.conclusionBlocks}
           colorClass="bg-card border-roof"
-          onClick={() => onNavigate(`/analysis/${analysisId}/synthesis`)}
+          onClick={() => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`)}
         />
 
         {/* Sub-Conclusions */}
@@ -371,7 +371,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="5"
           blocks={[]} // Assumptions are per-sub-question, shown as aggregate
           colorClass="bg-assumption-bg/50 border-assumption"
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions`)}
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Information / Facts */}
@@ -390,7 +390,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="3.2"
           blocks={layers.subQuestionBlocks}
           colorClass="bg-card border-primary/40"
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions`)}
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Overarching Question */}

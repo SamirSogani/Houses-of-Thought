@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +36,8 @@ function parseInfoItems(raw: string): FactEntry[] {
 export default function SubQuestionAnalysisPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [sq, setSq] = useState<SubQuestion | null>(null);
   const [analysisTitle, setAnalysisTitle] = useState("");
   const [infoItems, setInfoItems] = useState<FactEntry[]>([]);
@@ -74,7 +76,7 @@ export default function SubQuestionAnalysisPage() {
     <div className="min-h-screen bg-background">
       <div className="page-container">
         <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}`)} className="flex items-center gap-1 hover:text-foreground">
+          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {analysisTitle || "Analysis"}
           </button>
           <span>/</span>
@@ -88,7 +90,7 @@ export default function SubQuestionAnalysisPage() {
           {/* Assumptions */}
           <Card
             className="house-zone house-zone-assumption cursor-pointer"
-            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}/assumptions`)}
+            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}/assumptions${viewParam}`)}
           >
             <CardHeader>
               <CardTitle className="text-lg font-display">Assumptions</CardTitle>
@@ -133,10 +135,10 @@ export default function SubQuestionAnalysisPage() {
         </div>
 
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/pov-grouping`)}>
+          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/pov-grouping${viewParam}`)}>
             ← POV Grouping
           </Button>
-          <Button onClick={() => navigate(`/analysis/${analysisId}`)}>
+          <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>
             Back to House →
           </Button>
         </div>

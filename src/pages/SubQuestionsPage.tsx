@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ type SubQuestion = Tables<"sub_questions">;
 export default function SubQuestionsPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
 
@@ -53,7 +55,7 @@ export default function SubQuestionsPage() {
     <div className="min-h-screen bg-background">
       <div className="page-container">
         <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}`)} className="flex items-center gap-1 hover:text-foreground">
+          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {analysisTitle || "Analysis"}
           </button>
           <span>/</span>
@@ -104,7 +106,7 @@ export default function SubQuestionsPage() {
 
         {subQuestions.length > 0 && (
           <div className="mt-8 flex justify-end">
-            <Button onClick={() => navigate(`/analysis/${analysisId}/pov-grouping`)}>
+            <Button onClick={() => navigate(`/analysis/${analysisId}/pov-grouping${viewParam}`)}>
               Next: Group by Point of View →
             </Button>
           </div>

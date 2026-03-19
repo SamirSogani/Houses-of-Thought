@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,8 @@ const POV_CATEGORIES = [
 export default function PovGroupingPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
   const [povLabels, setPovLabels] = useState<PovLabel[]>([]);
@@ -81,7 +83,7 @@ export default function PovGroupingPage() {
     <div className="min-h-screen bg-background">
       <div className="page-container max-w-6xl">
         <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}`)} className="flex items-center gap-1 hover:text-foreground">
+          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {analysisTitle || "Analysis"}
           </button>
           <span>/</span>
@@ -137,7 +139,7 @@ export default function PovGroupingPage() {
                             <div
                               key={sq.id}
                               className="p-2 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}`)}
+                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
                             >
                               {sq.question || "Untitled question"}
                             </div>
@@ -152,7 +154,7 @@ export default function PovGroupingPage() {
                         <div
                           key={sq.id}
                           className="p-3 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}`)}
+                          onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
                         >
                           {sq.question || "Untitled question"}
                         </div>

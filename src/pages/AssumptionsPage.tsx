@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,8 @@ const ASSUMPTION_TYPES = [
 export default function AssumptionsPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [sqQuestion, setSqQuestion] = useState("");
 
@@ -60,7 +62,7 @@ export default function AssumptionsPage() {
       <div className="page-container">
         <div className="breadcrumb-nav">
           <button
-            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}`)}
+            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}${viewParam}`)}
             className="flex items-center gap-1 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> {sqQuestion || "Sub-Question"}

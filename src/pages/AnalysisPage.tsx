@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ type SubQuestion = Tables<"sub_questions">;
 export default function AnalysisPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
@@ -29,7 +30,7 @@ export default function AnalysisPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const [viewMode, setViewMode] = useState<"standard" | "builder">("standard");
+  const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

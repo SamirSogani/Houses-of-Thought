@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,8 @@ const POV_CLASSES: Record<string, string> = {
 export default function SynthesisPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
 
@@ -63,7 +65,7 @@ export default function SynthesisPage() {
     <div className="min-h-screen bg-background">
       <div className="page-container max-w-6xl">
         <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}`)} className="flex items-center gap-1 hover:text-foreground">
+          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {analysis.title}
           </button>
           <span>/</span>
