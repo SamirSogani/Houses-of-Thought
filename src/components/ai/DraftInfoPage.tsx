@@ -17,7 +17,7 @@ export interface DraftInfo {
   background: string;
   stakeholders: string;
   constraints: string;
-  subQuestionCount: number;
+  subQuestionCount: number; // 0 means "as many as needed"
 }
 
 export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }: DraftInfoPageProps) {
