@@ -261,6 +261,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         id: "oq",
         label: analysis.overarching_question,
         layer: "question",
+        onClick: () => onNavigate(`/analysis/${analysisId}`),
         color: "bg-primary/10 border-primary text-foreground",
       });
     }
