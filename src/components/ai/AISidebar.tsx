@@ -169,7 +169,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong"},{"text":"string - another fact","evidenceStrength":"moderate"},{"text":"string - third fact","evidenceStrength":"strong"}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -206,7 +206,10 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "question": "string - precise, distinct question",
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
-      "information": "string - thoroughly researched facts and evidence, minimum 2 sentences",
+      "information": [
+        {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported"},
+        {"text": "string - another distinct fact", "evidenceStrength": "strong"}
+      ],
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
@@ -219,7 +222,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" must contain substantive, researched content.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text" and "evidenceStrength". Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
@@ -229,6 +232,36 @@ Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_dis
 ${profileCtx}${extraCtx}
 
 RETURN ONLY THE JSON OBJECT.`;
+}
+
+/** Convert AI-generated information (string or array) to FactEntry[] JSON string */
+function serializeInformation(info: any): string {
+  if (!info) return "[]";
+  // Already an array of fact objects
+  if (Array.isArray(info)) {
+    const facts = info.map((item: any) => {
+      if (typeof item === "string") {
+        return { text: item, evidenceStrength: "moderate", sources: [] };
+      }
+      return {
+        text: item.text || String(item),
+        evidenceStrength: item.evidenceStrength || "moderate",
+        sources: item.sources || [],
+      };
+    });
+    return JSON.stringify(facts);
+  }
+  // Single string — split by sentences or return as one fact
+  if (typeof info === "string") {
+    if (!info.trim()) return "[]";
+    // Try to split into meaningful chunks by sentence boundaries
+    const sentences = info.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim().length > 10);
+    if (sentences.length > 1) {
+      return JSON.stringify(sentences.map((s: string) => ({ text: s.trim(), evidenceStrength: "moderate", sources: [] })));
+    }
+    return JSON.stringify([{ text: info, evidenceStrength: "moderate", sources: [] }]);
+  }
+  return "[]";
 }
 
 function parseActionFromReply(reply: string): { action: any | null; textContent: string } {
@@ -662,7 +695,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               question: sq.question || "",
               pov_category: sq.pov_category || "individual",
               pov_label_id: povLabelId,
-              information: sq.information || "",
+              information: serializeInformation(sq.information),
               sub_conclusion: "",
               sort_order: (subQuestions?.length || 0) + allSubQuestions.length + i,
               is_draft: true,
@@ -871,18 +904,18 @@ Return ONLY valid JSON with this structure:
   "sub_question_updates": [
     {
       "id": "existing sub_question_id",
-      "information": "dramatically improved, specific, evidence-based information with concrete facts, statistics, and named sources"
+      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong"}, {"text": "another distinct fact", "evidenceStrength": "very_strong"}]
     }
   ],
   "new_sub_questions": [
     {
       "question": "new sub-question to fill gaps",
       "pov_category": "individual|group|ideas_disciplines",
-      "information": "thorough research-backed information",
+      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong"}, {"text": "fact 2", "evidenceStrength": "moderate"}, {"text": "fact 3", "evidenceStrength": "strong"}],
       "assumptions": {
         "explicit_premises": ["premise1", "premise2"],
         "hidden_premises": ["hidden1", "hidden2"],
-        "conceptual_frameworks": ["framework1"],
+        "conceptual_frameworks": ["framework1", "framework2"],
         "background_definitions": ["definition1"]
       }
     }
@@ -897,7 +930,8 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- Make information DRAMATICALLY more specific: include named studies, specific statistics, concrete examples, named institutions
+- "information" MUST be an ARRAY of discrete fact objects with "text" and "evidenceStrength" fields. Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
+- Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
 - Add new assumptions ONLY if assumption reliability is flagged as weak
@@ -942,7 +976,7 @@ CRITICAL RULES:
             for (const update of refineData.sub_question_updates) {
               if (update.id && update.information) {
                 await supabase.from("sub_questions").update({
-                  information: update.information,
+                  information: serializeInformation(update.information),
                   updated_at: new Date().toISOString(),
                 }).eq("id", update.id);
               }
@@ -956,7 +990,7 @@ CRITICAL RULES:
               analysis_id: analysis.id,
               question: sq.question || "",
               pov_category: sq.pov_category || "individual",
-              information: sq.information || "",
+              information: serializeInformation(sq.information),
               sub_conclusion: "",
               sort_order: currentSqs.length + i,
               is_draft: true,
