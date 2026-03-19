@@ -806,6 +806,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
       toast.info("Draft complete. Running auto-evaluation...");
+      if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
+      if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
       onDraftComplete?.(); // reload data first
 
       const SCORE_TARGET = 60; // standard resilience target
