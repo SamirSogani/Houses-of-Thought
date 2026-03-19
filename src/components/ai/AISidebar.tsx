@@ -762,8 +762,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
 
         // Build comprehensive refinement feedback
-        let refineFeedback = "SCORES ARE BELOW 95. YOU MUST FIX ALL ISSUES.\n\n";
-        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= 95.\n\n`;
+        let refineFeedback = `SCORES ARE BELOW ${SCORE_TARGET}. YOU MUST FIX ALL ISSUES.\n\n`;
+        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= ${SCORE_TARGET}.\n\n`;
         
         if (effectiveLogicScore < 95 && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
