@@ -293,11 +293,16 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // View state: "chat" | "list" | "draft-info"
-  const [view, setView] = useState<"chat" | "list" | "draft-info">("chat");
+  // View state: "chat" | "list" | "draft-info" | "draft-history" | "draft-detail"
+  const [view, setView] = useState<"chat" | "list" | "draft-info" | "draft-history" | "draft-detail">("chat");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatsLoaded, setChatsLoaded] = useState(false);
+
+  // Draft history state
+  const [draftRuns, setDraftRuns] = useState<any[]>([]);
+  const [selectedDraftRunId, setSelectedDraftRunId] = useState<string | null>(null);
+  const [activeDraftRunId, setActiveDraftRunId] = useState<string | null>(null);
 
   // ─── Chat management ────────────────────────────────────
 
