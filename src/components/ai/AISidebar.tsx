@@ -755,8 +755,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         toast.info(`Round ${iteration}: Logic ${effectiveLogicScore}/100, Resilience ${finalResilienceScore}/100`);
 
-        // If both >= 95, we're done
-        if (effectiveLogicScore >= 95 && finalResilienceScore >= 95) {
+        // If both >= target, we're done
+        if (effectiveLogicScore >= SCORE_TARGET && finalResilienceScore >= SCORE_TARGET) {
           toast.success(`✅ Target reached! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
           break;
         }
