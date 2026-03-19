@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -14,6 +14,7 @@ import AISidebar from "@/components/ai/AISidebar";
 import TodoPanel from "@/components/house/TodoPanel";
 import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
 import StressTestPanel from "@/components/house/StressTestPanel";
+import AdminUsersPanel from "@/components/house/AdminUsersPanel";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -31,8 +32,9 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
-  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress">("none");
+  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -56,6 +58,14 @@ export default function AnalysisPage() {
   useEffect(() => {
     if (id && user) loadData();
   }, [id, user, loadData]);
+
+  // Check if user is the owner
+  useEffect(() => {
+    if (!user) return;
+    supabase.functions.invoke("admin-users", { body: null, method: "GET" }).then(({ data }) => {
+      if (data?.users) setIsOwner(true);
+    }).catch(() => {});
+  }, [user]);
 
   const autoSave = useCallback(
     async (field: keyof Analysis, value: string) => {
@@ -149,6 +159,19 @@ export default function AnalysisPage() {
         >
           <Shield className="h-5 w-5" />
         </button>
+
+        {isOwner && (
+          <>
+            <div className="w-8 border-t border-border my-1" />
+            <button
+              onClick={() => { setToolPanel(toolPanel === "admin" ? "none" : "admin"); setSidebarCollapsed(false); }}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "admin" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Admin: Users"
+            >
+              <Users className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </aside>
 
       {/* Resizable Tool Panel */}
@@ -159,7 +182,7 @@ export default function AnalysisPage() {
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-display font-semibold text-muted-foreground">
-              {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
+              {toolPanel === "logic" ? "Logic Strength" : toolPanel === "stress" ? "Stress Test" : "Admin: Users"}
             </span>
             <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-4 w-4" />
@@ -182,6 +205,7 @@ export default function AnalysisPage() {
                 onBack={() => setToolPanel("logic")}
               />
             )}
+            {toolPanel === "admin" && <AdminUsersPanel />}
           </ScrollArea>
           {/* Drag handle indicator */}
           <div className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize flex items-center justify-center border-r border-border hover:border-primary hover:bg-primary/10 transition-colors group-hover:bg-muted/50">
