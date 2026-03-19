@@ -776,7 +776,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
           refineFeedback += `\nSummary: ${logicData.reasoning_summary || ""}\n\n`;
         }
-        if (finalResilienceScore < 95 && stressData?.vulnerabilities) {
+        if (finalResilienceScore < SCORE_TARGET && stressData?.vulnerabilities) {
           refineFeedback += "=== STRESS TEST VULNERABILITIES ===\n";
           refineFeedback += `Resilience: ${finalResilienceScore}/100\nAssessment: ${stressData.overall_assessment || ""}\n\n`;
           stressData.vulnerabilities.forEach((v: any) => {
