@@ -848,6 +848,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
+      const REFINE_DEADLINE_MS = 3 * 60 * 1000; // 3 minutes
+      const refineStartTime = Date.now();
       toast.info("Draft complete. Running auto-evaluation...");
       if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
       if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
@@ -860,10 +862,26 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
+      let bestEvidence = 0, bestAssumption = 0, bestConsistency = 0, bestResilience = 0;
+      let deadlineReached = false;
 
       while (true) {
         iteration++;
-        toast.info(`🔍 Auto-evaluation round ${iteration}...`);
+        const elapsed = Date.now() - refineStartTime;
+        const elapsedMin = (elapsed / 60000).toFixed(1);
+        const remaining = Math.max(0, REFINE_DEADLINE_MS - elapsed);
+
+        if (elapsed >= REFINE_DEADLINE_MS) {
+          deadlineReached = true;
+          const timeoutMsg = `⏰ 3-minute deadline reached after ${iteration - 1} rounds. Returning best result: Evidence ${bestEvidence}/25, Assumptions ${bestAssumption}/25, Consistency ${bestConsistency}/25, Resilience ${bestResilience}/100`;
+          toast.info(timeoutMsg);
+          if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
+          finalLogicScore = bestEvidence + bestAssumption + bestConsistency;
+          finalResilienceScore = bestResilience;
+          break;
+        }
+
+        toast.info(`🔍 Auto-evaluation round ${iteration} (${elapsedMin}m elapsed)...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
@@ -914,7 +932,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         // Run logic strength first, then stress test (sequential to avoid rate limits)
         const logicRes = await invokeWithRetry("analyze-logic", { mode: "analyze", analysisContext: evalCtx });
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 3s gap
+        await new Promise(resolve => setTimeout(resolve, 2000)); // reduced gap
         const stressRes = await invokeWithRetry("analyze-logic", { mode: "stress_test", analysisContext: evalCtx });
 
         const logicData = logicRes.data;
@@ -927,6 +945,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         const evidenceScore = cats.evidence_strength?.score || 0;
         const assumptionScore = cats.assumption_reliability?.score || 0;
         const consistencyScore = cats.logical_consistency?.score || 0;
+
+        // Track best scores across all iterations
+        bestEvidence = Math.max(bestEvidence, evidenceScore);
+        bestAssumption = Math.max(bestAssumption, assumptionScore);
+        bestConsistency = Math.max(bestConsistency, consistencyScore);
+        bestResilience = Math.max(bestResilience, finalResilienceScore);
 
         // Logic passes when all 3 key categories are >= 23 (completeness discounted)
         const logicPassed = evidenceScore >= LOGIC_CATEGORY_TARGET &&
