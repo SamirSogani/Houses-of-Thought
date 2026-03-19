@@ -21,6 +21,7 @@ type SubQuestion = Tables<"sub_questions">;
 export default function AnalysisPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
