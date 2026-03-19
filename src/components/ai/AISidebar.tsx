@@ -765,7 +765,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         let refineFeedback = `SCORES ARE BELOW ${SCORE_TARGET}. YOU MUST FIX ALL ISSUES.\n\n`;
         refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= ${SCORE_TARGET}.\n\n`;
         
-        if (effectiveLogicScore < 95 && logicData?.categories) {
+        if (effectiveLogicScore < SCORE_TARGET && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
           for (const [key, cat] of Object.entries(logicData.categories) as any) {
             if (key === "completeness" && !userProvidedQuestion) continue;
