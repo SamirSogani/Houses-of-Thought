@@ -182,7 +182,7 @@ export default function AnalysisPage() {
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-display font-semibold text-muted-foreground">
-              {toolPanel === "logic" ? "Logic Strength" : "Stress Test"}
+              {toolPanel === "logic" ? "Logic Strength" : toolPanel === "stress" ? "Stress Test" : "Admin: Users"}
             </span>
             <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-4 w-4" />
@@ -205,6 +205,7 @@ export default function AnalysisPage() {
                 onBack={() => setToolPanel("logic")}
               />
             )}
+            {toolPanel === "admin" && <AdminUsersPanel />}
           </ScrollArea>
           {/* Drag handle indicator */}
           <div className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize flex items-center justify-center border-r border-border hover:border-primary hover:bg-primary/10 transition-colors group-hover:bg-muted/50">
