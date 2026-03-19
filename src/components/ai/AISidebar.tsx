@@ -376,7 +376,41 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       .eq("id", activeChatId);
   };
 
+  // ─── Draft history management ───────────────────────────
+  const deleteDraftRun = async (runId: string) => {
+    await supabase.from("draft_runs").delete().eq("id", runId);
+    setDraftRuns((prev) => prev.filter((r) => r.id !== runId));
+    if (selectedDraftRunId === runId) setSelectedDraftRunId(null);
+  };
+
+  const createDraftRun = async (draftInfo: DraftInfo): Promise<string | null> => {
+    if (!analysis) return null;
+    const { data, error } = await supabase
+      .from("draft_runs")
+      .insert({ analysis_id: analysis.id, draft_info: draftInfo as any, status: "running", log_messages: [] as any } as any)
+      .select()
+      .single();
+    if (error || !data) return null;
+    const run = data as any;
+    setDraftRuns((prev) => [run, ...prev]);
+    setActiveDraftRunId(run.id);
+    return run.id;
+  };
+
+  const updateDraftRun = async (runId: string, updates: Record<string, any>) => {
+    await supabase.from("draft_runs").update({ ...updates, updated_at: new Date().toISOString() } as any).eq("id", runId);
+    setDraftRuns((prev) => prev.map((r) => r.id === runId ? { ...r, ...updates } : r));
+  };
+
+  const appendDraftLog = async (runId: string, message: string) => {
+    const run = draftRuns.find((r) => r.id === runId);
+    const currentLogs = Array.isArray(run?.log_messages) ? run.log_messages : [];
+    const newLogs = [...currentLogs, `[${new Date().toLocaleTimeString()}] ${message}`];
+    await updateDraftRun(runId, { log_messages: newLogs });
+  };
+
   // ─── Apply action to House ──────────────────────────────
+
 
   const applyAction = async (action: any) => {
     if (!analysis) throw new Error("No analysis loaded");
