@@ -644,6 +644,22 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let allSubQuestions: any[] = [];
       let retryRound = 0;
 
+      // Research: pre-search for topic and theoretical frameworks
+      toast.info("🔍 Researching topic...");
+      if (draftRunId) appendDraftLog(draftRunId, "Running web research for topic and frameworks...");
+      const [topicSearchResults, frameworkSearchResults] = await Promise.all([
+        braveSearch(`${goalInput} analysis evidence facts`, 8),
+        braveSearch(`${goalInput} theoretical frameworks conceptual models academic perspectives`, 6),
+      ]);
+      let researchContext = "";
+      if (topicSearchResults) {
+        researchContext += `\n## WEB RESEARCH RESULTS (USE THESE AS EVIDENCE)\nThe following are real web search results. Use them to populate the "information" fields with REAL, verifiable facts:\n\n${topicSearchResults}\n`;
+      }
+      if (frameworkSearchResults) {
+        researchContext += `\n## CONCEPTUAL FRAMEWORK RESEARCH\nUse these to populate "conceptual_frameworks" in assumptions with REAL, named theoretical frameworks:\n\n${frameworkSearchResults}\n`;
+      }
+      if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
+
       // Keep generating until we hit the exact requested count (with retry limit)
       // If requestedCount is 0 ("as many as needed"), only do one batch
       while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
@@ -662,10 +678,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         toast.info(batchMsg);
         if (draftRunId) appendDraftLog(draftRunId, batchMsg);
 
-        const systemPrompt = buildDraftPrompt(
+        let systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
           { batch: isFirstBatch ? 0 : 1, batchCount, previousQuestions: allSubQuestions.map(sq => sq.question) }
         );
+        // Inject research results into the draft prompt
+        systemPrompt += researchContext;
 
         const apiMessages: Message[] = [
           { role: "system", content: systemPrompt },
