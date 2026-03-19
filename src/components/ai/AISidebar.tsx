@@ -789,7 +789,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         // Comprehensive refinement prompt
         const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
 
-The current analysis scored Logic=${effectiveLogicScore}/100 and Resilience=${finalResilienceScore}/100. BOTH must reach 95+.
+The current analysis scored Logic=${effectiveLogicScore}/100 and Resilience=${finalResilienceScore}/100. BOTH must reach ${SCORE_TARGET}+.
 
 ${refineFeedback}
 
