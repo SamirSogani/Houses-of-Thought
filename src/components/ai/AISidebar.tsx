@@ -631,9 +631,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         if (batchCount <= 0) break;
 
-        toast.info(requestedCount === 0
+        const batchMsg = requestedCount === 0
           ? `Generating sub-questions (as many as needed)...`
-          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
+          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`;
+        toast.info(batchMsg);
+        if (draftRunId) appendDraftLog(draftRunId, batchMsg);
 
         const systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
