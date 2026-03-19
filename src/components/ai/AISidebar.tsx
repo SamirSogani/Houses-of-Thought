@@ -308,12 +308,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
   const loadChats = useCallback(async () => {
     if (!analysis) return;
-    const { data } = await supabase
-      .from("sidebar_chats")
-      .select("*")
-      .eq("analysis_id", analysis.id)
-      .order("updated_at", { ascending: false });
-    setChats((data as any[]) || []);
+    const [chatRes, draftRes] = await Promise.all([
+      supabase.from("sidebar_chats").select("*").eq("analysis_id", analysis.id).order("updated_at", { ascending: false }),
+      supabase.from("draft_runs").select("*").eq("analysis_id", analysis.id).order("created_at", { ascending: false }),
+    ]);
+    setChats((chatRes.data as any[]) || []);
+    setDraftRuns((draftRes.data as any[]) || []);
     setChatsLoaded(true);
   }, [analysis]);
 
