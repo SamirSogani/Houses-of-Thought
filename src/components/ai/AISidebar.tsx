@@ -512,15 +512,22 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             return res;
           }
 
-          const errorMessage = String((res.error as { message?: string } | null)?.message || res.error || "AI request failed");
-          const isRateLimited = errorMessage.includes("429");
+          const errorMessage = JSON.stringify(res.error);
+          const errorStatus = typeof res.error === "object" && res.error !== null && "context" in res.error
+            ? Number((res.error as { context?: { status?: number } }).context?.status)
+            : undefined;
+          const isRateLimited = errorStatus === 429 || errorMessage.includes("429") || errorMessage.includes("rate limit");
 
           if (!isRateLimited) {
-            throw new Error(errorMessage);
+            throw new Error(
+              typeof res.error === "object" && res.error !== null && "message" in res.error
+                ? String((res.error as { message?: string }).message || "AI request failed")
+                : "AI request failed"
+            );
           }
 
           attempt += 1;
-          const waitSecs = Math.min(60, 10 + attempt * 5);
+          const waitSecs = Math.min(90, 15 + attempt * 10);
           toast.info(`AI is busy. Retrying Draft Full House in ${waitSecs}s...`);
           await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
         }
