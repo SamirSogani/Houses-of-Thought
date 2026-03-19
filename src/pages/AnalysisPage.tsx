@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +35,8 @@ export default function AnalysisPage() {
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(288);
+  const isResizing = useRef(false);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -177,8 +179,8 @@ export default function AnalysisPage() {
       {/* Resizable Tool Panel */}
       {showToolPanel && (
         <aside
-          className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col resize-x overflow-auto relative group"
-          style={{ width: 288, minWidth: 220, maxWidth: 600 }}
+          className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col overflow-hidden relative"
+          style={{ width: panelWidth, minWidth: 220, maxWidth: 600 }}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-display font-semibold text-muted-foreground">
@@ -207,9 +209,29 @@ export default function AnalysisPage() {
             )}
             {toolPanel === "admin" && <AdminUsersPanel />}
           </ScrollArea>
-          {/* Drag handle indicator */}
-          <div className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize flex items-center justify-center border-r border-border hover:border-primary hover:bg-primary/10 transition-colors group-hover:bg-muted/50">
-            <div className="w-0.5 h-8 rounded-full bg-muted-foreground/30 group-hover:bg-primary/50 transition-colors" />
+          {/* Drag handle */}
+          <div
+            className="absolute top-0 right-0 w-2 h-full cursor-col-resize flex items-center justify-center border-r border-border hover:border-primary hover:bg-primary/10 transition-colors z-10"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              isResizing.current = true;
+              const startX = e.clientX;
+              const startW = panelWidth;
+              const onMouseMove = (ev: MouseEvent) => {
+                if (!isResizing.current) return;
+                const newW = Math.min(600, Math.max(220, startW + ev.clientX - startX));
+                setPanelWidth(newW);
+              };
+              const onMouseUp = () => {
+                isResizing.current = false;
+                document.removeEventListener("mousemove", onMouseMove);
+                document.removeEventListener("mouseup", onMouseUp);
+              };
+              document.addEventListener("mousemove", onMouseMove);
+              document.addEventListener("mouseup", onMouseUp);
+            }}
+          >
+            <div className="w-0.5 h-8 rounded-full bg-muted-foreground/30 hover:bg-primary/50 transition-colors" />
           </div>
         </aside>
       )}

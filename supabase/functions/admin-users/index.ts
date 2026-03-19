@@ -88,14 +88,14 @@ serve(async (req) => {
         });
       }
 
-      // Get user's analyses
+      // Get user's analyses with full details
       const { data: analyses } = await adminClient
         .from("analyses")
-        .select("id, title, created_at, updated_at, is_public")
+        .select("*")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false });
 
-      // Get user's AI chats
+      // Get user's AI chats with ALL messages
       const { data: chats } = await adminClient
         .from("sidebar_chats")
         .select("id, chat_title, created_at, updated_at, messages, analysis_id")
@@ -116,8 +116,36 @@ serve(async (req) => {
         chats: (chats || []).map((c: any) => ({
           ...c,
           message_count: Array.isArray(c.messages) ? c.messages.length : 0,
-          messages: Array.isArray(c.messages) ? c.messages.slice(0, 50) : [],
         })),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "analysis-detail") {
+      const analysisId = url.searchParams.get("analysisId");
+      if (!analysisId) {
+        return new Response(JSON.stringify({ error: "analysisId required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const [analysisRes, sqRes, conceptsRes, assumptionsRes] = await Promise.all([
+        adminClient.from("analyses").select("*").eq("id", analysisId).maybeSingle(),
+        adminClient.from("sub_questions").select("*").eq("analysis_id", analysisId).order("sort_order"),
+        adminClient.from("concepts").select("*").eq("analysis_id", analysisId),
+        adminClient.from("assumptions").select("*"),
+      ]);
+
+      // Filter assumptions to those belonging to this analysis's sub-questions
+      const sqIds = new Set((sqRes.data || []).map((sq: any) => sq.id));
+      const relevantAssumptions = (assumptionsRes.data || []).filter((a: any) => sqIds.has(a.sub_question_id));
+
+      return new Response(JSON.stringify({
+        analysis: analysisRes.data,
+        sub_questions: sqRes.data || [],
+        concepts: conceptsRes.data || [],
+        assumptions: relevantAssumptions,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
