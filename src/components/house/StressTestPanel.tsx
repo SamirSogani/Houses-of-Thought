@@ -38,13 +38,19 @@ interface HistoryRecord {
   created_at: string;
 }
 
+function summarizeInfo(info: string): string {
+  if (!info) return "None";
+  try {
+    const facts = JSON.parse(info);
+    if (Array.isArray(facts)) return facts.map((f: any) => f.text || f).join("; ").slice(0, 200);
+  } catch {}
+  return info.slice(0, 200);
+}
+
 function buildContext(analysis: Analysis, subQuestions: SubQuestion[], profile: Tables<"profiles"> | null): string {
-  let ctx = `Title: ${analysis.title}\nPurpose: ${analysis.purpose || "N/A"}\nQuestion: ${analysis.overarching_question || "N/A"}\nConclusion: ${analysis.overarching_conclusion || "N/A"}\nConsequences: ${analysis.consequences || "N/A"}\n\n`;
-  if (profile) {
-    ctx += `POV: Bio=${profile.biological}, Social=${profile.social}, Familial=${profile.familial}, Individual=${profile.individual}\n\n`;
-  }
+  let ctx = `Q: ${analysis.overarching_question || "N/A"}\nConclusion: ${analysis.overarching_conclusion || "N/A"}\n`;
   subQuestions.forEach((sq, i) => {
-    ctx += `SQ${i + 1} [${sq.pov_category}]: "${sq.question}" Info: ${sq.information || "None"} Conclusion: ${sq.sub_conclusion || "None"}\n`;
+    ctx += `SQ${i + 1} [${sq.pov_category}]: "${sq.question}" → ${sq.sub_conclusion || "None"} (Info: ${summarizeInfo(sq.information)})\n`;
   });
   return ctx;
 }

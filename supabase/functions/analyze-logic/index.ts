@@ -171,7 +171,7 @@ Return ONLY valid JSON:
             { role: "user", content: userPrompt },
           ],
           temperature: 0.3,
-          max_tokens: 4096,
+          max_tokens: (mode === "analyze" || mode === "stress_test") ? 2048 : 4096,
         }),
       });
 
