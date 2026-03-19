@@ -14,6 +14,8 @@ type Concept = Tables<"concepts">;
 export default function ConceptsPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
 

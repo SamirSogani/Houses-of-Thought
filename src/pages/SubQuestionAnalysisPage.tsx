@@ -36,6 +36,8 @@ function parseInfoItems(raw: string): FactEntry[] {
 export default function SubQuestionAnalysisPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [sq, setSq] = useState<SubQuestion | null>(null);
   const [analysisTitle, setAnalysisTitle] = useState("");
   const [infoItems, setInfoItems] = useState<FactEntry[]>([]);

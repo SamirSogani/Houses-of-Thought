@@ -13,6 +13,8 @@ type SubQuestion = Tables<"sub_questions">;
 export default function SubQuestionsPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
 

@@ -48,6 +48,8 @@ function serializeStored(data: StoredData): string {
 export default function ImplicationsPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [generating, setGenerating] = useState(false);

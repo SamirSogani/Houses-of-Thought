@@ -19,6 +19,8 @@ const ASSUMPTION_TYPES = [
 export default function AssumptionsPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [sqQuestion, setSqQuestion] = useState("");
 

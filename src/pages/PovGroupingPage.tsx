@@ -27,6 +27,8 @@ const POV_CATEGORIES = [
 export default function PovGroupingPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
   const [povLabels, setPovLabels] = useState<PovLabel[]>([]);

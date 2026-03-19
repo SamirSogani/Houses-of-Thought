@@ -38,6 +38,8 @@ function parseStored(raw: string): StoredData {
 export default function ConsequencesPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [consequences, setConsequences] = useState<string[]>([]);
 
