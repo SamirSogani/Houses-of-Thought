@@ -979,7 +979,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
-        const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
+        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
 
 The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+) and Resilience=${finalResilienceScore}/100 (needs ${SCORE_TARGET}+). Completeness is discounted.
 
