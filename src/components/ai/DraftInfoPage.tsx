@@ -93,17 +93,21 @@ export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }:
 
         <div className="space-y-1.5">
           <Label htmlFor="count" className="text-xs font-medium">Number of Sub-Questions</Label>
-          <select
-            id="count"
-            value={info.subQuestionCount}
-            onChange={(e) => update("subQuestionCount", parseInt(e.target.value))}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value={0}>As many as needed</option>
-            {[3, 4, 5, 6, 8, 10, 12, 15, 20].map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <Input
+              id="count"
+              type="number"
+              min={0}
+              placeholder="0 = as many as needed"
+              value={info.subQuestionCount || ""}
+              onChange={(e) => {
+                const val = e.target.value === "" ? 0 : parseInt(e.target.value);
+                update("subQuestionCount", isNaN(val) ? 0 : Math.max(0, val));
+              }}
+              className="h-9 text-sm w-32"
+            />
+            <span className="text-xs text-muted-foreground">0 = as many as needed</span>
+          </div>
         </div>
       </div>
 
