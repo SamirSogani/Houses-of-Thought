@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Bot, Send, Sparkles, Loader2, ArrowLeft, List, Search, Zap } from "lucide-react";
+import { Bot, Send, Sparkles, Loader2, ArrowLeft, List, Search, Zap, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -11,6 +11,7 @@ import ProposedChangeCard from "./ProposedChangeCard";
 import TextSelectionToolbar from "./TextSelectionToolbar";
 import DraftInfoPage, { type DraftInfo } from "./DraftInfoPage";
 import PlacementSelector from "./PlacementSelector";
+import DraftHistoryView, { DraftRunDetail } from "./DraftHistoryView";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -292,22 +293,27 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // View state: "chat" | "list" | "draft-info"
-  const [view, setView] = useState<"chat" | "list" | "draft-info">("chat");
+  // View state: "chat" | "list" | "draft-info" | "draft-history" | "draft-detail"
+  const [view, setView] = useState<"chat" | "list" | "draft-info" | "draft-history" | "draft-detail">("chat");
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatsLoaded, setChatsLoaded] = useState(false);
+
+  // Draft history state
+  const [draftRuns, setDraftRuns] = useState<any[]>([]);
+  const [selectedDraftRunId, setSelectedDraftRunId] = useState<string | null>(null);
+  const [activeDraftRunId, setActiveDraftRunId] = useState<string | null>(null);
 
   // ─── Chat management ────────────────────────────────────
 
   const loadChats = useCallback(async () => {
     if (!analysis) return;
-    const { data } = await supabase
-      .from("sidebar_chats")
-      .select("*")
-      .eq("analysis_id", analysis.id)
-      .order("updated_at", { ascending: false });
-    setChats((data as any[]) || []);
+    const [chatRes, draftRes] = await Promise.all([
+      supabase.from("sidebar_chats").select("*").eq("analysis_id", analysis.id).order("updated_at", { ascending: false }),
+      supabase.from("draft_runs").select("*").eq("analysis_id", analysis.id).order("created_at", { ascending: false }),
+    ]);
+    setChats((chatRes.data as any[]) || []);
+    setDraftRuns((draftRes.data as any[]) || []);
     setChatsLoaded(true);
   }, [analysis]);
 
@@ -370,7 +376,41 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       .eq("id", activeChatId);
   };
 
+  // ─── Draft history management ───────────────────────────
+  const deleteDraftRun = async (runId: string) => {
+    await supabase.from("draft_runs").delete().eq("id", runId);
+    setDraftRuns((prev) => prev.filter((r) => r.id !== runId));
+    if (selectedDraftRunId === runId) setSelectedDraftRunId(null);
+  };
+
+  const createDraftRun = async (draftInfo: DraftInfo): Promise<string | null> => {
+    if (!analysis) return null;
+    const { data, error } = await supabase
+      .from("draft_runs")
+      .insert({ analysis_id: analysis.id, draft_info: draftInfo as any, status: "running", log_messages: [] as any } as any)
+      .select()
+      .single();
+    if (error || !data) return null;
+    const run = data as any;
+    setDraftRuns((prev) => [run, ...prev]);
+    setActiveDraftRunId(run.id);
+    return run.id;
+  };
+
+  const updateDraftRun = async (runId: string, updates: Record<string, any>) => {
+    await supabase.from("draft_runs").update({ ...updates, updated_at: new Date().toISOString() } as any).eq("id", runId);
+    setDraftRuns((prev) => prev.map((r) => r.id === runId ? { ...r, ...updates } : r));
+  };
+
+  const appendDraftLog = async (runId: string, message: string) => {
+    const run = draftRuns.find((r) => r.id === runId);
+    const currentLogs = Array.isArray(run?.log_messages) ? run.log_messages : [];
+    const newLogs = [...currentLogs, `[${new Date().toLocaleTimeString()}] ${message}`];
+    await updateDraftRun(runId, { log_messages: newLogs });
+  };
+
   // ─── Apply action to House ──────────────────────────────
+
 
   const applyAction = async (action: any) => {
     if (!analysis) throw new Error("No analysis loaded");
@@ -527,9 +567,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       return;
     }
 
+    let draftRunId: string | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
+
+      // Create draft run record
+      draftRunId = await createDraftRun(draftInfo);
 
       const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
       const batchSize = 5;
@@ -587,9 +631,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         if (batchCount <= 0) break;
 
-        toast.info(requestedCount === 0
+        const batchMsg = requestedCount === 0
           ? `Generating sub-questions (as many as needed)...`
-          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
+          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`;
+        toast.info(batchMsg);
+        if (draftRunId) appendDraftLog(draftRunId, batchMsg);
 
         const systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
@@ -760,6 +806,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
       toast.info("Draft complete. Running auto-evaluation...");
+      if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
+      if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
       onDraftComplete?.(); // reload data first
 
       const SCORE_TARGET = 60; // standard resilience target
@@ -844,11 +892,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         effectiveLogicScore = finalLogicScore;
 
-        toast.info(`Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`);
+        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`;
+        toast.info(roundMsg);
+        if (draftRunId) appendDraftLog(draftRunId, roundMsg);
 
         // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
         if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
-          toast.success(`✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`);
+          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`;
+          toast.success(successMsg);
+          if (draftRunId) appendDraftLog(draftRunId, successMsg);
           break;
         }
 
@@ -1048,6 +1100,17 @@ CRITICAL RULES:
       // Final reload
       onDraftComplete?.();
 
+      // Update draft run as completed
+      if (draftRunId) {
+        await updateDraftRun(draftRunId, {
+          status: "completed",
+          iterations: iteration,
+          sub_questions_generated: allSubQuestions.length,
+          final_logic_score: finalLogicScore,
+          final_resilience_score: finalResilienceScore,
+        });
+      }
+
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
@@ -1061,8 +1124,11 @@ CRITICAL RULES:
       toast.success(`Draft applied with ${allSubQuestions.length} sub-questions!`);
     } catch (err: any) {
       toast.error(err.message || "Draft failed");
+      if (draftRunId) updateDraftRun(draftRunId, { status: "failed" });
+      if (draftRunId) appendDraftLog(draftRunId, `Failed: ${err.message || "Unknown error"}`);
     } finally {
       setDraftLoading(false);
+      setActiveDraftRunId(null);
     }
   };
 
@@ -1085,12 +1151,19 @@ CRITICAL RULES:
                 ? chats.find((c) => c.id === activeChatId)?.chat_title || "AI Assistant"
                 : view === "draft-info"
                 ? "Draft Full House"
+                : view === "draft-history" || view === "draft-detail"
+                ? "Draft History"
                 : "Chat History"}
             </span>
             {view === "chat" && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
-                <List className="h-4 w-4" />
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("draft-history")} title="Draft History">
+                  <History className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
+                  <List className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </SheetTitle>
         </SheetHeader>
@@ -1117,6 +1190,31 @@ CRITICAL RULES:
             loading={draftLoading}
             defaultGoal={analysis?.purpose || analysis?.overarching_question || ""}
           />
+        ) : view === "draft-history" ? (
+          <DraftHistoryView
+            runs={draftRuns}
+            selectedRunId={selectedDraftRunId}
+            onSelectRun={(id) => { setSelectedDraftRunId(id); setView("draft-detail"); }}
+            onDeleteRun={deleteDraftRun}
+            onNewDraft={() => setView("draft-info")}
+            onBack={() => setView("chat")}
+          />
+        ) : view === "draft-detail" ? (
+          (() => {
+            const selectedRun = draftRuns.find((r) => r.id === selectedDraftRunId);
+            return selectedRun ? (
+              <DraftRunDetail run={selectedRun} onBack={() => setView("draft-history")} />
+            ) : (
+              <DraftHistoryView
+                runs={draftRuns}
+                selectedRunId={null}
+                onSelectRun={(id) => { setSelectedDraftRunId(id); setView("draft-detail"); }}
+                onDeleteRun={deleteDraftRun}
+                onNewDraft={() => setView("draft-info")}
+                onBack={() => setView("chat")}
+              />
+            );
+          })()
         ) : (
           <>
             {/* Messages area with text selection toolbar */}
