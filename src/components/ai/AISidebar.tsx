@@ -689,7 +689,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       toast.info("Draft complete. Running auto-evaluation...");
       onDraftComplete?.(); // reload data first
 
-      const MAX_REFINE_ITERATIONS = 10;
+      const SCORE_TARGET = 80;
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
