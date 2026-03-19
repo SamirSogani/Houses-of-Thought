@@ -401,6 +401,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="3.1"
           blocks={layers.questionBlocks}
           colorClass="bg-card border-primary/60"
+          onClick={() => onNavigate(`/analysis/${analysisId}`)}
         />
 
         {/* Purpose */}
@@ -409,6 +410,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="2"
           blocks={layers.purposeBlocks}
           colorClass="bg-foundation-bg/30 border-foundation/60"
+          onClick={() => onNavigate(`/analysis/${analysisId}`)}
         />
 
         {/* Foundation — Personal POV */}
