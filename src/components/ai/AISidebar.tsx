@@ -1100,6 +1100,17 @@ CRITICAL RULES:
       // Final reload
       onDraftComplete?.();
 
+      // Update draft run as completed
+      if (draftRunId) {
+        await updateDraftRun(draftRunId, {
+          status: "completed",
+          iterations: iteration,
+          sub_questions_generated: allSubQuestions.length,
+          final_logic_score: finalLogicScore,
+          final_resilience_score: finalResilienceScore,
+        });
+      }
+
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
@@ -1113,8 +1124,11 @@ CRITICAL RULES:
       toast.success(`Draft applied with ${allSubQuestions.length} sub-questions!`);
     } catch (err: any) {
       toast.error(err.message || "Draft failed");
+      if (draftRunId) updateDraftRun(draftRunId, { status: "failed" });
+      if (draftRunId) appendDraftLog(draftRunId, `Failed: ${err.message || "Unknown error"}`);
     } finally {
       setDraftLoading(false);
+      setActiveDraftRunId(null);
     }
   };
 
