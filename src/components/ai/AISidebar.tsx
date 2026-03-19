@@ -689,7 +689,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       toast.info("Draft complete. Running auto-evaluation...");
       onDraftComplete?.(); // reload data first
 
-      const SCORE_TARGET = 80;
+      const SCORE_TARGET = 80; // resilience target
+      const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
