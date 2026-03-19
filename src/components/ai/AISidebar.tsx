@@ -506,6 +506,14 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         systemContent += `\nAUTO-IMPLEMENT MODE: The user wants your suggestions applied directly. Respond with a JSON action block to update the House. Always include an action block in your response.\n`;
       }
 
+      // Research mode: run Brave Search on the user's query and inject results
+      if (researchMode) {
+        const searchResults = await braveSearch(text, 8);
+        if (searchResults) {
+          systemContent += `\n## Web Research Results\nThe following are real-time web search results relevant to the user's query. Use these to ground your response with verifiable facts and cite sources where appropriate:\n\n${searchResults}\n`;
+        }
+      }
+
       const apiMessages: Message[] = [
         { role: "system", content: systemContent },
         ...newMessages,
