@@ -80,8 +80,9 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
       };
     }
 
-    const maxRetries = 3;
+    const maxRetries = 5;
     let groqResponse: Response | null = null;
+    let lastRateLimitBody = '';
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -99,10 +100,9 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
       });
 
       if (groqResponse.status === 429) {
-        // Parse retry-after from error or use exponential backoff
-        const errBody = await groqResponse.text();
-        const retryMatch = errBody.match(/try again in (\d+\.?\d*)s/);
-        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 1 : (attempt + 1) * 10;
+        lastRateLimitBody = await groqResponse.text();
+        const retryMatch = lastRateLimitBody.match(/try again in (\d+\.?\d*)s/);
+        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 2 : Math.min(90, 15 + attempt * 10);
         console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}), waiting ${waitSecs}s...`);
         await new Promise(r => setTimeout(r, waitSecs * 1000));
         continue;
@@ -112,17 +112,23 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
         const errText = await groqResponse.text();
         return new Response(JSON.stringify({ error: `Groq API error: ${errText}` }), {
           status: groqResponse.status,
-          headers: corsHeaders,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      break; // success
+      break;
     }
 
     if (!groqResponse || !groqResponse.ok) {
-      return new Response(JSON.stringify({ error: 'Groq API rate limit exceeded after retries. Please wait a moment and try again.' }), {
+      return new Response(JSON.stringify({
+        error: 'Groq API rate limit exceeded after retries. Please wait a moment and try again.',
+        code: 'RATE_LIMITED',
+        retryable: true,
+        provider: 'groq',
+        details: lastRateLimitBody,
+      }), {
         status: 429,
-        headers: corsHeaders,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
