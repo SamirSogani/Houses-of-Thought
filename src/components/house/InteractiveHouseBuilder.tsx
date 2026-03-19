@@ -250,6 +250,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         id: "purpose",
         label: analysis.purpose,
         layer: "purpose",
+        onClick: () => onNavigate(`/analysis/${analysisId}`),
         color: "bg-foundation-bg border-foundation text-foreground",
       });
     }
@@ -260,6 +261,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         id: "oq",
         label: analysis.overarching_question,
         layer: "question",
+        onClick: () => onNavigate(`/analysis/${analysisId}`),
         color: "bg-primary/10 border-primary text-foreground",
       });
     }
@@ -352,6 +354,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="7.1"
           blocks={layers.subConclusionBlocks}
           colorClass="bg-primary/5 border-primary"
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Logical Inference (conceptual layer) */}
@@ -382,6 +385,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           colorClass="bg-foundation-bg/50 border-foundation"
           isWeak={layers.isWeakFoundation && layers.totalInfoItems > 0}
           weakLabel={`Weak foundation — only ${layers.totalInfoItems} fact(s). Add more evidence.`}
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Sub-Questions */}
@@ -399,6 +403,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="3.1"
           blocks={layers.questionBlocks}
           colorClass="bg-card border-primary/60"
+          onClick={() => onNavigate(`/analysis/${analysisId}`)}
         />
 
         {/* Purpose */}
@@ -407,6 +412,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="2"
           blocks={layers.purposeBlocks}
           colorClass="bg-foundation-bg/30 border-foundation/60"
+          onClick={() => onNavigate(`/analysis/${analysisId}`)}
         />
 
         {/* Foundation — Personal POV */}
