@@ -576,17 +576,20 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let retryRound = 0;
 
       // Keep generating until we hit the exact requested count (with retry limit)
-      while (allSubQuestions.length < requestedCount && retryRound <= maxRetryAttempts) {
-        const remaining = requestedCount - allSubQuestions.length;
+      // If requestedCount is 0 ("as many as needed"), only do one batch
+      while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
+        const remaining = requestedCount === 0 ? batchSize : requestedCount - allSubQuestions.length;
         const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
-        const totalEstimated = Math.ceil(requestedCount / batchSize);
+        const totalEstimated = requestedCount === 0 ? 1 : Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
 
-        toast.info(`Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
+        toast.info(requestedCount === 0
+          ? `Generating sub-questions (as many as needed)...`
+          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
 
         const systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
