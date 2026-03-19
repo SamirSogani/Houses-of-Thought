@@ -567,9 +567,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       return;
     }
 
+    let draftRunId: string | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
+
+      // Create draft run record
+      draftRunId = await createDraftRun(draftInfo);
 
       const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
       const batchSize = 5;
