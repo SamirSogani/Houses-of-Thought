@@ -1000,7 +1000,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         // Research weaknesses before refining
         const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
         const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
-        await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Rate limit buffer
 
         // Comprehensive refinement prompt
         let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
