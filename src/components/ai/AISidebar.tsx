@@ -975,7 +975,7 @@ CRITICAL RULES:
             for (const update of refineData.sub_question_updates) {
               if (update.id && update.information) {
                 await supabase.from("sub_questions").update({
-                  information: update.information,
+                  information: serializeInformation(update.information),
                   updated_at: new Date().toISOString(),
                 }).eq("id", update.id);
               }
