@@ -354,6 +354,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           element="7.1"
           blocks={layers.subConclusionBlocks}
           colorClass="bg-primary/5 border-primary"
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Logical Inference (conceptual layer) */}
