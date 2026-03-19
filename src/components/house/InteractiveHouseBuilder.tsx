@@ -385,6 +385,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
           colorClass="bg-foundation-bg/50 border-foundation"
           isWeak={layers.isWeakFoundation && layers.totalInfoItems > 0}
           weakLabel={`Weak foundation — only ${layers.totalInfoItems} fact(s). Add more evidence.`}
+          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
         />
 
         {/* Sub-Questions */}
