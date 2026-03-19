@@ -210,7 +210,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
-        "conceptual_frameworks": ["string - at least 1 theoretical framework or mental model"],
+        "conceptual_frameworks": ["string - at least 2 SPECIFIC NAMED frameworks/models that shape how inferences are drawn, e.g. 'Maslow hierarchy of needs', 'Rational choice theory'"],
         "background_definitions": ["string - at least 1 key definition or background belief"]
       }
     }
