@@ -169,7 +169,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
