@@ -250,6 +250,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         id: "purpose",
         label: analysis.purpose,
         layer: "purpose",
+        onClick: () => onNavigate(`/analysis/${analysisId}`),
         color: "bg-foundation-bg border-foundation text-foreground",
       });
     }
