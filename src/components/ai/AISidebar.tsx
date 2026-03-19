@@ -1190,6 +1190,31 @@ CRITICAL RULES:
             loading={draftLoading}
             defaultGoal={analysis?.purpose || analysis?.overarching_question || ""}
           />
+        ) : view === "draft-history" ? (
+          <DraftHistoryView
+            runs={draftRuns}
+            selectedRunId={selectedDraftRunId}
+            onSelectRun={(id) => { setSelectedDraftRunId(id); setView("draft-detail"); }}
+            onDeleteRun={deleteDraftRun}
+            onNewDraft={() => setView("draft-info")}
+            onBack={() => setView("chat")}
+          />
+        ) : view === "draft-detail" ? (
+          (() => {
+            const selectedRun = draftRuns.find((r) => r.id === selectedDraftRunId);
+            return selectedRun ? (
+              <DraftRunDetail run={selectedRun} onBack={() => setView("draft-history")} />
+            ) : (
+              <DraftHistoryView
+                runs={draftRuns}
+                selectedRunId={null}
+                onSelectRun={(id) => { setSelectedDraftRunId(id); setView("draft-detail"); }}
+                onDeleteRun={deleteDraftRun}
+                onNewDraft={() => setView("draft-info")}
+                onBack={() => setView("chat")}
+              />
+            );
+          })()
         ) : (
           <>
             {/* Messages area with text selection toolbar */}
