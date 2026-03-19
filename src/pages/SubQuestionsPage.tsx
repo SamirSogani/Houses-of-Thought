@@ -106,7 +106,7 @@ export default function SubQuestionsPage() {
 
         {subQuestions.length > 0 && (
           <div className="mt-8 flex justify-end">
-            <Button onClick={() => navigate(`/analysis/${analysisId}/pov-grouping`)}>
+            <Button onClick={() => navigate(`/analysis/${analysisId}/pov-grouping${viewParam}`)}>
               Next: Group by Point of View →
             </Button>
           </div>

@@ -90,7 +90,7 @@ export default function SubQuestionAnalysisPage() {
           {/* Assumptions */}
           <Card
             className="house-zone house-zone-assumption cursor-pointer"
-            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}/assumptions`)}
+            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}/assumptions${viewParam}`)}
           >
             <CardHeader>
               <CardTitle className="text-lg font-display">Assumptions</CardTitle>
@@ -135,7 +135,7 @@ export default function SubQuestionAnalysisPage() {
         </div>
 
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/pov-grouping`)}>
+          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/pov-grouping${viewParam}`)}>
             ← POV Grouping
           </Button>
           <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>

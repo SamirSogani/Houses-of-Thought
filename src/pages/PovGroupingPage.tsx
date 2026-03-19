@@ -139,7 +139,7 @@ export default function PovGroupingPage() {
                             <div
                               key={sq.id}
                               className="p-2 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}`)}
+                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
                             >
                               {sq.question || "Untitled question"}
                             </div>
@@ -154,7 +154,7 @@ export default function PovGroupingPage() {
                         <div
                           key={sq.id}
                           className="p-3 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}`)}
+                          onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
                         >
                           {sq.question || "Untitled question"}
                         </div>

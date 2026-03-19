@@ -214,7 +214,7 @@ ${subConclusionsSummary || "None yet"}`;
         </Card>
 
         <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/consequences`)}>
+          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/consequences${viewParam}`)}>
             View Consequences →
           </Button>
           <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>

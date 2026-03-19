@@ -105,7 +105,7 @@ export default function ConsequencesPage() {
         </Card>
 
         <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/implications`)}>
+          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/implications${viewParam}`)}>
             View Implications →
           </Button>
           <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>
