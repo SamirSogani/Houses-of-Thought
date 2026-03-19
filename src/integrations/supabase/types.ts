@@ -298,6 +298,44 @@ export type Database = {
           },
         ]
       }
+      test_results: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          id: string
+          result: Json
+          score: number
+          test_type: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          id?: string
+          result?: Json
+          score?: number
+          test_type: string
+          user_id?: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          result?: Json
+          score?: number
+          test_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_results_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
