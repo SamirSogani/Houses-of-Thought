@@ -802,6 +802,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
 
         toast.info(`🔧 Refining draft (round ${iteration})...`);
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
         const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
