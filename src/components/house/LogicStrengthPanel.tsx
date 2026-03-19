@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, XCircle, Brain, Eye, BookOpen, Lightbulb, Shield } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, XCircle, Brain, Eye, BookOpen, Lightbulb, Shield, History, ArrowLeft, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -35,20 +36,24 @@ interface AnalysisResult {
   reasoning_summary: string;
 }
 
+interface HistoryRecord {
+  id: string;
+  score: number;
+  result: AnalysisResult;
+  created_at: string;
+}
+
 function buildAnalysisContext(analysis: Analysis, subQuestions: SubQuestion[], profile: Tables<"profiles"> | null): string {
   let ctx = `Title: ${analysis.title}\nPurpose: ${analysis.purpose || "Not set"}\nOverarching Question: ${analysis.overarching_question || "Not set"}\nOverarching Conclusion: ${analysis.overarching_conclusion || "Not set"}\nConsequences: ${analysis.consequences || "Not set"}\n\n`;
-
   if (profile) {
     ctx += `Personal POV:\n- Biological: ${profile.biological || "Not set"}\n- Social: ${profile.social || "Not set"}\n- Familial: ${profile.familial || "Not set"}\n- Individual: ${profile.individual || "Not set"}\n\n`;
   }
-
   if (subQuestions.length > 0) {
     ctx += `Sub-Questions (${subQuestions.length}):\n`;
     subQuestions.forEach((sq, i) => {
       ctx += `${i + 1}. [${sq.pov_category}] "${sq.question}"\n   Information: ${sq.information || "None"}\n   Sub-conclusion: ${sq.sub_conclusion || "None"}\n`;
     });
   }
-
   return ctx;
 }
 
@@ -78,12 +83,6 @@ function StatusIcon({ status }: { status: string }) {
   return <XCircle className="h-3.5 w-3.5 text-destructive" />;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const variant = status === "strong" ? "default" : status === "needs_improvement" ? "secondary" : "destructive";
-  const label = status === "strong" ? "Strong" : status === "needs_improvement" ? "Needs Improvement" : "Problem Detected";
-  return <Badge variant={variant} className="text-[10px] h-5">{label}</Badge>;
-}
-
 const categoryIcons: Record<string, typeof Brain> = {
   evidence_strength: BookOpen,
   assumption_reliability: Eye,
@@ -102,20 +101,52 @@ export default function LogicStrengthPanel({ analysis, subQuestions, profile, on
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [improvementsLoading, setImprovementsLoading] = useState<string | null>(null);
+  const [view, setView] = useState<"current" | "history">("current");
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [selectedHistory, setSelectedHistory] = useState<HistoryRecord | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    const { data } = await supabase
+      .from("test_results")
+      .select("*")
+      .eq("analysis_id", analysis.id)
+      .eq("test_type", "logic_strength")
+      .order("created_at", { ascending: false });
+    setHistory((data || []).map((d: any) => ({ id: d.id, score: d.score, result: d.result as AnalysisResult, created_at: d.created_at })));
+  }, [analysis.id]);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  const saveResult = async (data: AnalysisResult) => {
+    await supabase.from("test_results").insert({
+      analysis_id: analysis.id,
+      test_type: "logic_strength",
+      result: data as any,
+      score: data.score,
+    } as any);
+    loadHistory();
+  };
+
+  const deleteResult = async (id: string) => {
+    await supabase.from("test_results").delete().eq("id", id);
+    setHistory(prev => prev.filter(h => h.id !== id));
+    if (selectedHistory?.id === id) setSelectedHistory(null);
+  };
 
   const analyzeLogic = async () => {
     setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Please sign in"); return; }
-
       const ctx = buildAnalysisContext(analysis, subQuestions, profile);
       const res = await supabase.functions.invoke("analyze-logic", {
         body: { mode: "analyze", analysisContext: ctx },
       });
-
       if (res.error) throw new Error(res.error.message);
       setResult(res.data);
+      setSelectedHistory(null);
+      await saveResult(res.data);
+      setView("current");
     } catch (err: any) {
       toast.error(err.message || "Failed to analyze");
     } finally {
@@ -128,31 +159,110 @@ export default function LogicStrengthPanel({ analysis, subQuestions, profile, on
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Please sign in"); return; }
-
       const ctx = buildAnalysisContext(analysis, subQuestions, profile);
       const res = await supabase.functions.invoke("analyze-logic", {
         body: { mode, analysisContext: ctx },
       });
-
       if (res.error) throw new Error(res.error.message);
-
-      // Display results as suggestions in a toast
       const data = res.data;
-      if (data.improvements) {
-        toast.success(`${data.improvements.length} improvement suggestions generated. Check the AI sidebar for details.`);
-      } else if (data.suggested_povs) {
-        toast.success(`${data.suggested_povs.length} POV suggestions generated.`);
-      } else if (data.weak_assumptions) {
-        toast.success(`${data.weak_assumptions.length} assumption issues found.`);
-      } else if (data.suggested_evidence) {
-        toast.success(`${data.suggested_evidence.length} evidence suggestions generated.`);
-      }
+      if (data.improvements) toast.success(`${data.improvements.length} improvement suggestions generated.`);
+      else if (data.suggested_povs) toast.success(`${data.suggested_povs.length} POV suggestions generated.`);
+      else if (data.weak_assumptions) toast.success(`${data.weak_assumptions.length} assumption issues found.`);
+      else if (data.suggested_evidence) toast.success(`${data.suggested_evidence.length} evidence suggestions generated.`);
     } catch (err: any) {
       toast.error(err.message || `Failed to ${label}`);
     } finally {
       setImprovementsLoading(null);
     }
   };
+
+  const displayResult = selectedHistory?.result || result;
+
+  const renderResult = (data: AnalysisResult) => (
+    <div className="space-y-3">
+      <div className="text-center space-y-1">
+        <div className={`text-3xl font-display font-bold ${getScoreColor(data.score)}`}>{data.score}</div>
+        <Progress value={data.score} className={`h-2 ${getProgressColor(data.score)}`} />
+        <p className={`text-xs font-medium ${getScoreColor(data.score)}`}>{getScoreLabel(data.score)}</p>
+      </div>
+      <div className="space-y-2">
+        {Object.entries(data.categories).map(([key, cat]) => {
+          const Icon = categoryIcons[key] || Brain;
+          return (
+            <div key={key} className="bg-muted/50 rounded p-2 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[11px] font-medium">{categoryLabels[key]}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <StatusIcon status={cat.status} />
+                  <span className="text-[10px] font-mono">{cat.score}/25</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">{cat.details}</p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-primary/5 border border-primary/20 rounded p-2">
+        <p className="text-[11px] text-foreground leading-relaxed">{data.reasoning_summary}</p>
+      </div>
+      {data.suggestions.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground">Reasoning Feedback</p>
+          {data.suggestions.map((s, i) => (
+            <div key={i} className="flex items-start gap-1.5 text-[10px] text-foreground">
+              <Lightbulb className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  if (view === "history") {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => { setView("current"); setSelectedHistory(null); }} className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </button>
+          <h3 className="text-sm font-display font-semibold flex items-center gap-1.5">
+            <History className="h-4 w-4 text-primary" />
+            Logic Test History
+          </h3>
+        </div>
+        {selectedHistory ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <button onClick={() => setSelectedHistory(null)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                <ArrowLeft className="h-3 w-3" /> Back to list
+              </button>
+              <span className="text-[10px] text-muted-foreground">{new Date(selectedHistory.created_at).toLocaleString()}</span>
+            </div>
+            {renderResult(selectedHistory.result)}
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {history.length === 0 && <p className="text-xs text-muted-foreground italic">No previous tests.</p>}
+            {history.map((h) => (
+              <div key={h.id} className="flex items-center justify-between bg-muted/50 rounded p-2 cursor-pointer hover:bg-muted" onClick={() => setSelectedHistory(h)}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold ${getScoreColor(h.score)}`}>{h.score}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(h.created_at).toLocaleString()}</span>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); deleteResult(h.id); }} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -161,13 +271,18 @@ export default function LogicStrengthPanel({ analysis, subQuestions, profile, on
           <TrendingUp className="h-4 w-4 text-primary" />
           Logic Strength
         </h3>
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={analyzeLogic} disabled={loading}>
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-          {result ? "Re-analyze" : "Analyze"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setView("history")} title="View history">
+            <History className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={analyzeLogic} disabled={loading}>
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+            {displayResult ? "Re-analyze" : "Analyze"}
+          </Button>
+        </div>
       </div>
 
-      {!result && !loading && (
+      {!displayResult && !loading && (
         <p className="text-xs text-muted-foreground italic">Click "Analyze" to evaluate your reasoning strength.</p>
       )}
 
@@ -178,57 +293,9 @@ export default function LogicStrengthPanel({ analysis, subQuestions, profile, on
         </div>
       )}
 
-      {result && (
-        <div className="space-y-3">
-          {/* Score */}
-          <div className="text-center space-y-1">
-            <div className={`text-3xl font-display font-bold ${getScoreColor(result.score)}`}>
-              {result.score}
-            </div>
-            <Progress value={result.score} className={`h-2 ${getProgressColor(result.score)}`} />
-            <p className={`text-xs font-medium ${getScoreColor(result.score)}`}>{getScoreLabel(result.score)}</p>
-          </div>
-
-          {/* Categories */}
-          <div className="space-y-2">
-            {Object.entries(result.categories).map(([key, cat]) => {
-              const Icon = categoryIcons[key] || Brain;
-              return (
-                <div key={key} className="bg-muted/50 rounded p-2 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Icon className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[11px] font-medium">{categoryLabels[key]}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <StatusIcon status={cat.status} />
-                      <span className="text-[10px] font-mono">{cat.score}/25</span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">{cat.details}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Summary */}
-          <div className="bg-primary/5 border border-primary/20 rounded p-2">
-            <p className="text-[11px] text-foreground leading-relaxed">{result.reasoning_summary}</p>
-          </div>
-
-          {/* Suggestions */}
-          {result.suggestions.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-medium text-muted-foreground">Reasoning Feedback</p>
-              {result.suggestions.map((s, i) => (
-                <div key={i} className="flex items-start gap-1.5 text-[10px] text-foreground">
-                  <Lightbulb className="h-3 w-3 text-yellow-500 shrink-0 mt-0.5" />
-                  <span>{s}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
+      {displayResult && (
+        <>
+          {renderResult(displayResult)}
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-1.5">
             <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => runAiAction("improve", "improve")} disabled={!!improvementsLoading}>
@@ -248,15 +315,19 @@ export default function LogicStrengthPanel({ analysis, subQuestions, profile, on
               Assumptions
             </Button>
           </div>
-
-          {/* Stress Test Link */}
           {onStartStressTest && (
             <Button size="sm" variant="default" className="w-full h-8 text-xs gap-1.5" onClick={onStartStressTest}>
               <Shield className="h-3.5 w-3.5" />
               Run Stress Test
             </Button>
           )}
-        </div>
+        </>
+      )}
+
+      {history.length > 0 && (
+        <button onClick={() => setView("history")} className="w-full text-[10px] text-muted-foreground hover:text-foreground text-center py-1">
+          View {history.length} previous test{history.length !== 1 ? "s" : ""}
+        </button>
       )}
     </div>
   );

@@ -147,13 +147,14 @@ All "information" fields must contain substantive, research-backed content — n
 `;
 
   const assumptionInstructions = `
-## ASSUMPTIONS (MUST BE COMPREHENSIVE)
-Each sub-question MUST have ALL FOUR assumption categories fully populated:
+## ASSUMPTIONS (MUST BE COMPREHENSIVE — ZERO EXCEPTIONS)
+Each sub-question MUST have ALL FOUR assumption categories fully populated. This is NON-NEGOTIABLE:
 1. "explicit_premises": Stated premises the reasoning openly relies on (at least 2)
 2. "hidden_premises": Unstated or implicit beliefs that silently shape the argument (at least 2)
-3. "conceptual_frameworks": Theoretical frameworks, mental models, or paradigms that shape how inferences are drawn (at least 1)
+3. "conceptual_frameworks": THE CONCEPTS THAT SHAPE INFERENCES — theoretical frameworks, mental models, paradigms, or conceptual lenses that determine HOW conclusions are drawn from evidence. THIS IS THE MOST CRITICAL CATEGORY. Provide at least 2. Examples: "Utilitarian cost-benefit analysis", "Social constructionism", "Supply and demand theory". These must be specific named frameworks, not vague descriptions.
 4. "background_definitions": Key definitions, terms, or background beliefs that influence reasoning (at least 1)
-NEVER leave any assumption category empty or with fewer items than specified.
+
+CRITICAL: The "conceptual_frameworks" field corresponds to "Concepts That Shape Inferences" in the House of Reason. It MUST ALWAYS contain at least 2 specific, named conceptual frameworks. If you return fewer than 2, the entire draft will be rejected. NEVER leave this empty.
 `;
 
   // Batch mode: only generate sub-questions (no analysis fields)
@@ -168,7 +169,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":"string - thoroughly researched facts and evidence, minimum 2 sentences","assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -209,7 +210,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
-        "conceptual_frameworks": ["string - at least 1 theoretical framework or mental model"],
+        "conceptual_frameworks": ["string - at least 2 SPECIFIC NAMED frameworks/models that shape how inferences are drawn, e.g. 'Maslow hierarchy of needs', 'Rational choice theory'"],
         "background_definitions": ["string - at least 1 key definition or background belief"]
       }
     }
