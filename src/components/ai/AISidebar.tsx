@@ -502,11 +502,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const firstBatchSize = Math.min(batchSize, requestedCount);
       const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
 
-      const invokeGroqDraftWithRetry = async (body: Record<string, unknown>) => {
+      const invokeDraftAI = async (body: Record<string, unknown>) => {
         let attempt = 0;
 
         while (true) {
-          const res = await supabase.functions.invoke("groq-chat", { body });
+          const res = await supabase.functions.invoke("draft-ai", { body });
 
           if (!res.error) {
             return res;
@@ -517,6 +517,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             ? Number((res.error as { context?: { status?: number } }).context?.status)
             : undefined;
           const isRateLimited = errorStatus === 429 || errorMessage.includes("429") || errorMessage.includes("rate limit");
+          const isPaymentRequired = errorStatus === 402 || errorMessage.includes("402");
+
+          if (isPaymentRequired) {
+            throw new Error("AI credits exhausted. Please add credits in Settings → Workspace → Usage.");
+          }
 
           if (!isRateLimited) {
             throw new Error(
@@ -527,8 +532,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
 
           attempt += 1;
-          const waitSecs = Math.min(90, 15 + attempt * 10);
-          toast.info(`AI is busy. Retrying Draft Full House in ${waitSecs}s...`);
+          const waitSecs = Math.min(60, 10 + attempt * 5);
+          toast.info(`AI rate limited. Retrying in ${waitSecs}s...`);
           await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
         }
       };
@@ -559,11 +564,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           { role: "user", content: `My goal: ${goalInput}` },
         ];
 
-        const res = await invokeGroqDraftWithRetry({
+        const res = await invokeDraftAI({
           messages: apiMessages,
           mode: "draft",
-          batchIndex: isFirstBatch ? 0 : 1,
-          totalBatches: totalEstimated,
         });
 
         if (res.error) throw new Error(res.error.message);
@@ -902,7 +905,7 @@ CRITICAL RULES:
 - Set fields to null in analysis_updates if they don't need changes
 - new_sub_questions and new_assumptions can be empty arrays if not needed`;
 
-        const refineRes = await invokeGroqDraftWithRetry({
+        const refineRes = await invokeDraftAI({
           messages: [
             { role: "system", content: refinePrompt },
             { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}, Resilience>=${SCORE_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}, Resilience=${finalResilienceScore}` },
