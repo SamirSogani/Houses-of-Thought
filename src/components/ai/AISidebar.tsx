@@ -1180,7 +1180,7 @@ CRITICAL RULES:
       // Update draft run as completed
       if (draftRunId) {
         await updateDraftRun(draftRunId, {
-          status: "completed",
+          status: deadlineReached ? "completed_timeout" : "completed",
           iterations: iteration,
           sub_questions_generated: allSubQuestions.length,
           final_logic_score: finalLogicScore,
@@ -1189,9 +1189,13 @@ CRITICAL RULES:
       }
 
       setView("chat");
+      const statusEmoji = deadlineReached ? "⏰" : "✅";
+      const statusText = deadlineReached
+        ? `Draft complete (best effort after 3min deadline). Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Best scores — Evidence: ${bestEvidence}/25, Assumptions: ${bestAssumption}/25, Consistency: ${bestConsistency}/25, Resilience: ${bestResilience}/100\n\nThe target scores weren't fully reached, but this is the best result after ${iteration} refinement rounds.`
+        : `Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `${statusEmoji} ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
