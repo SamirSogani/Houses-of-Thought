@@ -971,6 +971,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
 
         toast.info(`🔧 Refining draft (round ${iteration})...`);
+        if (draftRunId) appendDraftLog(draftRunId, `Refining draft (round ${iteration})...`);
+
+        // Research weaknesses before refining
+        const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
+        const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
         await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
