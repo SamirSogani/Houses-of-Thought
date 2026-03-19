@@ -1151,12 +1151,19 @@ CRITICAL RULES:
                 ? chats.find((c) => c.id === activeChatId)?.chat_title || "AI Assistant"
                 : view === "draft-info"
                 ? "Draft Full House"
+                : view === "draft-history" || view === "draft-detail"
+                ? "Draft History"
                 : "Chat History"}
             </span>
             {view === "chat" && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
-                <List className="h-4 w-4" />
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("draft-history")} title="Draft History">
+                  <History className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setView("list")}>
+                  <List className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </SheetTitle>
         </SheetHeader>
