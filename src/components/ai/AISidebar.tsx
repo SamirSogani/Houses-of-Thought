@@ -989,7 +989,7 @@ CRITICAL RULES:
               analysis_id: analysis.id,
               question: sq.question || "",
               pov_category: sq.pov_category || "individual",
-              information: sq.information || "",
+              information: serializeInformation(sq.information),
               sub_conclusion: "",
               sort_order: currentSqs.length + i,
               is_draft: true,
