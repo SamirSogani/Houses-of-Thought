@@ -904,18 +904,18 @@ Return ONLY valid JSON with this structure:
   "sub_question_updates": [
     {
       "id": "existing sub_question_id",
-      "information": "dramatically improved, specific, evidence-based information with concrete facts, statistics, and named sources"
+      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong"}, {"text": "another distinct fact", "evidenceStrength": "very_strong"}]
     }
   ],
   "new_sub_questions": [
     {
       "question": "new sub-question to fill gaps",
       "pov_category": "individual|group|ideas_disciplines",
-      "information": "thorough research-backed information",
+      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong"}, {"text": "fact 2", "evidenceStrength": "moderate"}, {"text": "fact 3", "evidenceStrength": "strong"}],
       "assumptions": {
         "explicit_premises": ["premise1", "premise2"],
         "hidden_premises": ["hidden1", "hidden2"],
-        "conceptual_frameworks": ["framework1"],
+        "conceptual_frameworks": ["framework1", "framework2"],
         "background_definitions": ["definition1"]
       }
     }
