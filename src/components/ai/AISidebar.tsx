@@ -222,7 +222,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" must contain substantive, researched content.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text" and "evidenceStrength". Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
