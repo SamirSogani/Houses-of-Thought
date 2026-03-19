@@ -846,7 +846,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         toast.info(`Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`);
 
-        // Done when all 3 logic categories >= 23 AND resilience >= 80
+        // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
         if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
           toast.success(`✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`);
           break;
