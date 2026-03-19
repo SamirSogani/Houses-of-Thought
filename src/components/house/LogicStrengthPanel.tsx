@@ -43,15 +43,21 @@ interface HistoryRecord {
   created_at: string;
 }
 
+function summarizeInfo(info: string): string {
+  if (!info) return "None";
+  try {
+    const facts = JSON.parse(info);
+    if (Array.isArray(facts)) return facts.map((f: any) => f.text || f).join("; ").slice(0, 200);
+  } catch {}
+  return info.slice(0, 200);
+}
+
 function buildAnalysisContext(analysis: Analysis, subQuestions: SubQuestion[], profile: Tables<"profiles"> | null): string {
-  let ctx = `Title: ${analysis.title}\nPurpose: ${analysis.purpose || "Not set"}\nOverarching Question: ${analysis.overarching_question || "Not set"}\nOverarching Conclusion: ${analysis.overarching_conclusion || "Not set"}\nConsequences: ${analysis.consequences || "Not set"}\n\n`;
-  if (profile) {
-    ctx += `Personal POV:\n- Biological: ${profile.biological || "Not set"}\n- Social: ${profile.social || "Not set"}\n- Familial: ${profile.familial || "Not set"}\n- Individual: ${profile.individual || "Not set"}\n\n`;
-  }
+  let ctx = `Q: ${analysis.overarching_question || "N/A"}\nConclusion: ${analysis.overarching_conclusion || "N/A"}\n`;
   if (subQuestions.length > 0) {
-    ctx += `Sub-Questions (${subQuestions.length}):\n`;
+    ctx += `\nSub-Questions (${subQuestions.length}):\n`;
     subQuestions.forEach((sq, i) => {
-      ctx += `${i + 1}. [${sq.pov_category}] "${sq.question}"\n   Information: ${sq.information || "None"}\n   Sub-conclusion: ${sq.sub_conclusion || "None"}\n`;
+      ctx += `${i + 1}. [${sq.pov_category}] "${sq.question}" → ${sq.sub_conclusion || "None"} (Info: ${summarizeInfo(sq.information)})\n`;
     });
   }
   return ctx;
