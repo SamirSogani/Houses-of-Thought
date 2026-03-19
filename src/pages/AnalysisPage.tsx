@@ -59,6 +59,14 @@ export default function AnalysisPage() {
     if (id && user) loadData();
   }, [id, user, loadData]);
 
+  // Check if user is the owner
+  useEffect(() => {
+    if (!user) return;
+    supabase.functions.invoke("admin-users", { body: null, method: "GET" }).then(({ data }) => {
+      if (data?.users) setIsOwner(true);
+    }).catch(() => {});
+  }, [user]);
+
   const autoSave = useCallback(
     async (field: keyof Analysis, value: string) => {
       if (!id) return;
