@@ -743,22 +743,24 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         finalLogicScore = logicData?.score || 0;
         finalResilienceScore = stressData?.resilience_score || 0;
 
-        // Check if overarching_question was user-provided (existed before draft)
-        const userProvidedQuestion = !!analysis.overarching_question?.trim();
+        // Extract individual logic category scores (each out of 25)
+        const cats = logicData?.categories || {};
+        const evidenceScore = cats.evidence_strength?.score || 0;
+        const assumptionScore = cats.assumption_reliability?.score || 0;
+        const consistencyScore = cats.logical_consistency?.score || 0;
 
-        // Determine effective logic score (exclude completeness penalty if no user question)
+        // Logic passes when all 3 key categories are >= 23 (completeness discounted)
+        const logicPassed = evidenceScore >= LOGIC_CATEGORY_TARGET &&
+          assumptionScore >= LOGIC_CATEGORY_TARGET &&
+          consistencyScore >= LOGIC_CATEGORY_TARGET;
+
         effectiveLogicScore = finalLogicScore;
-        if (!userProvidedQuestion && logicData?.categories?.completeness) {
-          const cats = logicData.categories;
-          const nonCompletenessTotal = (cats.evidence_strength?.score || 0) + (cats.assumption_reliability?.score || 0) + (cats.logical_consistency?.score || 0);
-          effectiveLogicScore = Math.round((nonCompletenessTotal / 75) * 100);
-        }
 
-        toast.info(`Round ${iteration}: Logic ${effectiveLogicScore}/100, Resilience ${finalResilienceScore}/100`);
+        toast.info(`Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`);
 
-        // If both >= target, we're done
-        if (effectiveLogicScore >= SCORE_TARGET && finalResilienceScore >= SCORE_TARGET) {
-          toast.success(`✅ Target reached! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
+        // Done when all 3 logic categories >= 23 AND resilience >= 80
+        if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
+          toast.success(`✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`);
           break;
         }
 
