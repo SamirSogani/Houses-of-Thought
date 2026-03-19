@@ -227,7 +227,7 @@ CRITICAL RULES:
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
-Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and EXACTLY ${count} sub_questions (distributed across categories).
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as needed to thoroughly cover the topic from all relevant points of view" : `EXACTLY ${count} sub_questions`} (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
@@ -531,9 +531,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
 
-      const requestedCount = draftInfo.subQuestionCount;
+      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
       const batchSize = 5;
-      const firstBatchSize = Math.min(batchSize, requestedCount);
+      const firstBatchSize = requestedCount === 0 ? batchSize : Math.min(batchSize, requestedCount);
       const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
@@ -576,17 +576,20 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let retryRound = 0;
 
       // Keep generating until we hit the exact requested count (with retry limit)
-      while (allSubQuestions.length < requestedCount && retryRound <= maxRetryAttempts) {
-        const remaining = requestedCount - allSubQuestions.length;
+      // If requestedCount is 0 ("as many as needed"), only do one batch
+      while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
+        const remaining = requestedCount === 0 ? batchSize : requestedCount - allSubQuestions.length;
         const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
-        const totalEstimated = Math.ceil(requestedCount / batchSize);
+        const totalEstimated = requestedCount === 0 ? 1 : Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
 
-        toast.info(`Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
+        toast.info(requestedCount === 0
+          ? `Generating sub-questions (as many as needed)...`
+          : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`);
 
         const systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
@@ -759,7 +762,8 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       toast.info("Draft complete. Running auto-evaluation...");
       onDraftComplete?.(); // reload data first
 
-      const SCORE_TARGET = 80; // resilience target
+      const SCORE_TARGET = 60; // standard resilience target
+      const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
       let iteration = 0;
       let finalLogicScore = 0;
@@ -842,7 +846,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         toast.info(`Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`);
 
-        // Done when all 3 logic categories >= 23 AND resilience >= 80
+        // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
         if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
           toast.success(`✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`);
           break;
@@ -1047,7 +1051,7 @@ CRITICAL RULES:
       setView("chat");
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length}/${requestedCount} sub-questions.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
