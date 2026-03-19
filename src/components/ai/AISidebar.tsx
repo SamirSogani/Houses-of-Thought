@@ -848,8 +848,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
-      const REFINE_DEADLINE_MS = 3 * 60 * 1000; // 3 minutes
-      const refineStartTime = Date.now();
       toast.info("Draft complete. Running auto-evaluation...");
       if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
       if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
@@ -862,26 +860,10 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
-      let bestEvidence = 0, bestAssumption = 0, bestConsistency = 0, bestResilience = 0;
-      let deadlineReached = false;
 
       while (true) {
         iteration++;
-        const elapsed = Date.now() - refineStartTime;
-        const elapsedMin = (elapsed / 60000).toFixed(1);
-        const remaining = Math.max(0, REFINE_DEADLINE_MS - elapsed);
-
-        if (elapsed >= REFINE_DEADLINE_MS) {
-          deadlineReached = true;
-          const timeoutMsg = `⏰ 3-minute deadline reached after ${iteration - 1} rounds. Returning best result: Evidence ${bestEvidence}/25, Assumptions ${bestAssumption}/25, Consistency ${bestConsistency}/25, Resilience ${bestResilience}/100`;
-          toast.info(timeoutMsg);
-          if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
-          finalLogicScore = bestEvidence + bestAssumption + bestConsistency;
-          finalResilienceScore = bestResilience;
-          break;
-        }
-
-        toast.info(`🔍 Auto-evaluation round ${iteration} (${elapsedMin}m elapsed)...`);
+        toast.info(`🔍 Auto-evaluation round ${iteration}...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
@@ -932,7 +914,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         // Run logic strength first, then stress test (sequential to avoid rate limits)
         const logicRes = await invokeWithRetry("analyze-logic", { mode: "analyze", analysisContext: evalCtx });
-        await new Promise(resolve => setTimeout(resolve, 2000)); // reduced gap
+        await new Promise(resolve => setTimeout(resolve, 3000)); // 3s gap
         const stressRes = await invokeWithRetry("analyze-logic", { mode: "stress_test", analysisContext: evalCtx });
 
         const logicData = logicRes.data;
@@ -945,12 +927,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         const evidenceScore = cats.evidence_strength?.score || 0;
         const assumptionScore = cats.assumption_reliability?.score || 0;
         const consistencyScore = cats.logical_consistency?.score || 0;
-
-        // Track best scores across all iterations
-        bestEvidence = Math.max(bestEvidence, evidenceScore);
-        bestAssumption = Math.max(bestAssumption, assumptionScore);
-        bestConsistency = Math.max(bestConsistency, consistencyScore);
-        bestResilience = Math.max(bestResilience, finalResilienceScore);
 
         // Logic passes when all 3 key categories are >= 23 (completeness discounted)
         const logicPassed = evidenceScore >= LOGIC_CATEGORY_TARGET &&
@@ -1000,7 +976,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         // Research weaknesses before refining
         const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
         const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Rate limit buffer
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
         let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
@@ -1180,7 +1156,7 @@ CRITICAL RULES:
       // Update draft run as completed
       if (draftRunId) {
         await updateDraftRun(draftRunId, {
-          status: deadlineReached ? "completed_timeout" : "completed",
+          status: "completed",
           iterations: iteration,
           sub_questions_generated: allSubQuestions.length,
           final_logic_score: finalLogicScore,
@@ -1189,13 +1165,9 @@ CRITICAL RULES:
       }
 
       setView("chat");
-      const statusEmoji = deadlineReached ? "⏰" : "✅";
-      const statusText = deadlineReached
-        ? `Draft complete (best effort after 3min deadline). Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Best scores — Evidence: ${bestEvidence}/25, Assumptions: ${bestAssumption}/25, Consistency: ${bestConsistency}/25, Resilience: ${bestResilience}/100\n\nThe target scores weren't fully reached, but this is the best result after ${iteration} refinement rounds.`
-        : `Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `${statusEmoji} ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
