@@ -159,6 +159,19 @@ export default function AnalysisPage() {
         >
           <Shield className="h-5 w-5" />
         </button>
+
+        {isOwner && (
+          <>
+            <div className="w-8 border-t border-border my-1" />
+            <button
+              onClick={() => { setToolPanel(toolPanel === "admin" ? "none" : "admin"); setSidebarCollapsed(false); }}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "admin" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Admin: Users"
+            >
+              <Users className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </aside>
 
       {/* Resizable Tool Panel */}
