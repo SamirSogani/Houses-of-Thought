@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Bot, Send, Sparkles, Loader2, ArrowLeft, List, Search, Zap } from "lucide-react";
+import { Bot, Send, Sparkles, Loader2, ArrowLeft, List, Search, Zap, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -11,6 +11,7 @@ import ProposedChangeCard from "./ProposedChangeCard";
 import TextSelectionToolbar from "./TextSelectionToolbar";
 import DraftInfoPage, { type DraftInfo } from "./DraftInfoPage";
 import PlacementSelector from "./PlacementSelector";
+import DraftHistoryView, { DraftRunDetail } from "./DraftHistoryView";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
