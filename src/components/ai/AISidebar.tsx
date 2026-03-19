@@ -1044,6 +1044,11 @@ CRITICAL RULES:
 - Set fields to null in analysis_updates if they don't need changes
 - new_sub_questions and new_assumptions can be empty arrays if not needed`;
 
+        // Inject refinement search results
+        if (refineSearchResults) {
+          refinePrompt += `\n\n## ADDITIONAL WEB RESEARCH FOR REFINEMENT\nUse these real search results to strengthen evidence and fix weaknesses:\n\n${refineSearchResults}`;
+        }
+
         const refineRes = await invokeDraftAI({
           messages: [
             { role: "system", content: refinePrompt },
