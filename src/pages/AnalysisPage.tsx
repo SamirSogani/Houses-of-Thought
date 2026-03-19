@@ -35,6 +35,8 @@ export default function AnalysisPage() {
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(288);
+  const isResizing = useRef(false);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
