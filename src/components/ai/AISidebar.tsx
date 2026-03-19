@@ -564,11 +564,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           { role: "user", content: `My goal: ${goalInput}` },
         ];
 
-        const res = await invokeGroqDraftWithRetry({
+        const res = await invokeDraftAI({
           messages: apiMessages,
           mode: "draft",
-          batchIndex: isFirstBatch ? 0 : 1,
-          totalBatches: totalEstimated,
         });
 
         if (res.error) throw new Error(res.error.message);
