@@ -765,13 +765,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
 
         // Build comprehensive refinement feedback
-        let refineFeedback = `SCORES ARE BELOW ${SCORE_TARGET}. YOU MUST FIX ALL ISSUES.\n\n`;
-        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= ${SCORE_TARGET}.\n\n`;
+        let refineFeedback = `SCORES ARE BELOW TARGET. YOU MUST FIX ALL ISSUES.\n\n`;
+        refineFeedback += `Current: Evidence=${evidenceScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Assumptions=${assumptionScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Consistency=${consistencyScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Resilience=${finalResilienceScore}/100 (need ${SCORE_TARGET}).\n\n`;
         
-        if (effectiveLogicScore < SCORE_TARGET && logicData?.categories) {
+        if (!logicPassed && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
           for (const [key, cat] of Object.entries(logicData.categories) as any) {
-            if (key === "completeness" && !userProvidedQuestion) continue;
+            if (key === "completeness") continue; // always discount completeness
             refineFeedback += `${key}: ${cat.score}/25 (${cat.status}) — ${cat.details}\n`;
           }
           if (logicData.suggestions) {
