@@ -32,8 +32,9 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
-  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress">("none");
+  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
