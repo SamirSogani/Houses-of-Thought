@@ -930,7 +930,8 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- Make information DRAMATICALLY more specific: include named studies, specific statistics, concrete examples, named institutions
+- "information" MUST be an ARRAY of discrete fact objects with "text" and "evidenceStrength" fields. Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
+- Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
 - Add new assumptions ONLY if assumption reliability is flagged as weak
