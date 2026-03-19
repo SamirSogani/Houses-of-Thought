@@ -689,15 +689,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       toast.info("Draft complete. Running auto-evaluation...");
       onDraftComplete?.(); // reload data first
 
-      const MAX_REFINE_ITERATIONS = 10;
+      const SCORE_TARGET = 80;
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
 
-      while (iteration < MAX_REFINE_ITERATIONS) {
+      while (true) {
         iteration++;
-        toast.info(`🔍 Auto-evaluation round ${iteration}/${MAX_REFINE_ITERATIONS}...`);
+        toast.info(`🔍 Auto-evaluation round ${iteration}...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
@@ -755,17 +755,17 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         toast.info(`Round ${iteration}: Logic ${effectiveLogicScore}/100, Resilience ${finalResilienceScore}/100`);
 
-        // If both >= 95, we're done
-        if (effectiveLogicScore >= 95 && finalResilienceScore >= 95) {
+        // If both >= target, we're done
+        if (effectiveLogicScore >= SCORE_TARGET && finalResilienceScore >= SCORE_TARGET) {
           toast.success(`✅ Target reached! Logic: ${effectiveLogicScore}, Resilience: ${finalResilienceScore}`);
           break;
         }
 
         // Build comprehensive refinement feedback
-        let refineFeedback = "SCORES ARE BELOW 95. YOU MUST FIX ALL ISSUES.\n\n";
-        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= 95.\n\n`;
+        let refineFeedback = `SCORES ARE BELOW ${SCORE_TARGET}. YOU MUST FIX ALL ISSUES.\n\n`;
+        refineFeedback += `Current scores: Logic=${effectiveLogicScore}/100, Resilience=${finalResilienceScore}/100\nTarget: Both must be >= ${SCORE_TARGET}.\n\n`;
         
-        if (effectiveLogicScore < 95 && logicData?.categories) {
+        if (effectiveLogicScore < SCORE_TARGET && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
           for (const [key, cat] of Object.entries(logicData.categories) as any) {
             if (key === "completeness" && !userProvidedQuestion) continue;
@@ -776,7 +776,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
           refineFeedback += `\nSummary: ${logicData.reasoning_summary || ""}\n\n`;
         }
-        if (finalResilienceScore < 95 && stressData?.vulnerabilities) {
+        if (finalResilienceScore < SCORE_TARGET && stressData?.vulnerabilities) {
           refineFeedback += "=== STRESS TEST VULNERABILITIES ===\n";
           refineFeedback += `Resilience: ${finalResilienceScore}/100\nAssessment: ${stressData.overall_assessment || ""}\n\n`;
           stressData.vulnerabilities.forEach((v: any) => {
@@ -789,7 +789,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         // Comprehensive refinement prompt
         const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
 
-The current analysis scored Logic=${effectiveLogicScore}/100 and Resilience=${finalResilienceScore}/100. BOTH must reach 95+.
+The current analysis scored Logic=${effectiveLogicScore}/100 and Resilience=${finalResilienceScore}/100. BOTH must reach ${SCORE_TARGET}+.
 
 ${refineFeedback}
 
@@ -855,7 +855,7 @@ CRITICAL RULES:
           body: {
             messages: [
               { role: "system", content: refinePrompt },
-              { role: "user", content: `Fix all issues to reach 95+ on both scores. Current: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
+              { role: "user", content: `Fix all issues to reach ${SCORE_TARGET}+ on both scores. Current: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
             ],
             mode: "draft",
           },
