@@ -76,7 +76,7 @@ export default function ConsequencesPage() {
     <div className="min-h-screen bg-background">
       <div className="page-container max-w-6xl">
         <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}`)} className="flex items-center gap-1 hover:text-foreground">
+          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {analysis.title}
           </button>
           <span>/</span>
@@ -108,7 +108,7 @@ export default function ConsequencesPage() {
           <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/implications`)}>
             View Implications →
           </Button>
-          <Button onClick={() => navigate(`/analysis/${analysisId}`)}>
+          <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>
             Back to House
           </Button>
         </div>

@@ -62,7 +62,7 @@ export default function AssumptionsPage() {
       <div className="page-container">
         <div className="breadcrumb-nav">
           <button
-            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}`)}
+            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}${viewParam}`)}
             className="flex items-center gap-1 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" /> {sqQuestion || "Sub-Question"}
