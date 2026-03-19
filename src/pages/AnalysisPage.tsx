@@ -30,7 +30,7 @@ export default function AnalysisPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const [viewMode, setViewMode] = useState<"standard" | "builder">("standard");
+  const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
