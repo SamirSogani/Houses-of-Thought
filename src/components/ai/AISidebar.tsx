@@ -892,11 +892,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         effectiveLogicScore = finalLogicScore;
 
-        toast.info(`Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`);
+        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`;
+        toast.info(roundMsg);
+        if (draftRunId) appendDraftLog(draftRunId, roundMsg);
 
         // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
         if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
-          toast.success(`✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`);
+          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`;
+          toast.success(successMsg);
+          if (draftRunId) appendDraftLog(draftRunId, successMsg);
           break;
         }
 
