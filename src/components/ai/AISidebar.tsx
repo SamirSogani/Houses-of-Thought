@@ -409,8 +409,25 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     await updateDraftRun(runId, { log_messages: newLogs });
   };
 
-  // ─── Apply action to House ──────────────────────────────
+  // ─── Brave Search helper ─────────────────────────────────
+  const braveSearch = async (query: string, count = 5): Promise<string> => {
+    try {
+      const res = await supabase.functions.invoke("brave-search", {
+        body: { query, count },
+      });
+      if (res.error || !res.data?.results) return "";
+      const results = res.data.results as { title: string; url: string; description: string }[];
+      if (results.length === 0) return "";
+      return results
+        .map((r, i) => `[${i + 1}] ${r.title}\n${r.description}\nSource: ${r.url}`)
+        .join("\n\n");
+    } catch (e) {
+      console.warn("Brave search failed:", e);
+      return "";
+    }
+  };
 
+  // ─── Apply action to House ──────────────────────────────
 
   const applyAction = async (action: any) => {
     if (!analysis) throw new Error("No analysis loaded");
@@ -487,6 +504,14 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let systemContent = buildSystemPrompt(analysis, subQuestions, profile, researchMode);
       if (shouldAutoImplement) {
         systemContent += `\nAUTO-IMPLEMENT MODE: The user wants your suggestions applied directly. Respond with a JSON action block to update the House. Always include an action block in your response.\n`;
+      }
+
+      // Research mode: run Brave Search on the user's query and inject results
+      if (researchMode) {
+        const searchResults = await braveSearch(text, 8);
+        if (searchResults) {
+          systemContent += `\n## Web Research Results\nThe following are real-time web search results relevant to the user's query. Use these to ground your response with verifiable facts and cite sources where appropriate:\n\n${searchResults}\n`;
+        }
       }
 
       const apiMessages: Message[] = [
@@ -619,6 +644,22 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       let allSubQuestions: any[] = [];
       let retryRound = 0;
 
+      // Research: pre-search for topic and theoretical frameworks
+      toast.info("🔍 Researching topic...");
+      if (draftRunId) appendDraftLog(draftRunId, "Running web research for topic and frameworks...");
+      const [topicSearchResults, frameworkSearchResults] = await Promise.all([
+        braveSearch(`${goalInput} analysis evidence facts`, 8),
+        braveSearch(`${goalInput} theoretical frameworks conceptual models academic perspectives`, 6),
+      ]);
+      let researchContext = "";
+      if (topicSearchResults) {
+        researchContext += `\n## WEB RESEARCH RESULTS (USE THESE AS EVIDENCE)\nThe following are real web search results. Use them to populate the "information" fields with REAL, verifiable facts:\n\n${topicSearchResults}\n`;
+      }
+      if (frameworkSearchResults) {
+        researchContext += `\n## CONCEPTUAL FRAMEWORK RESEARCH\nUse these to populate "conceptual_frameworks" in assumptions with REAL, named theoretical frameworks:\n\n${frameworkSearchResults}\n`;
+      }
+      if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
+
       // Keep generating until we hit the exact requested count (with retry limit)
       // If requestedCount is 0 ("as many as needed"), only do one batch
       while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
@@ -637,10 +678,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         toast.info(batchMsg);
         if (draftRunId) appendDraftLog(draftRunId, batchMsg);
 
-        const systemPrompt = buildDraftPrompt(
+        let systemPrompt = buildDraftPrompt(
           analysis, profile, draftInfo,
           { batch: isFirstBatch ? 0 : 1, batchCount, previousQuestions: allSubQuestions.map(sq => sq.question) }
         );
+        // Inject research results into the draft prompt
+        systemPrompt += researchContext;
 
         const apiMessages: Message[] = [
           { role: "system", content: systemPrompt },
@@ -928,10 +971,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         }
 
         toast.info(`🔧 Refining draft (round ${iteration})...`);
+        if (draftRunId) appendDraftLog(draftRunId, `Refining draft (round ${iteration})...`);
+
+        // Research weaknesses before refining
+        const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
+        const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
         await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
-        const refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
+        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
 
 The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+) and Resilience=${finalResilienceScore}/100 (needs ${SCORE_TARGET}+). Completeness is discounted.
 
@@ -995,6 +1043,11 @@ CRITICAL RULES:
 - Do NOT add consequences
 - Set fields to null in analysis_updates if they don't need changes
 - new_sub_questions and new_assumptions can be empty arrays if not needed`;
+
+        // Inject refinement search results
+        if (refineSearchResults) {
+          refinePrompt += `\n\n## ADDITIONAL WEB RESEARCH FOR REFINEMENT\nUse these real search results to strengthen evidence and fix weaknesses:\n\n${refineSearchResults}`;
+        }
 
         const refineRes = await invokeDraftAI({
           messages: [
