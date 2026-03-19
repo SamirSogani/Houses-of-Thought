@@ -110,7 +110,17 @@ export default function PublicViewPage() {
                         pov === "individual" ? "pov-individual" : pov === "group" ? "pov-group" : "pov-ideas"
                       }`}>
                         <p className="font-medium">{sq.question}</p>
-                        {sq.information && <p className="text-muted-foreground mt-1">{sq.information}</p>}
+                        {sq.information && (() => {
+                          try {
+                            const parsed = JSON.parse(sq.information);
+                            if (Array.isArray(parsed)) {
+                              return parsed.map((entry: any, i: number) => (
+                                <p key={i} className="text-muted-foreground mt-1">• {typeof entry === "string" ? entry : entry?.text || ""}</p>
+                              ));
+                            }
+                          } catch {}
+                          return <p className="text-muted-foreground mt-1">{sq.information}</p>;
+                        })()}
                         {sq.sub_conclusion && <p className="mt-1 italic">{sq.sub_conclusion}</p>}
                       </div>
                     ))}
