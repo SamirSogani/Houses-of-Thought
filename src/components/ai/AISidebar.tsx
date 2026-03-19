@@ -855,7 +855,7 @@ CRITICAL RULES:
           body: {
             messages: [
               { role: "system", content: refinePrompt },
-              { role: "user", content: `Fix all issues to reach 95+ on both scores. Current: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
+              { role: "user", content: `Fix all issues to reach ${SCORE_TARGET}+ on both scores. Current: Logic=${effectiveLogicScore}, Resilience=${finalResilienceScore}` },
             ],
             mode: "draft",
           },
