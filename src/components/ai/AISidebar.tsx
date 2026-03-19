@@ -531,9 +531,9 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Not authenticated"); setDraftLoading(false); return; }
 
-      const requestedCount = draftInfo.subQuestionCount;
+      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
       const batchSize = 5;
-      const firstBatchSize = Math.min(batchSize, requestedCount);
+      const firstBatchSize = requestedCount === 0 ? batchSize : Math.min(batchSize, requestedCount);
       const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
