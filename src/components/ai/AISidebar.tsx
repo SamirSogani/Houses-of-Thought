@@ -905,7 +905,7 @@ CRITICAL RULES:
 - Set fields to null in analysis_updates if they don't need changes
 - new_sub_questions and new_assumptions can be empty arrays if not needed`;
 
-        const refineRes = await invokeGroqDraftWithRetry({
+        const refineRes = await invokeDraftAI({
           messages: [
             { role: "system", content: refinePrompt },
             { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}, Resilience>=${SCORE_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}, Resilience=${finalResilienceScore}` },
