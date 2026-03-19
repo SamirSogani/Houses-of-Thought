@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -14,6 +14,7 @@ import AISidebar from "@/components/ai/AISidebar";
 import TodoPanel from "@/components/house/TodoPanel";
 import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
 import StressTestPanel from "@/components/house/StressTestPanel";
+import AdminUsersPanel from "@/components/house/AdminUsersPanel";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
