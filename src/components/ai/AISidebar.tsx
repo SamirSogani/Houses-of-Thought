@@ -409,8 +409,25 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
     await updateDraftRun(runId, { log_messages: newLogs });
   };
 
-  // ─── Apply action to House ──────────────────────────────
+  // ─── Brave Search helper ─────────────────────────────────
+  const braveSearch = async (query: string, count = 5): Promise<string> => {
+    try {
+      const res = await supabase.functions.invoke("brave-search", {
+        body: { query, count },
+      });
+      if (res.error || !res.data?.results) return "";
+      const results = res.data.results as { title: string; url: string; description: string }[];
+      if (results.length === 0) return "";
+      return results
+        .map((r, i) => `[${i + 1}] ${r.title}\n${r.description}\nSource: ${r.url}`)
+        .join("\n\n");
+    } catch (e) {
+      console.warn("Brave search failed:", e);
+      return "";
+    }
+  };
 
+  // ─── Apply action to House ──────────────────────────────
 
   const applyAction = async (action: any) => {
     if (!analysis) throw new Error("No analysis loaded");
