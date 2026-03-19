@@ -502,6 +502,30 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const firstBatchSize = Math.min(batchSize, requestedCount);
       const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
 
+      const invokeGroqDraftWithRetry = async (body: Record<string, unknown>) => {
+        let attempt = 0;
+
+        while (true) {
+          const res = await supabase.functions.invoke("groq-chat", { body });
+
+          if (!res.error) {
+            return res;
+          }
+
+          const errorMessage = String((res.error as { message?: string } | null)?.message || res.error || "AI request failed");
+          const isRateLimited = errorMessage.includes("429");
+
+          if (!isRateLimited) {
+            throw new Error(errorMessage);
+          }
+
+          attempt += 1;
+          const waitSecs = Math.min(60, 10 + attempt * 5);
+          toast.info(`AI is busy. Retrying Draft Full House in ${waitSecs}s...`);
+          await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
+        }
+      };
+
       let allSubQuestions: any[] = [];
       let retryRound = 0;
 
@@ -512,7 +536,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
-        const batchNum = isFirstBatch ? 0 : allSubQuestions.length;
         const totalEstimated = Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
@@ -529,8 +552,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           { role: "user", content: `My goal: ${goalInput}` },
         ];
 
-        const res = await supabase.functions.invoke("groq-chat", {
-          body: { messages: apiMessages, mode: "draft", batchIndex: isFirstBatch ? 0 : 1, totalBatches: totalEstimated },
+        const res = await invokeGroqDraftWithRetry({
+          messages: apiMessages,
+          mode: "draft",
+          batchIndex: isFirstBatch ? 0 : 1,
+          totalBatches: totalEstimated,
         });
 
         if (res.error) throw new Error(res.error.message);
