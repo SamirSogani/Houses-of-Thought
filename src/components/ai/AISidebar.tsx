@@ -206,7 +206,10 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "question": "string - precise, distinct question",
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
-      "information": "string - thoroughly researched facts and evidence, minimum 2 sentences",
+      "information": [
+        {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported"},
+        {"text": "string - another distinct fact", "evidenceStrength": "strong"}
+      ],
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
         "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
