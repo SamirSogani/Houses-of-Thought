@@ -185,8 +185,9 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
       let items: string[] = [];
       try {
         const p = JSON.parse(sq.information);
-        if (Array.isArray(p)) items = p;
-        else if (sq.information) items = [sq.information];
+        if (Array.isArray(p)) {
+          items = p.map((entry: any) => typeof entry === "string" ? entry : entry?.text || "");
+        } else if (sq.information) items = [sq.information];
       } catch {
         if (sq.information) items = [sq.information];
       }
