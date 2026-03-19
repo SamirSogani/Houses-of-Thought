@@ -123,6 +123,59 @@ export type Database = {
           },
         ]
       }
+      draft_runs: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          draft_info: Json
+          final_logic_score: number
+          final_resilience_score: number
+          id: string
+          iterations: number
+          log_messages: Json
+          status: string
+          sub_questions_generated: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          draft_info?: Json
+          final_logic_score?: number
+          final_resilience_score?: number
+          id?: string
+          iterations?: number
+          log_messages?: Json
+          status?: string
+          sub_questions_generated?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          draft_info?: Json
+          final_logic_score?: number
+          final_resilience_score?: number
+          id?: string
+          iterations?: number
+          log_messages?: Json
+          status?: string
+          sub_questions_generated?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_runs_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pov_labels: {
         Row: {
           analysis_id: string
