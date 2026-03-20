@@ -460,7 +460,16 @@ export default function AdminUsersPanel() {
         </Section>
       </div>
     );
-  }
+}
+
+function HouseZone({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-lg border p-3 space-y-1.5 ${color}`}>
+      <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{label}</div>
+      {children}
+    </div>
+  );
+}
 
   // User list view
   return (
