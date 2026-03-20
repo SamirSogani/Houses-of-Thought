@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Mail, Calendar, MessageSquare, Home, Clock, ChevronRight, Eye } from "lucide-react";
+import { ArrowLeft, Mail, Calendar, MessageSquare, Home, Clock, Eye, BarChart3, Users, Globe } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface UserSummary {
   id: string;
@@ -26,7 +27,19 @@ interface UserDetail {
   chats: { id: string; chat_title: string; created_at: string; updated_at: string; message_count: number; messages: any[]; analysis_id: string }[];
 }
 
-type View = "list" | "user" | "analysis" | "chat";
+interface SiteStats {
+  unique_visitors: number;
+  total_visits: number;
+  total_signups: number;
+  daily: { date: string; visits: number; unique_visitors: number }[];
+}
+
+interface ActivityStats {
+  daily: { date: string; analyses: number; chats: number }[];
+}
+
+type View = "list" | "user" | "analysis" | "chat" | "charts";
+type TimeRange = 7 | 30 | 90;
 
 export default function AdminUsersPanel() {
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -37,6 +50,13 @@ export default function AdminUsersPanel() {
   const [selectedChat, setSelectedChat] = useState<any | null>(null);
   const [view, setView] = useState<View>("list");
   const [subLoading, setSubLoading] = useState(false);
+
+  // Chart state
+  const [timeRange, setTimeRange] = useState<TimeRange>(30);
+  const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
+  const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [userActivityStats, setUserActivityStats] = useState<ActivityStats | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -85,6 +105,31 @@ export default function AdminUsersPanel() {
     setView("chat");
   };
 
+  const loadChartData = async (days: TimeRange, userId?: string) => {
+    setChartLoading(true);
+    const [siteRes, actRes] = await Promise.all([
+      userId ? null : supabase.functions.invoke(`admin-users?action=site-stats&days=${days}`, { body: null, method: "GET" }),
+      supabase.functions.invoke(`admin-users?action=activity-stats&days=${days}${userId ? `&userId=${userId}` : ""}`, { body: null, method: "GET" }),
+    ]);
+    if (!userId && siteRes?.data && !siteRes.data.error) setSiteStats(siteRes.data);
+    if (actRes?.data && !actRes.data.error) {
+      if (userId) setUserActivityStats(actRes.data);
+      else setActivityStats(actRes.data);
+    }
+    setChartLoading(false);
+  };
+
+  const openCharts = () => {
+    setView("charts");
+    loadChartData(timeRange);
+  };
+
+  const changeTimeRange = (r: TimeRange) => {
+    setTimeRange(r);
+    if (view === "charts") loadChartData(r);
+    else if (view === "user" && selectedUser) loadChartData(r, selectedUser.user.id);
+  };
+
   const goBack = () => {
     if (view === "chat" || view === "analysis") {
       setView("user");
@@ -93,6 +138,9 @@ export default function AdminUsersPanel() {
     } else if (view === "user") {
       setView("list");
       setSelectedUser(null);
+      setUserActivityStats(null);
+    } else if (view === "charts") {
+      setView("list");
     }
   };
 
@@ -111,6 +159,66 @@ export default function AdminUsersPanel() {
         <h3 className="text-sm font-display font-semibold text-foreground">Admin: Users</h3>
         <div className="text-xs text-destructive">{error}</div>
         <Button variant="outline" size="sm" onClick={loadUsers}>Retry</Button>
+      </div>
+    );
+  }
+
+  // Charts view
+  if (view === "charts") {
+    return (
+      <div className="space-y-4">
+        <button onClick={goBack} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-3 w-3" /> Back to users
+        </button>
+        <h3 className="text-sm font-display font-semibold text-foreground">Site Analytics</h3>
+
+        <TimeRangeSelector value={timeRange} onChange={changeTimeRange} />
+
+        {chartLoading && <div className="text-xs text-muted-foreground animate-pulse">Loading stats...</div>}
+
+        {siteStats && (
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard icon={<Globe className="h-3.5 w-3.5" />} label="Unique Visitors" value={siteStats.unique_visitors} />
+            <StatCard icon={<Eye className="h-3.5 w-3.5" />} label="Total Visits" value={siteStats.total_visits} />
+            <StatCard icon={<Users className="h-3.5 w-3.5" />} label="Signups" value={siteStats.total_signups} />
+          </div>
+        )}
+
+        {siteStats && siteStats.daily.length > 0 && (
+          <Section title="Visits Over Time">
+            <div className="h-40 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={siteStats.daily}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={(d) => d.slice(5)} className="text-muted-foreground" />
+                  <YAxis tick={{ fontSize: 9 }} className="text-muted-foreground" />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line type="monotone" dataKey="visits" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Visits" />
+                  <Line type="monotone" dataKey="unique_visitors" stroke="hsl(var(--chart-2, 160 60% 45%))" strokeWidth={2} dot={false} name="Unique" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </Section>
+        )}
+
+        {activityStats && activityStats.daily.length > 0 && (
+          <Section title="User Activity">
+            <div className="h-40 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activityStats.daily}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9 }} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis tick={{ fontSize: 9 }} />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="analyses" fill="hsl(var(--primary))" name="Houses" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="chats" fill="hsl(var(--chart-2, 160 60% 45%))" name="Chats" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Section>
+        )}
       </div>
     );
   }
@@ -152,26 +260,10 @@ export default function AdminUsersPanel() {
         </button>
         <h3 className="text-sm font-display font-semibold text-foreground">{a?.title || "Untitled"}</h3>
 
-        {a?.purpose && (
-          <Section title="Purpose">
-            <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.purpose}</p>
-          </Section>
-        )}
-        {a?.overarching_question && (
-          <Section title="Overarching Question">
-            <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_question}</p>
-          </Section>
-        )}
-        {a?.overarching_conclusion && (
-          <Section title="Overarching Conclusion">
-            <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_conclusion}</p>
-          </Section>
-        )}
-        {a?.consequences && (
-          <Section title="Consequences">
-            <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.consequences}</p>
-          </Section>
-        )}
+        {a?.purpose && <Section title="Purpose"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.purpose}</p></Section>}
+        {a?.overarching_question && <Section title="Overarching Question"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_question}</p></Section>}
+        {a?.overarching_conclusion && <Section title="Overarching Conclusion"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_conclusion}</p></Section>}
+        {a?.consequences && <Section title="Consequences"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.consequences}</p></Section>}
 
         {concepts.length > 0 && (
           <Section title={`Concepts (${concepts.length})`}>
@@ -189,12 +281,8 @@ export default function AdminUsersPanel() {
             {sqs.map((sq: any) => (
               <div key={sq.id} className="border border-border rounded p-2 mb-1.5 space-y-1">
                 <div className="text-xs font-medium text-foreground">{sq.question || "No question"}</div>
-                {sq.information && (
-                  <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Info:</span> {sq.information}</div>
-                )}
-                {sq.sub_conclusion && (
-                  <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Conclusion:</span> {sq.sub_conclusion}</div>
-                )}
+                {sq.information && <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Info:</span> {sq.information}</div>}
+                {sq.sub_conclusion && <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Conclusion:</span> {sq.sub_conclusion}</div>}
                 <div className="text-[10px] text-muted-foreground">POV: {sq.pov_category}</div>
               </div>
             ))}
@@ -227,19 +315,43 @@ export default function AdminUsersPanel() {
           )}
         </div>
 
+        {/* User activity chart */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <BarChart3 className="h-3 w-3" /> Activity
+            </h4>
+            <TimeRangeSelector value={timeRange} onChange={(r) => { setTimeRange(r); loadChartData(r, u.id); }} />
+          </div>
+          {!userActivityStats ? (
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => loadChartData(timeRange, u.id)}>
+              <BarChart3 className="h-3 w-3 mr-1" /> Load Activity Chart
+            </Button>
+          ) : (
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={userActivityStats.daily}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" tick={{ fontSize: 8 }} tickFormatter={(d) => d.slice(5)} />
+                  <YAxis tick={{ fontSize: 8 }} />
+                  <Tooltip contentStyle={{ fontSize: 10, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Bar dataKey="analyses" fill="hsl(var(--primary))" name="Houses" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="chats" fill="hsl(var(--chart-2, 160 60% 45%))" name="Chats" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
         {subLoading && <div className="text-xs text-muted-foreground animate-pulse">Loading...</div>}
 
-        {/* Houses */}
         <Section title={`Houses (${selectedUser.analyses.length})`} icon={<Home className="h-3 w-3" />}>
           {selectedUser.analyses.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">No houses created</p>
           ) : (
             selectedUser.analyses.map((a: any) => (
-              <button
-                key={a.id}
-                onClick={() => loadAnalysisDetail(a.id)}
-                className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors mb-1 flex items-center justify-between"
-              >
+              <button key={a.id} onClick={() => loadAnalysisDetail(a.id)}
+                className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors mb-1 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{a.title}</div>
                   <div className="text-[10px] text-muted-foreground">
@@ -253,17 +365,13 @@ export default function AdminUsersPanel() {
           )}
         </Section>
 
-        {/* AI Chats */}
         <Section title={`AI Discussions (${selectedUser.chats.length})`} icon={<MessageSquare className="h-3 w-3" />}>
           {selectedUser.chats.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">No AI discussions</p>
           ) : (
             selectedUser.chats.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => openChat(c)}
-                className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors mb-1 flex items-center justify-between"
-              >
+              <button key={c.id} onClick={() => openChat(c)}
+                className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors mb-1 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{c.chat_title}</div>
                   <div className="text-[10px] text-muted-foreground">
@@ -282,15 +390,17 @@ export default function AdminUsersPanel() {
   // User list view
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-display font-semibold text-foreground">Admin: Users ({users.length})</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-display font-semibold text-foreground">Admin: Users ({users.length})</h3>
+        <Button variant="outline" size="sm" className="text-xs h-7" onClick={openCharts}>
+          <BarChart3 className="h-3 w-3 mr-1" /> Charts
+        </Button>
+      </div>
       {subLoading && <div className="text-xs text-muted-foreground animate-pulse">Loading details...</div>}
       <div className="space-y-1">
         {users.map((u) => (
-          <button
-            key={u.id}
-            onClick={() => loadUserDetail(u.id)}
-            className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors"
-          >
+          <button key={u.id} onClick={() => loadUserDetail(u.id)}
+            className="w-full text-left rounded-md border border-border bg-card p-2 hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-1.5">
               <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
               <span className="text-xs font-medium text-foreground truncate">{u.email}</span>
@@ -316,6 +426,31 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
         {icon} {title}
       </h4>
       {children}
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-2 text-center">
+      <div className="flex items-center justify-center text-muted-foreground mb-1">{icon}</div>
+      <div className="text-lg font-bold tabular-nums text-foreground">{value.toLocaleString()}</div>
+      <div className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</div>
+    </div>
+  );
+}
+
+function TimeRangeSelector({ value, onChange }: { value: TimeRange; onChange: (r: TimeRange) => void }) {
+  return (
+    <div className="flex gap-1">
+      {([7, 30, 90] as TimeRange[]).map((r) => (
+        <button key={r} onClick={() => onChange(r)}
+          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+            value === r ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"
+          }`}>
+          {r}d
+        </button>
+      ))}
     </div>
   );
 }
