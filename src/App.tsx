@@ -41,6 +41,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function VisitorTracker() {
+  useVisitorTracking();
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -48,6 +53,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <VisitorTracker />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
