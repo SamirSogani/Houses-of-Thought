@@ -96,7 +96,7 @@ export default function AuthPage() {
                   />
                   <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
                     I have read and agree to the{" "}
-                    <Link to="/terms" className="text-primary hover:underline underline-offset-4" target="_blank">
+                    <Link to="/terms?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
                       Terms of Service
                     </Link>
                   </label>
