@@ -18,6 +18,7 @@ import {
   Eye,
   Layers,
   ChevronRight,
+  Shield,
 } from "lucide-react";
 
 const frameworkSteps = [
@@ -57,6 +58,11 @@ const features = [
     icon: Users,
     title: "Student & Teacher Collaboration",
     description: "Teachers can monitor and guide student reasoning projects in real-time.",
+  },
+  {
+    icon: Shield,
+    title: "Analysis & Testing Tools",
+    description: "Evaluate your reasoning with a Logic Strength Meter, stress-test arguments with AI Attack Mode, and measure evidence quality with the Evidence Strength Meter.",
   },
 ];
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,9 @@ import { toast } from "sonner";
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -95,7 +96,7 @@ export default function AuthPage() {
                   />
                   <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
                     I have read and agree to the{" "}
-                    <Link to="/terms" className="text-primary hover:underline underline-offset-4" target="_blank">
+                    <Link to="/terms?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
                       Terms of Service
                     </Link>
                   </label>
@@ -109,7 +110,7 @@ export default function AuthPage() {
                   />
                   <label htmlFor="privacy" className="text-sm text-muted-foreground leading-snug cursor-pointer">
                     I have read and agree to the{" "}
-                    <Link to="/privacy" className="text-primary hover:underline underline-offset-4" target="_blank">
+                    <Link to="/privacy?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
                       Privacy Policy
                     </Link>
                   </label>
