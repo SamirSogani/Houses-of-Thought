@@ -110,7 +110,7 @@ export default function AuthPage() {
                   />
                   <label htmlFor="privacy" className="text-sm text-muted-foreground leading-snug cursor-pointer">
                     I have read and agree to the{" "}
-                    <Link to="/privacy" className="text-primary hover:underline underline-offset-4" target="_blank">
+                    <Link to="/privacy?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
                       Privacy Policy
                     </Link>
                   </label>
