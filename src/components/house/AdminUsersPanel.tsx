@@ -49,8 +49,8 @@ export default function AdminUsersPanel() {
       body: null,
       method: "GET",
     });
-    if (fnError) { setError("Failed to load users"); setLoading(false); return; }
-    if (data?.error) { setError(data.error); } else { setUsers(data?.users || []); }
+    if (fnError) { setError("Failed to load users. Please log out and log back in."); setLoading(false); return; }
+    if (data?.error) { setError(data.error === "Forbidden" ? "Access denied. Please log out and log back in." : data.error); } else { setUsers(data?.users || []); }
     setLoading(false);
   };
 
