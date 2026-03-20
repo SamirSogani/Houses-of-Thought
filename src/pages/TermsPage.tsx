@@ -50,7 +50,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">6. AI Disclaimer</h2>
-            <p className="text-muted-foreground leading-relaxed">AI-generated suggestions, reasoning tools, and analysis outputs may occasionally produce inaccurate, incomplete, or biased information. Users should independently verify any important conclusions derived from AI-assisted features. House of Thought does not guarantee the accuracy of AI-generated content.</p>
+            <p className="text-muted-foreground leading-relaxed">AI-generated suggestions, reasoning tools, and analysis outputs may occasionally produce inaccurate, incomplete, or biased information. Users should independently verify any important conclusions derived from AI-assisted features. We do not guarantee the accuracy of AI-generated content.</p>
           </section>
 
           <section>
