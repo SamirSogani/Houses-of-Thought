@@ -18,6 +18,7 @@ import {
   Eye,
   Layers,
   ChevronRight,
+  Shield,
 } from "lucide-react";
 
 const frameworkSteps = [
