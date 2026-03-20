@@ -1,56 +1,22 @@
 
 
-## Admin Panel: Activity Charts and Site Visitor Tracking
+## Plan: Sign-up Back Navigation + New Homepage Feature Cards
 
-### What We're Building
+### 1. Terms/Privacy "Back to Sign Up" when opened from sign-up
 
-1. **User Activity Chart** — A chart view in the admin panel showing per-user activity over time (sign-ins, analyses created, chats created), with a toggle for different time ranges (7 days, 30 days, 90 days).
+**Approach**: Pass a `?from=signup` query param on the Links in AuthPage. In TermsPage and PrivacyPage, read that param. If present (and user is not logged in), show "Back to Sign Up" and navigate to `/auth?mode=signup` instead of home.
 
-2. **Site Visitor Count** — A new `site_visits` table that logs anonymous page visits, plus a summary stat at the top of the admin panel showing total unique visitors and a signup conversion rate.
+On AuthPage, read `?mode=signup` from URL to initialize `isLogin=false`, preserving the sign-up form state. Since the links currently use `target="_blank"` (new tab), form data in the original tab is naturally preserved.
 
-### Technical Approach
+**Files**:
+- `src/pages/AuthPage.tsx`: Change Links from `/terms` to `/terms?from=signup` and same for privacy. Also read `mode=signup` search param to default `isLogin` to false.
+- `src/pages/TermsPage.tsx`: Read `from` search param; if `from=signup`, show "Back to Sign Up" and navigate to `/auth?mode=signup`.
+- `src/pages/PrivacyPage.tsx`: Same treatment.
 
-#### 1. Database: New `site_visits` table
-- Create a `site_visits` table with columns: `id`, `visitor_id` (a fingerprint/random ID stored in localStorage), `path`, `created_at`
-- RLS: Allow anonymous inserts (public), SELECT only via the admin edge function (service role)
-- This lets us track visits without requiring authentication
+### 2. Homepage: Add analysis tools feature card
 
-#### 2. Edge Function: New `activity-stats` action in `admin-users`
-- Add an `activity-stats` action that aggregates:
-  - User sign-in timestamps from `auth.users` audit log (we'll use `created_at` from analyses/chats as proxy for activity)
-  - Per-user daily activity counts from `analyses.created_at` and `sidebar_chats.created_at`
-  - Total unique visitors and visit counts from `site_visits`
-- Accept a `days` parameter (7, 30, 90) for the time range
-- Also add a `site-stats` action returning total unique visitors and visits over time
+Add a 6th card to the `features` array in HomePage for the Logic Strength Meter, Stress Tests, and Evidence Strength Meter.
 
-#### 3. Frontend: Visitor tracking hook
-- Create a small `useVisitorTracking` hook in `src/hooks/` that:
-  - Generates/stores a random `visitor_id` in localStorage
-  - Calls a lightweight edge function (or direct insert via anon key) to log the visit on each page load
-- Include this hook in the main `App.tsx` or layout component so all pages are tracked
-
-#### 4. Frontend: Admin Panel chart view
-- Add a "Charts" toggle button at the top of the user list view in `AdminUsersPanel`
-- When toggled, show:
-  - **Site overview**: Total unique visitors, total visits, signups count
-  - **Activity over time chart**: Using Recharts (already available via the `chart.tsx` component), show a bar/line chart of daily activity (new analyses + chats created) across all users
-  - **Time range selector**: Buttons for 7d / 30d / 90d
-- When viewing a specific user, show their individual activity chart with the same time range toggle
-
-### Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `supabase/migrations/` | New migration: create `site_visits` table with RLS |
-| `supabase/functions/admin-users/index.ts` | Add `activity-stats` and `site-stats` actions |
-| `src/hooks/useVisitorTracking.ts` | New hook for anonymous visit logging |
-| `src/App.tsx` | Add `useVisitorTracking` hook |
-| `src/components/house/AdminUsersPanel.tsx` | Add chart view toggle, Recharts charts, visitor stats header |
-
-### Implementation Order
-
-1. Create `site_visits` table migration
-2. Build visitor tracking hook and wire into App
-3. Add new edge function actions for aggregated stats
-4. Build the chart UI in AdminUsersPanel with time range toggles and visitor summary
+**File**: `src/pages/HomePage.tsx`
+- Add a new entry to the `features` array with a suitable icon (e.g., `Shield` or `Gauge`) titled something like "Analysis & Testing Tools" describing the logic strength meter, stress tests (including AI attack mode), and evidence strength evaluation.
 
