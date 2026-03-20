@@ -56,7 +56,12 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">6. Data Security</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">6. Third-Party Infrastructure</h2>
+            <p className="text-muted-foreground leading-relaxed">We use trusted third-party infrastructure providers (such as Supabase) to securely store and manage user data.</p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-display font-semibold mb-2">7. Data Security</h2>
             <p className="text-muted-foreground leading-relaxed">We implement reasonable technical and organizational measures to protect your personal information from unauthorized access, loss, misuse, or alteration. However, no method of electronic storage or transmission is completely secure, and we cannot guarantee absolute security.</p>
           </section>
 
