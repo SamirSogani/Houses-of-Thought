@@ -253,6 +253,18 @@ export default function AdminUsersPanel() {
     const a = selectedAnalysis.analysis;
     const sqs = selectedAnalysis.sub_questions;
     const concepts = selectedAnalysis.concepts;
+    const assumptions = selectedAnalysis.assumptions || [];
+
+    const groupedSqs: Record<string, any[]> = {};
+    sqs.forEach((sq: any) => {
+      const cat = sq.pov_category || "uncategorized";
+      if (!groupedSqs[cat]) groupedSqs[cat] = [];
+      groupedSqs[cat].push(sq);
+    });
+
+    const povOrder = ["individual", "group", "ideas_disciplines"];
+    const povLabels: Record<string, string> = { individual: "Individual", group: "Group", ideas_disciplines: "Ideas / Disciplines", uncategorized: "Other" };
+
     return (
       <div className="space-y-4">
         <button onClick={goBack} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -260,34 +272,97 @@ export default function AdminUsersPanel() {
         </button>
         <h3 className="text-sm font-display font-semibold text-foreground">{a?.title || "Untitled"}</h3>
 
-        {a?.purpose && <Section title="Purpose"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.purpose}</p></Section>}
-        {a?.overarching_question && <Section title="Overarching Question"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_question}</p></Section>}
-        {a?.overarching_conclusion && <Section title="Overarching Conclusion"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.overarching_conclusion}</p></Section>}
-        {a?.consequences && <Section title="Consequences"><p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.consequences}</p></Section>}
-
+        {/* Atmosphere — Concepts */}
         {concepts.length > 0 && (
-          <Section title={`Concepts (${concepts.length})`}>
-            {concepts.map((c: any) => (
-              <div key={c.id} className="border border-border rounded p-1.5 mb-1">
-                <div className="text-xs font-medium text-foreground">{c.term}</div>
-                <div className="text-[11px] text-muted-foreground">{c.definition}</div>
-              </div>
-            ))}
-          </Section>
+          <HouseZone label="Atmosphere" color="bg-sky-500/10 border-sky-500/30">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Concepts ({concepts.length})</div>
+            <div className="flex flex-wrap gap-1">
+              {concepts.map((c: any) => (
+                <div key={c.id} className="rounded border border-border bg-card px-2 py-1">
+                  <span className="text-xs font-medium text-foreground">{c.term}</span>
+                  {c.definition && <span className="text-[10px] text-muted-foreground ml-1">— {c.definition}</span>}
+                </div>
+              ))}
+            </div>
+          </HouseZone>
         )}
 
-        {sqs.length > 0 && (
-          <Section title={`Sub-Questions (${sqs.length})`}>
-            {sqs.map((sq: any) => (
-              <div key={sq.id} className="border border-border rounded p-2 mb-1.5 space-y-1">
-                <div className="text-xs font-medium text-foreground">{sq.question || "No question"}</div>
-                {sq.information && <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Info:</span> {sq.information}</div>}
-                {sq.sub_conclusion && <div className="text-[11px] text-muted-foreground"><span className="font-semibold">Conclusion:</span> {sq.sub_conclusion}</div>}
-                <div className="text-[10px] text-muted-foreground">POV: {sq.pov_category}</div>
+        {/* Roof — Purpose, Sub-purposes, Consequences */}
+        <HouseZone label="Roof" color="bg-amber-500/10 border-amber-500/30">
+          {a?.purpose && (
+            <div className="mb-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Purpose</div>
+              <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.purpose}</p>
+            </div>
+          )}
+          {a?.sub_purposes && (
+            <div className="mb-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Sub-Purposes</div>
+              <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.sub_purposes}</p>
+            </div>
+          )}
+          {a?.consequences && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Consequences & Implications</div>
+              <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a.consequences}</p>
+            </div>
+          )}
+        </HouseZone>
+
+        {/* Ceiling — Overarching Question + Conclusion */}
+        <HouseZone label="Ceiling" color="bg-violet-500/10 border-violet-500/30">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Overarching Question</div>
+              <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a?.overarching_question || <span className="italic text-muted-foreground">Not set</span>}</p>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Overarching Conclusion</div>
+              <p className="text-xs text-foreground whitespace-pre-wrap break-words">{a?.overarching_conclusion || <span className="italic text-muted-foreground">Not set</span>}</p>
+            </div>
+          </div>
+        </HouseZone>
+
+        {/* Columns — Sub-Questions grouped by POV */}
+        <HouseZone label="Columns" color="bg-emerald-500/10 border-emerald-500/30">
+          {sqs.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">No sub-questions</p>
+          ) : (
+            [...povOrder, ...Object.keys(groupedSqs).filter(k => !povOrder.includes(k))].filter(k => groupedSqs[k]?.length > 0).map((cat) => (
+              <div key={cat} className="mb-3 last:mb-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{povLabels[cat] || cat} ({groupedSqs[cat].length})</div>
+                {groupedSqs[cat].map((sq: any) => {
+                  const sqAssumptions = assumptions.filter((as: any) => as.sub_question_id === sq.id);
+                  return (
+                    <div key={sq.id} className="border border-border rounded-md bg-card p-2 mb-1.5 space-y-1">
+                      <div className="text-xs font-medium text-foreground">{sq.question || "No question"}</div>
+                      {sq.information && (
+                        <div className="text-[11px] text-muted-foreground">
+                          <span className="font-semibold">Information:</span> {sq.information}
+                        </div>
+                      )}
+                      {sq.sub_conclusion && (
+                        <div className="text-[11px] text-muted-foreground">
+                          <span className="font-semibold">Sub-Conclusion:</span> {sq.sub_conclusion}
+                        </div>
+                      )}
+                      {sqAssumptions.length > 0 && (
+                        <div className="pl-2 border-l-2 border-muted mt-1 space-y-0.5">
+                          <div className="text-[10px] font-semibold text-muted-foreground">Assumptions ({sqAssumptions.length})</div>
+                          {sqAssumptions.map((as: any) => (
+                            <div key={as.id} className="text-[10px] text-muted-foreground">
+                              <span className="capitalize font-medium">{as.assumption_type}:</span> {as.content}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </Section>
-        )}
+            ))
+          )}
+        </HouseZone>
       </div>
     );
   }
