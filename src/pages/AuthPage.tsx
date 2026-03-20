@@ -1,11 +1,12 @@
 import { useState } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,9 +17,15 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLogin && (!termsAccepted || !privacyAccepted)) {
+      toast.error("You must accept the Terms of Service and Privacy Policy to create an account.");
+      return;
+    }
     setLoading(true);
     const { error } = isLogin
       ? await signIn(email, password)
@@ -30,6 +37,8 @@ export default function AuthPage() {
       toast.success("Account created! You're now signed in.");
     }
   };
+
+  const canSubmitSignup = termsAccepted && privacyAccepted;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -75,7 +84,39 @@ export default function AuthPage() {
                 minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            {!isLogin && (
+              <div className="space-y-3 pt-1">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="terms"
+                    checked={termsAccepted}
+                    onCheckedChange={(v) => setTermsAccepted(v === true)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+                    I have read and agree to the{" "}
+                    <Link to="/terms" className="text-primary hover:underline underline-offset-4" target="_blank">
+                      Terms of Service
+                    </Link>
+                  </label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="privacy"
+                    checked={privacyAccepted}
+                    onCheckedChange={(v) => setPrivacyAccepted(v === true)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="privacy" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+                    I have read and agree to the{" "}
+                    <Link to="/privacy" className="text-primary hover:underline underline-offset-4" target="_blank">
+                      Privacy Policy
+                    </Link>
+                  </label>
+                </div>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading || (!isLogin && !canSubmitSignup)}>
               {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
             </Button>
           </form>

@@ -66,12 +66,12 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">7. Children's Privacy</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">8. Children's Privacy</h2>
             <p className="text-muted-foreground leading-relaxed">Users must be at least 12 years old to create an account on House of Thought. The platform does not knowingly collect personal data from children under 12. If we become aware that we have collected information from a child under 12, we will take steps to delete that data promptly.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">8. User Rights</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">9. User Rights</h2>
             <p className="text-muted-foreground leading-relaxed mb-2">You have the right to:</p>
             <ul className="list-disc pl-6 text-muted-foreground space-y-1">
               <li>Access and review the personal data associated with your account</li>
@@ -82,17 +82,17 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">9. Data Retention</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">10. Data Retention</h2>
             <p className="text-muted-foreground leading-relaxed">User data is retained only as long as necessary to operate the platform and provide the service. When you delete your account, all associated data — including reasoning projects, profile information, and feedback — will be permanently removed from our systems.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">10. Changes to Privacy Policy</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">11. Changes to Privacy Policy</h2>
             <p className="text-muted-foreground leading-relaxed">House of Thought may update this Privacy Policy periodically to reflect changes in our practices or applicable laws. We will notify users of significant changes. Continued use of the platform after changes are posted constitutes acceptance of the updated policy.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-semibold mb-2">11. Contact</h2>
+            <h2 className="text-xl font-display font-semibold mb-2">12. Contact</h2>
             <p className="text-muted-foreground leading-relaxed">If you have questions about this Privacy Policy or your personal data, please contact us at <a href="mailto:houseofthought.support@gmail.com" className="text-primary hover:underline">houseofthought.support@gmail.com</a>.</p>
           </section>
         </div>
