@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import ContactPage from "./pages/ContactPage";
@@ -40,6 +41,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function VisitorTracker() {
+  useVisitorTracking();
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -47,6 +53,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <VisitorTracker />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
