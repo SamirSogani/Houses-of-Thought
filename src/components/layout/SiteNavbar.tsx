@@ -68,7 +68,7 @@ export default function SiteNavbar() {
             <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
               Log In
             </Button>
-            <Button size="sm" onClick={() => navigate("/auth")}>
+            <Button size="sm" onClick={() => navigate("/auth?mode=signup")}>
               Create Account
             </Button>
           </div>
