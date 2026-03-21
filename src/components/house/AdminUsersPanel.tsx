@@ -506,7 +506,7 @@ function HouseZone({ label, color, children }: { label: string; color: string; c
               <span>{u.analysis_count} houses</span>
               <span>{u.chat_count} chats</span>
               {u.last_sign_in_at && (
-                <span>Active {formatDistanceToNow(new Date(u.last_sign_in_at), { addSuffix: true })}</span>
+                <span>Active {formatDistancePST(u.last_sign_in_at)}</span>
               )}
             </div>
           </button>
