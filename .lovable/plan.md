@@ -1,35 +1,38 @@
 
 
-## Admin House View: Show Full House Structure
+## Updated Plan: Framework, Footer, and Admin Panel Fixes
 
-### Problem
-When the admin views a user's house, they only see purpose, overarching question, conclusion, consequences, concepts, and sub-questions with basic info. Missing: sub-purposes, implications, assumptions under each sub-question, and the visual house layout.
+The only change from the previously approved plan is the placement of the new **Concepts** section: it goes **before Purpose** (as Section 4), not after Sub-Questions.
 
-### Approach
-Replace the flat admin analysis view with a read-only version of the house visualization layout, showing all elements the user would see:
+### Revised Section Order for `src/pages/FrameworkPage.tsx`
 
-### Changes to `src/components/house/AdminUsersPanel.tsx`
+1. Why Structured Thinking Matters
+2. The House Metaphor (alt)
+3. The Full Reasoning Flow
+4. **Concepts (NEW)** (alt) — foundational concepts and concepts that shape inferences
+5. Purpose
+6. Overarching Question (alt)
+7. Points of View
+8. Sub-Questions (alt)
+9. Information / Facts
+10. Assumptions (alt)
+11. **Unknown Unknowns (MOVED from 15)**
+12. Logical Inference (alt)
+13. Sub-Conclusions
+14. Overarching Conclusion (alt)
+15. Implications vs. Consequences
+16. Iterative Thinking (alt) — fix styling consistency
+17. How the Platform Helps
 
-Rewrite the `view === "analysis"` section (lines 251-293) to mirror the HouseVisualization layout as a read-only view:
+### Other changes (unchanged from prior plan)
 
-1. **Atmosphere** — Concepts section (already shown, keep)
-2. **Roof** — Show Consequences, Purpose + Sub-purposes, Implications (currently missing sub-purposes and implications — the analysis object has `sub_purposes` but it's not displayed; implications are stored in the `consequences` field or separate; need to check)
-3. **Ceiling** — Overarching Question + Overarching Conclusion (already shown, restructure into side-by-side)
-4. **Columns** — Sub-Questions grouped by POV category (individual/group/ideas_disciplines), each showing:
-   - Question text
-   - Information
-   - Sub-conclusion
-   - **Assumptions** (from `selectedAnalysis.assumptions` filtered by `sub_question_id`) — currently fetched but never displayed
-5. **Foundation** — Personal POV (from the user's profile — would need an extra fetch, skip for now unless easy)
-
-### Visual structure
-Use Card components styled like the house zones (atmosphere, roof, ceiling, columns, foundation) but read-only — no textareas, just text display. This gives the admin the same visual experience as the user.
-
-### No backend changes needed
-The `analysis-detail` action already returns `analysis`, `sub_questions`, `concepts`, and `assumptions`. All data is available.
+- **Footer** (`SiteFooter.tsx`): Features link → `/#features` for guests, `/framework#s17` for logged-in users. Show on all footers.
+- **Admin Panel** (`AdminUsersPanel.tsx`): Convert all timestamps to PST using `toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })`.
 
 ### Files to modify
 | File | Change |
 |------|--------|
-| `src/components/house/AdminUsersPanel.tsx` | Replace analysis view section with house-structured read-only layout |
+| `src/pages/FrameworkPage.tsx` | Insert Concepts as Section 4, move Unknown Unknowns after Assumptions, renumber all, fix Section 16 styling |
+| `src/components/layout/SiteFooter.tsx` | Conditional Features link for all users |
+| `src/components/house/AdminUsersPanel.tsx` | PST timezone for all dates |
 
