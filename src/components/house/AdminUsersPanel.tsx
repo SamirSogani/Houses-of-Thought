@@ -398,7 +398,7 @@ export default function AdminUsersPanel() {
           {u.last_sign_in_at && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              Last active {formatDistanceToNow(new Date(u.last_sign_in_at), { addSuffix: true })}
+              Last active {formatDistancePST(u.last_sign_in_at)}
             </div>
           )}
         </div>
