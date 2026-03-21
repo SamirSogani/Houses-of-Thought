@@ -114,13 +114,13 @@ export default function HomePage() {
                 Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button size="lg" onClick={() => navigate("/auth")}>
+                <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>
                   Create Account
                 </Button>
                 <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
                   Log In
                 </Button>
-                <Button size="lg" variant="secondary" onClick={() => navigate("/auth")}>
+                <Button size="lg" variant="secondary" onClick={() => navigate("/auth?mode=signup")}>
                   Start Free Trial
                 </Button>
               </div>
