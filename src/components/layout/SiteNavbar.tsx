@@ -98,7 +98,7 @@ export default function SiteNavbar() {
               <Button variant="outline" size="sm" className="flex-1" onClick={() => { setMobileOpen(false); navigate("/auth"); }}>
                 Log In
               </Button>
-              <Button size="sm" className="flex-1" onClick={() => { setMobileOpen(false); navigate("/auth"); }}>
+              <Button size="sm" className="flex-1" onClick={() => { setMobileOpen(false); navigate("/auth?mode=signup"); }}>
                 Create Account
               </Button>
             </div>

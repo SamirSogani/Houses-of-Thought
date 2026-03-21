@@ -274,10 +274,10 @@ export default function HomePage() {
             Join students, teachers, and professionals who use the House of Thought to reason more clearly.
           </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <Button size="lg" onClick={() => navigate("/auth")}>
+            <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>
               Create Account
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
+            <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
               Start Free Trial
             </Button>
           </div>
