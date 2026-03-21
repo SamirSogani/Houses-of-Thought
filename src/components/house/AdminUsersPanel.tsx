@@ -443,7 +443,7 @@ export default function AdminUsersPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{a.title}</div>
                   <div className="text-[10px] text-muted-foreground">
-                    Updated {formatDistanceToNow(new Date(a.updated_at), { addSuffix: true })}
+                    Updated {formatDistancePST(a.updated_at)}
                     {a.is_public && <span className="ml-1 text-primary">• Public</span>}
                   </div>
                 </div>
