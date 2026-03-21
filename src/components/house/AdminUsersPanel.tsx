@@ -3,6 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, Calendar, MessageSquare, Home, Clock, Eye, BarChart3, Users, Globe } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+
+const toPST = (dateStr: string) => {
+  return new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+};
+const formatPST = (dateStr: string, fmt: string) => {
+  // Convert to PST string then re-parse for date-fns format
+  const pstDate = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  return format(pstDate, fmt);
+};
+const formatDistancePST = (dateStr: string) => {
+  const pstDate = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  return formatDistanceToNow(pstDate, { addSuffix: true });
+};
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface UserSummary {
