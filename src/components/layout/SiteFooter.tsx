@@ -26,7 +26,7 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-foreground mb-3">Product</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              {!user && <li><Link to="/#features" className="hover:text-foreground transition-colors">Features</Link></li>}
+              <li><Link to={user ? "/framework#s17" : "/#features"} className="hover:text-foreground transition-colors">Features</Link></li>
               <li><Link to="/framework" className="hover:text-foreground transition-colors">Framework</Link></li>
               <li><Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
             </ul>

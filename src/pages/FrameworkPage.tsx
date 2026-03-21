@@ -12,7 +12,7 @@ import {
   ArrowDown, ArrowLeft, ChevronRight, BookOpen, Lightbulb, Target, Eye,
   HelpCircle, Layers, Brain, CheckCircle2, AlertTriangle,
   ArrowRight, RefreshCw, HelpingHand, Zap, BarChart3, Shield,
-  Users, GraduationCap, Beaker, Scale,
+  Users, GraduationCap, Beaker, Scale, Shapes,
 } from "lucide-react";
 
 /* ─── Section wrapper ─── */
@@ -56,6 +56,7 @@ const HOUSE_LAYERS = [
   { id: "sub-questions", label: "Sub-Questions (per POV)", element: "3.2", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary" },
   { id: "pov", label: "Points of View", element: "3.1", description: "Multiple perspectives through which the question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere" },
   { id: "question", label: "Overarching Question", element: "3", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary" },
+  { id: "concepts", label: "Concepts", element: "1.5", description: "Foundational concepts and mental models that shape how you interpret evidence and draw inferences.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere" },
   { id: "purpose", label: "Purpose", element: "2", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation" },
 ];
 
@@ -186,8 +187,36 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 4: PURPOSE ── */}
-      <Section number="4" title="Purpose" subtitle="Every reasoning project begins with a clear purpose." alt>
+      {/* ── SECTION 4: CONCEPTS ── */}
+      <Section number="4" title="Concepts" subtitle="The foundational ideas and mental models that shape your reasoning." alt>
+        <Prose>
+          <p>Before defining your purpose or asking any questions, it's important to identify the <strong className="text-foreground">key concepts</strong> that will underpin your analysis. Concepts are the foundational terms, definitions, and mental models that shape how you interpret evidence and draw inferences.</p>
+          <p>The House of Thought distinguishes between two types of concepts:</p>
+        </Prose>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8 max-w-2xl mx-auto">
+          <div className="border border-border rounded-lg p-4 bg-card">
+            <Shapes className="h-5 w-5 text-primary mb-2" />
+            <h4 className="font-display font-semibold text-sm mb-1">Foundational Concepts</h4>
+            <p className="text-xs text-muted-foreground">Core definitions and background knowledge that everyone involved in the analysis must agree on. These are the building blocks of shared understanding.</p>
+          </div>
+          <div className="border border-border rounded-lg p-4 bg-card">
+            <Brain className="h-5 w-5 text-primary mb-2" />
+            <h4 className="font-display font-semibold text-sm mb-1">Concepts That Shape Inferences</h4>
+            <p className="text-xs text-muted-foreground">Mental models, frameworks, and theories that guide how you interpret evidence and connect facts to conclusions. These are often discipline-specific.</p>
+          </div>
+        </div>
+        <ExampleBox title="Example">
+          <p className="text-muted-foreground mb-2"><strong className="text-foreground">Topic:</strong> "Should salary caps exist in professional sports?"</p>
+          <p className="text-muted-foreground mb-1"><strong className="text-foreground">Foundational Concept:</strong> "Salary cap" — a league-imposed limit on the total amount a team can spend on player salaries.</p>
+          <p className="text-muted-foreground"><strong className="text-foreground">Inference-Shaping Concept:</strong> "Competitive balance" — the idea that restricting spending leads to more equal competition, drawn from economic theory.</p>
+        </ExampleBox>
+        <Prose>
+          <p>Clearly defining your concepts early prevents misunderstandings and ensures that your reasoning is built on a solid intellectual foundation. If two people define "competitive balance" differently, they may reach entirely different conclusions from the same evidence.</p>
+        </Prose>
+      </Section>
+
+      {/* ── SECTION 5: PURPOSE ── */}
+      <Section number="5" title="Purpose" subtitle="Every reasoning project begins with a clear purpose.">
         <Prose>
           <p>Before asking any questions, you must understand <em>why</em> you are reasoning in the first place. Purpose answers the question: <strong className="text-foreground">"Why are we analyzing this?"</strong></p>
           <p>A clear purpose keeps your reasoning focused and prevents you from drifting into unrelated areas. Without purpose, analysis becomes aimless.</p>
@@ -205,8 +234,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 5: OVERARCHING QUESTION ── */}
-      <Section number="5" title="Overarching Question" subtitle="Reasoning begins with a clear, central question.">
+      {/* ── SECTION 6: OVERARCHING QUESTION ── */}
+      <Section number="6" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
         <Prose>
           <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the House of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
           <p>A good overarching question is specific enough to be answerable but broad enough to require structured analysis.</p>
@@ -222,8 +251,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 6: POINTS OF VIEW ── */}
-      <Section number="6" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives." alt>
+      {/* ── SECTION 7: POINTS OF VIEW ── */}
+      <Section number="7" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives.">
         <Prose>
           <p>One of the most common reasoning failures is seeing an issue from only one perspective. The House of Thought addresses this by requiring analysis from multiple points of view. The framework uses three categories of POVs:</p>
         </Prose>
@@ -248,8 +277,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 7: SUB-QUESTIONS ── */}
-      <Section number="7" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces.">
+      {/* ── SECTION 8: SUB-QUESTIONS ── */}
+      <Section number="8" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces." alt>
         <Prose>
           <p>No complex question can be answered in a single step. Sub-questions break the overarching question into focused, answerable parts. Each sub-question is examined from a specific point of view, ensuring comprehensive coverage of the issue.</p>
           <p>In complex situations, there can be hundreds or even thousands of sub-questions. The more thorough your sub-questions, the stronger your final conclusion will be.</p>
@@ -269,8 +298,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 8: INFORMATION / FACTS ── */}
-      <Section number="8" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information." alt>
+      {/* ── SECTION 9: INFORMATION / FACTS ── */}
+      <Section number="9" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information.">
         <Prose>
           <p>Information is the bedrock of the House of Thought. Without solid facts, everything built on top — assumptions, inferences, conclusions — is unstable. Information should be:</p>
         </Prose>
@@ -293,8 +322,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 9: ASSUMPTIONS ── */}
-      <Section number="9" title="Assumptions" subtitle="The beliefs that connect facts to conclusions.">
+      {/* ── SECTION 10: ASSUMPTIONS ── */}
+      <Section number="10" title="Assumptions" subtitle="The beliefs that connect facts to conclusions." alt>
         <Prose>
           <p>Assumptions are beliefs, premises, or frameworks that help us interpret information and draw conclusions. They are the bridge between "what we know" and "what we conclude." Every argument relies on assumptions — the question is whether those assumptions are justified.</p>
         </Prose>
@@ -320,8 +349,26 @@ export default function FrameworkPage() {
         </ul>
       </Section>
 
-      {/* ── SECTION 10: LOGICAL INFERENCE ── */}
-      <Section number="10" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
+      {/* ── SECTION 11: UNKNOWN UNKNOWNS ── */}
+      <Section number="11" title="Unknown Unknowns" subtitle="The factors you couldn't predict.">
+        <Prose>
+          <p>Sometimes, factors appear that could not have been anticipated. These are called "unknown unknowns" — things you didn't know that you didn't know. They can fundamentally change the landscape of an issue.</p>
+        </Prose>
+        <ExampleBox title="Examples of Unknown Unknowns">
+          <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+            <li>A sudden technological breakthrough that changes an entire industry</li>
+            <li>New government regulations that shift the rules of the game</li>
+            <li>Unexpected scientific discoveries that overturn established knowledge</li>
+            <li>Unforeseen events (pandemics, natural disasters, economic crises)</li>
+          </ul>
+        </ExampleBox>
+        <Prose>
+          <p>Critical thinkers must remain flexible and humble. No reasoning framework can predict everything. The House of Thought helps by making your reasoning transparent — so when unknown unknowns appear, you can quickly identify which parts of your analysis are affected and need revision.</p>
+        </Prose>
+      </Section>
+
+      {/* ── SECTION 12: LOGICAL INFERENCE ── */}
+      <Section number="12" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
         <Prose>
           <p>Inference is the reasoning engine of the House of Thought. It is the process of drawing conclusions from available information and assumptions. Think of it as the logical leap from "what I know" to "what I conclude."</p>
         </Prose>
@@ -346,8 +393,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 11: SUB-CONCLUSIONS ── */}
-      <Section number="11" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer.">
+      {/* ── SECTION 13: SUB-CONCLUSIONS ── */}
+      <Section number="13" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer.">
         <Prose>
           <p>Complex reasoning rarely produces a single conclusion in one step. Instead, each sub-question produces its own sub-conclusion — an intermediate answer based on the information, assumptions, and reasoning specific to that question.</p>
         </Prose>
@@ -360,8 +407,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 12: OVERARCHING CONCLUSION ── */}
-      <Section number="12" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
+      {/* ── SECTION 14: OVERARCHING CONCLUSION ── */}
+      <Section number="14" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
         <Prose>
           <p>The overarching conclusion is the roof of the House of Thought. It is the single, synthesized answer to your overarching question, built from all of your sub-conclusions.</p>
           <p>A strong overarching conclusion should be supported by:</p>
@@ -384,8 +431,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 13: IMPLICATIONS VS CONSEQUENCES ── */}
-      <Section number="13" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes.">
+      {/* ── SECTION 15: IMPLICATIONS VS CONSEQUENCES ── */}
+      <Section number="15" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-8">
           <div className="border-2 border-atmosphere rounded-lg p-5 bg-atmosphere/5">
             <h4 className="font-display font-bold text-foreground mb-2">Implications</h4>
@@ -410,8 +457,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 14: ITERATIVE THINKING ── */}
-      <Section number="14" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
+      {/* ── SECTION 16: ITERATIVE THINKING ── */}
+      <Section number="16" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
         <Prose>
           <p>One of the most important principles in the House of Thought is that reasoning should be revisited and revised when new information appears. A conclusion reached today may need to be updated tomorrow.</p>
           <p>If the implications are negative, unexpected, or don't match reality, thinkers should:</p>
@@ -441,26 +488,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 15: UNKNOWN UNKNOWNS ── */}
-      <Section number="15" title="Unknown Unknowns" subtitle="The factors you couldn't predict.">
-        <Prose>
-          <p>Sometimes, factors appear that could not have been anticipated. These are called "unknown unknowns" — things you didn't know that you didn't know. They can fundamentally change the landscape of an issue.</p>
-        </Prose>
-        <ExampleBox title="Examples of Unknown Unknowns">
-          <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-            <li>A sudden technological breakthrough that changes an entire industry</li>
-            <li>New government regulations that shift the rules of the game</li>
-            <li>Unexpected scientific discoveries that overturn established knowledge</li>
-            <li>Unforeseen events (pandemics, natural disasters, economic crises)</li>
-          </ul>
-        </ExampleBox>
-        <Prose>
-          <p>Critical thinkers must remain flexible and humble. No reasoning framework can predict everything. The House of Thought helps by making your reasoning transparent — so when unknown unknowns appear, you can quickly identify which parts of your analysis are affected and need revision.</p>
-        </Prose>
-      </Section>
-
-      {/* ── SECTION 16: HOW THE PLATFORM HELPS ── */}
-      <Section number="16" title="How the House of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
+      {/* ── SECTION 17: HOW THE PLATFORM HELPS ── */}
+      <Section id="s17" number="17" title="How the House of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
           {[
             { icon: Lightbulb, title: "Draft Full House", desc: "AI generates a complete reasoning structure — purpose, sub-questions, assumptions, and information — in one step." },

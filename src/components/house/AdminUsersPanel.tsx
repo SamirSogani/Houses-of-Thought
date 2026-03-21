@@ -3,6 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, Calendar, MessageSquare, Home, Clock, Eye, BarChart3, Users, Globe } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+
+const toPST = (dateStr: string) => {
+  return new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+};
+const formatPST = (dateStr: string, fmt: string) => {
+  // Convert to PST string then re-parse for date-fns format
+  const pstDate = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  return format(pstDate, fmt);
+};
+const formatDistancePST = (dateStr: string) => {
+  const pstDate = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  return formatDistanceToNow(pstDate, { addSuffix: true });
+};
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface UserSummary {
@@ -380,12 +393,12 @@ export default function AdminUsersPanel() {
           <h3 className="text-sm font-display font-semibold text-foreground truncate">{u.email}</h3>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            Joined {format(new Date(u.created_at), "MMM d, yyyy")}
+            Joined {formatPST(u.created_at, "MMM d, yyyy")} PST
           </div>
           {u.last_sign_in_at && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              Last active {formatDistanceToNow(new Date(u.last_sign_in_at), { addSuffix: true })}
+              Last active {formatDistancePST(u.last_sign_in_at)}
             </div>
           )}
         </div>
@@ -430,7 +443,7 @@ export default function AdminUsersPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{a.title}</div>
                   <div className="text-[10px] text-muted-foreground">
-                    Updated {formatDistanceToNow(new Date(a.updated_at), { addSuffix: true })}
+                    Updated {formatDistancePST(a.updated_at)}
                     {a.is_public && <span className="ml-1 text-primary">• Public</span>}
                   </div>
                 </div>
@@ -450,7 +463,7 @@ export default function AdminUsersPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{c.chat_title}</div>
                   <div className="text-[10px] text-muted-foreground">
-                    {c.message_count} messages • {formatDistanceToNow(new Date(c.updated_at), { addSuffix: true })}
+                    {c.message_count} messages • {formatDistancePST(c.updated_at)}
                   </div>
                 </div>
                 <Eye className="h-3 w-3 text-muted-foreground shrink-0 ml-1" />
@@ -493,7 +506,7 @@ function HouseZone({ label, color, children }: { label: string; color: string; c
               <span>{u.analysis_count} houses</span>
               <span>{u.chat_count} chats</span>
               {u.last_sign_in_at && (
-                <span>Active {formatDistanceToNow(new Date(u.last_sign_in_at), { addSuffix: true })}</span>
+                <span>Active {formatDistancePST(u.last_sign_in_at)}</span>
               )}
             </div>
           </button>
