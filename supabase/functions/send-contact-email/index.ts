@@ -44,6 +44,15 @@ serve(async (req) => {
     }
 
     const body = await req.json();
+
+    // Honeypot field — if filled, silently succeed (bot trap)
+    if (body.website && String(body.website).trim().length > 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "Contact form submitted successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const name = sanitize(body.name, 100);
     const email = sanitize(body.email, 255);
     const userType = sanitize(body.userType, 50);
