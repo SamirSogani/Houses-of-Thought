@@ -34,6 +34,15 @@ Deno.serve(async (req) => {
     }
 
     const { mode, analysisContext } = await req.json();
+
+    if (!analysisContext || typeof analysisContext !== 'string' || analysisContext.length > 20000) {
+      return new Response(JSON.stringify({ error: 'Invalid or oversized analysisContext (max 20000 chars)' }), { status: 400, headers: corsHeaders });
+    }
+
+    const validModes = ['analyze', 'stress_test', 'improve', 'suggest_povs', 'strengthen_assumptions', 'suggest_evidence', 'find_sources', 'rate_evidence'];
+    if (!mode || !validModes.includes(mode)) {
+      return new Response(JSON.stringify({ error: 'Invalid mode' }), { status: 400, headers: corsHeaders });
+    }
     // mode: "analyze" | "stress_test" | "improve" | "suggest_povs" | "strengthen_assumptions" | "suggest_evidence" | "find_sources"
 
     let systemPrompt = "";

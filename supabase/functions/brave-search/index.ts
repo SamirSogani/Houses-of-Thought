@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
     }
 
     const { query, count } = await req.json();
-    if (!query) {
-      return new Response(JSON.stringify({ error: 'Query is required' }), { status: 400, headers: corsHeaders });
+    if (!query || typeof query !== 'string' || query.trim().length === 0 || query.length > 500) {
+      return new Response(JSON.stringify({ error: 'Query is required and must be under 500 characters' }), { status: 400, headers: corsHeaders });
     }
 
     const searchCount = Math.min(count || 5, 20);
