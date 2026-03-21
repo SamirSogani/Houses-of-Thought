@@ -463,7 +463,7 @@ export default function AdminUsersPanel() {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-foreground truncate">{c.chat_title}</div>
                   <div className="text-[10px] text-muted-foreground">
-                    {c.message_count} messages • {formatDistanceToNow(new Date(c.updated_at), { addSuffix: true })}
+                    {c.message_count} messages • {formatDistancePST(c.updated_at)}
                   </div>
                 </div>
                 <Eye className="h-3 w-3 text-muted-foreground shrink-0 ml-1" />
