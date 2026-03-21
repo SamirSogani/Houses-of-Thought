@@ -393,7 +393,7 @@ export default function AdminUsersPanel() {
           <h3 className="text-sm font-display font-semibold text-foreground truncate">{u.email}</h3>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            Joined {format(new Date(u.created_at), "MMM d, yyyy")}
+            Joined {formatPST(u.created_at, "MMM d, yyyy")} PST
           </div>
           {u.last_sign_in_at && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
