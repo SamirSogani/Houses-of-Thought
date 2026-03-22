@@ -281,7 +281,8 @@ Return ONLY valid JSON:
     }
 
     if (!parsed) {
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response', raw: content }), { status: 500, headers: corsHeaders });
+      console.error('Failed to parse AI response:', content);
+      return new Response(JSON.stringify({ error: 'Failed to parse AI response. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     return new Response(JSON.stringify(parsed), {

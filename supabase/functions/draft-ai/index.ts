@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      return new Response(JSON.stringify({ error: `AI error: ${errText}` }), {
+      return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

@@ -110,7 +110,8 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
 
       if (!groqResponse.ok) {
         const errText = await groqResponse.text();
-        return new Response(JSON.stringify({ error: `Groq API error: ${errText}` }), {
+        console.error('Groq API error:', groqResponse.status, errText);
+        return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), {
           status: groqResponse.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -120,12 +121,11 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
     }
 
     if (!groqResponse || !groqResponse.ok) {
+      console.error('Groq rate limit exhausted after retries:', lastRateLimitBody);
       return new Response(JSON.stringify({
-        error: 'Groq API rate limit exceeded after retries. Please wait a moment and try again.',
+        error: 'AI rate limit exceeded. Please wait a moment and try again.',
         code: 'RATE_LIMITED',
         retryable: true,
-        provider: 'groq',
-        details: lastRateLimitBody,
       }), {
         status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
