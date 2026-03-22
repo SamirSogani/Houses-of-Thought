@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,8 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { toast } from "sonner";
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { label: "Uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+  { label: "Lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+  { label: "Number", test: (p: string) => /[0-9]/.test(p) },
+  { label: "Special character (!@#$%...)", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -21,10 +29,17 @@ export default function AuthPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
+  const passwordStrength = useMemo(() => PASSWORD_RULES.map(r => r.test(password)), [password]);
+  const allPasswordRulesMet = passwordStrength.every(Boolean);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLogin && (!termsAccepted || !privacyAccepted)) {
       toast.error("You must accept the Terms of Service and Privacy Policy to create an account.");
+      return;
+    }
+    if (!isLogin && !allPasswordRulesMet) {
+      toast.error("Password does not meet all strength requirements.");
       return;
     }
     setLoading(true);
@@ -35,11 +50,11 @@ export default function AuthPage() {
     if (error) {
       toast.error(error.message);
     } else if (!isLogin) {
-      toast.success("Account created! You're now signed in.");
+      toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
 
-  const canSubmitSignup = termsAccepted && privacyAccepted;
+  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -82,8 +97,24 @@ export default function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                minLength={6}
+                minLength={8}
               />
+              {!isLogin && password.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  {PASSWORD_RULES.map((rule, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs">
+                      {passwordStrength[i] ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <X className="h-3 w-3 text-destructive" />
+                      )}
+                      <span className={passwordStrength[i] ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}>
+                        {rule.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {!isLogin && (
               <div className="space-y-3 pt-1">

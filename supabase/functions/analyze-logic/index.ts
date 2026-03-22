@@ -5,6 +5,22 @@ const corsHeaders = {
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Per-user rate limiting: max 10 requests per 60 seconds
+const userRateMap = new Map<string, { count: number; resetAt: number }>();
+const USER_RATE_LIMIT = 10;
+const USER_RATE_WINDOW_MS = 60 * 1000;
+
+function isUserRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const entry = userRateMap.get(userId);
+  if (!entry || now > entry.resetAt) {
+    userRateMap.set(userId, { count: 1, resetAt: now + USER_RATE_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > USER_RATE_LIMIT;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,9 +44,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
+    const userId = (claimsData.claims as any).sub;
+    if (isUserRateLimited(userId)) {
+      return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment before trying again.', code: 'RATE_LIMITED', retryable: true }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     if (!groqApiKey) {
-      return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: 'Service configuration error' }), { status: 500, headers: corsHeaders });
     }
 
     const { mode, analysisContext } = await req.json();
@@ -195,7 +218,8 @@ Return ONLY valid JSON:
 
       if (!groqResponse.ok) {
         const errText = await groqResponse.text();
-        return new Response(JSON.stringify({ error: `AI error: ${errText}` }), { status: groqResponse.status, headers: corsHeaders });
+        console.error('AI service error:', groqResponse.status, errText);
+        return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), { status: groqResponse.status, headers: corsHeaders });
       }
       break;
     }
@@ -280,7 +304,8 @@ Return ONLY valid JSON:
     }
 
     if (!parsed) {
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response', raw: content }), { status: 500, headers: corsHeaders });
+      console.error('Failed to parse AI response:', content);
+      return new Response(JSON.stringify({ error: 'Failed to parse AI response. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
     return new Response(JSON.stringify(parsed), {

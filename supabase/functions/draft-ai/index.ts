@@ -5,6 +5,22 @@ const corsHeaders = {
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Per-user rate limiting: max 10 requests per 60 seconds
+const userRateMap = new Map<string, { count: number; resetAt: number }>();
+const USER_RATE_LIMIT = 10;
+const USER_RATE_WINDOW_MS = 60 * 1000;
+
+function isUserRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const entry = userRateMap.get(userId);
+  if (!entry || now > entry.resetAt) {
+    userRateMap.set(userId, { count: 1, resetAt: now + USER_RATE_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > USER_RATE_LIMIT;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,9 +45,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
     }
 
+    const userId = (claimsData.claims as any).sub;
+    if (isUserRateLimited(userId)) {
+      return new Response(JSON.stringify({ error: 'Too many requests. Please wait a moment before trying again.', code: 'RATE_LIMITED', retryable: true }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: 'Service configuration error' }), { status: 500, headers: corsHeaders });
     }
 
     const { messages, mode } = await req.json();
@@ -72,7 +95,7 @@ Deno.serve(async (req) => {
         }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      return new Response(JSON.stringify({ error: `AI error: ${errText}` }), {
+      return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
