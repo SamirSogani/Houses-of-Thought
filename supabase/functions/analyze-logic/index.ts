@@ -195,7 +195,8 @@ Return ONLY valid JSON:
 
       if (!groqResponse.ok) {
         const errText = await groqResponse.text();
-        return new Response(JSON.stringify({ error: `AI error: ${errText}` }), { status: groqResponse.status, headers: corsHeaders });
+        console.error('AI service error:', groqResponse.status, errText);
+        return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), { status: groqResponse.status, headers: corsHeaders });
       }
       break;
     }
