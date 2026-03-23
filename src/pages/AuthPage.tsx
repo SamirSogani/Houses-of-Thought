@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+const RECAPTCHA_SITE_KEY = "6Lf-QJQsAAAAAJo_8oG0nAuAqO0oNMgyj91oL4-p";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -17,6 +20,16 @@ const PASSWORD_RULES = [
   { label: "Number", test: (p: string) => /[0-9]/.test(p) },
   { label: "Special character (!@#$%...)", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      render: (container: HTMLElement, params: { sitekey: string; callback: (token: string) => void; "expired-callback": () => void; theme?: string }) => number;
+      reset: (widgetId: number) => void;
+    };
+    onRecaptchaLoad: () => void;
+  }
+}
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -28,9 +41,55 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<number | null>(null);
+  const recaptchaReadyRef = useRef(false);
 
   const passwordStrength = useMemo(() => PASSWORD_RULES.map(r => r.test(password)), [password]);
   const allPasswordRulesMet = passwordStrength.every(Boolean);
+
+  const renderRecaptcha = useCallback(() => {
+    if (recaptchaRef.current && window.grecaptcha && widgetIdRef.current === null) {
+      widgetIdRef.current = window.grecaptcha.render(recaptchaRef.current, {
+        sitekey: RECAPTCHA_SITE_KEY,
+        callback: (token: string) => setRecaptchaToken(token),
+        "expired-callback": () => setRecaptchaToken(null),
+        theme: "light",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    // Load reCAPTCHA script if not already loaded
+    if (!document.getElementById("recaptcha-script")) {
+      window.onRecaptchaLoad = () => {
+        recaptchaReadyRef.current = true;
+        if (!isLogin) renderRecaptcha();
+      };
+      const script = document.createElement("script");
+      script.id = "recaptcha-script";
+      script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    } else if (window.grecaptcha) {
+      recaptchaReadyRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLogin && recaptchaReadyRef.current) {
+      // Small delay to ensure the DOM element is mounted
+      const timer = setTimeout(() => renderRecaptcha(), 100);
+      return () => clearTimeout(timer);
+    }
+    if (isLogin) {
+      // Reset when switching to login
+      widgetIdRef.current = null;
+      setRecaptchaToken(null);
+    }
+  }, [isLogin, renderRecaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,19 +101,52 @@ export default function AuthPage() {
       toast.error("Password does not meet all strength requirements.");
       return;
     }
+    if (!isLogin && !recaptchaToken) {
+      toast.error("Please complete the CAPTCHA verification.");
+      return;
+    }
+
     setLoading(true);
+
+    // Verify reCAPTCHA server-side for signup
+    if (!isLogin) {
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("verify-recaptcha", {
+          body: { token: recaptchaToken },
+        });
+        if (fnError || !data?.success) {
+          toast.error("CAPTCHA verification failed. Please try again.");
+          setRecaptchaToken(null);
+          if (widgetIdRef.current !== null && window.grecaptcha) {
+            window.grecaptcha.reset(widgetIdRef.current);
+          }
+          setLoading(false);
+          return;
+        }
+      } catch {
+        toast.error("CAPTCHA verification failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const { error } = isLogin
       ? await signIn(email, password)
       : await signUp(email, password);
     setLoading(false);
     if (error) {
       toast.error(error.message);
+      // Reset captcha on error
+      if (!isLogin && widgetIdRef.current !== null && window.grecaptcha) {
+        window.grecaptcha.reset(widgetIdRef.current);
+        setRecaptchaToken(null);
+      }
     } else if (!isLogin) {
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
 
-  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet;
+  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && !!recaptchaToken;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -145,6 +237,10 @@ export default function AuthPage() {
                       Privacy Policy
                     </Link>
                   </label>
+                </div>
+                {/* reCAPTCHA widget */}
+                <div className="flex justify-center pt-1">
+                  <div ref={recaptchaRef}></div>
                 </div>
               </div>
             )}
