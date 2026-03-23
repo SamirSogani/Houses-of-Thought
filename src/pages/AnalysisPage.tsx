@@ -38,6 +38,8 @@ export default function AnalysisPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [panelWidth, setPanelWidth] = useState(288);
   const isResizing = useRef(false);
+  const [mobileToolOpen, setMobileToolOpen] = useState(false);
+  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin">("logic");
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
