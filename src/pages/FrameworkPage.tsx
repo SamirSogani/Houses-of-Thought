@@ -76,7 +76,7 @@ export default function FrameworkPage() {
           </button>
           <p className="text-xs font-mono tracking-[0.3em] uppercase text-muted-foreground">Critical Thinking Framework</p>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight">
-            The House of Thought Framework
+            The Houses of Thought Framework
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
             A structured method for reasoning clearly and building stronger conclusions.
@@ -114,13 +114,13 @@ export default function FrameworkPage() {
           ))}
         </ul>
         <Prose>
-          <p>The House of Thought framework solves this by providing a clear, step-by-step structure for reasoning. Think of it like building a house: <strong className="text-foreground">a strong house requires a strong foundation</strong>.</p>
-          <p>If your foundation — your facts and evidence — is weak, everything built on top of it will be unstable. If you skip steps, your conclusions will have gaps. The House of Thought ensures that every conclusion is traceable back through logical steps to verified information.</p>
+          <p>The Houses of Thought framework solves this by providing a clear, step-by-step structure for reasoning. Think of it like building a house: <strong className="text-foreground">a strong house requires a strong foundation</strong>.</p>
+          <p>If your foundation — your facts and evidence — is weak, everything built on top of it will be unstable. If you skip steps, your conclusions will have gaps. The Houses of Thought ensures that every conclusion is traceable back through logical steps to verified information.</p>
         </Prose>
       </Section>
 
       {/* ── SECTION 2: THE HOUSE METAPHOR ── */}
-      <Section number="2" title="The House Metaphor" subtitle="A house stands on a foundation and builds upward. The House of Thought works the same way." alt>
+      <Section number="2" title="The House Metaphor" subtitle="A house stands on a foundation and builds upward. The Houses of Thought works the same way." alt>
         <Prose>
           <p>Just as an architect designs a building from the ground up, critical thinkers must build their reasoning from the bottom up:</p>
         </Prose>
@@ -154,7 +154,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 3: FULL REASONING FLOW ── */}
-      <Section id="house-diagram" number="3" title="The Full Reasoning Flow" subtitle="The complete structure of the House of Thought, from purpose to consequences. Hover over each layer to learn more.">
+      <Section id="house-diagram" number="3" title="The Full Reasoning Flow" subtitle="The complete structure of the Houses of Thought, from purpose to consequences. Hover over each layer to learn more.">
         <div className="space-y-2.5 max-w-xl mx-auto">
           {HOUSE_LAYERS.map((layer) => (
             <Tooltip key={layer.id}>
@@ -191,7 +191,7 @@ export default function FrameworkPage() {
       <Section number="4" title="Concepts" subtitle="The foundational ideas and mental models that shape your reasoning." alt>
         <Prose>
           <p>Before defining your purpose or asking any questions, it's important to identify the <strong className="text-foreground">key concepts</strong> that will underpin your analysis. Concepts are the foundational terms, definitions, and mental models that shape how you interpret evidence and draw inferences.</p>
-          <p>The House of Thought distinguishes between two types of concepts:</p>
+          <p>The Houses of Thought distinguishes between two types of concepts:</p>
         </Prose>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8 max-w-2xl mx-auto">
           <div className="border border-border rounded-lg p-4 bg-card">
@@ -237,7 +237,7 @@ export default function FrameworkPage() {
       {/* ── SECTION 6: OVERARCHING QUESTION ── */}
       <Section number="6" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
         <Prose>
-          <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the House of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
+          <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the Houses of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
           <p>A good overarching question is specific enough to be answerable but broad enough to require structured analysis.</p>
         </Prose>
         <ExampleBox title="Examples">
@@ -254,7 +254,7 @@ export default function FrameworkPage() {
       {/* ── SECTION 7: POINTS OF VIEW ── */}
       <Section number="7" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives.">
         <Prose>
-          <p>One of the most common reasoning failures is seeing an issue from only one perspective. The House of Thought addresses this by requiring analysis from multiple points of view. The framework uses three categories of POVs:</p>
+          <p>One of the most common reasoning failures is seeing an issue from only one perspective. The Houses of Thought addresses this by requiring analysis from multiple points of view. The framework uses three categories of POVs:</p>
         </Prose>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8 max-w-2xl mx-auto">
@@ -301,7 +301,7 @@ export default function FrameworkPage() {
       {/* ── SECTION 9: INFORMATION / FACTS ── */}
       <Section number="9" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information.">
         <Prose>
-          <p>Information is the bedrock of the House of Thought. Without solid facts, everything built on top — assumptions, inferences, conclusions — is unstable. Information should be:</p>
+          <p>Information is the bedrock of the Houses of Thought. Without solid facts, everything built on top — assumptions, inferences, conclusions — is unstable. Information should be:</p>
         </Prose>
         <ul className="list-none space-y-2 max-w-2xl mx-auto my-6">
           {[
@@ -333,7 +333,7 @@ export default function FrameworkPage() {
         </ExampleBox>
         <Prose>
           <p>This assumption may seem reasonable, but it should be examined: <em>Do salary caps actually create competitive balance? Or do wealthy teams find ways around them?</em></p>
-          <p>The House of Thought framework categorizes assumptions into three types:</p>
+          <p>The Houses of Thought framework categorizes assumptions into three types:</p>
         </Prose>
         <ul className="list-none space-y-2 max-w-2xl mx-auto my-4">
           {[
@@ -363,14 +363,14 @@ export default function FrameworkPage() {
           </ul>
         </ExampleBox>
         <Prose>
-          <p>Critical thinkers must remain flexible and humble. No reasoning framework can predict everything. The House of Thought helps by making your reasoning transparent — so when unknown unknowns appear, you can quickly identify which parts of your analysis are affected and need revision.</p>
+          <p>Critical thinkers must remain flexible and humble. No reasoning framework can predict everything. The Houses of Thought helps by making your reasoning transparent — so when unknown unknowns appear, you can quickly identify which parts of your analysis are affected and need revision.</p>
         </Prose>
       </Section>
 
       {/* ── SECTION 12: LOGICAL INFERENCE ── */}
       <Section number="12" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
         <Prose>
-          <p>Inference is the reasoning engine of the House of Thought. It is the process of drawing conclusions from available information and assumptions. Think of it as the logical leap from "what I know" to "what I conclude."</p>
+          <p>Inference is the reasoning engine of the Houses of Thought. It is the process of drawing conclusions from available information and assumptions. Think of it as the logical leap from "what I know" to "what I conclude."</p>
         </Prose>
         <div className="flex flex-col md:flex-row items-center justify-center gap-3 max-w-2xl mx-auto my-8">
           {[
@@ -410,7 +410,7 @@ export default function FrameworkPage() {
       {/* ── SECTION 14: OVERARCHING CONCLUSION ── */}
       <Section number="14" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
         <Prose>
-          <p>The overarching conclusion is the roof of the House of Thought. It is the single, synthesized answer to your overarching question, built from all of your sub-conclusions.</p>
+          <p>The overarching conclusion is the roof of the Houses of Thought. It is the single, synthesized answer to your overarching question, built from all of your sub-conclusions.</p>
           <p>A strong overarching conclusion should be supported by:</p>
         </Prose>
         <ul className="list-none space-y-2 max-w-2xl mx-auto my-6">
@@ -453,14 +453,14 @@ export default function FrameworkPage() {
         </div>
         <Prose>
           <p>Analyzing implications helps people plan for possible outcomes before they happen. Recording consequences as they unfold allows you to compare predictions against reality and refine your reasoning.</p>
-          <p>In the House of Thought platform, implications can be generated by AI based on your conclusion, while consequences are entered by you as real-world events unfold.</p>
+          <p>In the Houses of Thought platform, implications can be generated by AI based on your conclusion, while consequences are entered by you as real-world events unfold.</p>
         </Prose>
       </Section>
 
       {/* ── SECTION 16: ITERATIVE THINKING ── */}
       <Section number="16" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
         <Prose>
-          <p>One of the most important principles in the House of Thought is that reasoning should be revisited and revised when new information appears. A conclusion reached today may need to be updated tomorrow.</p>
+          <p>One of the most important principles in the Houses of Thought is that reasoning should be revisited and revised when new information appears. A conclusion reached today may need to be updated tomorrow.</p>
           <p>If the implications are negative, unexpected, or don't match reality, thinkers should:</p>
         </Prose>
         <ul className="list-none space-y-2 max-w-2xl mx-auto my-6">
@@ -484,12 +484,12 @@ export default function FrameworkPage() {
           </div>
         </div>
         <Prose>
-          <p>The best thinkers are willing to change their minds when the evidence demands it. The House of Thought supports this by making it easy to revisit any layer of your reasoning at any time.</p>
+          <p>The best thinkers are willing to change their minds when the evidence demands it. The Houses of Thought supports this by making it easy to revisit any layer of your reasoning at any time.</p>
         </Prose>
       </Section>
 
       {/* ── SECTION 17: HOW THE PLATFORM HELPS ── */}
-      <Section id="s17" number="17" title="How the House of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
+      <Section id="s17" number="17" title="How the Houses of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
           {[
             { icon: Lightbulb, title: "Draft Full House", desc: "AI generates a complete reasoning structure — purpose, sub-questions, assumptions, and information — in one step." },
@@ -509,12 +509,12 @@ export default function FrameworkPage() {
           ))}
         </div>
         <Prose>
-          <p>The goal of the House of Thought platform is simple: <strong className="text-foreground">help you think more clearly, reason more rigorously, and build stronger conclusions</strong>. Whether you're a student learning critical thinking, a teacher guiding reasoning projects, or a professional analyzing complex problems, the platform provides the structure and tools to do it well.</p>
+          <p>The goal of the Houses of Thought platform is simple: <strong className="text-foreground">help you think more clearly, reason more rigorously, and build stronger conclusions</strong>. Whether you're a student learning critical thinking, a teacher guiding reasoning projects, or a professional analyzing complex problems, the platform provides the structure and tools to do it well.</p>
         </Prose>
 
         <div className="text-center mt-10">
           <Button onClick={() => navigate("/dashboard")} size="lg" className="gap-2">
-            Start Building Your House of Thought <ChevronRight className="h-4 w-4" />
+            Start Building Your Houses of Thought <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </Section>

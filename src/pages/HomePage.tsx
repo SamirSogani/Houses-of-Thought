@@ -52,7 +52,7 @@ const features = [
   {
     icon: Layers,
     title: "Interactive House Diagram",
-    description: "Build your reasoning visually using the House of Thought framework diagram.",
+    description: "Build your reasoning visually using the Houses of Thought framework diagram.",
   },
   {
     icon: Users,
@@ -108,7 +108,7 @@ export default function HomePage() {
                 <span className="text-primary">Reason Better.</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed">
-                House of Thought is an AI-powered reasoning system that helps you break down complex questions, examine different perspectives, and build stronger conclusions.
+                Houses of Thought is an AI-powered reasoning system that helps you break down complex questions, examine different perspectives, and build stronger conclusions.
               </p>
               <p className="text-sm text-muted-foreground">
                 Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
@@ -175,7 +175,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              What is the House of Thought?
+              What is the Houses of Thought?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               A structured reasoning framework that guides you through every element of critical thinking — from defining your purpose to evaluating your conclusions.
@@ -271,7 +271,7 @@ export default function HomePage() {
             Start Building Better Thinking Today
           </h2>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            Join students, teachers, and professionals who use the House of Thought to reason more clearly.
+            Join students, teachers, and professionals who use the Houses of Thought to reason more clearly.
           </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>

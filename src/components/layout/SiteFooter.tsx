@@ -15,7 +15,7 @@ export default function SiteFooter() {
                 <path d="M24 4L4 20H10V40H18V28H30V40H38V20H44L24 4Z"
                   stroke="hsl(var(--primary))" strokeWidth="2" fill="hsl(var(--primary) / 0.1)" />
               </svg>
-              <span className="font-display font-bold text-foreground">House of Thought</span>
+              <span className="font-display font-bold text-foreground">Houses of Thought</span>
             </div>
             <p className="text-sm text-muted-foreground max-w-sm">
               An AI-powered reasoning system based on John Trapasso's model, derived from the Paul-Elder Model for critical thinking.
@@ -43,7 +43,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-border text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} House of Thought. All rights reserved.
+          © {new Date().getFullYear()} Houses of Thought. All rights reserved.
         </div>
       </div>
     </footer>

@@ -24,12 +24,12 @@ export default function PrivacyPage() {
         <div className="prose prose-sm max-w-none text-foreground space-y-8">
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">1. Introduction</h2>
-            <p className="text-muted-foreground leading-relaxed">House of Thought (also known as House of Reason) respects your privacy and is committed to protecting your personal information. This Privacy Policy explains what information we collect, how we use it, and the choices you have regarding your data.</p>
+            <p className="text-muted-foreground leading-relaxed">Houses of Thought (also known as House of Reason) respects your privacy and is committed to protecting your personal information. This Privacy Policy explains what information we collect, how we use it, and the choices you have regarding your data.</p>
           </section>
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">2. Information We Collect</h2>
-            <p className="text-muted-foreground leading-relaxed mb-2">When you use House of Thought, we may collect the following types of information:</p>
+            <p className="text-muted-foreground leading-relaxed mb-2">When you use Houses of Thought, we may collect the following types of information:</p>
             <ul className="list-disc pl-6 text-muted-foreground space-y-1">
               <li>Name and email address (provided during account creation)</li>
               <li>Account login credentials</li>
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">4. Data Sharing Policy</h2>
-            <p className="text-muted-foreground leading-relaxed">House of Thought does not sell, share, rent, or distribute your personal data to third parties. Your data is used exclusively for operating and improving the House of Thought platform. We may disclose information only if required by law or to protect the rights, safety, or property of House of Thought and its users.</p>
+            <p className="text-muted-foreground leading-relaxed">Houses of Thought does not sell, share, rent, or distribute your personal data to third parties. Your data is used exclusively for operating and improving the Houses of Thought platform. We may disclose information only if required by law or to protect the rights, safety, or property of Houses of Thought and its users.</p>
           </section>
 
           <section>
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">8. Children's Privacy</h2>
-            <p className="text-muted-foreground leading-relaxed">Users must be at least 12 years old to create an account on House of Thought. The platform does not knowingly collect personal data from children under 12. If we become aware that we have collected information from a child under 12, we will take steps to delete that data promptly.</p>
+            <p className="text-muted-foreground leading-relaxed">Users must be at least 12 years old to create an account on Houses of Thought. The platform does not knowingly collect personal data from children under 12. If we become aware that we have collected information from a child under 12, we will take steps to delete that data promptly.</p>
           </section>
 
           <section>
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">11. Changes to Privacy Policy</h2>
-            <p className="text-muted-foreground leading-relaxed">House of Thought may update this Privacy Policy periodically to reflect changes in our practices or applicable laws. We will notify users of significant changes. Continued use of the platform after changes are posted constitutes acceptance of the updated policy.</p>
+            <p className="text-muted-foreground leading-relaxed">Houses of Thought may update this Privacy Policy periodically to reflect changes in our practices or applicable laws. We will notify users of significant changes. Continued use of the platform after changes are posted constitutes acceptance of the updated policy.</p>
           </section>
 
           <section>
