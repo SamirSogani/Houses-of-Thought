@@ -184,6 +184,10 @@
   }
 
   .page-container {
-    @apply max-w-5xl mx-auto px-4 py-8;
+    @apply max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }

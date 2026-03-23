@@ -181,7 +181,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
       <Card className="house-zone house-zone-foundation">
         <CardContent className="py-4">
           <p className="text-xs font-mono text-muted-foreground mb-2 text-center">ELEMENT 4.2 — PERSONAL FOUNDATIONAL POINT OF VIEW</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {["Biological", "Social", "Familial", "Individual"].map((label) => (
               <div key={label} className="text-center p-2 bg-card rounded border text-xs">
                 <p className="font-semibold">{label}</p>

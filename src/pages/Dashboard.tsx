@@ -213,6 +213,19 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Create New House Card */}
+            <Card
+              className="cursor-pointer border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:shadow-lg transition-all duration-200 flex items-center justify-center min-h-[180px] group"
+              onClick={createNewAnalysis}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <div className="w-14 h-14 rounded-full bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center mb-3 transition-colors">
+                  <Plus className="h-7 w-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <p className="text-sm font-display font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Create New House</p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

@@ -105,7 +105,7 @@ function HouseLayer({
             {blocks.map((block) => (
               <div
                 key={block.id}
-                className={`flex items-center gap-1 text-[10px] leading-tight px-2 py-1 rounded border ${block.color} cursor-pointer hover:shadow-sm transition-shadow max-w-[200px]`}
+                className={`flex items-center gap-1 text-[10px] leading-tight px-2 py-1.5 rounded border ${block.color} cursor-pointer hover:shadow-sm transition-shadow max-w-full sm:max-w-[200px] min-h-[2.75rem] sm:min-h-0`}
                 onClick={(e) => {
                   e.stopPropagation();
                   block.onClick?.();
