@@ -82,9 +82,6 @@ export default function Dashboard() {
             <h1 className="text-xl font-display font-bold text-foreground">House of Thought</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <Button size="sm" onClick={createNewAnalysis}>
-              <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">New House</span>
-            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
               <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
             </Button>
