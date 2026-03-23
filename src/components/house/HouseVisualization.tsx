@@ -70,7 +70,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
       </Card>
 
       {/* THE ROOF — Purpose, Sub-purposes, Consequences (Elements 2, 2.1, 8) */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card
           className={`house-zone house-zone-roof cursor-pointer ${draftClass}`}
           onClick={() => onNavigate(`/analysis/${analysisId}/consequences`)}
