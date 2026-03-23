@@ -1,38 +1,77 @@
 
 
-## Updated Plan: Framework, Footer, and Admin Panel Fixes
+## Plan: Multiple Houses + Responsive Mobile Design
 
-The only change from the previously approved plan is the placement of the new **Concepts** section: it goes **before Purpose** (as Section 4), not after Sub-Questions.
+### 1. "Create New House" Card on Dashboard
 
-### Revised Section Order for `src/pages/FrameworkPage.tsx`
+The dashboard already supports multiple analyses — users can create unlimited houses. The issue is discoverability: the "New House" button is only in the header. 
 
-1. Why Structured Thinking Matters
-2. The House Metaphor (alt)
-3. The Full Reasoning Flow
-4. **Concepts (NEW)** (alt) — foundational concepts and concepts that shape inferences
-5. Purpose
-6. Overarching Question (alt)
-7. Points of View
-8. Sub-Questions (alt)
-9. Information / Facts
-10. Assumptions (alt)
-11. **Unknown Unknowns (MOVED from 15)**
-12. Logical Inference (alt)
-13. Sub-Conclusions
-14. Overarching Conclusion (alt)
-15. Implications vs. Consequences
-16. Iterative Thinking (alt) — fix styling consistency
-17. How the Platform Helps
+**Change**: Add a persistent "+" card at the end of the analysis grid that acts as a large, obvious "Create New House" button.
 
-### Other changes (unchanged from prior plan)
+**File**: `src/pages/Dashboard.tsx`
+- Add a final card in the grid after all analysis cards with a large "+" icon, dashed border, and "Create New House" text
+- Make header buttons responsive (collapse to icons on mobile)
 
-- **Footer** (`SiteFooter.tsx`): Features link → `/#features` for guests, `/framework#s17` for logged-in users. Show on all footers.
-- **Admin Panel** (`AdminUsersPanel.tsx`): Convert all timestamps to PST using `toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })`.
+### 2. Responsive Dashboard
 
-### Files to modify
+**File**: `src/pages/Dashboard.tsx`
+- Header: collapse button labels on mobile (show only icons), wrap into a compact layout
+- Grid already uses `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` — this is fine
+
+### 3. Responsive Analysis Page (the big change)
+
+**File**: `src/pages/AnalysisPage.tsx`
+
+Currently uses a fixed `w-14` sidebar + resizable tool panel + main content in a horizontal flex layout. On mobile this doesn't work.
+
+**Mobile layout**:
+- Hide the left icon sidebar on mobile (`hidden md:flex`)
+- Replace with a fixed bottom navigation bar on mobile showing view toggle + tool icons
+- Tool panels open as a sheet/drawer from bottom instead of a side panel
+- AI FAB stays as-is (already works on mobile)
+- Breadcrumb and title remain at top
+
+**Desktop**: Keep existing layout unchanged.
+
+### 4. Responsive House Visualization
+
+**File**: `src/components/house/HouseVisualization.tsx`
+- The house sections use cards in a vertical layout — already mostly responsive
+- Ensure sub-question columns stack vertically on mobile instead of side-by-side
+- Add touch-friendly tap targets (min 44px)
+
+### 5. Responsive Interactive House Builder
+
+**File**: `src/components/house/InteractiveHouseBuilder.tsx`
+- On mobile, simplify the drag-and-drop canvas to a scrollable vertical list of blocks
+- Blocks should be tappable instead of draggable
+- Ensure the canvas scrolls vertically
+
+### 6. Global Responsive Tweaks
+
+**File**: `src/index.css`
+- Add mobile-specific utility styles for touch targets
+- Ensure `page-container` has appropriate mobile padding
+
+**File**: `src/components/layout/SiteNavbar.tsx` — already has mobile hamburger menu, no changes needed
+
+**File**: `src/components/ai/AISidebar.tsx` — uses Sheet component, likely already works on mobile. Verify and adjust width if needed.
+
+### Files Summary
+
 | File | Change |
 |------|--------|
-| `src/pages/FrameworkPage.tsx` | Insert Concepts as Section 4, move Unknown Unknowns after Assumptions, renumber all, fix Section 16 styling |
-| `src/components/layout/SiteFooter.tsx` | Conditional Features link for all users |
-| `src/components/house/AdminUsersPanel.tsx` | PST timezone for all dates |
+| `src/pages/Dashboard.tsx` | Add "Create New House" card in grid, responsive header |
+| `src/pages/AnalysisPage.tsx` | Mobile bottom nav bar, tool panels as drawers, hide desktop sidebar on mobile |
+| `src/components/house/HouseVisualization.tsx` | Responsive column stacking, touch-friendly sizing |
+| `src/components/house/InteractiveHouseBuilder.tsx` | Mobile-friendly block layout, vertical scroll |
+| `src/index.css` | Mobile touch target utilities, responsive padding |
+
+### Implementation Order
+
+1. Dashboard: "Create New House" card + responsive header
+2. AnalysisPage: Mobile bottom nav + drawer-based tool panels
+3. HouseVisualization: Responsive tweaks
+4. InteractiveHouseBuilder: Mobile adaptations
+5. CSS utilities for touch targets
 
