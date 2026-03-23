@@ -433,7 +433,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
               <span className="text-xs font-display font-semibold">Personal Foundational POV</span>
             </div>
             {layers.foundationBlocks.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {layers.foundationBlocks.map((block) => (
                   <div key={block.id} className={`text-[10px] px-2 py-1 rounded border ${block.color} truncate`}>
                     {block.label}
