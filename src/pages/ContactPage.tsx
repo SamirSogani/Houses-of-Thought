@@ -38,7 +38,7 @@ export default function ContactPage() {
     setLoading(true);
 
     const subjectMeta = subjectTypes.find((s) => s.value === subjectType);
-    const emailSubject = `${subjectMeta?.tag} House of Thought ${
+    const emailSubject = `${subjectMeta?.tag} Houses of Thought ${
       subjectType === "feedback" ? "Message" :
       subjectType === "bug" ? "Issue" :
       subjectType === "feature" ? "Suggestion" : "Support"
@@ -69,7 +69,7 @@ export default function ContactPage() {
           </div>
           <h2 className="text-3xl font-display font-bold text-foreground mb-3">Thank You!</h2>
           <p className="text-lg text-muted-foreground">
-            Thank you for helping improve the House of Thought. We'll get back to you soon.
+            Thank you for helping improve the Houses of Thought. We'll get back to you soon.
           </p>
           <Button variant="outline" className="mt-8" onClick={() => setSubmitted(false)}>
             Send Another Message

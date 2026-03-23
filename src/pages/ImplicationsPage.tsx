@@ -104,7 +104,7 @@ export default function ImplicationsPage() {
         .map((sq, i) => `${i + 1}. [${sq.pov_category}] "${sq.question}" → ${sq.sub_conclusion}`)
         .join("\n");
 
-      const systemPrompt = `You are the House of Thought AI. Generate predicted implications.
+      const systemPrompt = `You are the Houses of Thought AI. Generate predicted implications.
 
 Given the user's overarching conclusion, predict what SHOULD logically follow if the conclusion is correct. These are PREDICTED outcomes — forward-looking projections.
 

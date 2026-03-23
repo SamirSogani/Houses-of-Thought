@@ -46,7 +46,7 @@ export default function SiteNavbar() {
               />
             </svg>
             <span className="text-lg font-display font-bold text-foreground">
-              House of Thought
+              Houses of Thought
             </span>
           </Link>
 

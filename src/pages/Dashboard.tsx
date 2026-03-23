@@ -79,7 +79,7 @@ export default function Dashboard() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Home className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-display font-bold text-foreground">House of Thought</h1>
+            <h1 className="text-xl font-display font-bold text-foreground">Houses of Thought</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
@@ -120,7 +120,7 @@ export default function Dashboard() {
                   stroke="currentColor" strokeWidth="1.5" fill="hsl(var(--primary) / 0.08)" className="text-muted-foreground" />
               </svg>
               <h3 className="text-lg font-display font-semibold text-foreground mb-2">No analyses yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first House of Thought to start thinking critically.</p>
+              <p className="text-muted-foreground mb-4">Create your first Houses of Thought to start thinking critically.</p>
               <Button onClick={createNewAnalysis}>
                 <Plus className="h-4 w-4 mr-2" /> Create First Analysis
               </Button>

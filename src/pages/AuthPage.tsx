@@ -70,7 +70,7 @@ export default function AuthPage() {
                 stroke="currentColor" strokeWidth="2" fill="hsl(var(--primary) / 0.1)" className="text-primary"/>
             </svg>
           </div>
-          <CardTitle className="text-2xl font-display">House of Thought</CardTitle>
+          <CardTitle className="text-2xl font-display">Houses of Thought</CardTitle>
           <CardDescription>
             {isLogin ? "Sign in to your thinking space" : "Create your thinking space"}
           </CardDescription>
