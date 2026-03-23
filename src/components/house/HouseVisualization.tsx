@@ -149,7 +149,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
               <p className="text-muted-foreground">Click to add sub-questions →</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {["individual", "group", "ideas_disciplines"].map((pov) => (
                 <div key={pov} className="space-y-2">
                   <p className="text-xs font-semibold text-center capitalize">
