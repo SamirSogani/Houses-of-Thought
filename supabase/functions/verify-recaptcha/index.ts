@@ -5,13 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const SCORE_THRESHOLD = 0.5;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { token } = await req.json();
+    const { token, action } = await req.json();
     if (!token) {
       return new Response(JSON.stringify({ success: false, error: "No token provided" }), {
         status: 400,
@@ -35,10 +37,15 @@ serve(async (req) => {
 
     const result = await verifyRes.json();
 
-    return new Response(JSON.stringify({ success: result.success }), {
+    // For v3: check success, score, and action match
+    const passed = result.success &&
+      result.score >= SCORE_THRESHOLD &&
+      (!action || result.action === action);
+
+    return new Response(JSON.stringify({ success: passed, score: result.score }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch {
     return new Response(JSON.stringify({ success: false, error: "Verification failed" }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
