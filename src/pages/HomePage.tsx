@@ -111,7 +111,7 @@ export default function HomePage() {
                 Houses of Thought is an AI-powered reasoning system that helps you break down complex questions, examine different perspectives, and build stronger conclusions.
               </p>
               <p className="text-sm text-muted-foreground">
-                Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>Houses of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
+                Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>
