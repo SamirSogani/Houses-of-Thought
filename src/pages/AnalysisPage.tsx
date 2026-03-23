@@ -131,10 +131,15 @@ export default function AnalysisPage() {
 
   const showToolPanel = toolPanel !== "none" && !sidebarCollapsed;
 
+  const openMobileTool = (type: "logic" | "stress" | "admin") => {
+    setMobileToolType(type);
+    setMobileToolOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Left Sidebar — View Toggle + Tools */}
-      <aside className="w-14 shrink-0 border-r border-border bg-card/80 flex flex-col items-center py-4 gap-2 sticky top-0 h-screen">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* Left Sidebar — View Toggle + Tools (Desktop only) */}
+      <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
         <button
           onClick={() => setViewMode("standard")}
