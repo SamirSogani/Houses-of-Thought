@@ -46,18 +46,31 @@ export default function AuthPage() {
   const allPasswordRulesMet = passwordStrength.every(Boolean);
 
   useEffect(() => {
-    if (!document.getElementById("recaptcha-v3-script")) {
-      const script = document.createElement("script");
-      script.id = "recaptcha-v3-script";
-      script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
-      script.async = true;
-      script.onload = () => {
-        window.grecaptcha.ready(() => setRecaptchaReady(true));
-      };
-      document.head.appendChild(script);
-    } else if (window.grecaptcha) {
-      window.grecaptcha.ready(() => setRecaptchaReady(true));
-    }
+    setRecaptchaReady(false);
+
+    document
+      .querySelectorAll(
+        'script[src*="google.com/recaptcha/"], .grecaptcha-badge, iframe[src*="google.com/recaptcha/"]',
+      )
+      .forEach((element) => element.remove());
+
+    const script = document.createElement("script");
+    script.id = "recaptcha-v3-script";
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.grecaptcha?.ready(() => setRecaptchaReady(true));
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      script.remove();
+      document
+        .querySelectorAll('.grecaptcha-badge, iframe[src*="google.com/recaptcha/"]')
+        .forEach((element) => element.remove());
+    };
   }, []);
 
   const getRecaptchaToken = useCallback(async (action: string): Promise<string | null> => {
