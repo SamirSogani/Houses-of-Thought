@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,10 +24,9 @@ const PASSWORD_RULES = [
 declare global {
   interface Window {
     grecaptcha: {
-      render: (container: HTMLElement, params: { sitekey: string; callback: (token: string) => void; "expired-callback": () => void; theme?: string }) => number;
-      reset: (widgetId: number) => void;
+      ready: (cb: () => void) => void;
+      execute: (siteKey: string, options: { action: string }) => Promise<string>;
     };
-    onRecaptchaLoad: () => void;
   }
 }
 
@@ -41,55 +40,34 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const recaptchaRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<number | null>(null);
-  const recaptchaReadyRef = useRef(false);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   const passwordStrength = useMemo(() => PASSWORD_RULES.map(r => r.test(password)), [password]);
   const allPasswordRulesMet = passwordStrength.every(Boolean);
 
-  const renderRecaptcha = useCallback(() => {
-    if (recaptchaRef.current && window.grecaptcha && widgetIdRef.current === null) {
-      widgetIdRef.current = window.grecaptcha.render(recaptchaRef.current, {
-        sitekey: RECAPTCHA_SITE_KEY,
-        callback: (token: string) => setRecaptchaToken(token),
-        "expired-callback": () => setRecaptchaToken(null),
-        theme: "light",
-      });
-    }
-  }, []);
-
   useEffect(() => {
-    // Load reCAPTCHA script if not already loaded
-    if (!document.getElementById("recaptcha-script")) {
-      window.onRecaptchaLoad = () => {
-        recaptchaReadyRef.current = true;
-        if (!isLogin) renderRecaptcha();
-      };
+    if (!document.getElementById("recaptcha-v3-script")) {
       const script = document.createElement("script");
-      script.id = "recaptcha-script";
-      script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit";
+      script.id = "recaptcha-v3-script";
+      script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
       script.async = true;
-      script.defer = true;
+      script.onload = () => {
+        window.grecaptcha.ready(() => setRecaptchaReady(true));
+      };
       document.head.appendChild(script);
     } else if (window.grecaptcha) {
-      recaptchaReadyRef.current = true;
+      window.grecaptcha.ready(() => setRecaptchaReady(true));
     }
   }, []);
 
-  useEffect(() => {
-    if (!isLogin && recaptchaReadyRef.current) {
-      // Small delay to ensure the DOM element is mounted
-      const timer = setTimeout(() => renderRecaptcha(), 100);
-      return () => clearTimeout(timer);
+  const getRecaptchaToken = useCallback(async (action: string): Promise<string | null> => {
+    if (!recaptchaReady || !window.grecaptcha) return null;
+    try {
+      return await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+    } catch {
+      return null;
     }
-    if (isLogin) {
-      // Reset when switching to login
-      widgetIdRef.current = null;
-      setRecaptchaToken(null);
-    }
-  }, [isLogin, renderRecaptcha]);
+  }, [recaptchaReady]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,30 +79,28 @@ export default function AuthPage() {
       toast.error("Password does not meet all strength requirements.");
       return;
     }
-    if (!isLogin && !recaptchaToken) {
-      toast.error("Please complete the CAPTCHA verification.");
-      return;
-    }
 
     setLoading(true);
 
-    // Verify reCAPTCHA server-side for signup
+    // Verify reCAPTCHA v3 server-side for signup
     if (!isLogin) {
+      const token = await getRecaptchaToken("signup");
+      if (!token) {
+        toast.error("Bot verification failed. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
       try {
         const { data, error: fnError } = await supabase.functions.invoke("verify-recaptcha", {
-          body: { token: recaptchaToken },
+          body: { token, action: "signup" },
         });
         if (fnError || !data?.success) {
-          toast.error("CAPTCHA verification failed. Please try again.");
-          setRecaptchaToken(null);
-          if (widgetIdRef.current !== null && window.grecaptcha) {
-            window.grecaptcha.reset(widgetIdRef.current);
-          }
+          toast.error("Verification failed. Please try again.");
           setLoading(false);
           return;
         }
       } catch {
-        toast.error("CAPTCHA verification failed. Please try again.");
+        toast.error("Verification failed. Please try again.");
         setLoading(false);
         return;
       }
@@ -136,17 +112,12 @@ export default function AuthPage() {
     setLoading(false);
     if (error) {
       toast.error(error.message);
-      // Reset captcha on error
-      if (!isLogin && widgetIdRef.current !== null && window.grecaptcha) {
-        window.grecaptcha.reset(widgetIdRef.current);
-        setRecaptchaToken(null);
-      }
     } else if (!isLogin) {
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
 
-  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && !!recaptchaToken;
+  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -238,10 +209,6 @@ export default function AuthPage() {
                     </Link>
                   </label>
                 </div>
-                {/* reCAPTCHA widget */}
-                <div className="flex justify-center pt-1">
-                  <div ref={recaptchaRef}></div>
-                </div>
               </div>
             )}
             <Button type="submit" className="w-full" disabled={loading || (!isLogin && !canSubmitSignup)}>
@@ -256,6 +223,13 @@ export default function AuthPage() {
               {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
             </button>
           </div>
+          {!isLogin && (
+            <p className="text-[10px] text-muted-foreground text-center mt-3">
+              Protected by reCAPTCHA. Google{" "}
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy</a>{" & "}
+              <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms</a>.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
