@@ -81,18 +81,18 @@ export default function Dashboard() {
             <Home className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-display font-bold text-foreground">House of Thought</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button size="sm" onClick={createNewAnalysis}>
-              <Plus className="h-4 w-4 mr-1" /> New House
+              <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">New House</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
-              <BookOpen className="h-4 w-4 mr-1" /> Framework
+              <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <Settings className="h-4 w-4 mr-1" /> Profile
+              <Settings className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Profile</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/"); }}>
-              <LogOut className="h-4 w-4 mr-1" /> Sign Out
+              <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
