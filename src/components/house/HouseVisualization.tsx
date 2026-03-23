@@ -70,7 +70,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
       </Card>
 
       {/* THE ROOF — Purpose, Sub-purposes, Consequences (Elements 2, 2.1, 8) */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card
           className={`house-zone house-zone-roof cursor-pointer ${draftClass}`}
           onClick={() => onNavigate(`/analysis/${analysisId}/consequences`)}
@@ -114,7 +114,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
       {/* THE CEILING — Overarching Question & Conclusion (Elements 3.1, 7.2) */}
       <Card className={`house-zone house-zone-ceiling ${draftClass}`}>
         <CardContent className="py-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-mono mb-1 text-muted-foreground">3.1 — OVERARCHING QUESTION</p>
               <Textarea
@@ -149,7 +149,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
               <p className="text-muted-foreground">Click to add sub-questions →</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {["individual", "group", "ideas_disciplines"].map((pov) => (
                 <div key={pov} className="space-y-2">
                   <p className="text-xs font-semibold text-center capitalize">
@@ -181,7 +181,7 @@ export default function HouseVisualization({ analysis, subQuestions, onUpdateFie
       <Card className="house-zone house-zone-foundation">
         <CardContent className="py-4">
           <p className="text-xs font-mono text-muted-foreground mb-2 text-center">ELEMENT 4.2 — PERSONAL FOUNDATIONAL POINT OF VIEW</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {["Biological", "Social", "Familial", "Individual"].map((label) => (
               <div key={label} className="text-center p-2 bg-card rounded border text-xs">
                 <p className="font-semibold">{label}</p>

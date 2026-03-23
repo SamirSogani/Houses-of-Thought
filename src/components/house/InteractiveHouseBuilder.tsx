@@ -105,7 +105,7 @@ function HouseLayer({
             {blocks.map((block) => (
               <div
                 key={block.id}
-                className={`flex items-center gap-1 text-[10px] leading-tight px-2 py-1 rounded border ${block.color} cursor-pointer hover:shadow-sm transition-shadow max-w-[200px]`}
+                className={`flex items-center gap-1 text-[10px] leading-tight px-2 py-1.5 rounded border ${block.color} cursor-pointer hover:shadow-sm transition-shadow max-w-full sm:max-w-[200px] min-h-[2.75rem] sm:min-h-0`}
                 onClick={(e) => {
                   e.stopPropagation();
                   block.onClick?.();
@@ -322,7 +322,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         <RoofPeak />
 
         {/* Implications & Consequences */}
-        <div className="grid grid-cols-2 gap-2 -mt-0.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 -mt-0.5">
           <HouseLayer
             label="Implications"
             element="8a"
@@ -433,7 +433,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
               <span className="text-xs font-display font-semibold">Personal Foundational POV</span>
             </div>
             {layers.foundationBlocks.length > 0 ? (
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {layers.foundationBlocks.map((block) => (
                   <div key={block.id} className={`text-[10px] px-2 py-1 rounded border ${block.color} truncate`}>
                     {block.label}

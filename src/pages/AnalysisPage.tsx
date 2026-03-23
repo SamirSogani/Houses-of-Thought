@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -37,6 +38,8 @@ export default function AnalysisPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [panelWidth, setPanelWidth] = useState(288);
   const isResizing = useRef(false);
+  const [mobileToolOpen, setMobileToolOpen] = useState(false);
+  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin">("logic");
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -128,10 +131,15 @@ export default function AnalysisPage() {
 
   const showToolPanel = toolPanel !== "none" && !sidebarCollapsed;
 
+  const openMobileTool = (type: "logic" | "stress" | "admin") => {
+    setMobileToolType(type);
+    setMobileToolOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Left Sidebar — View Toggle + Tools */}
-      <aside className="w-14 shrink-0 border-r border-border bg-card/80 flex flex-col items-center py-4 gap-2 sticky top-0 h-screen">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* Left Sidebar — View Toggle + Tools (Desktop only) */}
+      <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
         <button
           onClick={() => setViewMode("standard")}
@@ -240,13 +248,84 @@ export default function AnalysisPage() {
         </aside>
       )}
 
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-area-bottom">
+        <div className="flex items-center justify-around py-2 px-2">
+          <button
+            onClick={() => setViewMode("standard")}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "standard" ? "text-primary" : "text-muted-foreground"}`}
+          >
+            <LayoutGrid className="h-5 w-5" />
+            <span className="text-[10px]">Standard</span>
+          </button>
+          <button
+            onClick={() => setViewMode("builder")}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "builder" ? "text-primary" : "text-muted-foreground"}`}
+          >
+            <Building2 className="h-5 w-5" />
+            <span className="text-[10px]">Builder</span>
+          </button>
+          <button
+            onClick={() => openMobileTool("logic")}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+          >
+            <TrendingUp className="h-5 w-5" />
+            <span className="text-[10px]">Logic</span>
+          </button>
+          <button
+            onClick={() => openMobileTool("stress")}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+          >
+            <Shield className="h-5 w-5" />
+            <span className="text-[10px]">Stress</span>
+          </button>
+          <button
+            onClick={() => setAiOpen(true)}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+          >
+            <Bot className="h-5 w-5" />
+            <span className="text-[10px]">AI</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Tool Drawer */}
+      <Sheet open={mobileToolOpen} onOpenChange={setMobileToolOpen}>
+        <SheetContent side="bottom" className="h-[75vh] rounded-t-xl md:hidden">
+          <SheetHeader>
+            <SheetTitle className="font-display">
+              {mobileToolType === "logic" ? "Logic Strength" : mobileToolType === "stress" ? "Stress Test" : "Admin: Users"}
+            </SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="flex-1 mt-4 h-[calc(75vh-5rem)]">
+            {mobileToolType === "logic" && (
+              <LogicStrengthPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onStartStressTest={() => { setMobileToolType("stress"); }}
+              />
+            )}
+            {mobileToolType === "stress" && (
+              <StressTestPanel
+                analysis={analysis}
+                subQuestions={subQuestions}
+                profile={profile}
+                onBack={() => { setMobileToolType("logic"); }}
+              />
+            )}
+            {mobileToolType === "admin" && <AdminUsersPanel />}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
       {/* Main Content */}
-      <div className="flex-1 min-w-0">
-        {/* AI FAB */}
+      <div className="flex-1 min-w-0 pb-20 md:pb-0">
+        {/* AI FAB (desktop only) */}
         <Button
           variant="outline"
           size="icon"
-          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+          className="hidden md:flex fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => setAiOpen(true)}
         >
           <Bot className="h-5 w-5" />

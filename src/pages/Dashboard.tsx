@@ -81,18 +81,18 @@ export default function Dashboard() {
             <Home className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-display font-bold text-foreground">House of Thought</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button size="sm" onClick={createNewAnalysis}>
-              <Plus className="h-4 w-4 mr-1" /> New House
+              <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">New House</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
-              <BookOpen className="h-4 w-4 mr-1" /> Framework
+              <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <Settings className="h-4 w-4 mr-1" /> Profile
+              <Settings className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Profile</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/"); }}>
-              <LogOut className="h-4 w-4 mr-1" /> Sign Out
+              <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
@@ -132,6 +132,7 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {analyses.map((a, i) => (
+
               <Card
                 key={a.id}
                 className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-primary/30 animate-fade-in group relative"
@@ -212,6 +213,19 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Create New House Card */}
+            <Card
+              className="cursor-pointer border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:shadow-lg transition-all duration-200 flex items-center justify-center min-h-[180px] group"
+              onClick={createNewAnalysis}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <div className="w-14 h-14 rounded-full bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center mb-3 transition-colors">
+                  <Plus className="h-7 w-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <p className="text-sm font-display font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Create New House</p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
