@@ -322,7 +322,7 @@ export default function InteractiveHouseBuilder({ analysis, subQuestions, profil
         <RoofPeak />
 
         {/* Implications & Consequences */}
-        <div className="grid grid-cols-2 gap-2 -mt-0.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 -mt-0.5">
           <HouseLayer
             label="Implications"
             element="8a"
