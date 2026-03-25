@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,8 +10,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, differenceInYears } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const RECAPTCHA_SITE_KEY = "6Lf-QJQsAAAAAJo_8oG0nAuAqO0oNMgyj91oL4-p";
+const RECAPTCHA_SITE_KEY = "6Lc04ZYsAAAAAFnj1YpUnZczombrN9FjB24QJjdD";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -21,11 +26,14 @@ const PASSWORD_RULES = [
   { label: "Special character (!@#$%...)", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
 ];
 
+const MIN_AGE = 12;
+
 declare global {
   interface Window {
+    onRecaptchaLoad?: () => void;
     grecaptcha: {
-      ready: (cb: () => void) => void;
-      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      render: (container: string | HTMLElement, params: { sitekey: string; callback: (token: string) => void; "expired-callback"?: () => void }) => number;
+      reset: (widgetId?: number) => void;
     };
   }
 }
@@ -40,47 +48,67 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const recaptchaWidgetId = useRef<number | null>(null);
+  const recaptchaRendered = useRef(false);
 
   const passwordStrength = useMemo(() => PASSWORD_RULES.map(r => r.test(password)), [password]);
   const allPasswordRulesMet = passwordStrength.every(Boolean);
 
+  const isTooYoung = birthDate ? differenceInYears(new Date(), birthDate) < MIN_AGE : false;
+
+  const renderRecaptcha = useCallback(() => {
+    if (
+      recaptchaRendered.current ||
+      !recaptchaContainerRef.current ||
+      !window.grecaptcha?.render
+    ) return;
+    recaptchaRendered.current = true;
+    recaptchaWidgetId.current = window.grecaptcha.render(recaptchaContainerRef.current, {
+      sitekey: RECAPTCHA_SITE_KEY,
+      callback: (token: string) => setRecaptchaToken(token),
+      "expired-callback": () => setRecaptchaToken(null),
+    });
+  }, []);
+
+  // Load reCAPTCHA v2 script
   useEffect(() => {
-    setRecaptchaReady(false);
+    if (isLogin) return;
 
-    document
-      .querySelectorAll(
-        'script[src*="google.com/recaptcha/"], .grecaptcha-badge, iframe[src*="google.com/recaptcha/"]',
-      )
-      .forEach((element) => element.remove());
+    recaptchaRendered.current = false;
+    setRecaptchaToken(null);
 
-    const script = document.createElement("script");
-    script.id = "recaptcha-v3-script";
-    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      window.grecaptcha?.ready(() => setRecaptchaReady(true));
+    // If script already loaded, just render
+    if (window.grecaptcha?.render) {
+      // Small delay to ensure DOM is ready
+      setTimeout(renderRecaptcha, 100);
+      return;
+    }
+
+    window.onRecaptchaLoad = () => {
+      renderRecaptcha();
     };
 
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit";
+    script.async = true;
+    script.defer = true;
     document.head.appendChild(script);
 
     return () => {
-      script.remove();
-      document
-        .querySelectorAll('.grecaptcha-badge, iframe[src*="google.com/recaptcha/"]')
-        .forEach((element) => element.remove());
+      // Don't remove script on cleanup to avoid reload issues
     };
-  }, []);
+  }, [isLogin, renderRecaptcha]);
 
-  const getRecaptchaToken = useCallback(async (action: string): Promise<string | null> => {
-    if (!recaptchaReady || !window.grecaptcha) return null;
-    try {
-      return await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
-    } catch {
-      return null;
+  // Re-render captcha when switching to signup mode
+  useEffect(() => {
+    if (!isLogin && window.grecaptcha?.render) {
+      recaptchaRendered.current = false;
+      setTimeout(renderRecaptcha, 100);
     }
-  }, [recaptchaReady]);
+  }, [isLogin, renderRecaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,24 +120,36 @@ export default function AuthPage() {
       toast.error("Password does not meet all strength requirements.");
       return;
     }
+    if (!isLogin && !birthDate) {
+      toast.error("Please enter your date of birth.");
+      return;
+    }
+    if (!isLogin && isTooYoung) {
+      toast.error(`You must be at least ${MIN_AGE} years old to create an account.`);
+      return;
+    }
 
     setLoading(true);
 
-    // Verify reCAPTCHA v3 server-side for signup
+    // Verify reCAPTCHA v2 server-side for signup
     if (!isLogin) {
-      const token = await getRecaptchaToken("signup");
-      if (!token) {
-        toast.error("Bot verification failed. Please refresh and try again.");
+      if (!recaptchaToken) {
+        toast.error("Please complete the reCAPTCHA checkbox.");
         setLoading(false);
         return;
       }
       try {
         const { data, error: fnError } = await supabase.functions.invoke("verify-recaptcha", {
-          body: { token, action: "signup" },
+          body: { token: recaptchaToken },
         });
         if (fnError || !data?.success) {
-          toast.error("Verification failed. Please try again.");
+          toast.error("reCAPTCHA verification failed. Please try again.");
           setLoading(false);
+          // Reset captcha
+          if (recaptchaWidgetId.current !== null && window.grecaptcha?.reset) {
+            window.grecaptcha.reset(recaptchaWidgetId.current);
+          }
+          setRecaptchaToken(null);
           return;
         }
       } catch {
@@ -125,12 +165,17 @@ export default function AuthPage() {
     setLoading(false);
     if (error) {
       toast.error(error.message);
+      // Reset captcha on error
+      if (!isLogin && recaptchaWidgetId.current !== null && window.grecaptcha?.reset) {
+        window.grecaptcha.reset(recaptchaWidgetId.current);
+        setRecaptchaToken(null);
+      }
     } else if (!isLogin) {
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
 
-  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet;
+  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && !!birthDate && !isTooYoung && !!recaptchaToken;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -193,36 +238,78 @@ export default function AuthPage() {
               )}
             </div>
             {!isLogin && (
-              <div className="space-y-3 pt-1">
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="terms"
-                    checked={termsAccepted}
-                    onCheckedChange={(v) => setTermsAccepted(v === true)}
-                    className="mt-0.5"
-                  />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
-                    I have read and agree to the{" "}
-                    <Link to="/terms?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
-                      Terms of Service
-                    </Link>
-                  </label>
+              <>
+                <div className="space-y-2">
+                  <Label>Date of Birth</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !birthDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {birthDate ? format(birthDate, "PPP") : <span>Select your date of birth</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={birthDate}
+                        onSelect={setBirthDate}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        captionLayout="dropdown-buttons"
+                        fromYear={1900}
+                        toYear={new Date().getFullYear()}
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {isTooYoung && (
+                    <p className="text-xs text-destructive">
+                      You must be at least {MIN_AGE} years old to create an account.
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="privacy"
-                    checked={privacyAccepted}
-                    onCheckedChange={(v) => setPrivacyAccepted(v === true)}
-                    className="mt-0.5"
-                  />
-                  <label htmlFor="privacy" className="text-sm text-muted-foreground leading-snug cursor-pointer">
-                    I have read and agree to the{" "}
-                    <Link to="/privacy?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
-                      Privacy Policy
-                    </Link>
-                  </label>
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="terms"
+                      checked={termsAccepted}
+                      onCheckedChange={(v) => setTermsAccepted(v === true)}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+                      I have read and agree to the{" "}
+                      <Link to="/terms?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
+                        Terms of Service
+                      </Link>
+                    </label>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="privacy"
+                      checked={privacyAccepted}
+                      onCheckedChange={(v) => setPrivacyAccepted(v === true)}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="privacy" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+                      I have read and agree to the{" "}
+                      <Link to="/privacy?from=signup" className="text-primary hover:underline underline-offset-4" target="_blank">
+                        Privacy Policy
+                      </Link>
+                    </label>
+                  </div>
                 </div>
-              </div>
+                <div className="flex justify-center pt-2">
+                  <div ref={recaptchaContainerRef}></div>
+                </div>
+              </>
             )}
             <Button type="submit" className="w-full" disabled={loading || (!isLogin && !canSubmitSignup)}>
               {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
@@ -236,13 +323,6 @@ export default function AuthPage() {
               {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
             </button>
           </div>
-          {!isLogin && (
-            <p className="text-[10px] text-muted-foreground text-center mt-3">
-              Protected by reCAPTCHA. Google{" "}
-              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy</a>{" & "}
-              <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms</a>.
-            </p>
-          )}
         </CardContent>
       </Card>
     </div>
