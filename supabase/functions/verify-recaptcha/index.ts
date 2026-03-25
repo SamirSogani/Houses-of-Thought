@@ -5,15 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SCORE_THRESHOLD = 0.5;
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { token, action } = await req.json();
+    const { token } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ success: false, error: "No token provided" }), {
@@ -38,19 +36,13 @@ serve(async (req) => {
     });
 
     const result = await verifyRes.json();
-    const passed = Boolean(result.success) && Number(result.score ?? 0) >= SCORE_THRESHOLD && (!action || result.action === action);
 
-    console.log(
-      JSON.stringify({
-        success: result.success,
-        score: result.score,
-        action: result.action,
-        expectedAction: action,
-        errorCodes: result["error-codes"] ?? [],
-      }),
-    );
+    console.log(JSON.stringify({
+      success: result.success,
+      errorCodes: result["error-codes"] ?? [],
+    }));
 
-    return new Response(JSON.stringify({ success: passed, score: result.score }), {
+    return new Response(JSON.stringify({ success: Boolean(result.success) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
