@@ -52,24 +52,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'Service configuration error' }), { status: 500, headers: corsHeaders });
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      return new Response(JSON.stringify({ error: 'Service configuration error: GEMINI_API_KEY not set' }), { status: 500, headers: corsHeaders });
     }
 
     const { messages, mode } = await req.json();
 
-    // Clean messages
+    // Clean messages: Gemini API uses the same OpenAI-compatible format via the v1beta endpoint
     const finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content }));
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${geminiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gemini-2.5-flash',
         messages: finalMessages,
         temperature: mode === 'draft' ? 0.2 : 0.3,
         max_tokens: 16384,
