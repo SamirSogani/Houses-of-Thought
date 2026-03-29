@@ -519,7 +519,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         ...newMessages,
       ];
 
-      const res = await supabase.functions.invoke("groq-chat", {
+      const res = await supabase.functions.invoke("ai-router", {
         body: { messages: apiMessages, mode: "chat" },
       });
 
@@ -609,7 +609,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         let attempt = 0;
 
         while (true) {
-          const res = await supabase.functions.invoke("draft-ai", { body });
+          const res = await supabase.functions.invoke("ai-router", { body });
 
           if (!res.error) {
             return res;
