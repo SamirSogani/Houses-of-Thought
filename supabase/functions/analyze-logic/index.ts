@@ -21,6 +21,120 @@ function isUserRateLimited(userId: string): boolean {
   return entry.count > USER_RATE_LIMIT;
 }
 
+// ─── Provider State Tracking (same pattern as ai-router) ─
+interface ProviderState {
+  name: string;
+  score: number;
+  errorCount: number;
+  successCount: number;
+  cooldownUntil: number;
+  consecutiveErrors: number;
+  totalLatencyMs: number;
+}
+
+const providerStates: Record<string, ProviderState> = {
+  gemini: { name: 'gemini', score: 80, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
+  groq: { name: 'groq', score: 75, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
+};
+
+function recordSuccess(name: string, latencyMs: number) {
+  const p = providerStates[name];
+  if (!p) return;
+  p.successCount++;
+  p.totalLatencyMs += latencyMs;
+  p.consecutiveErrors = 0;
+  p.score = Math.min(100, p.score + 2);
+}
+
+function recordError(name: string, cooldownSecs = 30) {
+  const p = providerStates[name];
+  if (!p) return;
+  p.errorCount++;
+  p.consecutiveErrors++;
+  p.cooldownUntil = Date.now() + cooldownSecs * 1000;
+  p.score = Math.max(-50, p.score - 15);
+}
+
+function getProviderOrder(): string[] {
+  return Object.values(providerStates)
+    .filter(p => Date.now() >= p.cooldownUntil)
+    .sort((a, b) => b.score - a.score)
+    .map(p => p.name);
+}
+
+async function callProvider(name: string, messages: any[], temperature: number, maxTokens: number): Promise<Response> {
+  if (name === 'gemini') {
+    const key = Deno.env.get('GEMINI_API_KEY');
+    if (!key) throw new Error('GEMINI_API_KEY not configured');
+    return await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gemini-2.5-flash', messages, temperature, max_tokens: maxTokens }),
+    });
+  } else {
+    const key = Deno.env.get('GROQ_API_KEY');
+    if (!key) throw new Error('GROQ_API_KEY not configured');
+    // Truncate for Groq
+    let truncated = [...messages];
+    const MAX_CHARS = 24000;
+    let total = truncated.reduce((s, m) => s + (m.content?.length || 0), 0);
+    while (total > MAX_CHARS && truncated.length > 2) {
+      const removed = truncated.splice(1, 1);
+      total -= removed[0]?.content?.length || 0;
+    }
+    return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: truncated, temperature, max_tokens: Math.min(maxTokens, 8192) }),
+    });
+  }
+}
+
+async function routedCall(messages: any[], temperature: number, maxTokens: number): Promise<{ data: any; provider: string }> {
+  const order = getProviderOrder();
+  if (order.length === 0) throw { status: 503, message: 'All AI providers temporarily unavailable' };
+
+  for (const name of order) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const start = Date.now();
+        const resp = await callProvider(name, messages, temperature, maxTokens);
+        const latency = Date.now() - start;
+
+        if (resp.status === 429) {
+          const txt = await resp.text();
+          const m = txt.match(/try again in (\d+\.?\d*)s/);
+          recordError(name, m ? Math.ceil(parseFloat(m[1])) + 5 : 60);
+          break;
+        }
+        if (!resp.ok) {
+          await resp.text();
+          recordError(name, 30);
+          if (attempt === 0) continue;
+          break;
+        }
+
+        const data = await resp.json();
+        if (!data?.choices?.[0]?.message?.content) {
+          recordError(name, 10);
+          if (attempt === 0) continue;
+          break;
+        }
+
+        recordSuccess(name, latency);
+        console.log(`[analyze-logic] Served by ${name} in ${latency}ms`);
+        return { data, provider: name };
+      } catch (err: any) {
+        if (err.status) throw err;
+        recordError(name, 30);
+        if (attempt === 0) continue;
+        break;
+      }
+    }
+  }
+  throw { status: 503, message: 'All AI providers failed' };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -51,11 +165,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const groqApiKey = Deno.env.get('GROQ_API_KEY');
-    if (!groqApiKey) {
-      return new Response(JSON.stringify({ error: 'Service configuration error' }), { status: 500, headers: corsHeaders });
-    }
-
     const { mode, analysisContext } = await req.json();
 
     if (!analysisContext || typeof analysisContext !== 'string' || analysisContext.length > 20000) {
@@ -66,7 +175,6 @@ Deno.serve(async (req) => {
     if (!mode || !validModes.includes(mode)) {
       return new Response(JSON.stringify({ error: 'Invalid mode' }), { status: 400, headers: corsHeaders });
     }
-    // mode: "analyze" | "stress_test" | "improve" | "suggest_povs" | "strengthen_assumptions" | "suggest_evidence" | "find_sources"
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -186,49 +294,14 @@ Return ONLY valid JSON:
       return new Response(JSON.stringify({ error: 'Invalid mode' }), { status: 400, headers: corsHeaders });
     }
 
-    const maxRetries = 5;
-    let groqResponse: Response | null = null;
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.3,
-          max_tokens: (mode === "analyze" || mode === "stress_test") ? 2048 : 4096,
-        }),
-      });
+    const maxTokens = (mode === "analyze" || mode === "stress_test") ? 2048 : 4096;
+    const { data, provider } = await routedCall(messages, 0.3, maxTokens);
 
-      if (groqResponse.status === 429) {
-        const errBody = await groqResponse.text();
-        const retryMatch = errBody.match(/try again in (\d+\.?\d*)s/);
-        const waitSecs = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) + 2 : (attempt + 1) * 15;
-        console.log(`Rate limited, waiting ${waitSecs}s (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(r => setTimeout(r, waitSecs * 1000));
-        continue;
-      }
-
-      if (!groqResponse.ok) {
-        const errText = await groqResponse.text();
-        console.error('AI service error:', groqResponse.status, errText);
-        return new Response(JSON.stringify({ error: 'AI service error. Please try again.' }), { status: groqResponse.status, headers: corsHeaders });
-      }
-      break;
-    }
-
-    if (!groqResponse || !groqResponse.ok) {
-      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait and try again.' }), { status: 429, headers: corsHeaders });
-    }
-
-    const data = await groqResponse.json();
     const content = data?.choices?.[0]?.message?.content || "";
 
     // Try to parse JSON from the response, with repair for common LLM mistakes
@@ -240,41 +313,23 @@ Return ONLY valid JSON:
       let result = tryParseJSON(str);
       if (result) return result;
 
-      // Fix trailing commas
       let cleaned = str.replace(/,\s*([}\]])/g, '$1');
       result = tryParseJSON(cleaned);
       if (result) return result;
 
-      // Try replacing each ] with } one at a time to find the broken one
       const opens = (str.match(/\{/g) || []).length;
       const closes = (str.match(/\}/g) || []).length;
       if (opens > closes) {
-        const diff = opens - closes;
-        // Find all ] positions and try replacing combinations
         const positions: number[] = [];
         for (let i = 0; i < str.length; i++) {
           if (str[i] === ']') positions.push(i);
         }
-        // Try replacing each single ] with } 
         for (const pos of positions) {
           let s = str.substring(0, pos) + '}' + str.substring(pos + 1);
           result = tryParseJSON(s);
           if (result) return result;
-          // Also try with trailing comma fix
           result = tryParseJSON(s.replace(/,\s*([}\]])/g, '$1'));
           if (result) return result;
-        }
-        // Try replacing from innermost positions (more likely to be the error)
-        if (diff <= positions.length) {
-          for (let i = 0; i <= positions.length - diff; i++) {
-            let s = str;
-            for (let j = 0; j < diff; j++) {
-              const p = positions[i + j] + j * 0; // positions don't shift since same length
-              s = s.substring(0, positions[i + j]) + '}' + s.substring(positions[i + j] + 1);
-            }
-            result = tryParseJSON(s);
-            if (result) return result;
-          }
         }
       }
 
@@ -282,7 +337,6 @@ Return ONLY valid JSON:
     }
 
     let jsonText = content;
-    // Extract from code fences if present
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonText = jsonMatch[1].trim();
@@ -291,12 +345,10 @@ Return ONLY valid JSON:
     let parsed = repairAndParse(jsonText);
 
     if (!parsed && jsonText !== content) {
-      // Try the raw content too
       parsed = repairAndParse(content);
     }
 
     if (!parsed) {
-      // Last resort: find JSON object in text
       const objMatch = content.match(/\{[\s\S]*\}/);
       if (objMatch) {
         parsed = repairAndParse(objMatch[0]);
@@ -308,11 +360,17 @@ Return ONLY valid JSON:
       return new Response(JSON.stringify({ error: 'Failed to parse AI response. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
+    // Add routing metadata
+    parsed._routing = { provider };
+
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Unhandled error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: corsHeaders });
+    const status = err.status || 500;
+    return new Response(JSON.stringify({ error: err.message || 'Internal server error', retryable: status === 429 }), {
+      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

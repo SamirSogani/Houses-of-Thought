@@ -126,7 +126,7 @@ Rules:
 ## Sub-Conclusions:
 ${subConclusionsSummary || "None yet"}`;
 
-      const res = await supabase.functions.invoke("groq-chat", {
+      const res = await supabase.functions.invoke("ai-router", {
         body: {
           messages: [
             { role: "system", content: systemPrompt },
