@@ -1079,13 +1079,16 @@ CRITICAL RULES:
           const jsonMatch = cleanReply.match(/\{[\s\S]*\}/);
           const refineData = JSON.parse(jsonMatch ? jsonMatch[0] : cleanReply);
 
+          // Track what changed this round
+          const changeLog: string[] = [];
+
           // 1. Update analysis fields
           if (refineData.analysis_updates) {
             const au = refineData.analysis_updates;
             const updateFields: any = { updated_at: new Date().toISOString() };
-            if (au.purpose) updateFields.purpose = au.purpose;
-            if (au.sub_purposes) updateFields.sub_purposes = au.sub_purposes;
-            if (au.overarching_question) updateFields.overarching_question = au.overarching_question;
+            if (au.purpose) { updateFields.purpose = au.purpose; changeLog.push("Updated purpose"); }
+            if (au.sub_purposes) { updateFields.sub_purposes = au.sub_purposes; changeLog.push("Updated sub-purposes"); }
+            if (au.overarching_question) { updateFields.overarching_question = au.overarching_question; changeLog.push("Updated overarching question"); }
             if (Object.keys(updateFields).length > 1) {
               await supabase.from("analyses").update(updateFields).eq("id", analysis.id);
             }
@@ -1093,15 +1096,20 @@ CRITICAL RULES:
 
           // 2. Update existing sub-question information
           if (refineData.sub_question_updates && Array.isArray(refineData.sub_question_updates)) {
+            let updatedCount = 0;
             for (const update of refineData.sub_question_updates) {
               if (update.id && update.information) {
                 await supabase.from("sub_questions").update({
                   information: serializeInformation(update.information),
                   updated_at: new Date().toISOString(),
                 }).eq("id", update.id);
+                updatedCount++;
               }
             }
-            toast.success(`Updated ${refineData.sub_question_updates.length} sub-questions`);
+            if (updatedCount > 0) {
+              changeLog.push(`Strengthened evidence in ${updatedCount} sub-questions`);
+              toast.success(`Updated ${updatedCount} sub-questions`);
+            }
           }
 
           // 3. Add new sub-questions if needed
@@ -1144,6 +1152,7 @@ CRITICAL RULES:
                 await supabase.from("assumptions").insert(assumptionInserts);
               }
             }
+            changeLog.push(`Added ${refineData.new_sub_questions.length} new sub-questions`);
             toast.success(`Added ${refineData.new_sub_questions.length} new sub-questions`);
           }
 
@@ -1152,11 +1161,24 @@ CRITICAL RULES:
             const validAssumptions = refineData.new_assumptions.filter((a: any) => a.sub_question_id && a.content);
             if (validAssumptions.length > 0) {
               await supabase.from("assumptions").insert(validAssumptions);
+              changeLog.push(`Added ${validAssumptions.length} assumptions`);
               toast.success(`Added ${validAssumptions.length} new assumptions`);
             }
           }
+
+          // Log summary of changes for this round
+          const changeSummary = changeLog.length > 0
+            ? `Round ${iteration} changes: ${changeLog.join(", ")}`
+            : `Round ${iteration}: No modifications applied (AI returned empty updates)`;
+          console.log(`[Draft Refine] ${changeSummary}`);
+          if (draftRunId) appendDraftLog(draftRunId, changeSummary);
+
+          // Reload data after modifications
+          if (changeLog.length > 0) onDraftComplete?.();
         } catch (e) {
-          console.error("Failed to parse refinement response:", e, refineReply?.substring(0, 500));
+          const parseErrMsg = `Round ${iteration}: Failed to parse refinement response — skipping`;
+          console.error("[Draft Refine]", parseErrMsg, e, refineReply?.substring(0, 500));
+          if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
           // Don't break — try again next iteration
         }
       }
