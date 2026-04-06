@@ -299,47 +299,64 @@ Return ONLY valid JSON:
       { role: "user", content: userPrompt },
     ];
 
-    const maxTokens = (mode === "analyze" || mode === "stress_test") ? 2048 : 4096;
+    const maxTokens = (mode === "analyze" || mode === "stress_test") ? 4096 : 4096;
     const { data, provider } = await routedCall(messages, 0.3, maxTokens);
 
     const content = data?.choices?.[0]?.message?.content || "";
 
-    // Try to parse JSON from the response, with repair for common LLM mistakes
+    // Robust JSON extraction and repair
     function tryParseJSON(str: string): any {
       try { return JSON.parse(str); } catch { return null; }
     }
 
     function repairAndParse(str: string): any {
-      let result = tryParseJSON(str);
+      // Remove control characters
+      let s = str.replace(/[\x00-\x1F\x7F]/g, (c) => c === '\n' || c === '\t' ? c : '');
+      
+      let result = tryParseJSON(s);
       if (result) return result;
 
-      let cleaned = str.replace(/,\s*([}\]])/g, '$1');
-      result = tryParseJSON(cleaned);
+      // Fix trailing commas
+      s = s.replace(/,\s*([}\]])/g, '$1');
+      result = tryParseJSON(s);
       if (result) return result;
 
-      const opens = (str.match(/\{/g) || []).length;
-      const closes = (str.match(/\}/g) || []).length;
-      if (opens > closes) {
-        const positions: number[] = [];
-        for (let i = 0; i < str.length; i++) {
-          if (str[i] === ']') positions.push(i);
-        }
-        for (const pos of positions) {
-          let s = str.substring(0, pos) + '}' + str.substring(pos + 1);
-          result = tryParseJSON(s);
-          if (result) return result;
-          result = tryParseJSON(s.replace(/,\s*([}\]])/g, '$1'));
-          if (result) return result;
-        }
+      // Try to fix truncated JSON by closing open brackets/braces
+      const openBraces = (s.match(/\{/g) || []).length;
+      const closeBraces = (s.match(/\}/g) || []).length;
+      const openBrackets = (s.match(/\[/g) || []).length;
+      const closeBrackets = (s.match(/\]/g) || []).length;
+
+      if (openBraces > closeBraces || openBrackets > closeBrackets) {
+        // Truncated response — try to close it
+        let fixed = s.replace(/,\s*$/, ''); // remove trailing comma
+        // Remove any incomplete key-value pair at the end
+        fixed = fixed.replace(/,?\s*"[^"]*":\s*"?[^"{}[\]]*$/, '');
+        fixed = fixed.replace(/,?\s*"[^"]*":\s*$/, '');
+        // Close remaining brackets/braces
+        for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
+        for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+        result = tryParseJSON(fixed);
+        if (result) return result;
+        // Also try with trailing comma cleanup
+        result = tryParseJSON(fixed.replace(/,\s*([}\]])/g, '$1'));
+        if (result) return result;
       }
 
       return null;
     }
 
+    // Extract JSON from markdown code blocks or raw content
     let jsonText = content;
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonText = jsonMatch[1].trim();
+    } else {
+      // Also handle unclosed code blocks (truncated responses)
+      const unclosedMatch = content.match(/```(?:json)?\s*([\s\S]*)/);
+      if (unclosedMatch) {
+        jsonText = unclosedMatch[1].trim();
+      }
     }
 
     let parsed = repairAndParse(jsonText);
@@ -349,14 +366,14 @@ Return ONLY valid JSON:
     }
 
     if (!parsed) {
-      const objMatch = content.match(/\{[\s\S]*\}/);
+      const objMatch = content.match(/\{[\s\S]*\}?/);
       if (objMatch) {
         parsed = repairAndParse(objMatch[0]);
       }
     }
 
     if (!parsed) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse AI response:', content.substring(0, 1000));
       return new Response(JSON.stringify({ error: 'Failed to parse AI response. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
