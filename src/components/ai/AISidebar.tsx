@@ -856,12 +856,23 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const SCORE_TARGET = 60; // standard resilience target
       const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
+      const DRAFT_TIMEOUT_MS = 3 * 60 * 1000; // 3-minute hard deadline
+      const draftStartTime = Date.now();
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
+      let timedOut = false;
 
       while (true) {
+        // Check 3-minute timeout before each iteration
+        if (Date.now() - draftStartTime >= DRAFT_TIMEOUT_MS) {
+          timedOut = true;
+          const timeoutMsg = `⏱️ 3-minute limit reached. Returning best-effort results (Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100).`;
+          toast.info(timeoutMsg);
+          if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
+          break;
+        }
         iteration++;
         toast.info(`🔍 Auto-evaluation round ${iteration}...`);
 
