@@ -856,12 +856,23 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const SCORE_TARGET = 60; // standard resilience target
       const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
+      const DRAFT_TIMEOUT_MS = 3 * 60 * 1000; // 3-minute hard deadline
+      const draftStartTime = Date.now();
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
+      let timedOut = false;
 
       while (true) {
+        // Check 3-minute timeout before each iteration
+        if (Date.now() - draftStartTime >= DRAFT_TIMEOUT_MS) {
+          timedOut = true;
+          const timeoutMsg = `⏱️ 3-minute limit reached. Returning best-effort results (Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100).`;
+          toast.info(timeoutMsg);
+          if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
+          break;
+        }
         iteration++;
         toast.info(`🔍 Auto-evaluation round ${iteration}...`);
 
@@ -1156,7 +1167,7 @@ CRITICAL RULES:
       // Update draft run as completed
       if (draftRunId) {
         await updateDraftRun(draftRunId, {
-          status: "completed",
+          status: timedOut ? "completed_timeout" : "completed",
           iterations: iteration,
           sub_questions_generated: allSubQuestions.length,
           final_logic_score: finalLogicScore,
@@ -1165,9 +1176,13 @@ CRITICAL RULES:
       }
 
       setView("chat");
+      const statusEmoji = timedOut ? "⏱️" : "✅";
+      const statusText = timedOut
+        ? `Draft completed (3-min limit reached, best-effort). Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nScores may not have met targets. You can manually refine or re-run.`
+        : `Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `✅ Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `${statusEmoji} ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));
