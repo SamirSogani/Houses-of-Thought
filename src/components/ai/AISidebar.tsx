@@ -1019,14 +1019,14 @@ Return ONLY valid JSON with this structure:
   "sub_question_updates": [
     {
       "id": "existing sub_question_id",
-      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong"}, {"text": "another distinct fact", "evidenceStrength": "very_strong"}]
+      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "Author. \"Title.\" Publisher, Date, URL."}]}, {"text": "another distinct fact", "evidenceStrength": "very_strong", "sources": []}]
     }
   ],
   "new_sub_questions": [
     {
       "question": "new sub-question to fill gaps",
       "pov_category": "individual|group|ideas_disciplines",
-      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong"}, {"text": "fact 2", "evidenceStrength": "moderate"}, {"text": "fact 3", "evidenceStrength": "strong"}],
+      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong", "sources": [{"title": "Source", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}, {"text": "fact 2", "evidenceStrength": "moderate", "sources": []}, {"text": "fact 3", "evidenceStrength": "strong", "sources": []}],
       "assumptions": {
         "explicit_premises": ["premise1", "premise2"],
         "hidden_premises": ["hidden1", "hidden2"],
@@ -1045,7 +1045,7 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- "information" MUST be an ARRAY of discrete fact objects with "text" and "evidenceStrength" fields. Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
+- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question. When using web research results, ALWAYS cite with MLA 9 format and include the URL.
 - Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
