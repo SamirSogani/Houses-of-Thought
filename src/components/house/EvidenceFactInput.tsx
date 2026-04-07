@@ -10,6 +10,7 @@ import { toast } from "sonner";
 export interface FactSource {
   title: string;
   url?: string;
+  mlaCitation?: string;
 }
 
 export interface FactEntry {
@@ -56,6 +57,7 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [newSourceTitle, setNewSourceTitle] = useState("");
   const [newSourceUrl, setNewSourceUrl] = useState("");
+  const [newSourceMla, setNewSourceMla] = useState("");
   const [findingSourcesFor, setFindingSourcesFor] = useState<number | null>(null);
   const [ratingIndex, setRatingIndex] = useState<number | null>(null);
 
@@ -128,14 +130,19 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
   };
 
   const addSource = (index: number) => {
-    if (!newSourceTitle.trim()) return;
+    if (!newSourceTitle.trim() && !newSourceMla.trim()) return;
     const updated = items.map((item, i) => {
       if (i !== index) return item;
-      return { ...item, sources: [...item.sources, { title: newSourceTitle.trim(), url: newSourceUrl.trim() || undefined }] };
+      return { ...item, sources: [...item.sources, { 
+        title: newSourceTitle.trim() || "Untitled Source", 
+        url: newSourceUrl.trim() || undefined,
+        mlaCitation: newSourceMla.trim() || undefined,
+      }] };
     });
     onChange(updated);
     setNewSourceTitle("");
     setNewSourceUrl("");
+    setNewSourceMla("");
   };
 
   const removeSource = (factIndex: number, sourceIndex: number) => {
@@ -282,10 +289,13 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
                   <p className="text-[10px] font-medium text-muted-foreground">Sources</p>
 
                   {item.sources.map((source, si) => (
-                    <div key={si} className="flex items-center gap-1.5 text-[10px] group/source">
-                      <Link2 className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-foreground">{source.title}</span>
+                    <div key={si} className="flex items-start gap-1.5 text-[10px] group/source">
+                      <Link2 className="h-2.5 w-2.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <span className="text-foreground font-medium">{source.title}</span>
+                        {source.mlaCitation && (
+                          <p className="text-muted-foreground italic">{source.mlaCitation}</p>
+                        )}
                         {source.url && (
                           <a href={source.url} target="_blank" rel="noopener noreferrer" className="block text-primary hover:underline truncate">{source.url}</a>
                         )}
@@ -299,10 +309,11 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
                   {/* Add source */}
                   <div className="space-y-1">
                     <Input value={newSourceTitle} onChange={(e) => setNewSourceTitle(e.target.value)} placeholder="Source title..." className="h-6 text-[10px] bg-card" />
-                    <div className="flex gap-1">
-                      <Input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} placeholder="URL (optional)" className="h-6 text-[10px] bg-card" />
-                      <Button size="sm" variant="outline" className="h-6 text-[10px] shrink-0 gap-0.5" onClick={() => addSource(index)} disabled={!newSourceTitle.trim()}>
-                        <Plus className="h-2.5 w-2.5" /> Add
+                    <Input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} placeholder="URL (optional)" className="h-6 text-[10px] bg-card" />
+                    <Input value={newSourceMla} onChange={(e) => setNewSourceMla(e.target.value)} placeholder="MLA 9 citation (optional, e.g. Author. Title. Publisher, Year.)" className="h-6 text-[10px] bg-card" />
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] shrink-0 gap-0.5" onClick={() => addSource(index)} disabled={!newSourceTitle.trim() && !newSourceMla.trim()}>
+                        <Plus className="h-2.5 w-2.5" /> Add Source
                       </Button>
                     </div>
                   </div>
