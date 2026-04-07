@@ -170,10 +170,13 @@ export default function EvidenceFactInput({ items, onChange, placeholder = "Add 
       const sources = res.data?.suggested_sources || [];
       if (sources.length > 0) {
         toast.success(`Found ${sources.length} source suggestions`);
-        // Add suggested sources
         onChange(items.map((item, i) => {
           if (i !== index) return item;
-          const newSources = sources.map((s: any) => ({ title: `${s.title} (${s.type})`, url: undefined }));
+          const newSources = sources.map((s: any) => ({ 
+            title: s.title || "Untitled", 
+            url: s.url || undefined,
+            mlaCitation: s.mlaCitation || `${s.title} (${s.type})`,
+          }));
           return { ...item, sources: [...item.sources, ...newSources] };
         }));
         setExpandedIndex(index);
