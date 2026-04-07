@@ -170,7 +170,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong"},{"text":"string - another fact","evidenceStrength":"moderate"},{"text":"string - third fact","evidenceStrength":"strong"}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]},{"text":"string - another fact","evidenceStrength":"moderate","sources":[]},{"text":"string - third fact","evidenceStrength":"strong","sources":[]}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -208,8 +208,8 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
       "information": [
-        {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported"},
-        {"text": "string - another distinct fact", "evidenceStrength": "strong"}
+211:         {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
+212:         {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}
       ],
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
@@ -223,7 +223,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" MUST be an ARRAY of discrete fact objects, each with "text" and "evidenceStrength". Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas. When web research results provide a source URL, ALWAYS include it as a source with an MLA 9 citation.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
