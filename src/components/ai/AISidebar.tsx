@@ -170,7 +170,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong"},{"text":"string - another fact","evidenceStrength":"moderate"},{"text":"string - third fact","evidenceStrength":"strong"}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]},{"text":"string - another fact","evidenceStrength":"moderate","sources":[]},{"text":"string - third fact","evidenceStrength":"strong","sources":[]}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -208,8 +208,8 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
       "pov_category": "individual" or "group" or "ideas_disciplines",
       "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
       "information": [
-        {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported"},
-        {"text": "string - another distinct fact", "evidenceStrength": "strong"}
+211:         {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
+212:         {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}
       ],
       "assumptions": {
         "explicit_premises": ["string - at least 2 stated premises"],
@@ -223,7 +223,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" MUST be an ARRAY of discrete fact objects, each with "text" and "evidenceStrength". Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas. When web research results provide a source URL, ALWAYS include it as a source with an MLA 9 citation.
 3. All 4 assumption categories must be fully populated for EVERY sub-question.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
@@ -238,24 +238,27 @@ RETURN ONLY THE JSON OBJECT.`;
 /** Convert AI-generated information (string or array) to FactEntry[] JSON string */
 function serializeInformation(info: any): string {
   if (!info) return "[]";
-  // Already an array of fact objects
   if (Array.isArray(info)) {
     const facts = info.map((item: any) => {
       if (typeof item === "string") {
         return { text: item, evidenceStrength: "moderate", sources: [] };
       }
+      // Preserve sources with mlaCitation
+      const sources = Array.isArray(item.sources) ? item.sources.map((s: any) => ({
+        title: s.title || "Untitled",
+        url: s.url || undefined,
+        mlaCitation: s.mlaCitation || undefined,
+      })) : [];
       return {
         text: item.text || String(item),
         evidenceStrength: item.evidenceStrength || "moderate",
-        sources: item.sources || [],
+        sources,
       };
     });
     return JSON.stringify(facts);
   }
-  // Single string — split by sentences or return as one fact
   if (typeof info === "string") {
     if (!info.trim()) return "[]";
-    // Try to split into meaningful chunks by sentence boundaries
     const sentences = info.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim().length > 10);
     if (sentences.length > 1) {
       return JSON.stringify(sentences.map((s: string) => ({ text: s.trim(), evidenceStrength: "moderate", sources: [] })));
@@ -856,19 +859,20 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const SCORE_TARGET = 60; // standard resilience target
       const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
-      const DRAFT_TIMEOUT_MS = 3 * 60 * 1000; // 3-minute hard deadline
+      const DRAFT_TIMEOUT_MS = 3 * 60 * 1000; // 3-minute soft deadline — ensures at least 1 full eval+refine round
       const draftStartTime = Date.now();
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
       let timedOut = false;
+      let completedMinRounds = false; // Track if we've done at least 1 eval+refine
 
       while (true) {
-        // Check 3-minute timeout before each iteration
-        if (Date.now() - draftStartTime >= DRAFT_TIMEOUT_MS) {
+        // Only enforce timeout AFTER completing at least 1 full eval+refine round
+        if (completedMinRounds && Date.now() - draftStartTime >= DRAFT_TIMEOUT_MS) {
           timedOut = true;
-          const timeoutMsg = `⏱️ 3-minute limit reached. Returning best-effort results (Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100).`;
+          const timeoutMsg = `⏱️ Time limit reached after ${iteration} rounds. Returning results (Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100).`;
           toast.info(timeoutMsg);
           if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
           break;
@@ -1019,14 +1023,14 @@ Return ONLY valid JSON with this structure:
   "sub_question_updates": [
     {
       "id": "existing sub_question_id",
-      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong"}, {"text": "another distinct fact", "evidenceStrength": "very_strong"}]
+      "information": [{"text": "specific fact with concrete data", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "Author. \"Title.\" Publisher, Date, URL."}]}, {"text": "another distinct fact", "evidenceStrength": "very_strong", "sources": []}]
     }
   ],
   "new_sub_questions": [
     {
       "question": "new sub-question to fill gaps",
       "pov_category": "individual|group|ideas_disciplines",
-      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong"}, {"text": "fact 2", "evidenceStrength": "moderate"}, {"text": "fact 3", "evidenceStrength": "strong"}],
+      "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong", "sources": [{"title": "Source", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}, {"text": "fact 2", "evidenceStrength": "moderate", "sources": []}, {"text": "fact 3", "evidenceStrength": "strong", "sources": []}],
       "assumptions": {
         "explicit_premises": ["premise1", "premise2"],
         "hidden_premises": ["hidden1", "hidden2"],
@@ -1045,7 +1049,7 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- "information" MUST be an ARRAY of discrete fact objects with "text" and "evidenceStrength" fields. Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
+- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question. When using web research results, ALWAYS cite with MLA 9 format and include the URL.
 - Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
@@ -1175,11 +1179,14 @@ CRITICAL RULES:
 
           // Reload data after modifications
           if (changeLog.length > 0) onDraftComplete?.();
+          // Mark that we've completed at least 1 full eval+refine round
+          completedMinRounds = true;
         } catch (e) {
           const parseErrMsg = `Round ${iteration}: Failed to parse refinement response — skipping`;
           console.error("[Draft Refine]", parseErrMsg, e, refineReply?.substring(0, 500));
           if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
-          // Don't break — try again next iteration
+          // Still counts as a completed round attempt
+          completedMinRounds = true;
         }
       }
 

@@ -262,12 +262,12 @@ Return:
 }`;
       userPrompt = `Suggest evidence for:\n\n${analysisContext}`;
     } else if (mode === "find_sources") {
-      systemPrompt = `You are an academic research assistant. Suggest credible sources that could support the given fact. Return ONLY valid JSON.
+      systemPrompt = `You are an academic research assistant. Suggest credible sources that could support the given fact. For each source, provide an MLA 9 formatted citation. Return ONLY valid JSON.
 
 Return:
 {
   "suggested_sources": [
-    {"title": "string - source title", "type": "string - e.g. academic paper, government report, etc.", "description": "string - brief description of relevance", "search_query": "string - suggested search query to find this"}
+    {"title": "string - source title", "type": "string - e.g. academic paper, government report, etc.", "description": "string - brief description of relevance", "search_query": "string - suggested search query to find this", "url": "string - URL if known, or empty string", "mlaCitation": "string - full MLA 9 citation, e.g. Author Last, First. \"Article Title.\" Site/Journal Name, Publisher, Day Month Year, URL."}
   ]
 }`;
       userPrompt = `Suggest credible sources for this fact:\n\n${analysisContext}`;
