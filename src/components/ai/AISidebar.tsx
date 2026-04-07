@@ -238,24 +238,27 @@ RETURN ONLY THE JSON OBJECT.`;
 /** Convert AI-generated information (string or array) to FactEntry[] JSON string */
 function serializeInformation(info: any): string {
   if (!info) return "[]";
-  // Already an array of fact objects
   if (Array.isArray(info)) {
     const facts = info.map((item: any) => {
       if (typeof item === "string") {
         return { text: item, evidenceStrength: "moderate", sources: [] };
       }
+      // Preserve sources with mlaCitation
+      const sources = Array.isArray(item.sources) ? item.sources.map((s: any) => ({
+        title: s.title || "Untitled",
+        url: s.url || undefined,
+        mlaCitation: s.mlaCitation || undefined,
+      })) : [];
       return {
         text: item.text || String(item),
         evidenceStrength: item.evidenceStrength || "moderate",
-        sources: item.sources || [],
+        sources,
       };
     });
     return JSON.stringify(facts);
   }
-  // Single string — split by sentences or return as one fact
   if (typeof info === "string") {
     if (!info.trim()) return "[]";
-    // Try to split into meaningful chunks by sentence boundaries
     const sentences = info.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim().length > 10);
     if (sentences.length > 1) {
       return JSON.stringify(sentences.map((s: string) => ({ text: s.trim(), evidenceStrength: "moderate", sources: [] })));
