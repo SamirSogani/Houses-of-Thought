@@ -1179,11 +1179,14 @@ CRITICAL RULES:
 
           // Reload data after modifications
           if (changeLog.length > 0) onDraftComplete?.();
+          // Mark that we've completed at least 1 full eval+refine round
+          completedMinRounds = true;
         } catch (e) {
           const parseErrMsg = `Round ${iteration}: Failed to parse refinement response — skipping`;
           console.error("[Draft Refine]", parseErrMsg, e, refineReply?.substring(0, 500));
           if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
-          // Don't break — try again next iteration
+          // Still counts as a completed round attempt
+          completedMinRounds = true;
         }
       }
 
