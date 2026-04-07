@@ -299,7 +299,7 @@ Return ONLY valid JSON:
       { role: "user", content: userPrompt },
     ];
 
-    const maxTokens = (mode === "analyze" || mode === "stress_test") ? 4096 : 4096;
+    const maxTokens = (mode === "stress_test") ? 8192 : (mode === "analyze") ? 4096 : 4096;
     const { data, provider } = await routedCall(messages, 0.3, maxTokens);
 
     const content = data?.choices?.[0]?.message?.content || "";
@@ -329,16 +329,23 @@ Return ONLY valid JSON:
 
       if (openBraces > closeBraces || openBrackets > closeBrackets) {
         // Truncated response — try to close it
-        let fixed = s.replace(/,\s*$/, ''); // remove trailing comma
+        let fixed = s;
+        // Remove any unclosed string at the very end (truncated mid-value)
+        fixed = fixed.replace(/"[^"]*$/, '"');
+        // Remove trailing comma
+        fixed = fixed.replace(/,\s*$/, '');
         // Remove any incomplete key-value pair at the end
-        fixed = fixed.replace(/,?\s*"[^"]*":\s*"?[^"{}[\]]*$/, '');
+        fixed = fixed.replace(/,?\s*"[^"]*":\s*"[^"]*"?\s*$/, '');
         fixed = fixed.replace(/,?\s*"[^"]*":\s*$/, '');
-        // Close remaining brackets/braces
-        for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
-        for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+        // Remove trailing comma again after cleanup
+        fixed = fixed.replace(/,\s*$/, '');
+        // Recount after cleanup
+        const ob = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
+        const oq = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+        for (let i = 0; i < oq; i++) fixed += ']';
+        for (let i = 0; i < ob; i++) fixed += '}';
         result = tryParseJSON(fixed);
         if (result) return result;
-        // Also try with trailing comma cleanup
         result = tryParseJSON(fixed.replace(/,\s*([}\]])/g, '$1'));
         if (result) return result;
       }
