@@ -179,7 +179,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]},{"text":"string - another fact","evidenceStrength":"moderate","sources":[]},{"text":"string - third fact","evidenceStrength":"strong","sources":[]}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]}],"assumptions":{"unknown_unknowns":["string - blind spot about the topic, NOT about the user","string"],"foundational_concepts":["string - underlying assumption, NOT a definition","string"],"concepts_shaping_inferences":[{"evidence":"observable fact or data point found via research","inference":"logical leap or assumption drawn from that evidence"},{"evidence":"another piece of evidence","inference":"the inference it leads to"}]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -187,6 +187,8 @@ CRITICAL RULES:
 - "information" must contain substantive, researched content — not generic filler.
 - Each pov_label must be UNIQUE and DISTINCT. Never use the same label twice.
 - Distribute evenly across individual, group, and ideas_disciplines categories.
+- NEVER make assumptions about the user personally.
+- "concepts_shaping_inferences" must be evidence→inference pairs, NOT framework names.
 
 ${profileCtx}${extraCtx}
 
