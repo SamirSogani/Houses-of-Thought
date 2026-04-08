@@ -217,16 +217,15 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
     {
       "question": "string - precise, distinct question",
       "pov_category": "individual" or "group" or "ideas_disciplines",
-      "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
+      "pov_label": "string - must match one of the labels from pov_labels above",
       "information": [
-211:         {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
-212:         {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}
+        {"text": "string - one discrete, specific fact", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
+        {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": []}
       ],
       "assumptions": {
-        "explicit_premises": ["string - at least 2 stated premises"],
-        "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
-        "conceptual_frameworks": ["string - at least 2 SPECIFIC NAMED frameworks/models that shape how inferences are drawn, e.g. 'Maslow hierarchy of needs', 'Rational choice theory'"],
-        "background_definitions": ["string - at least 1 key definition or background belief"]
+        "unknown_unknowns": ["string - blind spot or hidden variable about the TOPIC, NOT the user", "string"],
+        "foundational_concepts": ["string - underlying assumption taken for granted, NOT a definition of a term", "string"],
+        "concepts_shaping_inferences": [{"evidence": "observable fact or data point", "inference": "logical leap drawn from that evidence"}, {"evidence": "another piece of evidence", "inference": "inference it leads to"}]
       }
     }
   ]
@@ -234,8 +233,11 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas. When web research results provide a source URL, ALWAYS include it as a source with an MLA 9 citation.
-3. All 4 assumption categories must be fully populated for EVERY sub-question.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question.
+3. All 3 assumption categories must be fully populated for EVERY sub-question.
+4. NEVER make assumptions about the user personally (e.g., "The user prefers...", "The user believes...").
+5. "foundational_concepts" must be ASSUMPTIONS, NOT definitions of terms.
+6. "concepts_shaping_inferences" must be evidence→inference pairs (objects with "evidence" and "inference" fields), NOT framework names.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
