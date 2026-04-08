@@ -1155,11 +1155,17 @@ CRITICAL RULES:
                     hidden_premises: "unknown_unknowns",
                     conceptual_frameworks: "concepts_shaping_inferences",
                     background_definitions: "foundational_concepts",
+                    foundational_concepts: "foundational_concepts",
+                    unknown_unknowns: "unknown_unknowns",
+                    concepts_shaping_inferences: "concepts_shaping_inferences",
                   };
                   for (const [key, items] of Object.entries(assumptions)) {
                     const dbType = typeMapping[key] || "unknown_unknowns";
                     if (Array.isArray(items)) {
-                      (items as string[]).forEach((content: string) => {
+                      (items as any[]).forEach((item: any) => {
+                        const content = (dbType === "concepts_shaping_inferences" && typeof item === 'object' && item.evidence)
+                          ? JSON.stringify({ evidence: item.evidence, inference: item.inference || "" })
+                          : (typeof item === 'string' ? item : JSON.stringify(item));
                         assumptionInserts.push({ sub_question_id: insertedSq.id, content, assumption_type: dbType });
                       });
                     }
