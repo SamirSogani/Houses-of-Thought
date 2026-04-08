@@ -38,8 +38,11 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Query is required and must be under 500 characters' }), { status: 400, headers: corsHeaders });
     }
 
+    // Brave API limits queries to 50 words max
+    const trimmedQuery = query.trim().split(/\s+/).slice(0, 40).join(' ');
+
     const searchCount = Math.min(count || 5, 20);
-    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${searchCount}&text_decorations=false&search_lang=en`;
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(trimmedQuery)}&count=${searchCount}&text_decorations=false&search_lang=en`;
 
     console.log('Brave search:', query);
 
