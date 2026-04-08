@@ -149,13 +149,22 @@ All "information" fields must contain substantive, research-backed content — n
 
   const assumptionInstructions = `
 ## ASSUMPTIONS (MUST BE COMPREHENSIVE — ZERO EXCEPTIONS)
-Each sub-question MUST have ALL FOUR assumption categories fully populated. This is NON-NEGOTIABLE:
-1. "explicit_premises": Stated premises the reasoning openly relies on (at least 2)
-2. "hidden_premises": Unstated or implicit beliefs that silently shape the argument (at least 2)
-3. "conceptual_frameworks": THE CONCEPTS THAT SHAPE INFERENCES — theoretical frameworks, mental models, paradigms, or conceptual lenses that determine HOW conclusions are drawn from evidence. THIS IS THE MOST CRITICAL CATEGORY. Provide at least 2. Examples: "Utilitarian cost-benefit analysis", "Social constructionism", "Supply and demand theory". These must be specific named frameworks, not vague descriptions.
-4. "background_definitions": Key definitions, terms, or background beliefs that influence reasoning (at least 1)
 
-CRITICAL: The "conceptual_frameworks" field corresponds to "Concepts That Shape Inferences" in the House of Reason. It MUST ALWAYS contain at least 2 specific, named conceptual frameworks. If you return fewer than 2, the entire draft will be rejected. NEVER leave this empty.
+ABSOLUTE RULE: NEVER make assumptions about the user personally. Do NOT write things like "The user prefers X", "The user believes Y", "The user has specific preferences about Z". Assumptions must be about the TOPIC being analyzed, not the person analyzing it.
+
+Each sub-question MUST have ALL THREE assumption categories fully populated. This is NON-NEGOTIABLE:
+
+1. "unknown_unknowns": Things we don't know that we don't know about this topic. These are blind spots, hidden variables, or unconsidered factors that could affect the analysis. Must be about the TOPIC, not the user. (at least 2)
+
+2. "foundational_concepts": Underlying assumptions or premises that the reasoning relies on — things taken for granted as true. These are NOT definitions. Do NOT define terms here. Instead, state the actual assumption being made. BAD example: "Ergonomics is the study of efficiency in the working environment." GOOD example: "Ergonomic design principles are universally applicable across body types." (at least 2)
+
+3. "concepts_shaping_inferences": Evidence-to-inference pairs. Each entry is a piece of EVIDENCE (an observable fact, data point, or condition found via research) paired with the INFERENCE or logical leap it leads to. Format each as a JSON object: {"evidence": "observable fact or data", "inference": "the logical leap or assumption drawn from that evidence"}. Example: {"evidence": "Cloud cover is at 90% and humidity is high", "inference": "It is likely to rain soon"}. Use Brave Search to find real evidence. (at least 2)
+
+CRITICAL RULES FOR ASSUMPTIONS:
+- NEVER assume anything about the user's preferences, beliefs, or characteristics
+- Foundational concepts must be ASSUMPTIONS, not definitions of terms
+- Concepts shaping inferences must be EVIDENCE→INFERENCE pairs, not theoretical frameworks
+- Use web research to find real evidence for concepts_shaping_inferences
 `;
 
   // Batch mode: only generate sub-questions (no analysis fields)
@@ -170,7 +179,7 @@ ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
 
 Return this JSON structure:
-{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label, NEVER repeat the same label across questions","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]},{"text":"string - another fact","evidenceStrength":"moderate","sources":[]},{"text":"string - third fact","evidenceStrength":"strong","sources":[]}],"assumptions":{"explicit_premises":["string","string"],"hidden_premises":["string","string"],"conceptual_frameworks":["string - SPECIFIC NAMED framework","string - SPECIFIC NAMED framework"],"background_definitions":["string"]}}]}
+{"sub_questions":[{"question":"string","pov_category":"individual|group|ideas_disciplines","pov_label":"string - UNIQUE specific perspective label","information":[{"text":"string - one specific fact","evidenceStrength":"strong","sources":[{"title":"Source Title","url":"https://...","mlaCitation":"Author Last, First. \"Title.\" Publisher, Date, URL."}]}],"assumptions":{"unknown_unknowns":["string - blind spot about the topic, NOT about the user","string"],"foundational_concepts":["string - underlying assumption, NOT a definition","string"],"concepts_shaping_inferences":[{"evidence":"observable fact or data point found via research","inference":"logical leap or assumption drawn from that evidence"},{"evidence":"another piece of evidence","inference":"the inference it leads to"}]}}]}
 
 CRITICAL RULES:
 - DO NOT include "sub_conclusion" — sub-conclusions are NOT generated during drafting.
@@ -178,6 +187,8 @@ CRITICAL RULES:
 - "information" must contain substantive, researched content — not generic filler.
 - Each pov_label must be UNIQUE and DISTINCT. Never use the same label twice.
 - Distribute evenly across individual, group, and ideas_disciplines categories.
+- NEVER make assumptions about the user personally.
+- "concepts_shaping_inferences" must be evidence→inference pairs, NOT framework names.
 
 ${profileCtx}${extraCtx}
 
@@ -206,16 +217,15 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
     {
       "question": "string - precise, distinct question",
       "pov_category": "individual" or "group" or "ideas_disciplines",
-      "pov_label": "string - must match one of the labels from pov_labels above, each question should use a DIFFERENT label when possible",
+      "pov_label": "string - must match one of the labels from pov_labels above",
       "information": [
-211:         {"text": "string - one discrete, specific fact or piece of evidence", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
-212:         {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": [{"title": "Source Title", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}
+        {"text": "string - one discrete, specific fact", "evidenceStrength": "very_strong|strong|moderate|weak|unsupported", "sources": [{"title": "Source Title", "url": "https://example.com/article", "mlaCitation": "Author Last, First. \"Article Title.\" Site Name, Publisher, Date, URL."}]},
+        {"text": "string - another distinct fact", "evidenceStrength": "strong", "sources": []}
       ],
       "assumptions": {
-        "explicit_premises": ["string - at least 2 stated premises"],
-        "hidden_premises": ["string - at least 2 unstated/implicit beliefs"],
-        "conceptual_frameworks": ["string - at least 2 SPECIFIC NAMED frameworks/models that shape how inferences are drawn, e.g. 'Maslow hierarchy of needs', 'Rational choice theory'"],
-        "background_definitions": ["string - at least 1 key definition or background belief"]
+        "unknown_unknowns": ["string - blind spot or hidden variable about the TOPIC, NOT the user", "string"],
+        "foundational_concepts": ["string - underlying assumption taken for granted, NOT a definition of a term", "string"],
+        "concepts_shaping_inferences": [{"evidence": "observable fact or data point", "inference": "logical leap drawn from that evidence"}, {"evidence": "another piece of evidence", "inference": "inference it leads to"}]
       }
     }
   ]
@@ -223,8 +233,11 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question. Each fact should be a single, specific claim or piece of evidence — NOT a paragraph combining multiple ideas. When web research results provide a source URL, ALWAYS include it as a source with an MLA 9 citation.
-3. All 4 assumption categories must be fully populated for EVERY sub-question.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question.
+3. All 3 assumption categories must be fully populated for EVERY sub-question.
+4. NEVER make assumptions about the user personally (e.g., "The user prefers...", "The user believes...").
+5. "foundational_concepts" must be ASSUMPTIONS, NOT definitions of terms.
+6. "concepts_shaping_inferences" must be evidence→inference pairs (objects with "evidence" and "inference" fields), NOT framework names.
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
@@ -805,13 +818,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               const originalSq = uniqueNewSqs[idx];
               const assumptions = originalSq?.assumptions;
               if (assumptions && typeof assumptions === 'object' && !Array.isArray(assumptions)) {
-                // Map new 4-category format to DB assumption_type
                 const typeMapping: Record<string, string> = {
                   explicit_premises: "foundational_concepts",
                   hidden_premises: "unknown_unknowns",
                   conceptual_frameworks: "concepts_shaping_inferences",
                   background_definitions: "foundational_concepts",
-                  // Also support old format keys
                   foundational_concepts: "foundational_concepts",
                   unknown_unknowns: "unknown_unknowns",
                   concepts_shaping_inferences: "concepts_shaping_inferences",
@@ -819,10 +830,14 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
                 for (const [key, items] of Object.entries(assumptions)) {
                   const dbType = typeMapping[key] || "unknown_unknowns";
                   if (Array.isArray(items)) {
-                    (items as string[]).forEach((assumption: string) => {
+                    (items as any[]).forEach((item: any) => {
+                      // concepts_shaping_inferences items are objects with evidence+inference
+                      const content = (dbType === "concepts_shaping_inferences" && typeof item === 'object' && item.evidence)
+                        ? JSON.stringify({ evidence: item.evidence, inference: item.inference || "" })
+                        : (typeof item === 'string' ? item : JSON.stringify(item));
                       assumptionInserts.push({
                         sub_question_id: insertedSq.id,
-                        content: assumption,
+                        content,
                         assumption_type: dbType,
                       });
                     });
@@ -1032,28 +1047,30 @@ Return ONLY valid JSON with this structure:
       "pov_category": "individual|group|ideas_disciplines",
       "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong", "sources": [{"title": "Source", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}, {"text": "fact 2", "evidenceStrength": "moderate", "sources": []}, {"text": "fact 3", "evidenceStrength": "strong", "sources": []}],
       "assumptions": {
-        "explicit_premises": ["premise1", "premise2"],
-        "hidden_premises": ["hidden1", "hidden2"],
-        "conceptual_frameworks": ["framework1", "framework2"],
-        "background_definitions": ["definition1"]
+        "unknown_unknowns": ["blind spot about the topic", "another blind spot"],
+        "foundational_concepts": ["underlying assumption, NOT a definition", "another assumption"],
+        "concepts_shaping_inferences": [{"evidence": "observable fact", "inference": "logical leap from that evidence"}, {"evidence": "another fact", "inference": "inference drawn"}]
       }
     }
   ],
   "new_assumptions": [
     {
       "sub_question_id": "id of existing sub-question",
-      "content": "new assumption text",
+      "content": "new assumption text (or JSON {evidence,inference} for concepts_shaping_inferences)",
       "assumption_type": "foundational_concepts|unknown_unknowns|concepts_shaping_inferences"
     }
   ]
 }
 
 CRITICAL RULES:
-- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question. When using web research results, ALWAYS cite with MLA 9 format and include the URL.
+- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
 - Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
 - Add new assumptions ONLY if assumption reliability is flagged as weak
+- NEVER make assumptions about the user personally (e.g., "The user prefers...", "The user believes...")
+- "foundational_concepts" must be ASSUMPTIONS, NOT definitions of terms
+- "concepts_shaping_inferences" must be evidence→inference pairs: {"evidence":"observable fact","inference":"logical leap"}
 - Do NOT add sub-conclusions — those are user-derived
 - Do NOT add consequences
 - Set fields to null in analysis_updates if they don't need changes
@@ -1141,11 +1158,17 @@ CRITICAL RULES:
                     hidden_premises: "unknown_unknowns",
                     conceptual_frameworks: "concepts_shaping_inferences",
                     background_definitions: "foundational_concepts",
+                    foundational_concepts: "foundational_concepts",
+                    unknown_unknowns: "unknown_unknowns",
+                    concepts_shaping_inferences: "concepts_shaping_inferences",
                   };
                   for (const [key, items] of Object.entries(assumptions)) {
                     const dbType = typeMapping[key] || "unknown_unknowns";
                     if (Array.isArray(items)) {
-                      (items as string[]).forEach((content: string) => {
+                      (items as any[]).forEach((item: any) => {
+                        const content = (dbType === "concepts_shaping_inferences" && typeof item === 'object' && item.evidence)
+                          ? JSON.stringify({ evidence: item.evidence, inference: item.inference || "" })
+                          : (typeof item === 'string' ? item : JSON.stringify(item));
                         assumptionInserts.push({ sub_question_id: insertedSq.id, content, assumption_type: dbType });
                       });
                     }
