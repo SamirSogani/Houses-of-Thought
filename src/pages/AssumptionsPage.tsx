@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,10 +11,25 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Assumption = Tables<"assumptions">;
 
+interface EvidenceInference {
+  evidence: string;
+  inference: string;
+}
+
+function parseShapingContent(content: string): EvidenceInference {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed && typeof parsed === "object" && "evidence" in parsed) {
+      return { evidence: parsed.evidence || "", inference: parsed.inference || "" };
+    }
+  } catch { /* not JSON */ }
+  return { evidence: content, inference: "" };
+}
+
 const ASSUMPTION_TYPES = [
-  { key: "unknown_unknowns", label: "Unknown Unknowns", element: "5.1", desc: "Things you don't know that you don't know", className: "house-zone-assumption" },
-  { key: "foundational_concepts", label: "Foundational Concepts", element: "5.2", desc: "Underlying concepts taken for granted", className: "house-zone-assumption" },
-  { key: "shaping_inferences", label: "Concepts that Shape Inferences", element: "5.3", desc: "Ideas influencing how you interpret evidence", className: "house-zone-assumption" },
+  { key: "unknown_unknowns", label: "Unknown Unknowns", element: "5.1", desc: "Things you don't know that you don't know about the topic", className: "house-zone-assumption" },
+  { key: "foundational_concepts", label: "Foundational Concepts", element: "5.2", desc: "Underlying assumptions taken for granted (not definitions)", className: "house-zone-assumption" },
+  { key: "shaping_inferences", label: "Concepts that Shape Inferences", element: "5.3", desc: "Evidence that leads to an inference or logical leap", className: "house-zone-assumption" },
 ] as const;
 
 export default function AssumptionsPage() {
@@ -38,9 +54,14 @@ export default function AssumptionsPage() {
   };
 
   const addAssumption = async (type: string) => {
+    const defaultContent = type === "shaping_inferences"
+      ? JSON.stringify({ evidence: "", inference: "" })
+      : "";
+    // Map UI key to DB key
+    const dbType = type === "shaping_inferences" ? "concepts_shaping_inferences" : type;
     const { data, error } = await supabase
       .from("assumptions")
-      .insert({ sub_question_id: subQuestionId!, assumption_type: type, content: "" })
+      .insert({ sub_question_id: subQuestionId!, assumption_type: dbType, content: defaultContent })
       .select()
       .single();
     if (error) toast.error(error.message);
@@ -52,9 +73,23 @@ export default function AssumptionsPage() {
     await supabase.from("assumptions").update({ content }).eq("id", id);
   };
 
+  const updateShapingField = (id: string, current: string, field: "evidence" | "inference", value: string) => {
+    const parsed = parseShapingContent(current);
+    parsed[field] = value;
+    const newContent = JSON.stringify(parsed);
+    updateAssumption(id, newContent);
+  };
+
   const deleteAssumption = async (id: string) => {
     await supabase.from("assumptions").delete().eq("id", id);
     setAssumptions((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const getItemsForType = (typeKey: string) => {
+    if (typeKey === "shaping_inferences") {
+      return assumptions.filter((a) => a.assumption_type === "concepts_shaping_inferences" || a.assumption_type === "shaping_inferences");
+    }
+    return assumptions.filter((a) => a.assumption_type === typeKey);
   };
 
   return (
@@ -76,7 +111,8 @@ export default function AssumptionsPage() {
 
         <div className="space-y-8">
           {ASSUMPTION_TYPES.map((type) => {
-            const items = assumptions.filter((a) => a.assumption_type === type.key);
+            const items = getItemsForType(type.key);
+            const isShaping = type.key === "shaping_inferences";
             return (
               <div key={type.key}>
                 <Card className={`house-zone ${type.className}`}>
@@ -93,7 +129,40 @@ export default function AssumptionsPage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {items.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic">No assumptions listed yet</p>
+                      <p className="text-sm text-muted-foreground italic">
+                        {isShaping ? "No evidence→inference pairs listed yet" : "No assumptions listed yet"}
+                      </p>
+                    ) : isShaping ? (
+                      items.map((a) => {
+                        const parsed = parseShapingContent(a.content);
+                        return (
+                          <div key={a.id} className="flex gap-2 animate-fade-in">
+                            <div className="flex-1 space-y-2 p-3 rounded-md border border-border bg-card">
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Evidence (observable fact or data)</label>
+                                <Textarea
+                                  placeholder="e.g. Cloud cover is at 90% and humidity is high"
+                                  value={parsed.evidence}
+                                  onChange={(e) => updateShapingField(a.id, a.content, "evidence", e.target.value)}
+                                  className="min-h-[50px] bg-background"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Inference / Logical Leap</label>
+                                <Textarea
+                                  placeholder="e.g. It is likely to rain soon"
+                                  value={parsed.inference}
+                                  onChange={(e) => updateShapingField(a.id, a.content, "inference", e.target.value)}
+                                  className="min-h-[50px] bg-background"
+                                />
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => deleteAssumption(a.id)} className="text-destructive shrink-0 self-start mt-3">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })
                     ) : (
                       items.map((a) => (
                         <div key={a.id} className="flex gap-2 animate-fade-in">
