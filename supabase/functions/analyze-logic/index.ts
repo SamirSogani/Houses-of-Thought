@@ -35,6 +35,7 @@ interface ProviderState {
 const providerStates: Record<string, ProviderState> = {
   gemini: { name: 'gemini', score: 80, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
   groq: { name: 'groq', score: 75, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
+  lovable: { name: 'lovable', score: 70, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
 };
 
 function recordSuccess(name: string, latencyMs: number) {
@@ -71,10 +72,17 @@ async function callProvider(name: string, messages: any[], temperature: number, 
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'gemini-2.5-flash', messages, temperature, max_tokens: maxTokens }),
     });
+  } else if (name === 'lovable') {
+    const key = Deno.env.get('LOVABLE_API_KEY');
+    if (!key) throw new Error('LOVABLE_API_KEY not configured');
+    return await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'google/gemini-2.5-flash', messages, temperature, max_tokens: maxTokens }),
+    });
   } else {
     const key = Deno.env.get('GROQ_API_KEY');
     if (!key) throw new Error('GROQ_API_KEY not configured');
-    // Truncate for Groq
     let truncated = [...messages];
     const MAX_CHARS = 24000;
     let total = truncated.reduce((s, m) => s + (m.content?.length || 0), 0);
