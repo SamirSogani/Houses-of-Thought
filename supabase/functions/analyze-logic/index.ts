@@ -35,6 +35,7 @@ interface ProviderState {
 const providerStates: Record<string, ProviderState> = {
   gemini: { name: 'gemini', score: 80, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
   groq: { name: 'groq', score: 75, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
+  lovable: { name: 'lovable', score: 70, errorCount: 0, successCount: 0, cooldownUntil: 0, consecutiveErrors: 0, totalLatencyMs: 0 },
 };
 
 function recordSuccess(name: string, latencyMs: number) {
