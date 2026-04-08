@@ -1063,11 +1063,14 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question. When using web research results, ALWAYS cite with MLA 9 format and include the URL.
+- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
 - Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
 - Add new assumptions ONLY if assumption reliability is flagged as weak
+- NEVER make assumptions about the user personally (e.g., "The user prefers...", "The user believes...")
+- "foundational_concepts" must be ASSUMPTIONS, NOT definitions of terms
+- "concepts_shaping_inferences" must be evidence→inference pairs: {"evidence":"observable fact","inference":"logical leap"}
 - Do NOT add sub-conclusions — those are user-derived
 - Do NOT add consequences
 - Set fields to null in analysis_updates if they don't need changes
