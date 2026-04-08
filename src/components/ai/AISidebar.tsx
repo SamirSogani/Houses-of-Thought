@@ -149,13 +149,22 @@ All "information" fields must contain substantive, research-backed content — n
 
   const assumptionInstructions = `
 ## ASSUMPTIONS (MUST BE COMPREHENSIVE — ZERO EXCEPTIONS)
-Each sub-question MUST have ALL FOUR assumption categories fully populated. This is NON-NEGOTIABLE:
-1. "explicit_premises": Stated premises the reasoning openly relies on (at least 2)
-2. "hidden_premises": Unstated or implicit beliefs that silently shape the argument (at least 2)
-3. "conceptual_frameworks": THE CONCEPTS THAT SHAPE INFERENCES — theoretical frameworks, mental models, paradigms, or conceptual lenses that determine HOW conclusions are drawn from evidence. THIS IS THE MOST CRITICAL CATEGORY. Provide at least 2. Examples: "Utilitarian cost-benefit analysis", "Social constructionism", "Supply and demand theory". These must be specific named frameworks, not vague descriptions.
-4. "background_definitions": Key definitions, terms, or background beliefs that influence reasoning (at least 1)
 
-CRITICAL: The "conceptual_frameworks" field corresponds to "Concepts That Shape Inferences" in the House of Reason. It MUST ALWAYS contain at least 2 specific, named conceptual frameworks. If you return fewer than 2, the entire draft will be rejected. NEVER leave this empty.
+ABSOLUTE RULE: NEVER make assumptions about the user personally. Do NOT write things like "The user prefers X", "The user believes Y", "The user has specific preferences about Z". Assumptions must be about the TOPIC being analyzed, not the person analyzing it.
+
+Each sub-question MUST have ALL THREE assumption categories fully populated. This is NON-NEGOTIABLE:
+
+1. "unknown_unknowns": Things we don't know that we don't know about this topic. These are blind spots, hidden variables, or unconsidered factors that could affect the analysis. Must be about the TOPIC, not the user. (at least 2)
+
+2. "foundational_concepts": Underlying assumptions or premises that the reasoning relies on — things taken for granted as true. These are NOT definitions. Do NOT define terms here. Instead, state the actual assumption being made. BAD example: "Ergonomics is the study of efficiency in the working environment." GOOD example: "Ergonomic design principles are universally applicable across body types." (at least 2)
+
+3. "concepts_shaping_inferences": Evidence-to-inference pairs. Each entry is a piece of EVIDENCE (an observable fact, data point, or condition found via research) paired with the INFERENCE or logical leap it leads to. Format each as a JSON object: {"evidence": "observable fact or data", "inference": "the logical leap or assumption drawn from that evidence"}. Example: {"evidence": "Cloud cover is at 90% and humidity is high", "inference": "It is likely to rain soon"}. Use Brave Search to find real evidence. (at least 2)
+
+CRITICAL RULES FOR ASSUMPTIONS:
+- NEVER assume anything about the user's preferences, beliefs, or characteristics
+- Foundational concepts must be ASSUMPTIONS, not definitions of terms
+- Concepts shaping inferences must be EVIDENCE→INFERENCE pairs, not theoretical frameworks
+- Use web research to find real evidence for concepts_shaping_inferences
 `;
 
   // Batch mode: only generate sub-questions (no analysis fields)
