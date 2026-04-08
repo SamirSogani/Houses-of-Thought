@@ -818,13 +818,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
               const originalSq = uniqueNewSqs[idx];
               const assumptions = originalSq?.assumptions;
               if (assumptions && typeof assumptions === 'object' && !Array.isArray(assumptions)) {
-                // Map new 4-category format to DB assumption_type
                 const typeMapping: Record<string, string> = {
                   explicit_premises: "foundational_concepts",
                   hidden_premises: "unknown_unknowns",
                   conceptual_frameworks: "concepts_shaping_inferences",
                   background_definitions: "foundational_concepts",
-                  // Also support old format keys
                   foundational_concepts: "foundational_concepts",
                   unknown_unknowns: "unknown_unknowns",
                   concepts_shaping_inferences: "concepts_shaping_inferences",
@@ -832,10 +830,14 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
                 for (const [key, items] of Object.entries(assumptions)) {
                   const dbType = typeMapping[key] || "unknown_unknowns";
                   if (Array.isArray(items)) {
-                    (items as string[]).forEach((assumption: string) => {
+                    (items as any[]).forEach((item: any) => {
+                      // concepts_shaping_inferences items are objects with evidence+inference
+                      const content = (dbType === "concepts_shaping_inferences" && typeof item === 'object' && item.evidence)
+                        ? JSON.stringify({ evidence: item.evidence, inference: item.inference || "" })
+                        : (typeof item === 'string' ? item : JSON.stringify(item));
                       assumptionInserts.push({
                         sub_question_id: insertedSq.id,
-                        content: assumption,
+                        content,
                         assumption_type: dbType,
                       });
                     });
