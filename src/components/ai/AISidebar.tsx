@@ -1047,17 +1047,16 @@ Return ONLY valid JSON with this structure:
       "pov_category": "individual|group|ideas_disciplines",
       "information": [{"text": "research-backed fact 1", "evidenceStrength": "strong", "sources": [{"title": "Source", "url": "https://...", "mlaCitation": "MLA 9 citation"}]}, {"text": "fact 2", "evidenceStrength": "moderate", "sources": []}, {"text": "fact 3", "evidenceStrength": "strong", "sources": []}],
       "assumptions": {
-        "explicit_premises": ["premise1", "premise2"],
-        "hidden_premises": ["hidden1", "hidden2"],
-        "conceptual_frameworks": ["framework1", "framework2"],
-        "background_definitions": ["definition1"]
+        "unknown_unknowns": ["blind spot about the topic", "another blind spot"],
+        "foundational_concepts": ["underlying assumption, NOT a definition", "another assumption"],
+        "concepts_shaping_inferences": [{"evidence": "observable fact", "inference": "logical leap from that evidence"}, {"evidence": "another fact", "inference": "inference drawn"}]
       }
     }
   ],
   "new_assumptions": [
     {
       "sub_question_id": "id of existing sub-question",
-      "content": "new assumption text",
+      "content": "new assumption text (or JSON {evidence,inference} for concepts_shaping_inferences)",
       "assumption_type": "foundational_concepts|unknown_unknowns|concepts_shaping_inferences"
     }
   ]
