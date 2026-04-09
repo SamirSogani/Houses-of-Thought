@@ -638,23 +638,27 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             : undefined;
           const isRateLimited = errorStatus === 429 || errorMessage.includes("429") || errorMessage.includes("rate limit");
           const isPaymentRequired = errorStatus === 402 || errorMessage.includes("402");
+          const isAllProvidersFailed = errorMessage.includes("503") || errorMessage.includes("All AI providers");
 
           if (isPaymentRequired) {
             throw new Error("AI credits exhausted. Please add credits in Settings → Workspace → Usage.");
           }
 
-          if (!isRateLimited) {
-            throw new Error(
-              typeof res.error === "object" && res.error !== null && "message" in res.error
-                ? String((res.error as { message?: string }).message || "AI request failed")
-                : "AI request failed"
-            );
+          if (isAllProvidersFailed || isRateLimited) {
+            // All providers failed or rate limited — wait and keep retrying indefinitely
+            attempt += 1;
+            const waitSecs = Math.min(120, 10 + attempt * 10);
+            const reason = isAllProvidersFailed ? "All providers busy" : "Rate limited";
+            toast.info(`${reason}. Retrying in ${waitSecs}s... (attempt ${attempt})`);
+            await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
+            continue;
           }
 
-          attempt += 1;
-          const waitSecs = Math.min(60, 10 + attempt * 5);
-          toast.info(`AI rate limited. Retrying in ${waitSecs}s...`);
-          await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
+          throw new Error(
+            typeof res.error === "object" && res.error !== null && "message" in res.error
+              ? String((res.error as { message?: string }).message || "AI request failed")
+              : "AI request failed"
+          );
         }
       };
 
