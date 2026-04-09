@@ -66,6 +66,24 @@ const features = [
   },
 ];
 
+const outcomeCards = [
+  {
+    icon: GraduationCap,
+    title: "Students",
+    outcome: "Learn faster and stay on track.",
+  },
+  {
+    icon: BookOpen,
+    title: "Teachers",
+    outcome: "Guide reasoning with clarity.",
+  },
+  {
+    icon: Briefcase,
+    title: "Professionals",
+    outcome: "Make defensible, well-structured decisions.",
+  },
+];
+
 const audiences = [
   {
     icon: GraduationCap,
@@ -93,7 +111,6 @@ export default function HomePage() {
 
       {/* HERO */}
       <section className="relative overflow-hidden">
-        {/* Blueprint grid background */}
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: `linear-gradient(hsl(var(--blueprint-line)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--blueprint-line)) 1px, transparent 1px)`,
           backgroundSize: "40px 40px",
@@ -101,14 +118,13 @@ export default function HomePage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Copy */}
             <div className="space-y-6 animate-fade-in">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-foreground leading-tight">
-                Think Clearly.{" "}
-                <span className="text-primary">Reason Better.</span>
+                Think through anything—
+                <span className="text-primary">fast, step by step.</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed">
-                Houses of Thought is an AI-powered reasoning system that helps you break down complex questions, examine different perspectives, and build stronger conclusions.
+                Break down complex questions, track every step of your reasoning, and reach clear, well-founded conclusions — all with AI-powered support.
               </p>
               <p className="text-sm text-muted-foreground">
                 Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
@@ -129,19 +145,14 @@ export default function HomePage() {
             {/* House Diagram Visual */}
             <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
               <div className="relative mx-auto max-w-sm">
-                {/* Atmosphere */}
                 <div className="bg-atmosphere-bg border-2 border-atmosphere rounded-t-lg px-4 py-3 text-center">
                   <p className="text-xs font-mono text-muted-foreground">ATMOSPHERE</p>
                   <p className="text-sm font-display font-semibold text-foreground">Concepts & Definitions</p>
                 </div>
-
-                {/* Roof */}
                 <div className="bg-card border-2 border-roof px-4 py-3 text-center">
                   <p className="text-xs font-mono text-muted-foreground">PURPOSE</p>
                   <p className="text-sm font-display font-semibold text-foreground">Overarching Question</p>
                 </div>
-
-                {/* Columns */}
                 <div className="grid grid-cols-3 gap-1 my-1">
                   <div className="pov-individual border rounded p-2 text-center">
                     <p className="text-[10px] font-mono text-muted-foreground">Individual</p>
@@ -153,13 +164,9 @@ export default function HomePage() {
                     <p className="text-[10px] font-mono text-muted-foreground">Ideas</p>
                   </div>
                 </div>
-
-                {/* Assumptions */}
                 <div className="bg-assumption-bg border-2 border-assumption px-4 py-2 text-center">
                   <p className="text-xs font-mono text-muted-foreground">ASSUMPTIONS</p>
                 </div>
-
-                {/* Foundation */}
                 <div className="bg-foundation-bg border-2 border-foundation rounded-b-lg px-4 py-3 text-center">
                   <p className="text-xs font-mono text-muted-foreground">FOUNDATION</p>
                   <p className="text-sm font-display font-semibold text-foreground">Conclusion & Implications</p>
@@ -170,19 +177,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHAT IS HOUSE OF THOUGHT */}
+      {/* SECTION 1: WHAT IS HOUSES OF THOUGHT */}
       <section id="about" className="bg-card border-y border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              What is the Houses of Thought?
+              A system for thinking clearly, quickly, and completely
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              A structured reasoning framework that guides you through every element of critical thinking — from defining your purpose to evaluating your conclusions.
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Houses of Thought helps you break down any question, track every step of your reasoning, and see the full picture of your thought process. Whether you're a student tackling tricky problems, a teacher guiding reasoning projects, or a professional analyzing complex decisions, the platform gives you a step-by-step roadmap from question to conclusion — fast, clear, and structured.
             </p>
           </div>
 
-          {/* Step flow */}
+          {/* Framework step flow */}
           <div className="flex flex-wrap justify-center gap-2 md:gap-0 items-center">
             {frameworkSteps.map((step, i) => (
               <div key={step.label} className="flex items-center">
@@ -207,7 +214,64 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* SECTION 2: WHY IT MATTERS */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
+            Why It Matters
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Most reasoning fails not because people aren't capable of thinking critically, but because their thinking is unstructured. Without a clear process, you waste time chasing the wrong questions, get stuck in logical fallacies, and risk weak and unsupported conclusions. Houses of Thought fixes this by providing a visible, structured process that guides you from your initial question to a defensible answer — faster, smarter, and easy to track.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {outcomeCards.map((card, i) => (
+            <Card
+              key={card.title}
+              className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 animate-fade-in text-center"
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
+              <CardContent className="p-8 flex flex-col items-center gap-4">
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <card.icon className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-xl font-display font-semibold text-foreground">{card.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{card.outcome}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* WHO IS IT FOR (moved before Features) */}
+      <section className="bg-card border-y border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
+              Who Is It For?
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {audiences.map((a, i) => (
+              <div
+                key={a.title}
+                className="text-center space-y-4 animate-fade-in"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <a.icon className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="text-xl font-display font-semibold text-foreground">{a.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES (moved after Who Is It For) */}
       <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
@@ -237,33 +301,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHO IT IS FOR */}
-      <section className="bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              Who Is It For?
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {audiences.map((a, i) => (
-              <div
-                key={a.title}
-                className="text-center space-y-4 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <a.icon className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="text-xl font-display font-semibold text-foreground">{a.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center space-y-6">
@@ -283,7 +320,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
 
       <SiteFooter />
     </div>
