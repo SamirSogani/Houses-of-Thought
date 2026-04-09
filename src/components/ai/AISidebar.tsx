@@ -1194,14 +1194,10 @@ CRITICAL RULES:
 
           // Reload data after modifications
           if (changeLog.length > 0) onDraftComplete?.();
-          // Mark that we've completed at least 1 full eval+refine round
-          completedMinRounds = true;
         } catch (e) {
           const parseErrMsg = `Round ${iteration}: Failed to parse refinement response — skipping`;
           console.error("[Draft Refine]", parseErrMsg, e, refineReply?.substring(0, 500));
           if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
-          // Still counts as a completed round attempt
-          completedMinRounds = true;
         }
       }
 
@@ -1211,7 +1207,7 @@ CRITICAL RULES:
       // Update draft run as completed
       if (draftRunId) {
         await updateDraftRun(draftRunId, {
-          status: timedOut ? "completed_timeout" : "completed",
+          status: "completed",
           iterations: iteration,
           sub_questions_generated: allSubQuestions.length,
           final_logic_score: finalLogicScore,
@@ -1220,10 +1216,7 @@ CRITICAL RULES:
       }
 
       setView("chat");
-      const statusEmoji = timedOut ? "⏱️" : "✅";
-      const statusText = timedOut
-        ? `Draft completed (3-min limit reached, best-effort). Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nScores may not have met targets. You can manually refine or re-run.`
-        : `Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
+      const statusText = `Draft complete with ${iteration} evaluation/refinement round${iteration > 1 ? "s" : ""}! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
         { role: "assistant", content: `${statusEmoji} ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
