@@ -18,6 +18,7 @@ export interface DraftInfo {
   stakeholders: string;
   constraints: string;
   subQuestionCount: number; // 0 means "as many as needed"
+  refinementRounds: number; // how many eval+refine rounds to run
 }
 
 export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }: DraftInfoPageProps) {
@@ -26,7 +27,8 @@ export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }:
     background: "",
     stakeholders: "",
     constraints: "",
-    subQuestionCount: 6,
+    subQuestionCount: 0,
+    refinementRounds: 1,
   });
 
   const update = (field: keyof DraftInfo, value: string | number) =>
@@ -106,7 +108,26 @@ export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }:
               }}
               className="h-9 text-sm w-32"
             />
-            <span className="text-xs text-muted-foreground">0 = as many as needed</span>
+            <span className="text-xs text-muted-foreground">0 = AI decides (~50 for complex topics)</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="rounds" className="text-xs font-medium">Evaluation & Refinement Rounds</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="rounds"
+              type="number"
+              min={1}
+              max={10}
+              value={info.refinementRounds}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                update("refinementRounds", isNaN(val) ? 1 : Math.max(1, Math.min(10, val)));
+              }}
+              className="h-9 text-sm w-32"
+            />
+            <span className="text-xs text-muted-foreground">How many eval+refine cycles to run</span>
           </div>
         </div>
       </div>

@@ -241,7 +241,7 @@ CRITICAL RULES:
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
-Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as needed to thoroughly cover the topic from all relevant points of view" : `EXACTLY ${count} sub_questions`} (distributed across categories).
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions`} (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
@@ -616,10 +616,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       // Create draft run record
       draftRunId = await createDraftRun(draftInfo);
 
-      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
+      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed" (~50)
+      const targetCount = requestedCount === 0 ? 50 : requestedCount; // AI-decided target for "as many as needed"
       const batchSize = 5;
-      const firstBatchSize = requestedCount === 0 ? batchSize : Math.min(batchSize, requestedCount);
-      const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
+      const firstBatchSize = Math.min(batchSize, targetCount);
+      const maxRetryAttempts = 5; // More retries for larger generation
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
         let attempt = 0;
@@ -637,23 +638,27 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             : undefined;
           const isRateLimited = errorStatus === 429 || errorMessage.includes("429") || errorMessage.includes("rate limit");
           const isPaymentRequired = errorStatus === 402 || errorMessage.includes("402");
+          const isAllProvidersFailed = errorMessage.includes("503") || errorMessage.includes("All AI providers");
 
           if (isPaymentRequired) {
             throw new Error("AI credits exhausted. Please add credits in Settings → Workspace → Usage.");
           }
 
-          if (!isRateLimited) {
-            throw new Error(
-              typeof res.error === "object" && res.error !== null && "message" in res.error
-                ? String((res.error as { message?: string }).message || "AI request failed")
-                : "AI request failed"
-            );
+          if (isAllProvidersFailed || isRateLimited) {
+            // All providers failed or rate limited — wait and keep retrying indefinitely
+            attempt += 1;
+            const waitSecs = Math.min(120, 10 + attempt * 10);
+            const reason = isAllProvidersFailed ? "All providers busy" : "Rate limited";
+            toast.info(`${reason}. Retrying in ${waitSecs}s... (attempt ${attempt})`);
+            await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
+            continue;
           }
 
-          attempt += 1;
-          const waitSecs = Math.min(60, 10 + attempt * 5);
-          toast.info(`AI rate limited. Retrying in ${waitSecs}s...`);
-          await new Promise((resolve) => setTimeout(resolve, waitSecs * 1000));
+          throw new Error(
+            typeof res.error === "object" && res.error !== null && "message" in res.error
+              ? String((res.error as { message?: string }).message || "AI request failed")
+              : "AI request failed"
+          );
         }
       };
 
@@ -676,20 +681,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
       if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
 
-      // Keep generating until we hit the exact requested count (with retry limit)
-      // If requestedCount is 0 ("as many as needed"), only do one batch
-      while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
-        const remaining = requestedCount === 0 ? batchSize : requestedCount - allSubQuestions.length;
+      // Keep generating until we hit the target count (with retry limit)
+      while (allSubQuestions.length < targetCount && retryRound <= maxRetryAttempts) {
+        const remaining = targetCount - allSubQuestions.length;
         const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
-        const totalEstimated = requestedCount === 0 ? 1 : Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
 
         const batchMsg = requestedCount === 0
-          ? `Generating sub-questions (as many as needed)...`
+          ? `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} (~${targetCount} target)...`
           : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`;
         toast.info(batchMsg);
         if (draftRunId) appendDraftLog(draftRunId, batchMsg);
@@ -874,26 +877,15 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const SCORE_TARGET = 60; // standard resilience target
       const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
-      const DRAFT_TIMEOUT_MS = 3 * 60 * 1000; // 3-minute soft deadline — ensures at least 1 full eval+refine round
-      const draftStartTime = Date.now();
+      const maxRounds = draftInfo.refinementRounds || 1;
       let iteration = 0;
       let finalLogicScore = 0;
       let finalResilienceScore = 0;
       let effectiveLogicScore = 0;
-      let timedOut = false;
-      let completedMinRounds = false; // Track if we've done at least 1 eval+refine
 
-      while (true) {
-        // Only enforce timeout AFTER completing at least 1 full eval+refine round
-        if (completedMinRounds && Date.now() - draftStartTime >= DRAFT_TIMEOUT_MS) {
-          timedOut = true;
-          const timeoutMsg = `⏱️ Time limit reached after ${iteration} rounds. Returning results (Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100).`;
-          toast.info(timeoutMsg);
-          if (draftRunId) appendDraftLog(draftRunId, timeoutMsg);
-          break;
-        }
+      while (iteration < maxRounds) {
         iteration++;
-        toast.info(`🔍 Auto-evaluation round ${iteration}...`);
+        toast.info(`🔍 Auto-evaluation round ${iteration}/${maxRounds}...`);
 
         // Reload fresh data for evaluation
         const [freshAnalysis, freshSqs] = await Promise.all([
@@ -928,18 +920,21 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         });
 
         // Helper to invoke with client-side retry on 429
-        const invokeWithRetry = async (fnName: string, body: any, retries = 3): Promise<any> => {
-          for (let r = 0; r < retries; r++) {
+        const invokeWithRetry = async (fnName: string, body: any): Promise<any> => {
+          let attempt = 0;
+          while (true) {
             const res = await supabase.functions.invoke(fnName, { body });
-            if (res.error && typeof res.error === 'object' && 'message' in res.error && String(res.error.message).includes('429')) {
-              const wait = (r + 1) * 15;
-              toast.info(`⏳ Rate limited, waiting ${wait}s...`);
+            const errMsg = res.error ? JSON.stringify(res.error) : "";
+            const isRetryable = errMsg.includes("429") || errMsg.includes("503") || errMsg.includes("All AI providers");
+            if (res.error && isRetryable) {
+              attempt++;
+              const wait = Math.min(120, 10 + attempt * 10);
+              toast.info(`⏳ Provider busy, retrying in ${wait}s... (attempt ${attempt})`);
               await new Promise(resolve => setTimeout(resolve, wait * 1000));
               continue;
             }
             return res;
           }
-          return { data: null, error: 'Rate limit exhausted' };
         };
 
         // Run logic strength first, then stress test (sequential to avoid rate limits)
@@ -1202,14 +1197,10 @@ CRITICAL RULES:
 
           // Reload data after modifications
           if (changeLog.length > 0) onDraftComplete?.();
-          // Mark that we've completed at least 1 full eval+refine round
-          completedMinRounds = true;
         } catch (e) {
           const parseErrMsg = `Round ${iteration}: Failed to parse refinement response — skipping`;
           console.error("[Draft Refine]", parseErrMsg, e, refineReply?.substring(0, 500));
           if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
-          // Still counts as a completed round attempt
-          completedMinRounds = true;
         }
       }
 
@@ -1219,7 +1210,7 @@ CRITICAL RULES:
       // Update draft run as completed
       if (draftRunId) {
         await updateDraftRun(draftRunId, {
-          status: timedOut ? "completed_timeout" : "completed",
+          status: "completed",
           iterations: iteration,
           sub_questions_generated: allSubQuestions.length,
           final_logic_score: finalLogicScore,
@@ -1228,13 +1219,10 @@ CRITICAL RULES:
       }
 
       setView("chat");
-      const statusEmoji = timedOut ? "⏱️" : "✅";
-      const statusText = timedOut
-        ? `Draft completed (3-min limit reached, best-effort). Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100\n\nScores may not have met targets. You can manually refine or re-run.`
-        : `Draft complete with auto-refinement! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
+      const statusText = `Draft complete with ${iteration} evaluation/refinement round${iteration > 1 ? "s" : ""}! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
-        { role: "assistant", content: `${statusEmoji} ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
+        { role: "assistant", content: `✅ ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },
       ];
       setMessages((prev) => {
         const cleaned = prev.filter(m => !m.content.startsWith("⏳"));

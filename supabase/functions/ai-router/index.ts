@@ -36,10 +36,10 @@ interface ProviderState {
 }
 
 const providerStates: Record<string, ProviderState> = {
-  gemini: {
-    name: 'gemini',
-    baseScore: 80,
-    score: 80,
+  groq: {
+    name: 'groq',
+    baseScore: 85,
+    score: 85,
     requestCount: 0,
     errorCount: 0,
     successCount: 0,
@@ -48,10 +48,10 @@ const providerStates: Record<string, ProviderState> = {
     cooldownUntil: 0,
     consecutiveErrors: 0,
   },
-  groq: {
-    name: 'groq',
-    baseScore: 75,
-    score: 75,
+  gemini: {
+    name: 'gemini',
+    baseScore: 80,
+    score: 80,
     requestCount: 0,
     errorCount: 0,
     successCount: 0,
