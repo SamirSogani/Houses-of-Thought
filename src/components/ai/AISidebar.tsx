@@ -616,10 +616,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       // Create draft run record
       draftRunId = await createDraftRun(draftInfo);
 
-      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed"
+      const requestedCount = draftInfo.subQuestionCount; // 0 means "as many as needed" (~50)
+      const targetCount = requestedCount === 0 ? 50 : requestedCount; // AI-decided target for "as many as needed"
       const batchSize = 5;
-      const firstBatchSize = requestedCount === 0 ? batchSize : Math.min(batchSize, requestedCount);
-      const maxRetryAttempts = 3; // Max extra retry rounds if we're still short
+      const firstBatchSize = Math.min(batchSize, targetCount);
+      const maxRetryAttempts = 5; // More retries for larger generation
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
         let attempt = 0;
