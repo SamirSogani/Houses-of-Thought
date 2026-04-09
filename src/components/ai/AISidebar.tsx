@@ -920,18 +920,21 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         });
 
         // Helper to invoke with client-side retry on 429
-        const invokeWithRetry = async (fnName: string, body: any, retries = 3): Promise<any> => {
-          for (let r = 0; r < retries; r++) {
+        const invokeWithRetry = async (fnName: string, body: any): Promise<any> => {
+          let attempt = 0;
+          while (true) {
             const res = await supabase.functions.invoke(fnName, { body });
-            if (res.error && typeof res.error === 'object' && 'message' in res.error && String(res.error.message).includes('429')) {
-              const wait = (r + 1) * 15;
-              toast.info(`⏳ Rate limited, waiting ${wait}s...`);
+            const errMsg = res.error ? JSON.stringify(res.error) : "";
+            const isRetryable = errMsg.includes("429") || errMsg.includes("503") || errMsg.includes("All AI providers");
+            if (res.error && isRetryable) {
+              attempt++;
+              const wait = Math.min(120, 10 + attempt * 10);
+              toast.info(`⏳ Provider busy, retrying in ${wait}s... (attempt ${attempt})`);
               await new Promise(resolve => setTimeout(resolve, wait * 1000));
               continue;
             }
             return res;
           }
-          return { data: null, error: 'Rate limit exhausted' };
         };
 
         // Run logic strength first, then stress test (sequential to avoid rate limits)
