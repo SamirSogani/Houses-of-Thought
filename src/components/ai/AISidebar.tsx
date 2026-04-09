@@ -241,7 +241,7 @@ CRITICAL RULES:
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
-Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as needed to thoroughly cover the topic from all relevant points of view" : `EXACTLY ${count} sub_questions`} (distributed across categories).
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions`} (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
