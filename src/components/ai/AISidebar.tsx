@@ -681,20 +681,18 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
       if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
 
-      // Keep generating until we hit the exact requested count (with retry limit)
-      // If requestedCount is 0 ("as many as needed"), only do one batch
-      while ((requestedCount === 0 ? allSubQuestions.length === 0 : allSubQuestions.length < requestedCount) && retryRound <= maxRetryAttempts) {
-        const remaining = requestedCount === 0 ? batchSize : requestedCount - allSubQuestions.length;
+      // Keep generating until we hit the target count (with retry limit)
+      while (allSubQuestions.length < targetCount && retryRound <= maxRetryAttempts) {
+        const remaining = targetCount - allSubQuestions.length;
         const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
-        const totalEstimated = requestedCount === 0 ? 1 : Math.ceil(requestedCount / batchSize);
 
         if (batchCount <= 0) break;
 
         const batchMsg = requestedCount === 0
-          ? `Generating sub-questions (as many as needed)...`
+          ? `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} (~${targetCount} target)...`
           : `Generating sub-questions ${allSubQuestions.length + 1}-${allSubQuestions.length + batchCount} of ${requestedCount}...`;
         toast.info(batchMsg);
         if (draftRunId) appendDraftLog(draftRunId, batchMsg);
