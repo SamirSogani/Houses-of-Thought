@@ -271,7 +271,7 @@ async function routedAICall(
     }
   }
 
-  throw { status: 503, message: 'All AI providers failed. Please try again in a moment.' };
+  throw { status: 503, message: 'All AI providers failed. Please try again in a moment.', retryable: true };
 }
 
 // ─── Main Handler ───────────────────────────────────────
@@ -387,12 +387,23 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
 
     const status = err.status || 500;
     const message = err.message || 'Internal server error';
-    const code = status === 429 ? 'RATE_LIMITED' : status === 402 ? 'PAYMENT_REQUIRED' : undefined;
+    const code = status === 429 ? 'RATE_LIMITED' : status === 402 ? 'PAYMENT_REQUIRED' : status === 503 ? 'SERVICE_UNAVAILABLE' : undefined;
+    const retryable = err.retryable ?? (status === 429 || status === 503);
+
+    // For 503 (all providers down), return 200 with fallback signal so client can retry
+    if (status === 503) {
+      return new Response(JSON.stringify({
+        error: message,
+        code,
+        retryable: true,
+        fallback: true,
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     return new Response(JSON.stringify({
       error: message,
       code,
-      retryable: status === 429,
+      retryable,
     }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
