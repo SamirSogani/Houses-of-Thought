@@ -354,7 +354,7 @@ IMPORTANT: Always wrap action responses in \`\`\`json code fences.`,
 
     // Determine temperature and max tokens based on mode
     const temperature = mode === 'draft' ? 0.2 : 0.3;
-    const maxTokens = mode === 'draft' ? 16384 : 8192;
+    const maxTokens = mode === 'draft' ? 32768 : 8192;
 
     const { data, provider } = await routedAICall(finalMessages, mode || 'chat', temperature, maxTokens);
 

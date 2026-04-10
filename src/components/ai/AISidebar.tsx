@@ -243,11 +243,11 @@ CRITICAL RULES:
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
-Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions`} (distributed across categories).
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions — this number is MANDATORY and NON-NEGOTIABLE. You MUST generate exactly ${count} sub-questions, no fewer. Count them before responding. If you have fewer than ${count}, ADD MORE.`} (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
-RETURN ONLY THE JSON OBJECT.`;
+RETURN ONLY THE JSON OBJECT.${count > 0 ? ` REMINDER: EXACTLY ${count} sub-questions required. This is the user's explicit instruction.` : ''}`;
 }
 
 /** Convert AI-generated information (string or array) to FactEntry[] JSON string */
