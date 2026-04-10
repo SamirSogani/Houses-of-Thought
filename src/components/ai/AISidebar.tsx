@@ -620,7 +620,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const targetCount = requestedCount === 0 ? 50 : requestedCount; // AI-decided target for "as many as needed"
       const batchSize = 5;
       const firstBatchSize = Math.min(batchSize, targetCount);
-      const maxRetryAttempts = 5; // More retries for larger generation
+      const maxConsecutiveFailures = 10; // Only stop after 10 consecutive failures (no new questions)
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
         let attempt = 0;
@@ -663,7 +663,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       };
 
       let allSubQuestions: any[] = [];
-      let retryRound = 0;
+      let consecutiveFailures = 0;
 
       // Research: pre-search for topic and theoretical frameworks
       toast.info("🔍 Researching topic...");
@@ -681,10 +681,10 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
       if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
 
-      // Keep generating until we hit the target count (with retry limit)
-      while (allSubQuestions.length < targetCount && retryRound <= maxRetryAttempts) {
+      // Keep generating until we hit the target count (only stop after consecutive failures)
+      while (allSubQuestions.length < targetCount && consecutiveFailures < maxConsecutiveFailures) {
         const remaining = targetCount - allSubQuestions.length;
-        const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
+        const isFirstBatch = allSubQuestions.length === 0 && consecutiveFailures === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
@@ -729,7 +729,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           } catch {
             console.error("Failed to parse draft response:", reply.substring(0, 500));
             toast.error("AI returned invalid format, retrying...");
-            retryRound++;
+            consecutiveFailures++;
             continue;
           }
         }
@@ -862,9 +862,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
 
           allSubQuestions = [...allSubQuestions, ...uniqueNewSqs];
-        } else if (newSqs.length === 0) {
-          // No sub-questions returned at all — count as a retry
-          retryRound++;
+          consecutiveFailures = 0; // Reset on success
+          if (draftRunId) appendDraftLog(draftRunId, `Progress: ${allSubQuestions.length}/${targetCount} sub-questions generated`);
+        } else {
+          // No new unique sub-questions — count as consecutive failure
+          consecutiveFailures++;
+          if (draftRunId) appendDraftLog(draftRunId, `Batch returned ${newSqs.length} questions but ${newSqs.length - uniqueNewSqs.length} were duplicates. Consecutive failures: ${consecutiveFailures}/${maxConsecutiveFailures}`);
         }
       }
 
