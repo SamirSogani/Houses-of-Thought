@@ -173,7 +173,9 @@ CRITICAL RULES FOR ASSUMPTIONS:
 ${researchInstructions}
 ${assumptionInstructions}
 
-Generate exactly ${batchMode.batchCount} NEW sub-questions. Do NOT repeat any of these existing questions:
+MANDATORY: You MUST generate EXACTLY ${batchMode.batchCount} NEW sub-questions. NOT fewer, NOT more. If you generate fewer than ${batchMode.batchCount}, your response will be REJECTED and you will be called again. This is NON-NEGOTIABLE.
+
+Do NOT repeat any of these existing questions:
 ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
@@ -192,7 +194,7 @@ CRITICAL RULES:
 
 ${profileCtx}${extraCtx}
 
-RETURN ONLY THE JSON OBJECT. Generate exactly ${batchMode.batchCount} sub-questions.`;
+RETURN ONLY THE JSON OBJECT. You MUST generate EXACTLY ${batchMode.batchCount} sub-questions. Count them. If you have fewer than ${batchMode.batchCount}, ADD MORE until you reach exactly ${batchMode.batchCount}.`;
   }
 
   // First batch or small request: generate full house structure
@@ -241,11 +243,11 @@ CRITICAL RULES:
 4. Each pov_label must be UNIQUE. Never repeat labels across sub-questions.
 5. DO NOT include "consequences" or "implications" — these are NEVER AI-generated. Consequences are entered by the user.
 
-Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions`} (distributed across categories).
+Generate 3-5 concepts, 2-3 pov_labels PER CATEGORY (individual, group, ideas_disciplines), and ${count === 0 ? "as many sub_questions as possible (aim for approximately 50 if the topic is complex enough to warrant it — the AI should decide based on the complexity and breadth of the question, covering every relevant angle and perspective thoroughly)" : `EXACTLY ${count} sub_questions — this number is MANDATORY and NON-NEGOTIABLE. You MUST generate exactly ${count} sub-questions, no fewer. Count them before responding. If you have fewer than ${count}, ADD MORE.`} (distributed across categories).
 
 ${profileCtx}${extraCtx}
 
-RETURN ONLY THE JSON OBJECT.`;
+RETURN ONLY THE JSON OBJECT.${count > 0 ? ` REMINDER: EXACTLY ${count} sub-questions required. This is the user's explicit instruction.` : ''}`;
 }
 
 /** Convert AI-generated information (string or array) to FactEntry[] JSON string */
@@ -620,7 +622,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       const targetCount = requestedCount === 0 ? 50 : requestedCount; // AI-decided target for "as many as needed"
       const batchSize = 5;
       const firstBatchSize = Math.min(batchSize, targetCount);
-      const maxRetryAttempts = 5; // More retries for larger generation
+      const maxConsecutiveFailures = 10; // Only stop after 10 consecutive failures (no new questions)
 
       const invokeDraftAI = async (body: Record<string, unknown>) => {
         let attempt = 0;
@@ -663,7 +665,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       };
 
       let allSubQuestions: any[] = [];
-      let retryRound = 0;
+      let consecutiveFailures = 0;
 
       // Research: pre-search for topic and theoretical frameworks
       toast.info("🔍 Researching topic...");
@@ -681,10 +683,10 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
       if (draftRunId && researchContext) appendDraftLog(draftRunId, `Research complete. Found results for both topic and frameworks.`);
 
-      // Keep generating until we hit the target count (with retry limit)
-      while (allSubQuestions.length < targetCount && retryRound <= maxRetryAttempts) {
+      // Keep generating until we hit the target count (only stop after consecutive failures)
+      while (allSubQuestions.length < targetCount && consecutiveFailures < maxConsecutiveFailures) {
         const remaining = targetCount - allSubQuestions.length;
-        const isFirstBatch = allSubQuestions.length === 0 && retryRound === 0;
+        const isFirstBatch = allSubQuestions.length === 0 && consecutiveFailures === 0;
         const batchCount = isFirstBatch
           ? Math.min(firstBatchSize, remaining)
           : Math.min(batchSize, remaining);
@@ -729,7 +731,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           } catch {
             console.error("Failed to parse draft response:", reply.substring(0, 500));
             toast.error("AI returned invalid format, retrying...");
-            retryRound++;
+            consecutiveFailures++;
             continue;
           }
         }
@@ -862,9 +864,12 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
 
           allSubQuestions = [...allSubQuestions, ...uniqueNewSqs];
-        } else if (newSqs.length === 0) {
-          // No sub-questions returned at all — count as a retry
-          retryRound++;
+          consecutiveFailures = 0; // Reset on success
+          if (draftRunId) appendDraftLog(draftRunId, `Progress: ${allSubQuestions.length}/${targetCount} sub-questions generated`);
+        } else {
+          // No new unique sub-questions — count as consecutive failure
+          consecutiveFailures++;
+          if (draftRunId) appendDraftLog(draftRunId, `Batch returned ${newSqs.length} questions but ${newSqs.length - uniqueNewSqs.length} were duplicates. Consecutive failures: ${consecutiveFailures}/${maxConsecutiveFailures}`);
         }
       }
 
