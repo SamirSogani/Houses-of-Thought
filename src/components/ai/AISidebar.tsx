@@ -173,7 +173,9 @@ CRITICAL RULES FOR ASSUMPTIONS:
 ${researchInstructions}
 ${assumptionInstructions}
 
-Generate exactly ${batchMode.batchCount} NEW sub-questions. Do NOT repeat any of these existing questions:
+MANDATORY: You MUST generate EXACTLY ${batchMode.batchCount} NEW sub-questions. NOT fewer, NOT more. If you generate fewer than ${batchMode.batchCount}, your response will be REJECTED and you will be called again. This is NON-NEGOTIABLE.
+
+Do NOT repeat any of these existing questions:
 ${batchMode.previousQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
 Each sub-question must be PRECISE, DISTINCT, and NON-REDUNDANT. No two questions should address the same concern from the same angle.
@@ -192,7 +194,7 @@ CRITICAL RULES:
 
 ${profileCtx}${extraCtx}
 
-RETURN ONLY THE JSON OBJECT. Generate exactly ${batchMode.batchCount} sub-questions.`;
+RETURN ONLY THE JSON OBJECT. You MUST generate EXACTLY ${batchMode.batchCount} sub-questions. Count them. If you have fewer than ${batchMode.batchCount}, ADD MORE until you reach exactly ${batchMode.batchCount}.`;
   }
 
   // First batch or small request: generate full house structure
