@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
     }
 
     const { query, count } = await req.json();
-    if (!query || typeof query !== 'string' || query.trim().length === 0 || query.length > 500) {
-      return new Response(JSON.stringify({ error: 'Query is required and must be under 500 characters' }), { status: 400, headers: corsHeaders });
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return new Response(JSON.stringify({ error: 'Query is required' }), { status: 400, headers: corsHeaders });
     }
 
     // Brave API limits queries to 50 words max
