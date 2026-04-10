@@ -271,7 +271,7 @@ async function routedAICall(
     }
   }
 
-  throw { status: 503, message: 'All AI providers failed. Please try again in a moment.' };
+  throw { status: 503, message: 'All AI providers failed. Please try again in a moment.', retryable: true };
 }
 
 // ─── Main Handler ───────────────────────────────────────
