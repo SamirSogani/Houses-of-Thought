@@ -233,7 +233,7 @@ YOU MUST RETURN ONLY A SINGLE VALID JSON OBJECT. No markdown, no code fences, no
 
 CRITICAL RULES:
 1. DO NOT include "sub_conclusion" for any sub-question — sub-conclusions are NOT generated during drafting. The user will derive these later.
-2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 3 separate facts per sub-question.
+2. "information" MUST be an ARRAY of discrete fact objects, each with "text", "evidenceStrength", and "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Provide at least 5 separate facts per sub-question, each with at least 1 source. More facts and sources are better — aim for 5-10 facts when the topic warrants it.
 3. All 3 assumption categories must be fully populated for EVERY sub-question.
 4. NEVER make assumptions about the user personally (e.g., "The user prefers...", "The user believes...").
 5. "foundational_concepts" must be ASSUMPTIONS, NOT definitions of terms.
@@ -1058,8 +1058,8 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL RULES:
-- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and optionally "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 3 facts per sub-question.
-- Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions
+- "information" MUST be an ARRAY of discrete fact objects with "text", "evidenceStrength", and "sources" (array of {"title","url","mlaCitation"} in MLA 9 format). Each fact should be ONE specific claim. Provide at least 5 facts per sub-question, each with at least 1 source. More facts and sources are always better.
+- Make each fact DRAMATICALLY specific: include named studies, specific statistics, concrete examples, named institutions. Each fact MUST have at least one source citation.
 - Address EVERY vulnerability and weakness listed above
 - Add new sub-questions ONLY if the feedback identifies missing perspectives or gaps
 - Add new assumptions ONLY if assumption reliability is flagged as weak
