@@ -429,7 +429,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 16: ITERATIVE THINKING ── */}
-      <Section number="16" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
+      <Section number="15" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
         <Prose>
           <p>One of the most important principles in the Houses of Thought is that reasoning should be revisited and revised when new information appears. A conclusion reached today may need to be updated tomorrow.</p>
           <p>If the implications are negative, unexpected, or don't match reality, thinkers should:</p>
@@ -460,7 +460,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 17: HOW THE PLATFORM HELPS ── */}
-      <Section id="s17" number="17" title="How the Houses of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
+      <Section id="s17" number="16" title="How the Houses of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
           {[
             { icon: Lightbulb, title: "Draft Full House", desc: "AI generates a complete reasoning structure — purpose, sub-questions, assumptions, and information — in one step." },
