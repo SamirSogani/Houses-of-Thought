@@ -57,7 +57,7 @@ const HOUSE_LAYERS = [
   { id: "sub-questions", label: "Sub-Questions", element: "3.1", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-questions" },
   { id: "purpose-main", label: "Overarching Purpose", element: "2.2", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
   { id: "sub-purposes", label: "Sub-Purposes", element: "2.1", description: "Specific goals that support and refine the overarching purpose.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
-  { id: "concepts", label: "Concepts", element: "1", description: "Foundational concepts and mental models that shape how you interpret evidence and draw inferences.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-concepts" },
+  { id: "concepts", label: "Concepts", element: "1", description: "Key terms and definitions that establish shared understanding for your analysis.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-concepts" },
 ];
 
 /* ─── Component ─── */
@@ -158,28 +158,16 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 4: CONCEPTS ── */}
-      <Section id="s-concepts" number="3" title="Concepts" subtitle="The foundational ideas and mental models that shape your reasoning." alt>
+      {/* ── SECTION 3: CONCEPTS ── */}
+      <Section id="s-concepts" number="3" title="Concepts" subtitle="The key terms and definitions that establish shared understanding." alt>
         <Prose>
-          <p>Before defining your purpose or asking any questions, it's important to identify the <strong className="text-foreground">key concepts</strong> that will underpin your analysis. Concepts are the foundational terms, definitions, and mental models that shape how you interpret evidence and draw inferences.</p>
-          <p>The Houses of Thought distinguishes between two types of concepts:</p>
+          <p>Before defining your purpose or asking any questions, it's important to identify the <strong className="text-foreground">key concepts</strong> that will underpin your analysis. Concepts are the foundational terms and definitions that everyone involved must agree on to reason effectively.</p>
+          <p>Without clearly defined concepts, two people can use the same word to mean entirely different things — leading to confusion and flawed conclusions.</p>
         </Prose>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8 max-w-2xl mx-auto">
-          <div className="border border-border rounded-lg p-4 bg-card">
-            <Shapes className="h-5 w-5 text-primary mb-2" />
-            <h4 className="font-display font-semibold text-sm mb-1">Foundational Concepts</h4>
-            <p className="text-xs text-muted-foreground">Core definitions and background knowledge that everyone involved in the analysis must agree on. These are the building blocks of shared understanding.</p>
-          </div>
-          <div className="border border-border rounded-lg p-4 bg-card">
-            <Brain className="h-5 w-5 text-primary mb-2" />
-            <h4 className="font-display font-semibold text-sm mb-1">Concepts That Shape Inferences</h4>
-            <p className="text-xs text-muted-foreground">Mental models, frameworks, and theories that guide how you interpret evidence and connect facts to conclusions. These are often discipline-specific.</p>
-          </div>
-        </div>
         <ExampleBox title="Example">
           <p className="text-muted-foreground mb-2"><strong className="text-foreground">Topic:</strong> "Should salary caps exist in professional sports?"</p>
-          <p className="text-muted-foreground mb-1"><strong className="text-foreground">Foundational Concept:</strong> "Salary cap" — a league-imposed limit on the total amount a team can spend on player salaries.</p>
-          <p className="text-muted-foreground"><strong className="text-foreground">Inference-Shaping Concept:</strong> "Competitive balance" — the idea that restricting spending leads to more equal competition, drawn from economic theory.</p>
+          <p className="text-muted-foreground mb-1"><strong className="text-foreground">Key Definition:</strong> "Salary cap" — a league-imposed limit on the total amount a team can spend on player salaries.</p>
+          <p className="text-muted-foreground"><strong className="text-foreground">Key Definition:</strong> "Competitive balance" — a state where teams have roughly equal chances of winning, often measured by win distribution across a league.</p>
         </ExampleBox>
         <Prose>
           <p>Clearly defining your concepts early prevents misunderstandings and ensures that your reasoning is built on a solid intellectual foundation. If two people define "competitive balance" differently, they may reach entirely different conclusions from the same evidence.</p>
@@ -309,8 +297,8 @@ export default function FrameworkPage() {
         <ul className="list-none space-y-2 max-w-2xl mx-auto my-4">
           {[
             { label: "Unknown Unknowns", desc: "Things you don't know that you don't know — blind spots in your reasoning" },
-            { label: "Foundational Concepts", desc: "Core definitions and background knowledge you rely on" },
-            { label: "Concepts that Shape Inferences", desc: "Mental models and frameworks that guide how you interpret evidence" },
+            { label: "Foundational Assumptions", desc: "Underlying beliefs or premises taken for granted that shape your reasoning" },
+            { label: "Concepts that Shape Inferences", desc: "Specific pieces of evidence paired with the inference or logical leap drawn from them — these bridge observable facts to broader conclusions" },
           ].map((a) => (
             <li key={a.label} className="flex items-start gap-3 text-sm text-muted-foreground">
               <AlertTriangle className="h-4 w-4 text-assumption mt-0.5 shrink-0" />
