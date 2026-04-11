@@ -47,17 +47,17 @@ function ExampleBox({ title, children }: { title?: string; children: React.React
 
 /* ─── House diagram layers ─── */
 const HOUSE_LAYERS = [
-  { id: "implications", label: "Implications & Consequences", element: "8", description: "Predicted outcomes (implications) and actual real-world results (consequences) that follow from the conclusion.", color: "bg-roof/10 border-roof text-roof" },
-  { id: "conclusion", label: "Overarching Conclusion", element: "7.2", description: "The final, well-supported answer to the overarching question — synthesized from all sub-conclusions.", color: "bg-roof/10 border-roof text-roof" },
-  { id: "sub-conclusions", label: "Sub-Conclusions", element: "7.1", description: "Intermediate conclusions that directly answer each sub-question.", color: "bg-primary/10 border-primary text-primary" },
-  { id: "inference", label: "Inference / Logical Reasoning", element: "6.1", description: "The logical process of drawing conclusions from information and assumptions.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere" },
-  { id: "assumptions", label: "Assumptions", element: "5", description: "Beliefs, premises, and frameworks that shape how information is interpreted.", color: "bg-assumption/10 border-assumption text-assumption" },
-  { id: "information", label: "Information / Facts", element: "4", description: "Verified facts, data, and evidence that form the foundation of reasoning.", color: "bg-foundation/10 border-foundation text-foundation" },
-  { id: "sub-questions", label: "Sub-Questions (per POV)", element: "3.2", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary" },
-  { id: "pov", label: "Points of View", element: "3.1", description: "Multiple perspectives through which the question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere" },
-  { id: "question", label: "Overarching Question", element: "3", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary" },
-  { id: "concepts", label: "Concepts", element: "1.5", description: "Foundational concepts and mental models that shape how you interpret evidence and draw inferences.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere" },
-  { id: "purpose", label: "Purpose", element: "2", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation" },
+  { id: "implications", label: "Implications & Consequences", element: "8", description: "Predicted outcomes (implications) and actual real-world results (consequences) that follow from the conclusion.", color: "bg-roof/10 border-roof text-roof", link: "s-implications" },
+  { id: "conclusion", label: "Overarching Conclusion", element: "7.2", description: "The final, well-supported answer to the overarching question — synthesized from all sub-conclusions.", color: "bg-roof/10 border-roof text-roof", link: "s-conclusion" },
+  { id: "sub-conclusions", label: "Sub-Conclusions", element: "7.1", description: "Intermediate conclusions that directly answer each sub-question.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-conclusions" },
+  { id: "assumptions", label: "Assumptions", element: "6", description: "Beliefs, premises, and frameworks that shape how information is interpreted.", color: "bg-assumption/10 border-assumption text-assumption", link: "s-assumptions" },
+  { id: "information", label: "Information / Facts", element: "5", description: "Verified facts, data, and evidence that form the foundation of reasoning.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-information" },
+  { id: "pov", label: "Points of View", element: "4", description: "Multiple perspectives through which the question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-pov" },
+  { id: "question", label: "Overarching Question", element: "3.1", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary", link: "s-question" },
+  { id: "sub-questions", label: "Sub-Questions", element: "3.2", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-questions" },
+  { id: "purpose-main", label: "Overarching Purpose", element: "2.1", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
+  { id: "sub-purposes", label: "Sub-Purposes", element: "2.2", description: "Specific goals that support and refine the overarching purpose.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
+  { id: "concepts", label: "Concepts", element: "1", description: "Foundational concepts and mental models that shape how you interpret evidence and draw inferences.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-concepts" },
 ];
 
 /* ─── Component ─── */
