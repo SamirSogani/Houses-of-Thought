@@ -119,43 +119,12 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 2: THE HOUSE METAPHOR ── */}
-      <Section number="2" title="The House Metaphor" subtitle="A house stands on a foundation and builds upward. The Houses of Thought works the same way." alt>
+      {/* ── SECTION 2: FULL REASONING FLOW ── */}
+      <Section id="house-diagram" number="2" title="The Full Reasoning Flow" subtitle="The complete structure of the Houses of Thought, from purpose to consequences. Click any layer to learn more." alt>
         <Prose>
           <p>Just as an architect designs a building from the ground up, critical thinkers must build their reasoning from the bottom up:</p>
         </Prose>
-
-        <div className="max-w-xl mx-auto my-8 space-y-2">
-          {/* Roof peak */}
-          <div className="flex justify-center mb-1">
-            <div className="w-0 h-0 border-l-[140px] border-r-[140px] border-b-[40px] border-l-transparent border-r-transparent" style={{ borderBottomColor: "hsl(var(--roof-slate))" }} />
-          </div>
-          {[
-            { label: "Implications & Consequences", bg: "bg-roof/10 border-roof" },
-            { label: "Overarching Conclusion", bg: "bg-roof/10 border-roof" },
-            { label: "Sub-Conclusions", bg: "bg-primary/10 border-primary" },
-            { label: "Logical Inference", bg: "bg-atmosphere/10 border-atmosphere" },
-            { label: "Assumptions", bg: "bg-assumption/10 border-assumption" },
-            { label: "Information / Facts", bg: "bg-foundation/10 border-foundation" },
-          ].map((layer) => (
-            <div key={layer.label} className={`border-2 rounded px-4 py-2.5 text-center text-sm font-semibold ${layer.bg}`}>
-              {layer.label}
-            </div>
-          ))}
-          <div className="h-3 rounded-b-lg" style={{ background: "hsl(var(--foundation-stone) / 0.3)" }} />
-        </div>
-
-        <Prose>
-          <p><strong className="text-foreground">Foundation</strong> — Information, facts, and evidence form the base. Without verified data, nothing above it can be trusted.</p>
-          <p><strong className="text-foreground">Middle Layers</strong> — Assumptions and logical inferences connect facts to conclusions. These must be examined carefully.</p>
-          <p><strong className="text-foreground">Upper Levels</strong> — Sub-conclusions combine into a final overarching conclusion. Implications and consequences extend beyond the house.</p>
-          <p>Weak foundations produce weak conclusions. Strong foundations produce defensible, well-reasoned answers.</p>
-        </Prose>
-      </Section>
-
-      {/* ── SECTION 3: FULL REASONING FLOW ── */}
-      <Section id="house-diagram" number="3" title="The Full Reasoning Flow" subtitle="The complete structure of the Houses of Thought, from purpose to consequences. Hover over each layer to learn more.">
-        <div className="space-y-2.5 max-w-xl mx-auto">
+        <div className="space-y-2.5 max-w-xl mx-auto mt-8">
           {HOUSE_LAYERS.map((layer) => (
             <Tooltip key={layer.id}>
               <TooltipTrigger asChild>
@@ -163,12 +132,14 @@ export default function FrameworkPage() {
                   className={`relative border-2 rounded-md px-5 py-3.5 cursor-pointer transition-all duration-200 ${layer.color} ${activeLayer === layer.id ? "scale-[1.02] shadow-lg" : "hover:scale-[1.01] hover:shadow-md"}`}
                   onMouseEnter={() => setActiveLayer(layer.id)}
                   onMouseLeave={() => setActiveLayer(null)}
+                  onClick={() => document.getElementById(layer.link)?.scrollIntoView({ behavior: "smooth" })}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs font-mono opacity-60 mr-2">{layer.element}</span>
                       <span className="font-semibold text-sm">{layer.label}</span>
                     </div>
+                    <ChevronRight className="h-4 w-4 opacity-40" />
                   </div>
                   {activeLayer === layer.id && (
                     <p className="text-xs mt-2 opacity-80 leading-relaxed animate-fade-in">{layer.description}</p>
