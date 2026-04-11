@@ -159,7 +159,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 4: CONCEPTS ── */}
-      <Section number="4" title="Concepts" subtitle="The foundational ideas and mental models that shape your reasoning." alt>
+      <Section id="s-concepts" number="3" title="Concepts" subtitle="The foundational ideas and mental models that shape your reasoning." alt>
         <Prose>
           <p>Before defining your purpose or asking any questions, it's important to identify the <strong className="text-foreground">key concepts</strong> that will underpin your analysis. Concepts are the foundational terms, definitions, and mental models that shape how you interpret evidence and draw inferences.</p>
           <p>The Houses of Thought distinguishes between two types of concepts:</p>
@@ -187,7 +187,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 5: PURPOSE ── */}
-      <Section number="5" title="Purpose" subtitle="Every reasoning project begins with a clear purpose.">
+      <Section id="s-purpose" number="4" title="Purpose" subtitle="Every reasoning project begins with a clear purpose.">
         <Prose>
           <p>Before asking any questions, you must understand <em>why</em> you are reasoning in the first place. Purpose answers the question: <strong className="text-foreground">"Why are we analyzing this?"</strong></p>
           <p>A clear purpose keeps your reasoning focused and prevents you from drifting into unrelated areas. Without purpose, analysis becomes aimless.</p>
@@ -206,7 +206,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 6: OVERARCHING QUESTION ── */}
-      <Section number="6" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
+      <Section id="s-question" number="5" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
         <Prose>
           <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the Houses of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
           <p>A good overarching question is specific enough to be answerable but broad enough to require structured analysis.</p>
@@ -223,7 +223,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 7: POINTS OF VIEW ── */}
-      <Section number="7" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives.">
+      <Section id="s-pov" number="6" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives.">
         <Prose>
           <p>One of the most common reasoning failures is seeing an issue from only one perspective. The Houses of Thought addresses this by requiring analysis from multiple points of view. The framework uses three categories of POVs:</p>
         </Prose>
@@ -249,7 +249,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 8: SUB-QUESTIONS ── */}
-      <Section number="8" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces." alt>
+      <Section id="s-sub-questions" number="7" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces." alt>
         <Prose>
           <p>No complex question can be answered in a single step. Sub-questions break the overarching question into focused, answerable parts. Each sub-question is examined from a specific point of view, ensuring comprehensive coverage of the issue.</p>
           <p>In complex situations, there can be hundreds or even thousands of sub-questions. The more thorough your sub-questions, the stronger your final conclusion will be.</p>
@@ -270,7 +270,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 9: INFORMATION / FACTS ── */}
-      <Section number="9" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information.">
+      <Section id="s-information" number="8" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information.">
         <Prose>
           <p>Information is the bedrock of the Houses of Thought. Without solid facts, everything built on top — assumptions, inferences, conclusions — is unstable. Information should be:</p>
         </Prose>
@@ -294,7 +294,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 10: ASSUMPTIONS ── */}
-      <Section number="10" title="Assumptions" subtitle="The beliefs that connect facts to conclusions." alt>
+      <Section id="s-assumptions" number="9" title="Assumptions" subtitle="The beliefs that connect facts to conclusions." alt>
         <Prose>
           <p>Assumptions are beliefs, premises, or frameworks that help us interpret information and draw conclusions. They are the bridge between "what we know" and "what we conclude." Every argument relies on assumptions — the question is whether those assumptions are justified.</p>
         </Prose>
@@ -321,7 +321,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 11: UNKNOWN UNKNOWNS ── */}
-      <Section number="11" title="Unknown Unknowns" subtitle="The factors you couldn't predict.">
+      <Section number="10" title="Unknown Unknowns" subtitle="The factors you couldn't predict.">
         <Prose>
           <p>Sometimes, factors appear that could not have been anticipated. These are called "unknown unknowns" — things you didn't know that you didn't know. They can fundamentally change the landscape of an issue.</p>
         </Prose>
@@ -339,7 +339,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 12: LOGICAL INFERENCE ── */}
-      <Section number="12" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
+      <Section number="11" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
         <Prose>
           <p>Inference is the reasoning engine of the Houses of Thought. It is the process of drawing conclusions from available information and assumptions. Think of it as the logical leap from "what I know" to "what I conclude."</p>
         </Prose>
@@ -365,7 +365,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 13: SUB-CONCLUSIONS ── */}
-      <Section number="13" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer.">
+      <Section id="s-sub-conclusions" number="12" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer.">
         <Prose>
           <p>Complex reasoning rarely produces a single conclusion in one step. Instead, each sub-question produces its own sub-conclusion — an intermediate answer based on the information, assumptions, and reasoning specific to that question.</p>
         </Prose>
@@ -379,7 +379,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 14: OVERARCHING CONCLUSION ── */}
-      <Section number="14" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
+      <Section id="s-conclusion" number="13" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
         <Prose>
           <p>The overarching conclusion is the roof of the Houses of Thought. It is the single, synthesized answer to your overarching question, built from all of your sub-conclusions.</p>
           <p>A strong overarching conclusion should be supported by:</p>
@@ -403,7 +403,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 15: IMPLICATIONS VS CONSEQUENCES ── */}
-      <Section number="15" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes.">
+      <Section id="s-implications" number="14" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-8">
           <div className="border-2 border-atmosphere rounded-lg p-5 bg-atmosphere/5">
             <h4 className="font-display font-bold text-foreground mb-2">Implications</h4>
