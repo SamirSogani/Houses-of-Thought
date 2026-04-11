@@ -307,7 +307,7 @@ Return ONLY valid JSON:
       { role: "user", content: userPrompt },
     ];
 
-    const maxTokens = (mode === "stress_test") ? 8192 : (mode === "analyze") ? 4096 : 4096;
+    const maxTokens = (mode === "stress_test") ? 16384 : (mode === "analyze") ? 8192 : 8192;
     const { data, provider } = await routedCall(messages, 0.3, maxTokens);
 
     const content = data?.choices?.[0]?.message?.content || "";
