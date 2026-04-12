@@ -53,7 +53,7 @@ const HOUSE_LAYERS = [
   { id: "assumptions", label: "Assumptions", element: "6", description: "Beliefs, premises, and frameworks that shape how information is interpreted.", color: "bg-assumption/10 border-assumption text-assumption", link: "s-assumptions" },
   { id: "information", label: "Information / Facts", element: "5", description: "Verified facts, data, and evidence that form the foundation of reasoning.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-information" },
   { id: "pov", label: "Points of View", element: "4", description: "Multiple perspectives through which the question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-pov" },
-  { id: "question", label: "Overarching Question", element: "3.2", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary", link: "s-question" },
+  { id: "question", label: "Sub-Questions", element: "3.2", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary", link: "s-question" },
   { id: "sub-questions", label: "Sub-Questions", element: "3.1", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-questions" },
   { id: "purpose-main", label: "Overarching Purpose", element: "2.2", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
   { id: "sub-purposes", label: "Sub-Purposes", element: "2.1", description: "Specific goals that support and refine the overarching purpose.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
@@ -194,7 +194,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 6: OVERARCHING QUESTION ── */}
-      <Section id="s-question" number="5" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
+      <Section id="s-question" number="5" title="Sub-Questions" subtitle="Reasoning begins with a clear, central question." alt>
         <Prose>
           <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the Houses of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
           <p>A good overarching question is specific enough to be answerable but broad enough to require structured analysis.</p>
