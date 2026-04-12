@@ -12,7 +12,7 @@ import {
   ArrowDown, ArrowLeft, ChevronRight, BookOpen, Lightbulb, Target, Eye,
   HelpCircle, Layers, Brain, CheckCircle2, AlertTriangle,
   ArrowRight, RefreshCw, HelpingHand, Zap, BarChart3, Shield,
-  Users, GraduationCap, Beaker, Scale, Shapes,
+  Users, GraduationCap, Beaker, Scale, Shapes, User,
 } from "lucide-react";
 
 /* ─── Section wrapper ─── */
@@ -52,11 +52,12 @@ const HOUSE_LAYERS = [
   { id: "sub-conclusions", label: "Sub-Conclusions", element: "7.1", description: "Intermediate conclusions that directly answer each sub-question.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-conclusions" },
   { id: "assumptions", label: "Assumptions", element: "6", description: "Beliefs, premises, and frameworks that shape how information is interpreted.", color: "bg-assumption/10 border-assumption text-assumption", link: "s-assumptions" },
   { id: "information", label: "Information / Facts", element: "5", description: "Verified facts, data, and evidence that form the foundation of reasoning.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-information" },
-  { id: "pov", label: "Points of View", element: "4", description: "Multiple perspectives through which the question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-pov" },
-  { id: "question", label: "Overarching Question", element: "3.2", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary", link: "s-question" },
-  { id: "sub-questions", label: "Sub-Questions", element: "3.1", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-questions" },
-  { id: "purpose-main", label: "Overarching Purpose", element: "2.2", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
-  { id: "sub-purposes", label: "Sub-Purposes", element: "2.1", description: "Specific goals that support and refine the overarching purpose.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
+  { id: "personal-pov", label: "Personal Foundational Point of View", element: "4.2", description: "Your own biological, social, familial, and individual perspectives that shape how you see the world.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-personal-pov" },
+  { id: "pov", label: "Points of View of Sub-Questions", element: "4.1", description: "Multiple perspectives through which each sub-question is examined.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-pov" },
+  { id: "sub-questions", label: "Sub-Questions", element: "3.2", description: "Focused questions derived from specific points of view.", color: "bg-primary/10 border-primary text-primary", link: "s-sub-questions" },
+  { id: "question", label: "Overarching Question", element: "3.1", description: "The central question your analysis seeks to answer.", color: "bg-primary/10 border-primary text-primary", link: "s-question" },
+  { id: "sub-purposes", label: "Sub-Purposes", element: "2.2", description: "Specific goals that support and refine the overarching purpose.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
+  { id: "purpose-main", label: "Overarching Purpose", element: "2.1", description: "The goal or objective that frames and directs the entire inquiry.", color: "bg-foundation/10 border-foundation text-foundation", link: "s-purpose" },
   { id: "concepts", label: "Concepts", element: "1", description: "Key terms and definitions that establish shared understanding for your analysis.", color: "bg-atmosphere/10 border-atmosphere text-atmosphere", link: "s-concepts" },
 ];
 
@@ -174,7 +175,7 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 5: PURPOSE ── */}
+      {/* ── SECTION 4: PURPOSE ── */}
       <Section id="s-purpose" number="4" title="Purpose" subtitle="Every reasoning project begins with a clear purpose.">
         <Prose>
           <p>Before asking any questions, you must understand <em>why</em> you are reasoning in the first place. Purpose answers the question: <strong className="text-foreground">"Why are we analyzing this?"</strong></p>
@@ -193,7 +194,7 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 6: OVERARCHING QUESTION ── */}
+      {/* ── SECTION 5: OVERARCHING QUESTION ── */}
       <Section id="s-question" number="5" title="Overarching Question" subtitle="Reasoning begins with a clear, central question." alt>
         <Prose>
           <p>The overarching question is the single most important element of your analysis. It defines what you are trying to answer. Everything in the Houses of Thought — every sub-question, every piece of evidence, every conclusion — must connect back to this question.</p>
@@ -210,34 +211,8 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
-      {/* ── SECTION 7: POINTS OF VIEW ── */}
-      <Section id="s-pov" number="6" title="Points of View (POVs)" subtitle="Good reasoning requires examining multiple perspectives.">
-        <Prose>
-          <p>One of the most common reasoning failures is seeing an issue from only one perspective. The Houses of Thought addresses this by requiring analysis from multiple points of view. The framework uses three categories of POVs:</p>
-        </Prose>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8 max-w-2xl mx-auto">
-          {[
-            { icon: Users, title: "Personal / Foundational", desc: "Your own biological, social, familial, and individual perspectives. These are the lenses you naturally see the world through.", examples: "Risk-tolerant vs. risk-averse thinkers, optimists vs. pessimists" },
-            { icon: GraduationCap, title: "Group POVs", desc: "Perspectives from communities, organizations, demographics, or societal groups.", examples: "Students, teachers, governments, businesses, patients, athletes" },
-            { icon: Beaker, title: "Ideas / Disciplines", desc: "Academic disciplines, theoretical frameworks, or schools of thought.", examples: "Science, economics, ethics, technology, psychology, law" },
-          ].map((pov) => (
-            <div key={pov.title} className="border border-border rounded-lg p-4 bg-card">
-              <pov.icon className="h-5 w-5 text-primary mb-2" />
-              <h4 className="font-display font-semibold text-sm mb-1">{pov.title}</h4>
-              <p className="text-xs text-muted-foreground mb-2">{pov.desc}</p>
-              <p className="text-xs text-muted-foreground/70 italic">e.g. {pov.examples}</p>
-            </div>
-          ))}
-        </div>
-
-        <Prose>
-          <p>Each point of view produces different questions, highlights different evidence, and may lead to different conclusions. By systematically examining multiple POVs, you build a more complete and balanced understanding of the issue.</p>
-        </Prose>
-      </Section>
-
-      {/* ── SECTION 8: SUB-QUESTIONS ── */}
-      <Section id="s-sub-questions" number="7" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces." alt>
+      {/* ── SECTION 6: SUB-QUESTIONS ── */}
+      <Section id="s-sub-questions" number="6" title="Sub-Questions" subtitle="Large questions must be broken into smaller, manageable pieces.">
         <Prose>
           <p>No complex question can be answered in a single step. Sub-questions break the overarching question into focused, answerable parts. Each sub-question is examined from a specific point of view, ensuring comprehensive coverage of the issue.</p>
           <p>In complex situations, there can be hundreds or even thousands of sub-questions. The more thorough your sub-questions, the stronger your final conclusion will be.</p>
@@ -257,8 +232,61 @@ export default function FrameworkPage() {
         </Prose>
       </Section>
 
+      {/* ── SECTION 7: POINTS OF VIEW OF SUB-QUESTIONS ── */}
+      <Section id="s-pov" number="7" title="Points of View of Sub-Questions" subtitle="Good reasoning requires examining each sub-question from multiple perspectives." alt>
+        <Prose>
+          <p>One of the most common reasoning failures is seeing an issue from only one perspective. The Houses of Thought addresses this by requiring analysis from multiple points of view. Each sub-question should be examined through different lenses:</p>
+        </Prose>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8 max-w-2xl mx-auto">
+          {[
+            { icon: User, title: "Individual", desc: "Any individual's point of view — a specific person's perspective shaped by their unique experiences, beliefs, and circumstances.", examples: "A player, a fan, a team owner, a coach, a taxpayer" },
+            { icon: GraduationCap, title: "Group POVs", desc: "Perspectives from communities, organizations, demographics, or societal groups.", examples: "Students, teachers, governments, businesses, patients, athletes" },
+            { icon: Beaker, title: "Ideas / Disciplines", desc: "Academic disciplines, theoretical frameworks, or schools of thought.", examples: "Science, economics, ethics, technology, psychology, law" },
+          ].map((pov) => (
+            <div key={pov.title} className="border border-border rounded-lg p-4 bg-card">
+              <pov.icon className="h-5 w-5 text-primary mb-2" />
+              <h4 className="font-display font-semibold text-sm mb-1">{pov.title}</h4>
+              <p className="text-xs text-muted-foreground mb-2">{pov.desc}</p>
+              <p className="text-xs text-muted-foreground/70 italic">e.g. {pov.examples}</p>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <p>Each point of view produces different questions, highlights different evidence, and may lead to different conclusions. By systematically examining multiple POVs for each sub-question, you build a more complete and balanced understanding of the issue.</p>
+        </Prose>
+      </Section>
+
+      {/* ── SECTION 8: PERSONAL FOUNDATIONAL POINT OF VIEW ── */}
+      <Section id="s-personal-pov" number="8" title="Personal Foundational Point of View" subtitle="Understanding the lenses through which you naturally see the world.">
+        <Prose>
+          <p>Before examining any issue, it's critical to understand <strong className="text-foreground">your own foundational perspective</strong> — the deeply ingrained lenses through which you naturally interpret the world. These personal perspectives shape how you ask questions, what evidence you notice, and how you interpret information, often without you even realizing it.</p>
+          <p>Your personal foundational point of view is made up of several dimensions:</p>
+        </Prose>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-8 max-w-2xl mx-auto">
+          {[
+            { title: "Biological", desc: "Your physical characteristics, health, age, and neurological makeup that influence how you experience and process the world." },
+            { title: "Social", desc: "Your social identity, cultural background, socioeconomic status, education, and the communities you belong to." },
+            { title: "Familial", desc: "Your family structure, upbringing, values passed down through generations, and the norms you were raised with." },
+            { title: "Individual", desc: "Your unique personality traits, personal experiences, beliefs, values, and the specific life path that makes you who you are." },
+          ].map((dim) => (
+            <div key={dim.title} className="border border-border rounded-lg p-4 bg-card">
+              <h4 className="font-display font-semibold text-sm mb-1">{dim.title}</h4>
+              <p className="text-xs text-muted-foreground">{dim.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <p>Recognizing your personal foundational point of view doesn't mean eliminating bias — that's impossible. Instead, it means becoming <strong className="text-foreground">aware of your biases</strong> so you can account for them in your reasoning. A person raised in a competitive sports culture may have very different instincts about salary caps than someone who values economic equality above all else.</p>
+          <p>By explicitly identifying your foundational perspective, you can better understand why you're drawn to certain conclusions and actively seek out perspectives that challenge your default assumptions.</p>
+        </Prose>
+      </Section>
+
       {/* ── SECTION 9: INFORMATION / FACTS ── */}
-      <Section id="s-information" number="8" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information.">
+      <Section id="s-information" number="9" title="Information / Facts (The Foundation)" subtitle="The foundation of all reasoning is verified, reliable information." alt>
         <Prose>
           <p>Information is the bedrock of the Houses of Thought. Without solid facts, everything built on top — assumptions, inferences, conclusions — is unstable. Information should be:</p>
         </Prose>
@@ -282,7 +310,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 10: ASSUMPTIONS ── */}
-      <Section id="s-assumptions" number="9" title="Assumptions" subtitle="The beliefs that connect facts to conclusions." alt>
+      <Section id="s-assumptions" number="10" title="Assumptions" subtitle="The beliefs that connect facts to conclusions.">
         <Prose>
           <p>Assumptions are beliefs, premises, or frameworks that help us interpret information and draw conclusions. They are the bridge between "what we know" and "what we conclude." Every argument relies on assumptions — the question is whether those assumptions are justified.</p>
         </Prose>
@@ -309,7 +337,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 11: UNKNOWN UNKNOWNS ── */}
-      <Section number="10" title="Unknown Unknowns" subtitle="The factors you couldn't predict.">
+      <Section number="11" title="Unknown Unknowns" subtitle="The factors you couldn't predict." alt>
         <Prose>
           <p>Sometimes, factors appear that could not have been anticipated. These are called "unknown unknowns" — things you didn't know that you didn't know. They can fundamentally change the landscape of an issue.</p>
         </Prose>
@@ -327,7 +355,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 12: LOGICAL INFERENCE ── */}
-      <Section number="11" title="Logical Inference" subtitle="The logical step between information and conclusions." alt>
+      <Section number="12" title="Logical Inference" subtitle="The logical step between information and conclusions.">
         <Prose>
           <p>Inference is the reasoning engine of the Houses of Thought. It is the process of drawing conclusions from available information and assumptions. Think of it as the logical leap from "what I know" to "what I conclude."</p>
         </Prose>
@@ -353,7 +381,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 13: SUB-CONCLUSIONS ── */}
-      <Section id="s-sub-conclusions" number="12" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer.">
+      <Section id="s-sub-conclusions" number="13" title="Sub-Conclusions" subtitle="Intermediate conclusions that build toward the final answer." alt>
         <Prose>
           <p>Complex reasoning rarely produces a single conclusion in one step. Instead, each sub-question produces its own sub-conclusion — an intermediate answer based on the information, assumptions, and reasoning specific to that question.</p>
         </Prose>
@@ -367,7 +395,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 14: OVERARCHING CONCLUSION ── */}
-      <Section id="s-conclusion" number="13" title="Overarching Conclusion" subtitle="The final answer to the original question." alt>
+      <Section id="s-conclusion" number="14" title="Overarching Conclusion" subtitle="The final answer to the original question.">
         <Prose>
           <p>The overarching conclusion is the roof of the Houses of Thought. It is the single, synthesized answer to your overarching question, built from all of your sub-conclusions.</p>
           <p>A strong overarching conclusion should be supported by:</p>
@@ -391,7 +419,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 15: IMPLICATIONS VS CONSEQUENCES ── */}
-      <Section id="s-implications" number="14" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes.">
+      <Section id="s-implications" number="15" title="Implications vs. Consequences" subtitle="Understanding the difference between predicted and actual outcomes." alt>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-8">
           <div className="border-2 border-atmosphere rounded-lg p-5 bg-atmosphere/5">
             <h4 className="font-display font-bold text-foreground mb-2">Implications</h4>
@@ -417,7 +445,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 16: ITERATIVE THINKING ── */}
-      <Section number="15" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event." alt>
+      <Section number="16" title="Iterative Thinking" subtitle="Reasoning is a process, not a one-time event.">
         <Prose>
           <p>One of the most important principles in the Houses of Thought is that reasoning should be revisited and revised when new information appears. A conclusion reached today may need to be updated tomorrow.</p>
           <p>If the implications are negative, unexpected, or don't match reality, thinkers should:</p>
@@ -448,7 +476,7 @@ export default function FrameworkPage() {
       </Section>
 
       {/* ── SECTION 17: HOW THE PLATFORM HELPS ── */}
-      <Section id="s17" number="16" title="How the Houses of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
+      <Section id="s17" number="17" title="How the Houses of Thought Platform Helps" subtitle="The platform brings this framework to life with powerful tools." alt>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-8">
           {[
             { icon: Lightbulb, title: "Draft Full House", desc: "AI generates a complete reasoning structure — purpose, sub-questions, assumptions, and information — in one step." },
