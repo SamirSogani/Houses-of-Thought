@@ -874,19 +874,19 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
+      const maxRounds = draftInfo.refinementRounds ?? 1;
+      let iteration = 0;
+      let finalLogicScore = 0;
+      let finalResilienceScore = 0;
+      let effectiveLogicScore = 0;
+
+      if (maxRounds > 0) {
       toast.info("Draft complete. Running auto-evaluation...");
       if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
       if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
       onDraftComplete?.(); // reload data first
 
-      const SCORE_TARGET = 60; // standard resilience target
-      const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
-      const maxRounds = draftInfo.refinementRounds || 1;
-      let iteration = 0;
-      let finalLogicScore = 0;
-      let finalResilienceScore = 0;
-      let effectiveLogicScore = 0;
 
       while (iteration < maxRounds) {
         iteration++;
@@ -942,15 +942,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
         };
 
-        // Run logic strength first, then stress test (sequential to avoid rate limits)
+        // Run logic strength evaluation only (no stress test)
         const logicRes = await invokeWithRetry("analyze-logic", { mode: "analyze", analysisContext: evalCtx });
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 3s gap
-        const stressRes = await invokeWithRetry("analyze-logic", { mode: "stress_test", analysisContext: evalCtx });
 
         const logicData = logicRes.data;
-        const stressData = stressRes.data;
         finalLogicScore = logicData?.score || 0;
-        finalResilienceScore = stressData?.resilience_score || 0;
 
         // Extract individual logic category scores (each out of 25)
         const cats = logicData?.categories || {};
@@ -965,13 +961,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         effectiveLogicScore = finalLogicScore;
 
-        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`;
+        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25`;
         toast.info(roundMsg);
         if (draftRunId) appendDraftLog(draftRunId, roundMsg);
 
-        // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
-        if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
-          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`;
+        // Done when all 3 logic categories >= 23
+        if (logicPassed) {
+          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}`;
           toast.success(successMsg);
           if (draftRunId) appendDraftLog(draftRunId, successMsg);
           break;
@@ -979,7 +975,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         // Build comprehensive refinement feedback
         let refineFeedback = `SCORES ARE BELOW TARGET. YOU MUST FIX ALL ISSUES.\n\n`;
-        refineFeedback += `Current: Evidence=${evidenceScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Assumptions=${assumptionScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Consistency=${consistencyScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Resilience=${finalResilienceScore}/100 (need ${SCORE_TARGET}).\n\n`;
+        refineFeedback += `Current: Evidence=${evidenceScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Assumptions=${assumptionScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Consistency=${consistencyScore}/25 (need ${LOGIC_CATEGORY_TARGET}).\n\n`;
         
         if (!logicPassed && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
@@ -992,26 +988,19 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
           refineFeedback += `\nSummary: ${logicData.reasoning_summary || ""}\n\n`;
         }
-        if (finalResilienceScore < SCORE_TARGET && stressData?.vulnerabilities) {
-          refineFeedback += "=== STRESS TEST VULNERABILITIES ===\n";
-          refineFeedback += `Resilience: ${finalResilienceScore}/100\nAssessment: ${stressData.overall_assessment || ""}\n\n`;
-          stressData.vulnerabilities.forEach((v: any) => {
-            refineFeedback += `[${v.severity}] Target: ${v.target}\n  Counter: ${v.counter_argument}\n  Fix: ${v.suggestion}\n\n`;
-          });
-        }
 
         toast.info(`🔧 Refining draft (round ${iteration})...`);
         if (draftRunId) appendDraftLog(draftRunId, `Refining draft (round ${iteration})...`);
 
         // Research weaknesses before refining
-        const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
+        const weakTopics = logicData?.suggestions?.slice(0, 3)?.join(", ") || goalInput;
         const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
         await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
-        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
+        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength evaluation.
 
-The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+) and Resilience=${finalResilienceScore}/100 (needs ${SCORE_TARGET}+). Completeness is discounted.
+The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+). Completeness is discounted.
 
 ${refineFeedback}
 
@@ -1084,7 +1073,7 @@ CRITICAL RULES:
         const refineRes = await invokeDraftAI({
           messages: [
             { role: "system", content: refinePrompt },
-            { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}, Resilience>=${SCORE_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}, Resilience=${finalResilienceScore}` },
+            { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}` },
           ],
           mode: "draft",
         });
@@ -1208,6 +1197,7 @@ CRITICAL RULES:
           if (draftRunId) appendDraftLog(draftRunId, parseErrMsg);
         }
       }
+      } // end if (maxRounds > 0)
 
       // Final reload
       onDraftComplete?.();
@@ -1224,7 +1214,9 @@ CRITICAL RULES:
       }
 
       setView("chat");
-      const statusText = `Draft complete with ${iteration} evaluation/refinement round${iteration > 1 ? "s" : ""}! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final scores — Logic: ${finalLogicScore}/100, Resilience: ${finalResilienceScore}/100`;
+      const statusText = maxRounds > 0
+        ? `Draft complete with ${iteration} evaluation/refinement round${iteration !== 1 ? "s" : ""}! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.\n\n📊 Final Logic score: ${finalLogicScore}/100`
+        : `Draft complete! Generated ${allSubQuestions.length} sub-questions${requestedCount > 0 ? `/${requestedCount}` : ""}.`;
       const draftMsg: Message[] = [
         { role: "user", content: `Draft Full House for: "${goalInput}"` },
         { role: "assistant", content: `✅ ${statusText}\n\nReview the yellow-highlighted elements and Accept or Decline.\n\nNote: Sub-conclusions are left empty for you to derive. Consequences are never AI-generated.` },

@@ -118,12 +118,12 @@ export default function DraftInfoPage({ onBack, onDraft, loading, defaultGoal }:
             <Input
               id="rounds"
               type="number"
-              min={1}
+              min={0}
               max={10}
               value={info.refinementRounds}
               onChange={(e) => {
                 const val = parseInt(e.target.value);
-                update("refinementRounds", isNaN(val) ? 1 : Math.max(1, Math.min(10, val)));
+                update("refinementRounds", isNaN(val) ? 1 : Math.max(0, Math.min(10, val)));
               }}
               className="h-9 text-sm w-32"
             />
