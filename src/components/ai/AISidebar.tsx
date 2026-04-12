@@ -942,15 +942,11 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
           }
         };
 
-        // Run logic strength first, then stress test (sequential to avoid rate limits)
+        // Run logic strength evaluation only (no stress test)
         const logicRes = await invokeWithRetry("analyze-logic", { mode: "analyze", analysisContext: evalCtx });
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 3s gap
-        const stressRes = await invokeWithRetry("analyze-logic", { mode: "stress_test", analysisContext: evalCtx });
 
         const logicData = logicRes.data;
-        const stressData = stressRes.data;
         finalLogicScore = logicData?.score || 0;
-        finalResilienceScore = stressData?.resilience_score || 0;
 
         // Extract individual logic category scores (each out of 25)
         const cats = logicData?.categories || {};
@@ -965,13 +961,13 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         effectiveLogicScore = finalLogicScore;
 
-        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25, Resilience ${finalResilienceScore}/100`;
+        const roundMsg = `Round ${iteration}: Evidence ${evidenceScore}/25, Assumptions ${assumptionScore}/25, Consistency ${consistencyScore}/25`;
         toast.info(roundMsg);
         if (draftRunId) appendDraftLog(draftRunId, roundMsg);
 
-        // Done when all 3 logic categories >= 23 AND resilience >= 60 (standard)
-        if (logicPassed && finalResilienceScore >= SCORE_TARGET) {
-          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}, Resilience: ${finalResilienceScore}`;
+        // Done when all 3 logic categories >= 23
+        if (logicPassed) {
+          const successMsg = `✅ Target reached! Evidence: ${evidenceScore}, Assumptions: ${assumptionScore}, Consistency: ${consistencyScore}`;
           toast.success(successMsg);
           if (draftRunId) appendDraftLog(draftRunId, successMsg);
           break;
@@ -979,7 +975,7 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
 
         // Build comprehensive refinement feedback
         let refineFeedback = `SCORES ARE BELOW TARGET. YOU MUST FIX ALL ISSUES.\n\n`;
-        refineFeedback += `Current: Evidence=${evidenceScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Assumptions=${assumptionScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Consistency=${consistencyScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Resilience=${finalResilienceScore}/100 (need ${SCORE_TARGET}).\n\n`;
+        refineFeedback += `Current: Evidence=${evidenceScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Assumptions=${assumptionScore}/25 (need ${LOGIC_CATEGORY_TARGET}), Consistency=${consistencyScore}/25 (need ${LOGIC_CATEGORY_TARGET}).\n\n`;
         
         if (!logicPassed && logicData?.categories) {
           refineFeedback += "=== LOGIC STRENGTH ISSUES ===\n";
@@ -991,13 +987,6 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
             refineFeedback += "\nSuggestions:\n" + logicData.suggestions.map((s: string) => `- ${s}`).join("\n") + "\n";
           }
           refineFeedback += `\nSummary: ${logicData.reasoning_summary || ""}\n\n`;
-        }
-        if (finalResilienceScore < SCORE_TARGET && stressData?.vulnerabilities) {
-          refineFeedback += "=== STRESS TEST VULNERABILITIES ===\n";
-          refineFeedback += `Resilience: ${finalResilienceScore}/100\nAssessment: ${stressData.overall_assessment || ""}\n\n`;
-          stressData.vulnerabilities.forEach((v: any) => {
-            refineFeedback += `[${v.severity}] Target: ${v.target}\n  Counter: ${v.counter_argument}\n  Fix: ${v.suggestion}\n\n`;
-          });
         }
 
         toast.info(`🔧 Refining draft (round ${iteration})...`);
