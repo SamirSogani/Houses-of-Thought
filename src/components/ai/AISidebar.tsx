@@ -993,14 +993,14 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
         if (draftRunId) appendDraftLog(draftRunId, `Refining draft (round ${iteration})...`);
 
         // Research weaknesses before refining
-        const weakTopics = stressData?.vulnerabilities?.slice(0, 3)?.map((v: any) => v.target).join(", ") || goalInput;
+        const weakTopics = logicData?.suggestions?.slice(0, 3)?.join(", ") || goalInput;
         const refineSearchResults = await braveSearch(`${weakTopics} evidence research`, 5);
         await new Promise(resolve => setTimeout(resolve, 3000)); // Rate limit buffer
 
         // Comprehensive refinement prompt
-        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength Meter and Stress Test.
+        let refinePrompt = `You are a critical thinking refinement assistant. Your ONLY job is to fix weaknesses identified by the Logic Strength evaluation.
 
-The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+) and Resilience=${finalResilienceScore}/100 (needs ${SCORE_TARGET}+). Completeness is discounted.
+The current analysis scored Evidence=${evidenceScore}/25, Assumptions=${assumptionScore}/25, Consistency=${consistencyScore}/25 (each needs ${LOGIC_CATEGORY_TARGET}+). Completeness is discounted.
 
 ${refineFeedback}
 
@@ -1073,7 +1073,7 @@ CRITICAL RULES:
         const refineRes = await invokeDraftAI({
           messages: [
             { role: "system", content: refinePrompt },
-            { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}, Resilience>=${SCORE_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}, Resilience=${finalResilienceScore}` },
+            { role: "user", content: `Fix all issues. Need: Evidence>=${LOGIC_CATEGORY_TARGET}, Assumptions>=${LOGIC_CATEGORY_TARGET}, Consistency>=${LOGIC_CATEGORY_TARGET}. Current: Evidence=${evidenceScore}, Assumptions=${assumptionScore}, Consistency=${consistencyScore}` },
           ],
           mode: "draft",
         });
