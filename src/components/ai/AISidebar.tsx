@@ -874,19 +874,19 @@ export default function AISidebar({ open, onOpenChange, analysis, subQuestions, 
       }
 
       // ─── Auto-Test & Auto-Refine Loop ───────────────────
+      const maxRounds = draftInfo.refinementRounds ?? 1;
+      let iteration = 0;
+      let finalLogicScore = 0;
+      let finalResilienceScore = 0;
+      let effectiveLogicScore = 0;
+
+      if (maxRounds > 0) {
       toast.info("Draft complete. Running auto-evaluation...");
       if (draftRunId) appendDraftLog(draftRunId, `Draft generation done. ${allSubQuestions.length} sub-questions. Starting evaluation...`);
       if (draftRunId) updateDraftRun(draftRunId, { sub_questions_generated: allSubQuestions.length });
       onDraftComplete?.(); // reload data first
 
-      const SCORE_TARGET = 60; // standard resilience target
-      const ATTACK_SCORE_TARGET = 25; // AI attack mode resilience target
       const LOGIC_CATEGORY_TARGET = 23; // each logic category (out of 25) except completeness
-      const maxRounds = draftInfo.refinementRounds || 1;
-      let iteration = 0;
-      let finalLogicScore = 0;
-      let finalResilienceScore = 0;
-      let effectiveLogicScore = 0;
 
       while (iteration < maxRounds) {
         iteration++;
