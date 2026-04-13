@@ -42,7 +42,7 @@ const features = [
   {
     icon: Search,
     title: "Research Mode",
-    description: "Verify evidence and sources to strengthen your reasoning with credible information.",
+    description: "Find and verify up-to-date sources to support and strengthen your reasoning with credible information.",
   },
   {
     icon: Bot,
