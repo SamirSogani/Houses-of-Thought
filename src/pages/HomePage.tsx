@@ -37,7 +37,7 @@ const features = [
   {
     icon: LayoutDashboard,
     title: "Draft Full House",
-    description: "Auto-generate a full reasoning structure from your question and background context.",
+    description: "Generate a structured first draft of a house based on your question and context, so you can move faster and focus more time on refining and improving your reasoning.",
   },
   {
     icon: Search,
