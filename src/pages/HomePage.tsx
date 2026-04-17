@@ -109,6 +109,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteNavbar />
 
+      <main>
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]" style={{
@@ -320,6 +321,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <SiteFooter />
     </div>
