@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Public can read assumptions for public analyses" ON public.assumptions;
