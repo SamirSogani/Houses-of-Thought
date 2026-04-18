@@ -307,6 +307,15 @@ export default function InteractiveHouseBuilder({
   const [filter, setFilter] = useState<"all" | StagingType>("all");
   const [addOpen, setAddOpen] = useState(false);
 
+  /* Assumption mode — applies to assumptions dragged from staging */
+  type AssumptionMode = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
+  const [assumptionMode, setAssumptionMode] = useState<AssumptionMode>("foundational_concepts");
+  const ASSUMPTION_MODES: Array<{ key: AssumptionMode; el: string; label: string; desc: string }> = [
+    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
+    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
+    { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know." },
+  ];
+
   const visibleStaging = useMemo(
     () => (filter === "all" ? staging : staging.filter((s) => s.type === filter)),
     [staging, filter],
