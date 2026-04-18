@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { ChevronRight, GripVertical, Plus, X, ChevronDown } from "lucide-react";
+import { ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -307,6 +307,15 @@ export default function InteractiveHouseBuilder({
   const [filter, setFilter] = useState<"all" | StagingType>("all");
   const [addOpen, setAddOpen] = useState(false);
 
+  /* Assumption mode — applies to assumptions dragged from staging */
+  type AssumptionMode = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
+  const [assumptionMode, setAssumptionMode] = useState<AssumptionMode>("foundational_concepts");
+  const ASSUMPTION_MODES: Array<{ key: AssumptionMode; el: string; label: string; desc: string }> = [
+    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
+    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
+    { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know." },
+  ];
+
   const visibleStaging = useMemo(
     () => (filter === "all" ? staging : staging.filter((s) => s.type === filter)),
     [staging, filter],
@@ -410,10 +419,10 @@ export default function InteractiveHouseBuilder({
         } else if (item.type === "assumption") {
           await supabase.from("assumptions").insert({
             sub_question_id: sqId,
-            assumption_type: "foundational_concepts",
+            assumption_type: assumptionMode,
             content: item.content,
           });
-          toast.success("Added as Assumption");
+          toast.success(`Added as Assumption (${assumptionMode.replace(/_/g, " ")})`);
         } else if (item.type === "sub-conclusion") {
           await supabase
             .from("sub_questions")
@@ -430,7 +439,7 @@ export default function InteractiveHouseBuilder({
         toast.error(err?.message || "Could not save dropped item");
       }
     },
-    [staging, appendFactToSubQuestion],
+    [staging, appendFactToSubQuestion, assumptionMode],
   );
 
   /* Drop onto an analysis-level zone (concepts / implications / consequences / conclusion / purpose) */
@@ -481,9 +490,6 @@ export default function InteractiveHouseBuilder({
     if (sq.pov_category === "ideas_disciplines") return "Ideas";
     return sq.pov_category.charAt(0).toUpperCase() + sq.pov_category.slice(1);
   };
-
-  /* Inline assumptions toggle */
-  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
   /* ─── Render ─── */
 
@@ -575,6 +581,39 @@ export default function InteractiveHouseBuilder({
               </Button>
             </div>
           </div>
+
+          {/* Assumption-mode list — shown when the Assumption filter chip is active */}
+          {filter === "assumption" && (
+            <div className="mb-3 rounded-md border border-border bg-card p-2 animate-fade-in">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-1 pb-1">
+                Assumption type — applied when dropped onto a sub-question
+              </p>
+              <ul className="space-y-1">
+                {ASSUMPTION_MODES.map((a) => {
+                  const active = assumptionMode === a.key;
+                  return (
+                    <li key={a.key}>
+                      <button
+                        type="button"
+                        onClick={() => setAssumptionMode(a.key)}
+                        className={`w-full text-left rounded-md border px-2.5 py-1.5 transition-colors ${
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-background hover:border-primary/40"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold text-foreground">
+                          <span className="font-mono text-muted-foreground mr-2">{a.el}</span>
+                          {a.label}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{a.desc}</p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {addOpen && (
             <AddPanel onAdd={addStagingItem} onCancel={() => setAddOpen(false)} />
@@ -755,51 +794,7 @@ export default function InteractiveHouseBuilder({
         </CardContent>
       </Card>
 
-      {/* Assumptions box — click to toggle the 3 categories inline */}
-      <Card className="house-zone house-zone-assumption">
-        <CardContent className="py-4">
-          <button
-            type="button"
-            onClick={() => setAssumptionsOpen((v) => !v)}
-            className="w-full flex items-center justify-between text-left"
-          >
-            <div>
-              <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 5 — ASSUMPTIONS</p>
-              <h4 className="text-sm font-display font-semibold">Examine the assumptions underlying your reasoning</h4>
-            </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${assumptionsOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          {assumptionsOpen && (
-            <ul className="mt-3 space-y-2 animate-fade-in">
-              {[
-                { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
-                { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
-                { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know about the topic." },
-              ].map((a) => (
-                <li
-                  key={a.key}
-                  className="rounded-md border border-border bg-card px-3 py-2 hover:border-primary/40 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-foreground">
-                      <span className="font-mono text-muted-foreground mr-2">{a.el}</span>
-                      {a.label}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{a.desc}</p>
-                </li>
-              ))}
-              <li className="text-[11px] text-muted-foreground italic px-1 pt-1">
-                Open a sub-question to add specific assumptions for it.
-              </li>
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
+      {/* (Standalone Assumptions card removed — assumption modes now live in the staging boxes) */}
       {/* Foundation */}
       <Card className="house-zone house-zone-foundation">
         <CardContent className="py-4">
