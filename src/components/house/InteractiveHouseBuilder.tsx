@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { ChevronRight, GripVertical, Plus, X } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { ChevronRight, GripVertical, Plus, X, ChevronDown } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Analysis = Tables<"analyses">;
@@ -323,12 +324,149 @@ export default function InteractiveHouseBuilder({
     setStaging((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
-  const handleDropOnSubQuestion = useCallback((sqId: string, itemId: string) => {
-    // Visual-only assignment for now: remove from staging
-    setStaging((prev) => prev.filter((s) => s.id !== itemId));
-    // Future: persist to the appropriate table for that sub-question.
-    void sqId;
+  /* ─── Auto-scroll the window during drag ─── */
+  const scrollRaf = useRef<number | null>(null);
+  const scrollVel = useRef(0);
+
+  useEffect(() => {
+    const EDGE = 80;
+    const MAX_SPEED = 22;
+
+    const tick = () => {
+      if (scrollVel.current !== 0) {
+        window.scrollBy(0, scrollVel.current);
+        scrollRaf.current = requestAnimationFrame(tick);
+      } else {
+        scrollRaf.current = null;
+      }
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      const y = e.clientY;
+      const h = window.innerHeight;
+      let v = 0;
+      if (y < EDGE) {
+        v = -Math.ceil(((EDGE - y) / EDGE) * MAX_SPEED);
+      } else if (y > h - EDGE) {
+        v = Math.ceil(((y - (h - EDGE)) / EDGE) * MAX_SPEED);
+      }
+      scrollVel.current = v;
+      if (v !== 0 && scrollRaf.current === null) {
+        scrollRaf.current = requestAnimationFrame(tick);
+      }
+    };
+
+    const stop = () => {
+      scrollVel.current = 0;
+      if (scrollRaf.current !== null) {
+        cancelAnimationFrame(scrollRaf.current);
+        scrollRaf.current = null;
+      }
+    };
+
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragend", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragend", stop);
+      window.removeEventListener("drop", stop);
+      stop();
+    };
   }, []);
+
+  /* ─── Persist a dropped staging item to the right place ─── */
+
+  // Append a fact entry to a sub-question's information field
+  const appendFactToSubQuestion = useCallback(
+    async (sqId: string, content: string) => {
+      const sq = subQuestions.find((s) => s.id === sqId);
+      if (!sq) return;
+      let arr: any[] = [];
+      try {
+        const parsed = JSON.parse(sq.information || "[]");
+        if (Array.isArray(parsed)) arr = parsed;
+      } catch {
+        if (sq.information) arr = [{ fact: sq.information, evidenceStrength: "medium", sources: [] }];
+      }
+      arr.push({ fact: content, evidenceStrength: "medium", sources: [] });
+      const serialized = JSON.stringify(arr);
+      await supabase
+        .from("sub_questions")
+        .update({ information: serialized, updated_at: new Date().toISOString() })
+        .eq("id", sqId);
+    },
+    [subQuestions],
+  );
+
+  const handleDropOnSubQuestion = useCallback(
+    async (sqId: string, itemId: string) => {
+      const item = staging.find((s) => s.id === itemId);
+      if (!item) return;
+      try {
+        if (item.type === "information") {
+          await appendFactToSubQuestion(sqId, item.content);
+          toast.success("Added as Information");
+        } else if (item.type === "assumption") {
+          await supabase.from("assumptions").insert({
+            sub_question_id: sqId,
+            assumption_type: "foundational_concepts",
+            content: item.content,
+          });
+          toast.success("Added as Assumption");
+        } else if (item.type === "sub-conclusion") {
+          await supabase
+            .from("sub_questions")
+            .update({ sub_conclusion: item.content, updated_at: new Date().toISOString() })
+            .eq("id", sqId);
+          toast.success("Added as Sub-conclusion");
+        } else {
+          // Default: append to information so nothing is lost
+          await appendFactToSubQuestion(sqId, item.content);
+          toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
+        }
+        setStaging((prev) => prev.filter((s) => s.id !== itemId));
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save dropped item");
+      }
+    },
+    [staging, appendFactToSubQuestion],
+  );
+
+  /* Drop onto an analysis-level zone (concepts / implications / consequences / conclusion / purpose) */
+  const handleDropOnAnalysisZone = useCallback(
+    async (
+      zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+      itemId: string,
+    ) => {
+      const item = staging.find((s) => s.id === itemId);
+      if (!item) return;
+      try {
+        if (zone === "concepts") {
+          await supabase.from("concepts").insert({
+            analysis_id: analysisId,
+            term: item.type === "concept" ? item.content.slice(0, 60) : "Untitled",
+            definition: item.content,
+          });
+          toast.success("Added to Concepts");
+        } else {
+          // Append to a text field on analyses
+          const current = (analysis as any)[zone] || "";
+          const next = current ? `${current}\n• ${item.content}` : `• ${item.content}`;
+          await supabase
+            .from("analyses")
+            .update({ [zone]: next, updated_at: new Date().toISOString() })
+            .eq("id", analysisId);
+          onUpdateField?.(zone as keyof Analysis, next);
+          toast.success(`Added to ${zone.replace("_", " ")}`);
+        }
+        setStaging((prev) => prev.filter((s) => s.id !== itemId));
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save dropped item");
+      }
+    },
+    [staging, analysis, analysisId, onUpdateField],
+  );
 
   /* POV groups for the standard house body */
   const povGroups = subQuestions.reduce<Record<string, SubQuestion[]>>((acc, sq) => {
@@ -343,6 +481,9 @@ export default function InteractiveHouseBuilder({
     if (sq.pov_category === "ideas_disciplines") return "Ideas";
     return sq.pov_category.charAt(0).toUpperCase() + sq.pov_category.slice(1);
   };
+
+  /* Inline assumptions toggle */
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
   /* ─── Render ─── */
 
@@ -470,11 +611,17 @@ export default function InteractiveHouseBuilder({
       <Card
         className="house-zone house-zone-atmosphere cursor-pointer"
         onClick={() => onNavigate(`/analysis/${analysisId}/concepts`)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData("text/plain");
+          if (id) handleDropOnAnalysisZone("concepts", id);
+        }}
       >
         <CardContent className="py-4 text-center">
           <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 1 — THE ATMOSPHERE</p>
           <h3 className="text-lg font-display font-bold">Concepts, Theories & Definitions</h3>
-          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas →</p>
+          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas → · drop concepts here</p>
         </CardContent>
       </Card>
 
@@ -483,6 +630,12 @@ export default function InteractiveHouseBuilder({
         <Card
           className="house-zone house-zone-roof cursor-pointer"
           onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) handleDropOnAnalysisZone("consequences", id);
+          }}
         >
           <CardContent className="py-4 text-center">
             <p className="text-xs font-mono text-muted-foreground mb-1">8b</p>
@@ -514,6 +667,12 @@ export default function InteractiveHouseBuilder({
         <Card
           className="house-zone house-zone-roof cursor-pointer"
           onClick={() => onNavigate(`/analysis/${analysisId}/implications?view=builder`)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) handleDropOnAnalysisZone("implications", id);
+          }}
         >
           <CardContent className="py-4 text-center">
             <p className="text-xs font-mono text-muted-foreground mb-1">8a</p>
@@ -592,6 +751,51 @@ export default function InteractiveHouseBuilder({
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Assumptions box — click to toggle the 3 categories inline */}
+      <Card className="house-zone house-zone-assumption">
+        <CardContent className="py-4">
+          <button
+            type="button"
+            onClick={() => setAssumptionsOpen((v) => !v)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div>
+              <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 5 — ASSUMPTIONS</p>
+              <h4 className="text-sm font-display font-semibold">Examine the assumptions underlying your reasoning</h4>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${assumptionsOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {assumptionsOpen && (
+            <ul className="mt-3 space-y-2 animate-fade-in">
+              {[
+                { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
+                { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
+                { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know about the topic." },
+              ].map((a) => (
+                <li
+                  key={a.key}
+                  className="rounded-md border border-border bg-card px-3 py-2 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">
+                      <span className="font-mono text-muted-foreground mr-2">{a.el}</span>
+                      {a.label}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{a.desc}</p>
+                </li>
+              ))}
+              <li className="text-[11px] text-muted-foreground italic px-1 pt-1">
+                Open a sub-question to add specific assumptions for it.
+              </li>
+            </ul>
           )}
         </CardContent>
       </Card>
