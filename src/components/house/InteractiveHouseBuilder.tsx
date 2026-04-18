@@ -419,10 +419,10 @@ export default function InteractiveHouseBuilder({
         } else if (item.type === "assumption") {
           await supabase.from("assumptions").insert({
             sub_question_id: sqId,
-            assumption_type: "foundational_concepts",
+            assumption_type: assumptionMode,
             content: item.content,
           });
-          toast.success("Added as Assumption");
+          toast.success(`Added as Assumption (${assumptionMode.replace(/_/g, " ")})`);
         } else if (item.type === "sub-conclusion") {
           await supabase
             .from("sub_questions")
