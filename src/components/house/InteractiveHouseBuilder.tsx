@@ -630,6 +630,12 @@ export default function InteractiveHouseBuilder({
         <Card
           className="house-zone house-zone-roof cursor-pointer"
           onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) handleDropOnAnalysisZone("consequences", id);
+          }}
         >
           <CardContent className="py-4 text-center">
             <p className="text-xs font-mono text-muted-foreground mb-1">8b</p>
