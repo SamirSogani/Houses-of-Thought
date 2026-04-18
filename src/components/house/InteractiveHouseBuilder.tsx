@@ -611,11 +611,17 @@ export default function InteractiveHouseBuilder({
       <Card
         className="house-zone house-zone-atmosphere cursor-pointer"
         onClick={() => onNavigate(`/analysis/${analysisId}/concepts`)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData("text/plain");
+          if (id) handleDropOnAnalysisZone("concepts", id);
+        }}
       >
         <CardContent className="py-4 text-center">
           <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 1 — THE ATMOSPHERE</p>
           <h3 className="text-lg font-display font-bold">Concepts, Theories & Definitions</h3>
-          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas →</p>
+          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas → · drop concepts here</p>
         </CardContent>
       </Card>
 
