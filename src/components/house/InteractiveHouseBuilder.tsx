@@ -1,5 +1,9 @@
-import { useState, useMemo, useCallback } from "react";
-import { AlertTriangle, ArrowDown, GripVertical, Pencil } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { ChevronRight, GripVertical, Plus, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Analysis = Tables<"analyses">;
@@ -10,446 +14,604 @@ interface Props {
   subQuestions: SubQuestion[];
   profile: Tables<"profiles"> | null;
   onNavigate: (path: string) => void;
+  onUpdateField?: (field: keyof Analysis, value: string) => void;
 }
+
+/* ─── Staging item types ─── */
+
+type StagingType =
+  | "sub-question"
+  | "information"
+  | "assumption"
+  | "sub-conclusion"
+  | "implication"
+  | "consequence"
+  | "concept";
+
+interface StagingItem {
+  id: string;
+  type: StagingType;
+  content: string;
+}
+
+const STAGING_TYPES: StagingType[] = [
+  "sub-question",
+  "information",
+  "assumption",
+  "sub-conclusion",
+  "implication",
+  "consequence",
+  "concept",
+];
+
+const TYPE_LABEL: Record<StagingType, string> = {
+  "sub-question": "Sub-question",
+  information: "Information",
+  assumption: "Assumption",
+  "sub-conclusion": "Sub-conclusion",
+  implication: "Implication",
+  consequence: "Consequence",
+  concept: "Concept",
+};
+
+const TYPE_BADGE: Record<StagingType, string> = {
+  "sub-question": "bg-[hsl(245_85%_94%)] text-[hsl(245_55%_38%)] border-[hsl(245_60%_82%)]",
+  information: "bg-[hsl(165_55%_90%)] text-[hsl(165_55%_28%)] border-[hsl(165_45%_75%)]",
+  assumption: "bg-[hsl(15_85%_92%)] text-[hsl(15_70%_35%)] border-[hsl(15_70%_80%)]",
+  "sub-conclusion": "bg-[hsl(40_90%_88%)] text-[hsl(35_75%_30%)] border-[hsl(40_80%_75%)]",
+  implication: "bg-[hsl(205_75%_90%)] text-[hsl(210_60%_32%)] border-[hsl(205_60%_78%)]",
+  consequence: "bg-[hsl(220_10%_90%)] text-[hsl(220_15%_30%)] border-[hsl(220_10%_75%)]",
+  concept: "bg-[hsl(330_70%_92%)] text-[hsl(330_55%_35%)] border-[hsl(330_55%_80%)]",
+};
 
 /* ─── Helpers ─── */
 
-interface Block {
-  id: string;
-  label: string;
-  layer: string;
-  onClick?: () => void;
-  color: string;
-}
-
-function parseJsonArray(raw: string): string[] {
-  if (!raw) return [];
+function countInfo(raw: string): { items: number; sources: number } {
+  if (!raw) return { items: 0, sources: 0 };
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
-    if (typeof parsed === "object") {
-      if (Array.isArray(parsed.consequences)) return parsed.consequences;
+    if (Array.isArray(parsed)) {
+      let sources = 0;
+      const items = parsed.length;
+      parsed.forEach((p: any) => {
+        if (Array.isArray(p?.sources)) sources += p.sources.length;
+      });
+      return { items, sources };
     }
-    return raw ? [raw] : [];
   } catch {
-    return raw ? [raw] : [];
+    /* ignore */
   }
+  return { items: raw ? 1 : 0, sources: 0 };
 }
 
-function parseImplications(raw: string): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed === "object") {
-      const list = parsed.implications_list || [];
-      const ai = parsed.ai_implications || parsed.implications || "";
-      const items = [...list];
-      if (ai) items.push("(AI) " + ai.substring(0, 80) + "...");
-      return items;
-    }
-    return [];
-  } catch {
-    return [];
-  }
+function getPovBadgeClass(category: string) {
+  if (category === "individual") return "bg-pov-individual-bg text-foreground border-pov-individual";
+  if (category === "group") return "bg-pov-group-bg text-foreground border-pov-group";
+  return "bg-pov-ideas-bg text-foreground border-pov-ideas";
 }
 
-/* ─── Layer Component ─── */
+/* ─── Sub-Question Row Card ─── */
 
-function HouseLayer({
-  label,
-  element,
-  blocks,
-  colorClass,
+function SubQuestionRowCard({
+  sq,
+  povLabel,
+  assumptionCount,
   onClick,
-  isWeak,
-  weakLabel,
+  onDrop,
 }: {
-  label: string;
-  element: string;
-  blocks: Block[];
-  colorClass: string;
-  onClick?: () => void;
-  isWeak?: boolean;
-  weakLabel?: string;
+  sq: SubQuestion;
+  povLabel: string;
+  assumptionCount: number;
+  onClick: () => void;
+  onDrop: (itemId: string) => void;
+}) {
+  const info = countInfo(sq.information || "");
+  const hasSubConc = !!sq.sub_conclusion;
+  const isEmpty =
+    info.items === 0 && info.sources === 0 && assumptionCount === 0 && !hasSubConc;
+  const meta = isEmpty
+    ? "empty"
+    : `${assumptionCount} assumption${assumptionCount === 1 ? "" : "s"} · ${info.sources} source${info.sources === 1 ? "" : "s"} · ${hasSubConc ? "sub-conc. added" : "no sub-conc. yet"}`;
+
+  const [over, setOver] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const id = e.dataTransfer.getData("text/plain");
+        if (id) onDrop(id);
+      }}
+      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-colors p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${over ? "ring-2 ring-[hsl(245_60%_70%)]" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${getPovBadgeClass(sq.pov_category)}`}
+        >
+          {povLabel}
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 text-[hsl(245_55%_55%)] opacity-70 group-hover:opacity-100" />
+      </div>
+      <p className="text-xs text-foreground leading-snug line-clamp-3 min-h-[2.5rem]">
+        {sq.question || "Untitled sub-question"}
+      </p>
+      <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{meta}</p>
+    </button>
+  );
+}
+
+/* ─── Staging Item Card ─── */
+
+function StagingCard({
+  item,
+  onRemove,
+}: {
+  item: StagingItem;
+  onRemove: () => void;
 }) {
   return (
-    <div className="relative group">
-      {/* Connection arrow from above */}
-      <div className="flex justify-center -mt-1 mb-1">
-        <ArrowDown className="h-3.5 w-3.5 text-blueprint opacity-40" />
-      </div>
-
-      <div
-        className={`relative border-2 rounded-sm p-3 transition-all duration-200 hover:shadow-md cursor-pointer ${colorClass} ${isWeak ? "ring-2 ring-destructive/40" : ""}`}
-        onClick={onClick}
-      >
-        {/* Weak warning */}
-        {isWeak && (
-          <div className="absolute -top-2 -right-2 z-10">
-            <div className="bg-destructive text-destructive-foreground rounded-full p-1" title={weakLabel}>
-              <AlertTriangle className="h-3 w-3" />
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono opacity-50">{element}</span>
-            <span className="text-xs font-display font-semibold">{label}</span>
-          </div>
-          <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-40 transition-opacity" />
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", item.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className="group relative rounded-md border border-border bg-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${TYPE_BADGE[item.type]}`}
+        >
+          {TYPE_LABEL[item.type]}
+        </span>
+        <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-0.5 hover:text-destructive"
+            aria-label="Remove from staging"
+          >
+            <X className="h-3 w-3" />
+          </button>
+          <GripVertical className="h-3.5 w-3.5" />
         </div>
-
-        {blocks.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {blocks.map((block) => (
-              <div
-                key={block.id}
-                className={`flex items-center gap-1 text-[10px] leading-tight px-2 py-1.5 rounded border ${block.color} cursor-pointer hover:shadow-sm transition-shadow max-w-full sm:max-w-[200px] min-h-[2.75rem] sm:min-h-0`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  block.onClick?.();
-                }}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("text/plain", block.id);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                title={block.label}
-              >
-                <GripVertical className="h-2.5 w-2.5 opacity-30 shrink-0" />
-                <span className="truncate">{block.label}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[10px] text-muted-foreground italic">No items yet — click to add</p>
-        )}
       </div>
+      <p className="text-xs text-foreground leading-snug">{item.content}</p>
     </div>
   );
 }
 
-/* ─── Roof Peak ─── */
-function RoofPeak() {
+/* ─── Add Panel ─── */
+
+function AddPanel({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (type: StagingType, content: string) => void;
+  onCancel: () => void;
+}) {
+  const [type, setType] = useState<StagingType>("information");
+  const [content, setContent] = useState("");
+
   return (
-    <div className="flex justify-center">
-      <div
-        className="w-0 h-0 border-l-[120px] border-r-[120px] border-b-[36px] border-l-transparent border-r-transparent"
-        style={{ borderBottomColor: "hsl(var(--roof-slate))" }}
+    <div className="rounded-md border border-border bg-card p-3 mb-3 space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {STAGING_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setType(t)}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+              type === t
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            {TYPE_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      <Textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Type or paste material here…"
+        className="text-sm min-h-[70px]"
       />
-    </div>
-  );
-}
-
-/* ─── Foundation Cracks ─── */
-function FoundationCracks() {
-  return (
-    <div className="relative h-2 mx-4 overflow-hidden">
-      <svg viewBox="0 0 400 8" className="w-full h-full" preserveAspectRatio="none">
-        <path d="M0,4 L30,2 L60,6 L90,3 L120,5 L150,2 L180,6 L210,1 L240,5 L270,3 L300,6 L330,2 L360,5 L400,4" fill="none" stroke="hsl(var(--destructive))" strokeWidth="1.5" opacity="0.4" />
-        <path d="M50,0 L55,4 L48,8" fill="none" stroke="hsl(var(--destructive))" strokeWidth="1" opacity="0.3" />
-        <path d="M200,0 L195,3 L202,6 L198,8" fill="none" stroke="hsl(var(--destructive))" strokeWidth="1" opacity="0.3" />
-        <path d="M320,0 L325,5 L318,8" fill="none" stroke="hsl(var(--destructive))" strokeWidth="1" opacity="0.3" />
-      </svg>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            if (content.trim()) {
+              onAdd(type, content.trim());
+              setContent("");
+            }
+          }}
+          disabled={!content.trim()}
+        >
+          Add to staging
+        </Button>
+      </div>
     </div>
   );
 }
 
 /* ─── Main Component ─── */
-export default function InteractiveHouseBuilder({ analysis, subQuestions, profile, onNavigate }: Props) {
+
+export default function InteractiveHouseBuilder({
+  analysis,
+  subQuestions,
+  profile: _profile,
+  onNavigate,
+  onUpdateField,
+}: Props) {
   const analysisId = analysis.id;
 
-  // Build blocks from data
-  const layers = useMemo(() => {
-    const povGroups = subQuestions.reduce<Record<string, SubQuestion[]>>((acc, sq) => {
-      const key = sq.pov_category || "individual";
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(sq);
-      return acc;
-    }, {});
+  /* Assumption counts per sub-question */
+  const [assumptionCounts, setAssumptionCounts] = useState<Record<string, number>>({});
+  /* POV labels (for badge) */
+  const [povLabels, setPovLabels] = useState<Record<string, string>>({});
 
-    // Parse consequences data
-    const consequencesRaw = analysis.consequences || "";
-    const consequenceItems = parseJsonArray(consequencesRaw);
-    const implicationItems = parseImplications(consequencesRaw);
+  useEffect(() => {
+    let cancelled = false;
+    const sqIds = subQuestions.map((s) => s.id);
+    const labelIds = subQuestions
+      .map((s) => s.pov_label_id)
+      .filter((v): v is string => !!v);
 
-    // Count info items across sub-questions
-    let totalInfoItems = 0;
-    const infoBlocks: Block[] = [];
-    const assumptionBlocks: Block[] = [];
-    const subConclusionBlocks: Block[] = [];
-
-    subQuestions.forEach((sq) => {
-      // Info
-      let items: string[] = [];
-      try {
-        const p = JSON.parse(sq.information);
-        if (Array.isArray(p)) {
-          items = p.map((entry: any) => typeof entry === "string" ? entry : entry?.text || "");
-        } else if (sq.information) items = [sq.information];
-      } catch {
-        if (sq.information) items = [sq.information];
-      }
-      totalInfoItems += items.length;
-      items.forEach((item, i) => {
-        infoBlocks.push({
-          id: `info-${sq.id}-${i}`,
-          label: item,
-          layer: "information",
-          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
-          color: "bg-foundation-bg border-foundation text-foreground",
-        });
-      });
-
-      // Sub-conclusions
-      if (sq.sub_conclusion) {
-        subConclusionBlocks.push({
-          id: `sc-${sq.id}`,
-          label: sq.sub_conclusion,
-          layer: "sub-conclusion",
-          onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
-          color: "bg-primary/10 border-primary text-foreground",
+    (async () => {
+      const counts: Record<string, number> = {};
+      if (sqIds.length > 0) {
+        const { data } = await supabase
+          .from("assumptions")
+          .select("sub_question_id")
+          .in("sub_question_id", sqIds);
+        (data || []).forEach((a: any) => {
+          counts[a.sub_question_id] = (counts[a.sub_question_id] || 0) + 1;
         });
       }
-    });
+      const labels: Record<string, string> = {};
+      if (labelIds.length > 0) {
+        const { data } = await supabase
+          .from("pov_labels")
+          .select("id,label")
+          .in("id", labelIds);
+        (data || []).forEach((l: any) => {
+          labels[l.id] = l.label;
+        });
+      }
+      if (!cancelled) {
+        setAssumptionCounts(counts);
+        setPovLabels(labels);
+      }
+    })();
 
-    // Sub-question blocks
-    const subQuestionBlocks: Block[] = subQuestions.map((sq) => ({
-      id: `sq-${sq.id}`,
-      label: sq.question || "Untitled",
-      layer: "sub-questions",
-      onClick: () => onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`),
-      color: sq.pov_category === "individual" ? "bg-pov-individual-bg border-pov-individual text-foreground" :
-             sq.pov_category === "group" ? "bg-pov-group-bg border-pov-group text-foreground" :
-             "bg-pov-ideas-bg border-pov-ideas text-foreground",
-    }));
-
-    // Implication blocks
-    const implicationBlocks: Block[] = implicationItems.map((item, i) => ({
-      id: `impl-${i}`,
-      label: item,
-      layer: "implications",
-      onClick: () => onNavigate(`/analysis/${analysisId}/implications?view=builder`),
-      color: "bg-atmosphere-bg border-atmosphere text-foreground",
-    }));
-
-    // Consequence blocks
-    const consequenceBlocks: Block[] = consequenceItems.map((item, i) => ({
-      id: `cons-${i}`,
-      label: item,
-      layer: "consequences",
-      onClick: () => onNavigate(`/analysis/${analysisId}/consequences?view=builder`),
-      color: "bg-assumption-bg border-assumption text-foreground",
-    }));
-
-    // Purpose/question blocks
-    const purposeBlocks: Block[] = [];
-    if (analysis.purpose) {
-      purposeBlocks.push({
-        id: "purpose",
-        label: analysis.purpose,
-        layer: "purpose",
-        onClick: () => onNavigate(`/analysis/${analysisId}`),
-        color: "bg-foundation-bg border-foundation text-foreground",
-      });
-    }
-
-    const questionBlocks: Block[] = [];
-    if (analysis.overarching_question) {
-      questionBlocks.push({
-        id: "oq",
-        label: analysis.overarching_question,
-        layer: "question",
-        onClick: () => onNavigate(`/analysis/${analysisId}`),
-        color: "bg-primary/10 border-primary text-foreground",
-      });
-    }
-
-    const conclusionBlocks: Block[] = [];
-    if (analysis.overarching_conclusion) {
-      conclusionBlocks.push({
-        id: "oc",
-        label: analysis.overarching_conclusion,
-        layer: "conclusion",
-        onClick: () => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`),
-        color: "bg-roof/10 border-roof text-foreground",
-      });
-    }
-
-    // Profile / Foundation POV
-    const foundationBlocks: Block[] = [];
-    if (profile) {
-      if (profile.biological) foundationBlocks.push({ id: "bio", label: `Bio: ${profile.biological}`, layer: "foundation", color: "bg-foundation-bg border-foundation text-foreground" });
-      if (profile.social) foundationBlocks.push({ id: "soc", label: `Social: ${profile.social}`, layer: "foundation", color: "bg-foundation-bg border-foundation text-foreground" });
-      if (profile.familial) foundationBlocks.push({ id: "fam", label: `Familial: ${profile.familial}`, layer: "foundation", color: "bg-foundation-bg border-foundation text-foreground" });
-      if (profile.individual) foundationBlocks.push({ id: "ind", label: `Individual: ${profile.individual}`, layer: "foundation", color: "bg-foundation-bg border-foundation text-foreground" });
-    }
-
-    const isWeakFoundation = totalInfoItems < 3;
-
-    return {
-      implicationBlocks,
-      consequenceBlocks,
-      conclusionBlocks,
-      subConclusionBlocks,
-      infoBlocks,
-      subQuestionBlocks,
-      purposeBlocks,
-      questionBlocks,
-      foundationBlocks,
-      isWeakFoundation,
-      totalInfoItems,
+    return () => {
+      cancelled = true;
     };
-  }, [analysis, subQuestions, profile, analysisId, onNavigate]);
+  }, [subQuestions]);
+
+  /* Staging items — local-only state */
+  const [staging, setStaging] = useState<StagingItem[]>([]);
+  const [filter, setFilter] = useState<"all" | StagingType>("all");
+  const [addOpen, setAddOpen] = useState(false);
+
+  const visibleStaging = useMemo(
+    () => (filter === "all" ? staging : staging.filter((s) => s.type === filter)),
+    [staging, filter],
+  );
+
+  const addStagingItem = useCallback((type: StagingType, content: string) => {
+    setStaging((prev) => [
+      { id: `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, content },
+      ...prev,
+    ]);
+    setAddOpen(false);
+  }, []);
+
+  const removeStagingItem = useCallback((id: string) => {
+    setStaging((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const handleDropOnSubQuestion = useCallback((sqId: string, itemId: string) => {
+    // Visual-only assignment for now: remove from staging
+    setStaging((prev) => prev.filter((s) => s.id !== itemId));
+    // Future: persist to the appropriate table for that sub-question.
+    void sqId;
+  }, []);
+
+  /* POV groups for the standard house body */
+  const povGroups = subQuestions.reduce<Record<string, SubQuestion[]>>((acc, sq) => {
+    const key = sq.pov_category || "individual";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(sq);
+    return acc;
+  }, {});
+
+  const getPovLabel = (sq: SubQuestion) => {
+    if (sq.pov_label_id && povLabels[sq.pov_label_id]) return povLabels[sq.pov_label_id];
+    if (sq.pov_category === "ideas_disciplines") return "Ideas";
+    return sq.pov_category.charAt(0).toUpperCase() + sq.pov_category.slice(1);
+  };
+
+  /* ─── Render ─── */
+
+  const filterChips: Array<{ key: "all" | StagingType; label: string }> = [
+    { key: "all", label: "All" },
+    ...STAGING_TYPES.map((t) => ({ key: t, label: TYPE_LABEL[t] })),
+  ];
 
   return (
-    <div className="relative">
-      {/* Blueprint grid background */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: "linear-gradient(hsl(var(--blueprint-line)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--blueprint-line)) 1px, transparent 1px)",
-        backgroundSize: "24px 24px",
-      }} />
-
-      <div className="relative space-y-0 max-w-2xl mx-auto py-4">
-        {/* Title */}
-        <div className="text-center mb-4">
-          <p className="text-[10px] font-mono text-muted-foreground tracking-widest uppercase">Interactive House Builder</p>
-          <p className="text-xs text-muted-foreground mt-1">Click any layer to edit • Drag blocks to rearrange</p>
-        </div>
-
-        {/* Roof */}
-        <RoofPeak />
-
-        {/* Implications & Consequences */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 -mt-0.5">
-          <HouseLayer
-            label="Implications"
-            element="8a"
-            blocks={layers.implicationBlocks}
-            colorClass="bg-atmosphere-bg/50 border-atmosphere"
-            onClick={() => onNavigate(`/analysis/${analysisId}/implications?view=builder`)}
-          />
-          <HouseLayer
-            label="Consequences"
-            element="8b"
-            blocks={layers.consequenceBlocks}
-            colorClass="bg-assumption-bg/50 border-assumption"
-            onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
-          />
-        </div>
-
-        {/* Overarching Conclusion */}
-        <HouseLayer
-          label="Overarching Conclusion"
-          element="7.2"
-          blocks={layers.conclusionBlocks}
-          colorClass="bg-card border-roof"
-          onClick={() => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`)}
-        />
-
-        {/* Sub-Conclusions */}
-        <HouseLayer
-          label="Sub-Conclusions"
-          element="7.1"
-          blocks={layers.subConclusionBlocks}
-          colorClass="bg-primary/5 border-primary"
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
-        />
-
-        {/* Logical Inference (conceptual layer) */}
-        <div className="relative">
-          <div className="flex justify-center -mt-1 mb-1">
-            <ArrowDown className="h-3.5 w-3.5 text-blueprint opacity-40" />
+    <div className="space-y-4 animate-fade-in">
+      {/* ── TOP STAGING CONTAINER (above the house) ── */}
+      <div className="rounded-md border-2 border-blueprint bg-card overflow-hidden">
+        {/* Sub-questions row */}
+        <div className="p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
+              Sub-questions — click to open
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
+              className="h-7 text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" /> Sub-question
+            </Button>
           </div>
-          <div className="border-2 border-dashed border-atmosphere/40 rounded-sm p-2 text-center bg-atmosphere-bg/20">
-            <span className="text-[10px] font-mono text-muted-foreground">6.1 — Logical Inference</span>
-            <p className="text-[10px] text-muted-foreground italic mt-0.5">The logical process connecting information and assumptions to conclusions</p>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {subQuestions.map((sq) => (
+              <SubQuestionRowCard
+                key={sq.id}
+                sq={sq}
+                povLabel={getPovLabel(sq)}
+                assumptionCount={assumptionCounts[sq.id] || 0}
+                onClick={() =>
+                  onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`)
+                }
+                onDrop={(itemId) => handleDropOnSubQuestion(sq.id, itemId)}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
+              className="rounded-md border border-dashed border-[hsl(245_50%_75%)] text-[hsl(245_55%_55%)] hover:bg-[hsl(245_85%_97%)] flex items-center justify-center min-w-[80px] flex-shrink-0 transition-colors"
+              aria-label="Add sub-question"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
-        {/* Assumptions */}
-        <HouseLayer
-          label="Assumptions"
-          element="5"
-          blocks={[]} // Assumptions are per-sub-question, shown as aggregate
-          colorClass="bg-assumption-bg/50 border-assumption"
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
-        />
-
-        {/* Information / Facts */}
-        <HouseLayer
-          label="Information / Facts"
-          element="4"
-          blocks={layers.infoBlocks}
-          colorClass="bg-foundation-bg/50 border-foundation"
-          isWeak={layers.isWeakFoundation && layers.totalInfoItems > 0}
-          weakLabel={`Weak foundation — only ${layers.totalInfoItems} fact(s). Add more evidence.`}
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
-        />
-
-        {/* Sub-Questions */}
-        <HouseLayer
-          label="Sub-Questions"
-          element="3.2"
-          blocks={layers.subQuestionBlocks}
-          colorClass="bg-card border-primary/40"
-          onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
-        />
-
-        {/* Overarching Question */}
-        <HouseLayer
-          label="Overarching Question"
-          element="3.1"
-          blocks={layers.questionBlocks}
-          colorClass="bg-card border-primary/60"
-          onClick={() => onNavigate(`/analysis/${analysisId}`)}
-        />
-
-        {/* Purpose */}
-        <HouseLayer
-          label="Purpose"
-          element="2"
-          blocks={layers.purposeBlocks}
-          colorClass="bg-foundation-bg/30 border-foundation/60"
-          onClick={() => onNavigate(`/analysis/${analysisId}`)}
-        />
-
-        {/* Foundation — Personal POV */}
-        <div className="relative">
-          <div className="flex justify-center -mt-1 mb-1">
-            <ArrowDown className="h-3.5 w-3.5 text-blueprint opacity-40" />
+        {/* Divider */}
+        <div className="px-3 sm:px-4">
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] text-muted-foreground italic px-2">
+              staging area — add material, then drag into a sub-question or section above
+            </span>
+            <div className="h-px flex-1 bg-border" />
           </div>
-          <div className={`border-2 rounded-sm p-3 bg-foundation-bg border-foundation ${layers.isWeakFoundation && layers.totalInfoItems === 0 ? "ring-2 ring-destructive/40" : ""}`}>
-            {layers.isWeakFoundation && layers.totalInfoItems === 0 && (
-              <div className="absolute -top-2 -right-2 z-10">
-                <div className="bg-destructive text-destructive-foreground rounded-full p-1" title="No facts added yet — your foundation is empty">
-                  <AlertTriangle className="h-3 w-3" />
-                </div>
-              </div>
-            )}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-mono opacity-50">4.2</span>
-              <span className="text-xs font-display font-semibold">Personal Foundational POV</span>
+        </div>
+
+        {/* Staging area */}
+        <div className="p-3 sm:p-4 bg-muted/40">
+          {/* Filter chips + add button */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {filterChips.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setFilter(c.key)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  filter === c.key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:text-foreground"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+            <div className="ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => setAddOpen((v) => !v)}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add
+              </Button>
             </div>
-            {layers.foundationBlocks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {layers.foundationBlocks.map((block) => (
-                  <div key={block.id} className={`text-[10px] px-2 py-1 rounded border ${block.color} truncate`}>
-                    {block.label}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[10px] text-muted-foreground italic">Set in Profile</p>
+          </div>
+
+          {addOpen && (
+            <AddPanel onAdd={addStagingItem} onCancel={() => setAddOpen(false)} />
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {visibleStaging.map((item) => (
+              <StagingCard
+                key={item.id}
+                item={item}
+                onRemove={() => removeStagingItem(item.id)}
+              />
+            ))}
+            {/* Empty placeholder affordances */}
+            {Array.from({ length: Math.max(0, 3 - (visibleStaging.length % 4)) }).map(
+              (_, i) => (
+                <button
+                  key={`placeholder-${i}`}
+                  type="button"
+                  onClick={() => setAddOpen(true)}
+                  className="rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs py-6 transition-colors"
+                >
+                  + Add material
+                </button>
+              ),
             )}
           </div>
-          {/* Foundation base */}
-          {layers.isWeakFoundation ? <FoundationCracks /> : (
-            <div className="h-2 rounded-b-lg mx-1" style={{ background: "hsl(var(--foundation-stone) / 0.25)" }} />
-          )}
         </div>
       </div>
+
+      {/* ── STANDARD HOUSE LAYOUT BELOW ── */}
+
+      {/* Atmosphere — Concepts */}
+      <Card
+        className="house-zone house-zone-atmosphere cursor-pointer"
+        onClick={() => onNavigate(`/analysis/${analysisId}/concepts`)}
+      >
+        <CardContent className="py-4 text-center">
+          <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 1 — THE ATMOSPHERE</p>
+          <h3 className="text-lg font-display font-bold">Concepts, Theories & Definitions</h3>
+          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas →</p>
+        </CardContent>
+      </Card>
+
+      {/* Roof: Consequences / Purpose / Implications */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card
+          className="house-zone house-zone-roof cursor-pointer"
+          onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
+        >
+          <CardContent className="py-4 text-center">
+            <p className="text-xs font-mono text-muted-foreground mb-1">8b</p>
+            <h4 className="text-sm font-display font-semibold">Consequences</h4>
+          </CardContent>
+        </Card>
+
+        <Card className="house-zone house-zone-roof relative">
+          <CardContent className="py-3">
+            <p className="text-xs font-mono text-muted-foreground mb-1 text-center">ELEMENT 2 — PURPOSE</p>
+            <Textarea
+              placeholder="Overarching Purpose..."
+              value={analysis.purpose}
+              onChange={(e) => onUpdateField?.("purpose", e.target.value)}
+              className="min-h-[60px] text-sm bg-card mb-2"
+              readOnly={!onUpdateField}
+            />
+            <p className="text-xs font-mono text-muted-foreground mb-1 text-center">2.1 — SUB-PURPOSES</p>
+            <Textarea
+              placeholder="Sub-purposes..."
+              value={analysis.sub_purposes}
+              onChange={(e) => onUpdateField?.("sub_purposes", e.target.value)}
+              className="min-h-[40px] text-sm bg-card"
+              readOnly={!onUpdateField}
+            />
+          </CardContent>
+        </Card>
+
+        <Card
+          className="house-zone house-zone-roof cursor-pointer"
+          onClick={() => onNavigate(`/analysis/${analysisId}/implications?view=builder`)}
+        >
+          <CardContent className="py-4 text-center">
+            <p className="text-xs font-mono text-muted-foreground mb-1">8a</p>
+            <h4 className="text-sm font-display font-semibold">Implications</h4>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ceiling: Overarching Question / Conclusion */}
+      <Card className="house-zone house-zone-ceiling">
+        <CardContent className="py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-mono mb-1 text-muted-foreground">3.1 — OVERARCHING QUESTION</p>
+              <Textarea
+                placeholder="What is your overarching question?"
+                value={analysis.overarching_question}
+                onChange={(e) => onUpdateField?.("overarching_question", e.target.value)}
+                className="min-h-[60px] text-sm bg-card text-foreground"
+                readOnly={!onUpdateField}
+              />
+            </div>
+            <div
+              className="cursor-pointer"
+              onClick={() => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`)}
+            >
+              <p className="text-xs font-mono mb-1 text-muted-foreground">7.2 — OVERARCHING CONCLUSION</p>
+              <div className="min-h-[60px] p-3 rounded-md bg-card text-foreground text-sm border hover:shadow-md transition-shadow">
+                {analysis.overarching_conclusion || (
+                  <span className="text-muted-foreground italic">Click to synthesize →</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Columns: Sub-Questions */}
+      <Card
+        className="house-zone cursor-pointer"
+        onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
+      >
+        <CardContent className="py-4">
+          <p className="text-xs font-mono text-muted-foreground mb-2 text-center">
+            ELEMENT 3.2 — SUB-QUESTIONS (THE COLUMNS)
+          </p>
+          {subQuestions.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-muted-foreground">Click to add sub-questions →</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {["individual", "group", "ideas_disciplines"].map((pov) => (
+                <div key={pov} className="space-y-2">
+                  <p className="text-xs font-semibold text-center capitalize">
+                    {pov === "ideas_disciplines" ? "Ideas & Disciplines" : pov}
+                  </p>
+                  {(povGroups[pov] || []).map((sq) => (
+                    <div
+                      key={sq.id}
+                      className={`p-2 text-xs rounded border cursor-pointer hover:shadow-md transition-shadow ${
+                        pov === "individual"
+                          ? "pov-individual"
+                          : pov === "group"
+                            ? "pov-group"
+                            : "pov-ideas"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`);
+                      }}
+                    >
+                      {sq.question || "Untitled"}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Foundation */}
+      <Card className="house-zone house-zone-foundation">
+        <CardContent className="py-4">
+          <p className="text-xs font-mono text-muted-foreground mb-2 text-center">
+            ELEMENT 4.2 — PERSONAL FOUNDATIONAL POINT OF VIEW
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {["Biological", "Social", "Familial", "Individual"].map((label) => (
+              <div key={label} className="text-center p-2 bg-card rounded border text-xs">
+                <p className="font-semibold">{label}</p>
+                <p className="text-muted-foreground mt-1">Set in Profile</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
