@@ -491,9 +491,6 @@ export default function InteractiveHouseBuilder({
     return sq.pov_category.charAt(0).toUpperCase() + sq.pov_category.slice(1);
   };
 
-  /* Inline assumptions toggle */
-  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
-
   /* ─── Render ─── */
 
   const filterChips: Array<{ key: "all" | StagingType; label: string }> = [
