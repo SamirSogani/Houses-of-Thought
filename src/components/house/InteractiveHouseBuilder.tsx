@@ -439,7 +439,7 @@ export default function InteractiveHouseBuilder({
         toast.error(err?.message || "Could not save dropped item");
       }
     },
-    [staging, appendFactToSubQuestion],
+    [staging, appendFactToSubQuestion, assumptionMode],
   );
 
   /* Drop onto an analysis-level zone (concepts / implications / consequences / conclusion / purpose) */
