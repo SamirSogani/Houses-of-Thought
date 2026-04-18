@@ -390,6 +390,7 @@ export default function AnalysisPage() {
               subQuestions={subQuestions}
               profile={profile}
               onNavigate={navigate}
+              onUpdateField={updateField}
             />
           )}
         </div>
