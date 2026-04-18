@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { ChevronRight, GripVertical, Plus, X, ChevronDown } from "lucide-react";
+import { ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
