@@ -585,6 +585,39 @@ export default function InteractiveHouseBuilder({
             </div>
           </div>
 
+          {/* Assumption-mode list — shown when the Assumption filter chip is active */}
+          {filter === "assumption" && (
+            <div className="mb-3 rounded-md border border-border bg-card p-2 animate-fade-in">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-1 pb-1">
+                Assumption type — applied when dropped onto a sub-question
+              </p>
+              <ul className="space-y-1">
+                {ASSUMPTION_MODES.map((a) => {
+                  const active = assumptionMode === a.key;
+                  return (
+                    <li key={a.key}>
+                      <button
+                        type="button"
+                        onClick={() => setAssumptionMode(a.key)}
+                        className={`w-full text-left rounded-md border px-2.5 py-1.5 transition-colors ${
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-background hover:border-primary/40"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold text-foreground">
+                          <span className="font-mono text-muted-foreground mr-2">{a.el}</span>
+                          {a.label}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{a.desc}</p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           {addOpen && (
             <AddPanel onAdd={addStagingItem} onCancel={() => setAddOpen(false)} />
           )}
