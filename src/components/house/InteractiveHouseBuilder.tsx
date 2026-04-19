@@ -699,6 +699,9 @@ export default function InteractiveHouseBuilder({
               <StagingCard
                 key={item.id}
                 item={item}
+                isDragging={draggingId === item.id}
+                onDragStart={() => setDraggingId(item.id)}
+                onDragEnd={() => setDraggingId(null)}
                 onRemove={() => removeStagingItem(item.id)}
               />
             ))}
