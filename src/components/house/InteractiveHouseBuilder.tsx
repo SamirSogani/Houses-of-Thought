@@ -143,6 +143,8 @@ function SubQuestionRowCard({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = reject ? "none" : "move";
+    // Defensive: if dragenter was missed, still flag this card as the active hover target.
+    if (!over && !reject) setOver(true);
   };
 
   const handleDragLeave = () => {
