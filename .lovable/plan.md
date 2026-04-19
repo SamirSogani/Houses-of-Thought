@@ -1,77 +1,36 @@
 
 
-## Plan: Multiple Houses + Responsive Mobile Design
+## Diagnosis
 
-### 1. "Create New House" Card on Dashboard
+The sub-question cards already have `dragenter` / `dragover` / `dragleave` / `drop` handlers and they `preventDefault()` correctly. From the session replay I can see:
 
-The dashboard already supports multiple analyses — users can create unlimited houses. The issue is discoverability: the "New House" button is only in the header. 
+1. The cards DO receive `isDragActive` (they get `animate-pulse` when a drag starts), so the global "drag in progress" signal works.
+2. The deeper "currently hovering" highlight (`over` state) never fires during the user's drag.
 
-**Change**: Add a persistent "+" card at the end of the analysis grid that acts as a large, obvious "Create New House" button.
+There are three real culprits:
 
-**File**: `src/pages/Dashboard.tsx`
-- Add a final card in the grid after all analysis cards with a large "+" icon, dashed border, and "Create New House" text
-- Make header buttons responsive (collapse to icons on mobile)
+### A. Window-level `dragover` listener is missing `preventDefault()`
+In `InteractiveHouseBuilder.tsx` lines 427-440, the auto-scroll handler only reads `e.clientY`. Without `preventDefault()` on at least one ancestor `dragover`, several browsers (notably Chrome on certain layouts) treat the rest of the document as a non-drop region, which can suppress reliable `dragenter` firing on transient hover targets and also forces the cursor to the "no-drop" icon.
 
-### 2. Responsive Dashboard
+### B. Hover/`over` highlight is too subtle vs the always-on pulse
+Once a drag starts, every sub-question card pulses with a 1px ring. The "you are over THIS card" state adds a 2px ring + tint, but the pulse animation visually competes with it, so the user thinks nothing is highlighting. We should make the over state much more obvious (drop pulse while over, stronger background, stronger border).
 
-**File**: `src/pages/Dashboard.tsx`
-- Header: collapse button labels on mobile (show only icons), wrap into a compact layout
-- Grid already uses `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` — this is fine
+### C. `<button>` as a drop target swallows nested events
+The `<button>` contains `<span>`, `<ChevronRight>`, `<p>` children. When the dragged item's pointer crosses from one child to another inside the button, `dragenter` fires on the inner element and `dragleave` fires on the outer — the `dragCounter` ref logic handles this, but only `setOver(true)` runs on `dragenter`. If `dragenter` is being missed entirely on the button (because a child intercepts first and `e.preventDefault()` isn't called there), the counter never increments past 0. Adding `pointer-events-none` to the button's children prevents this and makes the entire card a single, reliable drop target.
 
-### 3. Responsive Analysis Page (the big change)
+## Fix Plan
 
-**File**: `src/pages/AnalysisPage.tsx`
+Edit `src/components/house/InteractiveHouseBuilder.tsx`:
 
-Currently uses a fixed `w-14` sidebar + resizable tool panel + main content in a horizontal flex layout. On mobile this doesn't work.
+1. **Window auto-scroll listener** (line 427): call `e.preventDefault()` at the top of `onDragOver` so the document is universally treated as a drop-allowed surface during any drag.
 
-**Mobile layout**:
-- Hide the left icon sidebar on mobile (`hidden md:flex`)
-- Replace with a fixed bottom navigation bar on mobile showing view toggle + tool icons
-- Tool panels open as a sheet/drawer from bottom instead of a side panel
-- AI FAB stays as-is (already works on mobile)
-- Breadcrumb and title remain at top
+2. **`SubQuestionRowCard` over-state visual** (lines 172-178): make the `over` state unmistakable — solid 2px border, deeper purple background (`bg-[hsl(245_85%_88%)]`), stop the pulse while over, and add a soft scale (`scale-[1.02]`). Also make the always-on `isDragActive` ring 2px + dashed instead of pulsing 1px so the difference between "droppable" and "currently over" is clear.
 
-**Desktop**: Keep existing layout unchanged.
+3. **Make the button itself the only event surface**: add `pointer-events-none` to the inner `span`, `ChevronRight`, and `p` so all drag events fire on the `<button>` directly. This eliminates the inner-element dragenter/leave noise that can leave `dragCounter` stuck.
 
-### 4. Responsive House Visualization
+4. **Defensive: also handle `onDragOver` updating `setOver(true)`**: currently `over` is only set in `dragenter`. If `dragenter` is missed for any reason, `dragover` should still set it. Add `setOver(true)` inside `handleDragOver` (cheap — React skips if already true).
 
-**File**: `src/components/house/HouseVisualization.tsx`
-- The house sections use cards in a vertical layout — already mostly responsive
-- Ensure sub-question columns stack vertically on mobile instead of side-by-side
-- Add touch-friendly tap targets (min 44px)
+5. **Reset highlight on global `dragend`**: add a window `dragend` listener inside `SubQuestionRowCard` that clears `over`, `reject`, and resets `dragCounter` so a card never gets stuck highlighted if a drag is canceled outside it.
 
-### 5. Responsive Interactive House Builder
-
-**File**: `src/components/house/InteractiveHouseBuilder.tsx`
-- On mobile, simplify the drag-and-drop canvas to a scrollable vertical list of blocks
-- Blocks should be tappable instead of draggable
-- Ensure the canvas scrolls vertically
-
-### 6. Global Responsive Tweaks
-
-**File**: `src/index.css`
-- Add mobile-specific utility styles for touch targets
-- Ensure `page-container` has appropriate mobile padding
-
-**File**: `src/components/layout/SiteNavbar.tsx` — already has mobile hamburger menu, no changes needed
-
-**File**: `src/components/ai/AISidebar.tsx` — uses Sheet component, likely already works on mobile. Verify and adjust width if needed.
-
-### Files Summary
-
-| File | Change |
-|------|--------|
-| `src/pages/Dashboard.tsx` | Add "Create New House" card in grid, responsive header |
-| `src/pages/AnalysisPage.tsx` | Mobile bottom nav bar, tool panels as drawers, hide desktop sidebar on mobile |
-| `src/components/house/HouseVisualization.tsx` | Responsive column stacking, touch-friendly sizing |
-| `src/components/house/InteractiveHouseBuilder.tsx` | Mobile-friendly block layout, vertical scroll |
-| `src/index.css` | Mobile touch target utilities, responsive padding |
-
-### Implementation Order
-
-1. Dashboard: "Create New House" card + responsive header
-2. AnalysisPage: Mobile bottom nav + drawer-based tool panels
-3. HouseVisualization: Responsive tweaks
-4. InteractiveHouseBuilder: Mobile adaptations
-5. CSS utilities for touch targets
+No changes to drop routing, persistence, staging logic, or any other component. Visual styling in the rest of the builder is preserved.
 
