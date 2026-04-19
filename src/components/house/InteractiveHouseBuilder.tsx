@@ -598,10 +598,11 @@ export default function InteractiveHouseBuilder({
                 sq={sq}
                 povLabel={getPovLabel(sq)}
                 assumptionCount={assumptionCounts[sq.id] || 0}
+                isDragActive={!!draggingId}
                 onClick={() =>
                   onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`)
                 }
-                onDrop={(itemId) => handleDropOnSubQuestion(sq.id, itemId)}
+                onDrop={(itemId) => { void handleDropOnSubQuestion(sq.id, itemId); }}
               />
             ))}
             <button
