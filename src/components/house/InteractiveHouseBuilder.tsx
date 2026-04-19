@@ -174,10 +174,25 @@ function SubQuestionRowCard({
   const ringClass = reject
     ? "ring-2 ring-destructive border-destructive bg-destructive/5"
     : over
-      ? "ring-2 ring-[hsl(245_60%_55%)] border-[hsl(245_60%_55%)] bg-[hsl(245_85%_92%)]"
+      ? "ring-2 ring-[hsl(245_70%_45%)] border-[hsl(245_70%_45%)] bg-[hsl(245_85%_88%)] scale-[1.02] shadow-md"
       : isDragActive
-        ? "ring-1 ring-[hsl(245_60%_70%)]/60 animate-pulse"
+        ? "ring-2 ring-[hsl(245_60%_60%)]/70 ring-dashed border-[hsl(245_60%_70%)] animate-pulse"
         : "";
+
+  // Reset highlight if the drag is canceled or ends elsewhere
+  useEffect(() => {
+    const reset = () => {
+      dragCounter.current = 0;
+      setOver(false);
+      setReject(false);
+    };
+    window.addEventListener("dragend", reset);
+    window.addEventListener("drop", reset);
+    return () => {
+      window.removeEventListener("dragend", reset);
+      window.removeEventListener("drop", reset);
+    };
+  }, []);
 
   return (
     <button
