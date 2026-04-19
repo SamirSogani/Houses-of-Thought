@@ -68,11 +68,7 @@ export default function AnalysisPage() {
   useEffect(() => {
     if (!user) return;
     supabase.functions.invoke("admin-users", { body: null, method: "GET" }).then(({ data, error }) => {
-      if (error || !data?.users) {
-        setIsOwner(false);
-        return;
-      }
-      setIsOwner(true);
+      setIsOwner(!error && Array.isArray(data?.users));
     }).catch(() => setIsOwner(false));
   }, [user]);
 
