@@ -379,6 +379,7 @@ export default function InteractiveHouseBuilder({
   const [staging, setStaging] = useState<StagingItem[]>([]);
   const [filter, setFilter] = useState<"all" | StagingType>("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   /* Assumption mode — applies to assumptions dragged from staging */
   type AssumptionMode = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
