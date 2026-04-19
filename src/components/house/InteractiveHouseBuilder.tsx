@@ -203,20 +203,20 @@ function SubQuestionRowCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={reject ? { cursor: "not-allowed" } : undefined}
-      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-colors p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${ringClass}`}
+      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-all p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${ringClass}`}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-2 pointer-events-none">
         <span
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${getPovBadgeClass(sq.pov_category)}`}
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border pointer-events-none ${getPovBadgeClass(sq.pov_category)}`}
         >
           {povLabel}
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-[hsl(245_55%_55%)] opacity-70 group-hover:opacity-100" />
+        <ChevronRight className="h-3.5 w-3.5 text-[hsl(245_55%_55%)] opacity-70 group-hover:opacity-100 pointer-events-none" />
       </div>
-      <p className="text-xs text-foreground leading-snug line-clamp-3 min-h-[2.5rem]">
+      <p className="text-xs text-foreground leading-snug line-clamp-3 min-h-[2.5rem] pointer-events-none">
         {sq.question || "Untitled sub-question"}
       </p>
-      <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{meta}</p>
+      <p className="text-[10px] text-muted-foreground mt-2 leading-tight pointer-events-none">{meta}</p>
 
       {rejectMsg && (
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 translate-y-full z-20 w-[240px] rounded-md border border-destructive/40 bg-card px-2 py-1.5 text-[10px] text-destructive shadow-md">
