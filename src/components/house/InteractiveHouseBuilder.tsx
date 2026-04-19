@@ -425,6 +425,9 @@ export default function InteractiveHouseBuilder({
     };
 
     const onDragOver = (e: DragEvent) => {
+      // Universally mark the document as a valid drop surface so dragenter
+      // fires reliably on nested drop targets across browsers.
+      e.preventDefault();
       const y = e.clientY;
       const h = window.innerHeight;
       let v = 0;
