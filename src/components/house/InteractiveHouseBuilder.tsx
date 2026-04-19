@@ -108,7 +108,7 @@ function SubQuestionRowCard({
   assumptionCount: number;
   isDragActive: boolean;
   onClick: () => void;
-  onDrop: (itemId: string, itemType: StagingType) => boolean | void;
+  onDrop: (itemId: string, itemType: StagingType) => void;
 }) {
   const info = countInfo(sq.information || "");
   const hasSubConc = !!sq.sub_conclusion;
