@@ -93,18 +93,22 @@ function getPovBadgeClass(category: string) {
 
 /* ─── Sub-Question Row Card ─── */
 
+const SQ_REJECT_TYPES: StagingType[] = ["implication", "consequence", "concept"];
+
 function SubQuestionRowCard({
   sq,
   povLabel,
   assumptionCount,
+  isDragActive,
   onClick,
   onDrop,
 }: {
   sq: SubQuestion;
   povLabel: string;
   assumptionCount: number;
+  isDragActive: boolean;
   onClick: () => void;
-  onDrop: (itemId: string) => void;
+  onDrop: (itemId: string, itemType: StagingType) => boolean | void;
 }) {
   const info = countInfo(sq.information || "");
   const hasSubConc = !!sq.sub_conclusion;
@@ -115,23 +119,74 @@ function SubQuestionRowCard({
     : `${assumptionCount} assumption${assumptionCount === 1 ? "" : "s"} · ${info.sources} source${info.sources === 1 ? "" : "s"} · ${hasSubConc ? "sub-conc. added" : "no sub-conc. yet"}`;
 
   const [over, setOver] = useState(false);
+  const [reject, setReject] = useState(false);
+  const [rejectMsg, setRejectMsg] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current += 1;
+    const t = e.dataTransfer.types.includes("application/x-staging-type")
+      ? e.dataTransfer.getData("application/x-staging-type") as StagingType
+      : null;
+    // Note: in many browsers getData is empty during dragenter/over; we still highlight optimistically
+    setOver(true);
+    if (t && SQ_REJECT_TYPES.includes(t)) {
+      setReject(true);
+      e.dataTransfer.dropEffect = "none";
+    } else {
+      setReject(false);
+      e.dataTransfer.dropEffect = "move";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = reject ? "none" : "move";
+  };
+
+  const handleDragLeave = () => {
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) {
+      setOver(false);
+      setReject(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setOver(false);
+    setReject(false);
+    const id = e.dataTransfer.getData("text/plain");
+    const type = (e.dataTransfer.getData("application/x-staging-type") || "") as StagingType;
+    if (!id) return;
+    if (type && SQ_REJECT_TYPES.includes(type)) {
+      setRejectMsg(true);
+      setTimeout(() => setRejectMsg(false), 2200);
+      return;
+    }
+    onDrop(id, type);
+  };
+
+  const ringClass = reject
+    ? "ring-2 ring-destructive border-destructive bg-destructive/5"
+    : over
+      ? "ring-2 ring-[hsl(245_60%_55%)] border-[hsl(245_60%_55%)] bg-[hsl(245_85%_92%)]"
+      : isDragActive
+        ? "ring-1 ring-[hsl(245_60%_70%)]/60 animate-pulse"
+        : "";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const id = e.dataTransfer.getData("text/plain");
-        if (id) onDrop(id);
-      }}
-      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-colors p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${over ? "ring-2 ring-[hsl(245_60%_70%)]" : ""}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={reject ? { cursor: "not-allowed" } : undefined}
+      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-colors p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${ringClass}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <span
@@ -145,6 +200,12 @@ function SubQuestionRowCard({
         {sq.question || "Untitled sub-question"}
       </p>
       <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{meta}</p>
+
+      {rejectMsg && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 translate-y-full z-20 w-[240px] rounded-md border border-destructive/40 bg-card px-2 py-1.5 text-[10px] text-destructive shadow-md">
+          Implications, consequences, and concepts go in their own sections above.
+        </div>
+      )}
     </button>
   );
 }
@@ -154,18 +215,30 @@ function SubQuestionRowCard({
 function StagingCard({
   item,
   onRemove,
+  onDragStart,
+  onDragEnd,
+  isDragging,
 }: {
   item: StagingItem;
   onRemove: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
 }) {
   return (
     <div
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", item.id);
+        e.dataTransfer.setData("application/x-staging-type", item.type);
+        e.dataTransfer.setData("application/x-staging-content", item.content);
         e.dataTransfer.effectAllowed = "move";
+        onDragStart();
       }}
-      className="group relative rounded-md border border-border bg-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-colors"
+      onDragEnd={onDragEnd}
+      className={`group relative rounded-md border border-border bg-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all ${
+        isDragging ? "opacity-40" : "opacity-100"
+      }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <span
