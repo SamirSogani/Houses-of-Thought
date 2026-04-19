@@ -33,16 +33,19 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
-    if (authError || !caller || caller.email !== OWNER_EMAIL) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const isOwner = !authError && !!caller && caller.email === OWNER_EMAIL;
+
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action") || "list";
+
+    // Non-owners get a benign empty response (avoids 403 noise for ownership checks)
+    if (!isOwner) {
+      return new Response(JSON.stringify({ isOwner: false }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action") || "list";
 
     if (action === "list") {
       const { data: { users }, error: usersError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
