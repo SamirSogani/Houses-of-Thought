@@ -143,6 +143,8 @@ function SubQuestionRowCard({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = reject ? "none" : "move";
+    // Defensive: if dragenter was missed, still flag this card as the active hover target.
+    if (!over && !reject) setOver(true);
   };
 
   const handleDragLeave = () => {
@@ -172,10 +174,25 @@ function SubQuestionRowCard({
   const ringClass = reject
     ? "ring-2 ring-destructive border-destructive bg-destructive/5"
     : over
-      ? "ring-2 ring-[hsl(245_60%_55%)] border-[hsl(245_60%_55%)] bg-[hsl(245_85%_92%)]"
+      ? "ring-2 ring-[hsl(245_70%_45%)] border-[hsl(245_70%_45%)] bg-[hsl(245_85%_88%)] scale-[1.02] shadow-md"
       : isDragActive
-        ? "ring-1 ring-[hsl(245_60%_70%)]/60 animate-pulse"
+        ? "ring-2 ring-[hsl(245_60%_60%)]/70 ring-dashed border-[hsl(245_60%_70%)] animate-pulse"
         : "";
+
+  // Reset highlight if the drag is canceled or ends elsewhere
+  useEffect(() => {
+    const reset = () => {
+      dragCounter.current = 0;
+      setOver(false);
+      setReject(false);
+    };
+    window.addEventListener("dragend", reset);
+    window.addEventListener("drop", reset);
+    return () => {
+      window.removeEventListener("dragend", reset);
+      window.removeEventListener("drop", reset);
+    };
+  }, []);
 
   return (
     <button
@@ -186,20 +203,20 @@ function SubQuestionRowCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={reject ? { cursor: "not-allowed" } : undefined}
-      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-colors p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${ringClass}`}
+      className={`group relative text-left rounded-md border bg-[hsl(245_85%_97%)] border-[hsl(245_60%_82%)] hover:bg-[hsl(245_85%_94%)] hover:border-[hsl(245_60%_70%)] transition-all p-3 min-w-[220px] max-w-[260px] flex-shrink-0 ${ringClass}`}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-2 pointer-events-none">
         <span
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${getPovBadgeClass(sq.pov_category)}`}
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border pointer-events-none ${getPovBadgeClass(sq.pov_category)}`}
         >
           {povLabel}
         </span>
-        <ChevronRight className="h-3.5 w-3.5 text-[hsl(245_55%_55%)] opacity-70 group-hover:opacity-100" />
+        <ChevronRight className="h-3.5 w-3.5 text-[hsl(245_55%_55%)] opacity-70 group-hover:opacity-100 pointer-events-none" />
       </div>
-      <p className="text-xs text-foreground leading-snug line-clamp-3 min-h-[2.5rem]">
+      <p className="text-xs text-foreground leading-snug line-clamp-3 min-h-[2.5rem] pointer-events-none">
         {sq.question || "Untitled sub-question"}
       </p>
-      <p className="text-[10px] text-muted-foreground mt-2 leading-tight">{meta}</p>
+      <p className="text-[10px] text-muted-foreground mt-2 leading-tight pointer-events-none">{meta}</p>
 
       {rejectMsg && (
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 translate-y-full z-20 w-[240px] rounded-md border border-destructive/40 bg-card px-2 py-1.5 text-[10px] text-destructive shadow-md">
@@ -425,6 +442,9 @@ export default function InteractiveHouseBuilder({
     };
 
     const onDragOver = (e: DragEvent) => {
+      // Universally mark the document as a valid drop surface so dragenter
+      // fires reliably on nested drop targets across browsers.
+      e.preventDefault();
       const y = e.clientY;
       const h = window.innerHeight;
       let v = 0;
