@@ -47,9 +47,6 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action") || "list";
-
     if (action === "list") {
       const { data: { users }, error: usersError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       if (usersError) throw usersError;
