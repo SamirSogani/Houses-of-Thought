@@ -773,6 +773,7 @@ export default function InteractiveHouseBuilder({
                   onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`)
                 }
                 onDrop={(itemId) => { void handleDropOnSubQuestion(sq.id, itemId); }}
+                onDropGroup={(groupId) => { void handleDropGroupOnSubQuestion(sq.id, groupId); }}
               />
             ))}
             <button
