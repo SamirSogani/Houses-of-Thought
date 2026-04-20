@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, X, GraduationCap, BookOpen, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, differenceInYears } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AccountType } from "@/lib/permissions";
 
 const RECAPTCHA_SITE_KEY = "6Lc04ZYsAAAAAFnj1YpUnZczombrN9FjB24QJjdD";
 
@@ -50,6 +51,7 @@ export default function AuthPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
+  const [accountType, setAccountType] = useState<AccountType>("standard");
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaWidgetId = useRef<number | null>(null);
   const recaptchaRendered = useRef(false);
@@ -171,6 +173,17 @@ export default function AuthPage() {
         setRecaptchaToken(null);
       }
     } else if (!isLogin) {
+      // Persist account type. Profile row is auto-created by the handle_new_user trigger
+      // with default 'standard', so we only need to update when the user picked something else.
+      if (accountType !== "standard") {
+        const { data: { user: newUser } } = await supabase.auth.getUser();
+        if (newUser) {
+          await supabase
+            .from("profiles")
+            .update({ account_type: accountType, updated_at: new Date().toISOString() } as any)
+            .eq("user_id", newUser.id);
+        }
+      }
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
