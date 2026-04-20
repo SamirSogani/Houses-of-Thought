@@ -315,6 +315,102 @@ export type Database = {
         }
         Relationships: []
       }
+      staging_group_items: {
+        Row: {
+          group_id: string
+          item_id: string
+          sort_order: number
+        }
+        Insert: {
+          group_id: string
+          item_id: string
+          sort_order?: number
+        }
+        Update: {
+          group_id?: string
+          item_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staging_group_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "staging_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staging_group_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "staging_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_groups: {
+        Row: {
+          analysis_id: string
+          assumption_mode: string | null
+          base_type: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          assumption_mode?: string | null
+          base_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          assumption_mode?: string | null
+          base_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staging_items: {
+        Row: {
+          analysis_id: string
+          content: string
+          created_at: string
+          id: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sub_questions: {
         Row: {
           analysis_id: string
@@ -416,6 +512,10 @@ export type Database = {
     }
     Functions: {
       can_access_analysis: { Args: { p_analysis_id: string }; Returns: boolean }
+      can_access_staging_group: {
+        Args: { p_group_id: string }
+        Returns: boolean
+      }
       can_access_sub_question: {
         Args: { p_sub_question_id: string }
         Returns: boolean
