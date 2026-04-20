@@ -1,86 +1,88 @@
 
 
-# Phase 2 — Classrooms (Foundation)
+# Phase 3 — Assignments
 
-Build the classroom layer: teachers create classrooms with shareable codes, students join via code. No house visibility, comments, or assignments yet — those come in later phases. This phase establishes the data model and entry points the rest of the system will hang off.
+Phase 3 builds the assignment system: teachers create assignments inside a classroom (with a due date and one of three starting-house modes), students see them on their classroom page, "start" the assignment to get a linked house, work on it, and submit. Teachers see a submission table per assignment with read-only access to each submitted house. **Comments move to Phase 4** and will attach to these submissions.
 
 ## What gets built
 
-### 1. Database schema
-- **`classrooms`** table — owner (teacher user_id), name, 6-char alphanumeric code (unique, auto-generated, e.g. `HT-4X9Z`), optional `student_cap` (nullable = unlimited), timestamps.
-- **`classroom_members`** table — classroom_id + student user_id (unique together) + joined_at.
-- RLS:
-  - Teachers can CRUD their own classrooms.
-  - Students can SELECT classrooms they belong to (read-only, only the classroom they joined).
-  - Students can INSERT themselves into `classroom_members` only via a SECURITY DEFINER function `join_classroom(code text)` that validates the code, enforces "one classroom per student," and respects the cap.
-  - Teachers can SELECT/DELETE rows in `classroom_members` for classrooms they own (used to view roster + remove students).
-- Helper SECURITY DEFINER functions: `join_classroom(code)`, `leave_classroom()`, `regenerate_classroom_code(classroom_id)`, `is_classroom_owner(classroom_id)`.
+### 1. Assignment creation modes (teacher chooses per assignment)
+- **Empty** — student gets a blank house tagged to the assignment. Just title, prompt, due date.
+- **Pre-filled question** — teacher provides the overarching question (and optional sub-purposes); student's house is created with those fields pre-populated.
+- **Template clone** — teacher picks one of their own existing houses as a template; when a student starts the assignment, the entire house is deep-cloned (concepts, sub-questions, POV labels, assumptions, staging — but no test results or chats) into the student's account.
 
-### 2. Entry points (left rail)
-A new icon button is added to the analysis page left rail **directly above the Research Mode button** (students) / equivalent slot (teachers):
-- **Student**: "My Classroom" icon → opens `/classroom` (their join/leave page).
-- **Teacher**: "Classrooms" icon → opens `/classrooms` (their classroom dashboard).
-- **Standard**: button hidden entirely.
+### 2. Database schema
+- **`assignments`** — id, classroom_id, teacher_id, title, prompt (text), due_at (timestamptz, nullable = no due date), mode (`empty` | `prefilled` | `template`), prefilled_question (text, nullable), prefilled_sub_purposes (text, nullable), template_analysis_id (uuid, nullable, FK to teacher's own analysis), created_at, updated_at.
+- **`assignment_submissions`** — id, assignment_id, student_id, analysis_id (the student's house), status (`in_progress` | `submitted`), started_at, submitted_at (nullable). Unique on (assignment_id, student_id).
+- **`analyses`** — add nullable column `assignment_submission_id` so a house knows it belongs to a submission (used for read-only teacher access and the student's "Submitted" badge).
 
-The same entry button also appears on the main `Dashboard` page header so it's reachable without opening a house.
+### 3. RLS + SECURITY DEFINER functions
+- **`assignments`**: teachers CRUD their own; students SELECT assignments in their classroom (via `is_classroom_member`).
+- **`assignment_submissions`**: students SELECT/UPDATE their own row; teachers SELECT/DELETE rows for their own assignments. INSERT only via `start_assignment(p_assignment_id)` RPC which validates membership, creates/clones the analysis, and inserts the submission row atomically.
+- **`analyses` teacher read access**: extend RLS so a teacher can SELECT an analysis if it is the `analysis_id` of a submission for an assignment they own — read-only. New helper `can_teacher_view_analysis(p_analysis_id)`. Mirror this for `concepts`, `sub_questions`, `pov_labels`, `assumptions`, `staging_groups`, `staging_items`, `staging_group_items` so the whole house is visible.
+- **`submit_assignment(p_submission_id)`** RPC — sets status to `submitted` and stamps `submitted_at`. Owned by the student.
+- **`unsubmit_assignment(p_submission_id)`** RPC — student can pull back a submission before grading exists (will be locked once Phase 5 grading lands).
+- Submitted houses become **read-only for the student** while status is `submitted` (UI gate; DB still allows their writes so unsubmit works cleanly).
 
-### 3. Teacher Classroom Dashboard (`/classrooms`)
-- List of the teacher's classrooms as cards: name, code (with one-click copy), student count, "Open" button.
-- **+ Create Classroom** button → modal asking for name and optional student cap (number input, blank = unlimited).
-- Clicking a card opens `/classrooms/:id` showing:
-  - Classroom name (editable inline) and code with copy button.
-  - **Regenerate code** button with confirmation ("Old code stops working immediately. Existing students stay enrolled.").
-  - **Edit cap** inline.
-  - **Roster table**: student display name (from profile / fallback to email), date joined, **Remove** button per row with confirmation dialog.
-  - **Delete classroom** button (destructive, confirmation modal warning all students will be unlinked).
+### 4. Teacher UI
+- **Classroom detail page (`/classrooms/:id`)** — add an **Assignments** tab next to the existing roster. Shows a list of assignments (title, mode badge, due date, submission count `5/12 submitted`).
+- **+ New Assignment** button → modal: title, prompt (textarea), due date (optional), mode picker. Mode picker reveals different fields:
+  - Empty: nothing extra.
+  - Pre-filled: question input + optional sub-purposes textarea.
+  - Template: dropdown of the teacher's own existing analyses.
+- **Assignment detail (`/classrooms/:id/assignments/:assignmentId`)** — header (title, prompt, due date, edit/delete buttons), submissions table (student name, status badge, started_at, submitted_at, **View house** button). Clicking "View house" opens the student's analysis in a read-only mode.
+- **Read-only house view**: reuse `AnalysisPage` with a `?readonly=1` flag (or a small wrapper) that hides editing UI, AI sidebar, builder edits, and shows a "Viewing as teacher" banner.
 
-### 4. Student Classroom Page (`/classroom`)
-- If not in a classroom: input field "Enter classroom code" + Join button. Shows inline error on invalid/expired code, or cap-reached message.
-- If already in a classroom: shows teacher name + classroom name + green confirmation indicator + **Leave Classroom** button (confirmation dialog: "Your work stays yours. You will be unlinked from this classroom.").
-- Attempting to join a second classroom is blocked at the DB function level; UI surfaces the error with a Leave button.
-
-### 5. Removal/leave semantics (Phase 2 only)
-- Removing a student or leaving a classroom simply deletes the `classroom_members` row.
-- Phase 2 has nothing to revoke beyond the link itself. Per your preference: in future phases, when comments/assignments exist, students keep all comment threads and assignment submissions; teachers lose all access. We will design the cascade rules into the Phase 3 schema accordingly — no special wiring needed now.
+### 5. Student UI
+- **Student classroom page (`/classroom`)** — add an **Assignments** section listing all assignments in their classroom, sorted by due date. Each row shows: title, due date (with overdue badge), status (`Not started` | `In progress` | `Submitted`), and an action button:
+  - Not started → **Start Assignment** (calls `start_assignment` RPC; navigates to the new house).
+  - In progress → **Open** (navigates to the house) and **Submit** button.
+  - Submitted → **View** (read-only) and **Unsubmit** button.
+- **Assignment-linked house** — `AnalysisPage` shows a top banner when the analysis has an `assignment_submission_id`: "Assignment: {title} · Due {date} · {status}" with a **Submit** button (or **Unsubmit**) inline. Submit triggers a confirmation dialog.
 
 ### 6. Permissions plumbing
-- Extend `src/lib/permissions.ts` with `canCreateClassrooms` (teacher only) and `canJoinClassroom` (student only). The new left-rail button reads from `usePermissions`.
-- No Standard-account changes.
+- Extend `src/lib/permissions.ts`:
+  - `canCreateAssignments` (teacher only)
+  - `canStartAssignments` (student only)
+- Standard accounts see no assignment UI anywhere.
 
-## Explicitly NOT in Phase 2 (saved for later phases)
-- Teacher viewing student houses (read-only mode). Per your direction, teachers will only see student work via assignment submissions in a later phase — no general house viewing.
-- Comments, replies, feedback history.
-- Assignments, due dates, submission tracking, "Start Assignment" pre-filled houses.
-- Notification bell, unread badges.
-- Cross-account data revocation rules (will be designed alongside Phase 3 comments/assignments).
+### 7. Removal/leave semantics
+- If a student is removed from a classroom OR leaves: their submissions stay theirs (the house is still in their dashboard), but the teacher loses the read-only RLS link automatically because membership is gone — `can_teacher_view_analysis` returns false. This matches your "students keep everything, teachers lose access" rule from Phase 2.
+- Deleting an assignment: marks submissions detached (the houses remain in students' accounts, the teacher view link is broken). Confirmation dialog spells this out.
+
+## Explicitly NOT in Phase 3 (saved for later phases)
+- Comments (per-section, per-bullet, overall) — **Phase 4**, attaching to submissions built here.
+- Grading, scores, rubrics — Phase 5.
+- Notification bell + unread badges — Phase 6.
+- General teacher access to non-assignment student houses (still off, per your direction).
 
 ## Technical details
 
 **New files**
-- `src/pages/TeacherClassroomsPage.tsx` — list + create.
-- `src/pages/TeacherClassroomDetailPage.tsx` — single classroom (roster, code, cap, regenerate, delete).
-- `src/pages/StudentClassroomPage.tsx` — join/leave UI.
-- `src/components/classroom/ClassroomCard.tsx`, `RosterTable.tsx`, `ClassroomCodeBadge.tsx`, `CreateClassroomDialog.tsx`.
-- `src/hooks/useClassrooms.ts` (teacher) and `useMyClassroom.ts` (student) — typed Supabase queries.
+- `src/pages/TeacherAssignmentDetailPage.tsx` — submission roster + read-only house viewer entry.
+- `src/components/classroom/AssignmentsList.tsx` (used by both teacher detail and student classroom pages, with role-aware actions).
+- `src/components/classroom/CreateAssignmentDialog.tsx` — three-mode form.
+- `src/components/classroom/SubmissionsTable.tsx`.
+- `src/components/classroom/AssignmentBanner.tsx` — top-of-house banner for student.
+- `src/hooks/useAssignments.ts` (teacher), `useStudentAssignments.ts` (student).
 
 **Edited files**
-- `src/lib/permissions.ts` — add `canCreateClassrooms`, `canJoinClassroom`.
-- `src/pages/AnalysisPage.tsx` — add classroom icon button to the left rail above the Research/Sidebar entry.
-- `src/pages/Dashboard.tsx` — add classroom entry button in the header (teacher and student only).
-- `src/App.tsx` — add three protected routes.
+- `src/lib/permissions.ts` — add two gates.
+- `src/App.tsx` — add `/classrooms/:id/assignments/:assignmentId` route.
+- `src/pages/TeacherClassroomDetailPage.tsx` — add Assignments tab.
+- `src/pages/StudentClassroomPage.tsx` — add Assignments section.
+- `src/pages/AnalysisPage.tsx` — read `assignment_submission_id`, show banner, gate editing in `readonly` mode.
+- `src/integrations/supabase/types.ts` — auto-regenerated.
 
 **Migrations**
-- `classrooms`, `classroom_members`, indexes on `code` and `(classroom_id, student_id)`.
-- SECURITY DEFINER functions for join/leave/regenerate so RLS stays tight.
-- Trigger to auto-generate code on insert if blank, enforce uppercase, retry on collision.
+- Create `assignments`, `assignment_submissions`; add `analyses.assignment_submission_id`; indexes on `(classroom_id)`, `(assignment_id, student_id)`.
+- Helper functions `can_teacher_view_analysis`, `can_teacher_view_via_assignment` (checks assignment ownership + classroom membership at submission time).
+- RPCs `start_assignment`, `submit_assignment`, `unsubmit_assignment`, plus a private `_clone_analysis(src, target_user)` helper for template mode.
+- Extend SELECT policies on child tables (`concepts`, `sub_questions`, `pov_labels`, `assumptions`, `staging_*`) with an additional permissive policy: `can_teacher_view_analysis(analysis_id)`.
 
-**RLS policy summary**
-```text
-classrooms          : teacher CRUD own; student SELECT only classrooms they belong to (via join)
-classroom_members   : teacher SELECT/DELETE for own classrooms; student SELECT own row;
-                      INSERT only via join_classroom() SECURITY DEFINER function;
-                      DELETE own row via leave_classroom() function
-```
+**Read-only mode**
+- `AnalysisPage` and the section pages (`/analysis/:id/concepts` etc.) accept `?readonly=1`. When set: disable inputs, hide AI sidebar/research/logic/stress buttons, hide save/delete actions, show "Viewing as teacher" pill. The teacher's "View house" button always appends this query param.
 
-**Code format**: `HT-XXXX` where XXXX is 4 random alphanumeric chars (excluding ambiguous 0/O/1/I), generated server-side.
+**Cloning (template mode)**
+- `start_assignment` RPC, when `mode = 'template'`, runs `_clone_analysis` which: inserts a new `analyses` row owned by the student, then copies `concepts`, `pov_labels`, `sub_questions` (with new ids and remapped `pov_label_id`), `assumptions` (remapped `sub_question_id`), and `staging_*` rows. Skips `test_results`, `sidebar_chats`, `draft_runs`. Sets `assignment_submission_id` on the new analysis.
 
