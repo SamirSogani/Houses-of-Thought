@@ -663,6 +663,72 @@ export default function InteractiveHouseBuilder({
     [staging, analysis, analysisId, onUpdateField],
   );
 
+  const routeItemToZone = useCallback(
+    async (
+      zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+      item: StagingItem,
+      analysisSnapshot: Analysis,
+    ) => {
+      if (zone === "concepts") {
+        await supabase.from("concepts").insert({
+          analysis_id: analysisId,
+          term: item.type === "concept" ? item.content.slice(0, 60) : "Untitled",
+          definition: item.content,
+        });
+      } else {
+        const current = (analysisSnapshot as any)[zone] || "";
+        const next = current ? `${current}\n• ${item.content}` : `• ${item.content}`;
+        await supabase
+          .from("analyses")
+          .update({ [zone]: next, updated_at: new Date().toISOString() })
+          .eq("id", analysisId);
+        onUpdateField?.(zone as keyof Analysis, next);
+        (analysisSnapshot as any)[zone] = next;
+      }
+    },
+    [analysisId, onUpdateField],
+  );
+
+  const zoneAcceptsType = (
+    zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+    type: StagingType,
+  ): boolean => {
+    if (zone === "concepts") return type === "concept";
+    if (zone === "implications") return type === "implication";
+    if (zone === "consequences") return type === "consequence";
+    return true;
+  };
+
+  const handleDropGroupOnAnalysisZone = useCallback(
+    async (
+      zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+      groupId: string,
+    ) => {
+      const group = groups.find((g) => g.id === groupId);
+      if (!group) return;
+      const items = staging.filter((s) => group.itemIds.includes(s.id));
+      const accepted = items.filter((i) => zoneAcceptsType(zone, i.type));
+      if (accepted.length === 0) {
+        toast.error(`Section "${group.name}" has no items that fit ${zone.replace("_", " ")}.`);
+        return;
+      }
+      try {
+        const snap = { ...analysis };
+        for (const item of accepted) {
+          // eslint-disable-next-line no-await-in-loop
+          await routeItemToZone(zone, item, snap as Analysis);
+        }
+        const acceptedIds = new Set(accepted.map((i) => i.id));
+        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save section");
+      }
+    },
+    [groups, staging, analysis, routeItemToZone],
+  );
+
   const getPovLabel = (sq: SubQuestion) => {
     if (sq.pov_label_id && povLabels[sq.pov_label_id]) return povLabels[sq.pov_label_id];
     if (sq.pov_category === "ideas_disciplines") return "Ideas";
