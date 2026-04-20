@@ -7,9 +7,17 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, GraduationCap, BookOpen, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import DeleteAccountSection from "@/components/ai/DeleteAccountSection";
+import { ACCOUNT_TYPE_DESCRIPTIONS, type AccountType } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
+
+const ACCOUNT_OPTIONS: { type: AccountType; label: string; icon: typeof UserIcon }[] = [
+  { type: "standard", label: "Standard", icon: UserIcon },
+  { type: "student", label: "Student", icon: GraduationCap },
+  { type: "teacher", label: "Teacher", icon: BookOpen },
+];
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -22,6 +30,8 @@ export default function ProfilePage() {
   const [roleTitle, setRoleTitle] = useState("");
   const [locationContext, setLocationContext] = useState("");
   const [currentProject, setCurrentProject] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("standard");
+  const [savingAccountType, setSavingAccountType] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -43,7 +53,25 @@ export default function ProfilePage() {
       setRoleTitle((data as any).role_title || "");
       setLocationContext((data as any).location_context || "");
       setCurrentProject((data as any).current_project || "");
+      const t = (data as any).account_type;
+      if (t === "student" || t === "teacher" || t === "standard") setAccountType(t);
     }
+  };
+
+  const updateAccountType = async (newType: AccountType) => {
+    if (newType === accountType || savingAccountType) return;
+    setSavingAccountType(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ account_type: newType, updated_at: new Date().toISOString() } as any)
+      .eq("user_id", user!.id);
+    setSavingAccountType(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setAccountType(newType);
+    toast.success(`Account type changed to ${newType.charAt(0).toUpperCase() + newType.slice(1)}.`);
   };
 
   const saveProfile = async () => {
@@ -75,6 +103,48 @@ export default function ProfilePage() {
 
         <h1 className="text-3xl font-display font-bold mb-2">Your Profile</h1>
         <p className="text-muted-foreground mb-8">Personal information and foundational perspective.</p>
+
+        {/* Account Type section */}
+        <Card className="mb-8">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-display">Account Type</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Choose the experience that matches you. You can change this anytime.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {ACCOUNT_OPTIONS.map(({ type, label, icon: Icon }) => {
+                const active = accountType === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={savingAccountType}
+                    onClick={() => updateAccountType(type)}
+                    className={cn(
+                      "text-left rounded-lg border p-3 transition-colors flex flex-col gap-1.5 disabled:opacity-60",
+                      active
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border bg-card hover:bg-muted/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={cn("h-4 w-4", active ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("text-sm font-medium", active ? "text-primary" : "text-foreground")}>
+                        {label}
+                      </span>
+                      {active && <span className="ml-auto text-[10px] uppercase tracking-wide text-primary font-semibold">Active</span>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      {ACCOUNT_TYPE_DESCRIPTIONS[type]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* About section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

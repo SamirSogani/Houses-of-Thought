@@ -94,7 +94,7 @@ export default function ResearchPanel() {
                 className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
                 title="Copy citation"
               >
-                {copiedIdx === i ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                {copiedIdx === i ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
                 {copiedIdx === i ? "Copied" : "Copy"}
               </button>
             </div>
