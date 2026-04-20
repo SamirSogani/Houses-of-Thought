@@ -62,9 +62,9 @@ const STUDENT_PERMISSIONS: Permissions = {
   canUseResearchPanel: true,     // Dedicated Research panel replaces sidebar research
   canUseLogicStrength: true,
   canUseStressTest: true,
-  canCreateClassrooms: false,
+  canCreateClassrooms: true,
   canJoinClassroom: true,
-  canCreateAssignments: false,
+  canCreateAssignments: true,
   canStartAssignments: true,
 };
 
