@@ -23,6 +23,10 @@ export interface Permissions {
   canUseLogicStrength: boolean;
   /** Use Reasoning Stress Test / Attack Mode. */
   canUseStressTest: boolean;
+  /** Teacher: create and manage classrooms. */
+  canCreateClassrooms: boolean;
+  /** Student: join a classroom via code. */
+  canJoinClassroom: boolean;
 }
 
 const STANDARD_PERMISSIONS: Permissions = {
