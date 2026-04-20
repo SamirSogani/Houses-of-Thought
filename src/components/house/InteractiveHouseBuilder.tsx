@@ -20,7 +20,6 @@ interface Props {
 /* ─── Staging item types ─── */
 
 type StagingType =
-  | "sub-question"
   | "information"
   | "assumption"
   | "sub-conclusion"
@@ -35,7 +34,6 @@ interface StagingItem {
 }
 
 const STAGING_TYPES: StagingType[] = [
-  "sub-question",
   "information",
   "assumption",
   "sub-conclusion",
@@ -45,7 +43,6 @@ const STAGING_TYPES: StagingType[] = [
 ];
 
 const TYPE_LABEL: Record<StagingType, string> = {
-  "sub-question": "Sub-question",
   information: "Information",
   assumption: "Assumption",
   "sub-conclusion": "Sub-conclusion",
@@ -55,7 +52,6 @@ const TYPE_LABEL: Record<StagingType, string> = {
 };
 
 const TYPE_BADGE: Record<StagingType, string> = {
-  "sub-question": "bg-[hsl(245_85%_94%)] text-[hsl(245_55%_38%)] border-[hsl(245_60%_82%)]",
   information: "bg-[hsl(165_55%_90%)] text-[hsl(165_55%_28%)] border-[hsl(165_45%_75%)]",
   assumption: "bg-[hsl(15_85%_92%)] text-[hsl(15_70%_35%)] border-[hsl(15_70%_80%)]",
   "sub-conclusion": "bg-[hsl(40_90%_88%)] text-[hsl(35_75%_30%)] border-[hsl(40_80%_75%)]",
@@ -500,7 +496,7 @@ export default function InteractiveHouseBuilder({
     };
   }, [subQuestions]);
 
-  /* Staging items — local-only state */
+  /* Staging items — persisted in DB */
   const [staging, setStaging] = useState<StagingItem[]>([]);
   const [filter, setFilter] = useState<"all" | StagingType | `group:${string}`>("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -515,7 +511,7 @@ export default function InteractiveHouseBuilder({
     { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
   ];
 
-  /* Staging groups (Layer-1 draggable sections) */
+  /* Staging groups (Layer-1 draggable sections) — persisted in DB */
   interface StagingGroup {
     id: string;
     name: string;
@@ -525,6 +521,42 @@ export default function InteractiveHouseBuilder({
   }
   const [groups, setGroups] = useState<StagingGroup[]>([]);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+
+  /* Load staging data from DB whenever the analysis changes */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sb = supabase as any;
+      const [itemsRes, groupsRes, joinRes] = await Promise.all([
+        sb.from("staging_items").select("*").eq("analysis_id", analysisId).order("created_at", { ascending: false }),
+        sb.from("staging_groups").select("*").eq("analysis_id", analysisId).order("created_at", { ascending: true }),
+        sb.from("staging_group_items").select("*"),
+      ]);
+      if (cancelled) return;
+      const items: StagingItem[] = (itemsRes.data || []).map((r: any) => ({
+        id: r.id,
+        type: r.type as StagingType,
+        content: r.content,
+      }));
+      const joinByGroup: Record<string, string[]> = {};
+      (joinRes.data || []).forEach((j: any) => {
+        if (!joinByGroup[j.group_id]) joinByGroup[j.group_id] = [];
+        joinByGroup[j.group_id].push(j.item_id);
+      });
+      const grps: StagingGroup[] = (groupsRes.data || []).map((g: any) => ({
+        id: g.id,
+        name: g.name || TYPE_LABEL[g.base_type as StagingType] || "Section",
+        baseType: g.base_type as StagingType,
+        assumptionMode: g.assumption_mode || undefined,
+        itemIds: joinByGroup[g.id] || [],
+      }));
+      setStaging(items);
+      setGroups(grps);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisId]);
 
   const activeGroup = useMemo(() => {
     if (typeof filter === "string" && filter.startsWith("group:")) {
@@ -544,27 +576,55 @@ export default function InteractiveHouseBuilder({
   }, [staging, filter, activeGroup]);
 
   const addStagingItem = useCallback(
-    (type: StagingType, content: string, targetGroupId?: string) => {
-      const newId = `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    async (type: StagingType, content: string, targetGroupId?: string) => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from("staging_items")
+        .insert({ analysis_id: analysisId, type, content })
+        .select("id")
+        .single();
+      if (error || !data) {
+        toast.error(error?.message || "Could not save material");
+        return;
+      }
+      const newId = data.id as string;
       setStaging((prev) => [{ id: newId, type, content }, ...prev]);
       if (targetGroupId) {
+        await sb.from("staging_group_items").insert({ group_id: targetGroupId, item_id: newId });
         setGroups((prev) =>
           prev.map((g) => (g.id === targetGroupId ? { ...g, itemIds: [newId, ...g.itemIds] } : g)),
         );
       }
       setAddOpen(false);
     },
-    [],
+    [analysisId],
   );
 
-  const removeStagingItem = useCallback((id: string) => {
+  const removeStagingItem = useCallback(async (id: string) => {
+    const sb = supabase as any;
+    await sb.from("staging_items").delete().eq("id", id);
     setStaging((prev) => prev.filter((s) => s.id !== id));
     setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== id) })));
   }, []);
 
   const addGroup = useCallback(
-    (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
-      const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    async (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from("staging_groups")
+        .insert({
+          analysis_id: analysisId,
+          name: name.trim() || TYPE_LABEL[baseType],
+          base_type: baseType,
+          assumption_mode: baseType === "assumption" ? assumptionModeChoice : null,
+        })
+        .select("id")
+        .single();
+      if (error || !data) {
+        toast.error(error?.message || "Could not create section");
+        return;
+      }
+      const id = data.id as string;
       setGroups((prev) => [
         ...prev,
         {
@@ -578,10 +638,12 @@ export default function InteractiveHouseBuilder({
       setFilter(`group:${id}`);
       setNewGroupOpen(false);
     },
-    [],
+    [analysisId],
   );
 
-  const removeGroup = useCallback((groupId: string) => {
+  const removeGroup = useCallback(async (groupId: string) => {
+    const sb = supabase as any;
+    await sb.from("staging_groups").delete().eq("id", groupId);
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
     setFilter((f) => (f === `group:${groupId}` ? "all" : f));
   }, []);
@@ -692,6 +754,7 @@ export default function InteractiveHouseBuilder({
       if (!item) return;
       try {
         await routeItemToSubQuestion(sqId, item, assumptionMode);
+        await (supabase as any).from("staging_items").delete().eq("id", itemId);
         toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
         setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== itemId) })));
@@ -718,8 +781,11 @@ export default function InteractiveHouseBuilder({
           // eslint-disable-next-line no-await-in-loop
           await routeItemToSubQuestion(sqId, item, mode);
         }
-        const acceptedIds = new Set(accepted.map((i) => i.id));
-        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        const acceptedIds = accepted.map((i) => i.id);
+        const sb = supabase as any;
+        await sb.from("staging_items").delete().in("id", acceptedIds);
+        await sb.from("staging_groups").delete().eq("id", groupId);
+        setStaging((prev) => prev.filter((s) => !new Set(acceptedIds).has(s.id)));
         setGroups((prev) => prev.filter((g) => g.id !== groupId));
         toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
       } catch (err: any) {
@@ -756,6 +822,7 @@ export default function InteractiveHouseBuilder({
           onUpdateField?.(zone as keyof Analysis, next);
           toast.success(`Added to ${zone.replace("_", " ")}`);
         }
+        await (supabase as any).from("staging_items").delete().eq("id", itemId);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
       } catch (err: any) {
         toast.error(err?.message || "Could not save dropped item");
@@ -819,8 +886,11 @@ export default function InteractiveHouseBuilder({
           // eslint-disable-next-line no-await-in-loop
           await routeItemToZone(zone, item, snap as Analysis);
         }
-        const acceptedIds = new Set(accepted.map((i) => i.id));
-        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        const acceptedIds = accepted.map((i) => i.id);
+        const sb = supabase as any;
+        await sb.from("staging_items").delete().in("id", acceptedIds);
+        await sb.from("staging_groups").delete().eq("id", groupId);
+        setStaging((prev) => prev.filter((s) => !new Set(acceptedIds).has(s.id)));
         setGroups((prev) => prev.filter((g) => g.id !== groupId));
         toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
       } catch (err: any) {
