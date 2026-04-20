@@ -161,6 +161,12 @@ function SubQuestionRowCard({
     dragCounter.current = 0;
     setOver(false);
     setReject(false);
+    const itemKind = e.dataTransfer.getData("application/x-item-kind");
+    if (itemKind === "group") {
+      const groupId = e.dataTransfer.getData("application/x-group-id");
+      if (groupId) onDropGroup(groupId);
+      return;
+    }
     const id = e.dataTransfer.getData("text/plain");
     const type = (e.dataTransfer.getData("application/x-staging-type") || "") as StagingType;
     if (!id) return;
