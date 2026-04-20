@@ -742,173 +742,135 @@ export default function InteractiveHouseBuilder({
         </div>
       </div>
 
-      {/* ── STANDARD HOUSE LAYOUT BELOW ── */}
+      {/* ── COMPACT SECTION SHORTCUTS (replaces full standard house layout) ── */}
+      <div className="rounded-md border-2 border-blueprint bg-card p-3 sm:p-4 space-y-3">
+        <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
+          House sections — click to open · drop staging items here
+        </p>
 
-      {/* Atmosphere — Concepts */}
-      <Card
-        className="house-zone house-zone-atmosphere cursor-pointer"
-        onClick={() => onNavigate(`/analysis/${analysisId}/concepts`)}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const id = e.dataTransfer.getData("text/plain");
-          if (id) handleDropOnAnalysisZone("concepts", id);
-        }}
-      >
-        <CardContent className="py-4 text-center">
-          <p className="text-xs font-mono text-muted-foreground mb-1">ELEMENT 1 — THE ATMOSPHERE</p>
-          <h3 className="text-lg font-display font-bold">Concepts, Theories & Definitions</h3>
-          <p className="text-sm text-muted-foreground mt-1">Click to define your core ideas → · drop concepts here</p>
-        </CardContent>
-      </Card>
-
-      {/* Roof: Consequences / Purpose / Implications */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card
-          className="house-zone house-zone-roof cursor-pointer"
-          onClick={() => onNavigate(`/analysis/${analysisId}/consequences?view=builder`)}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const id = e.dataTransfer.getData("text/plain");
-            if (id) handleDropOnAnalysisZone("consequences", id);
-          }}
-        >
-          <CardContent className="py-4 text-center">
-            <p className="text-xs font-mono text-muted-foreground mb-1">8b</p>
-            <h4 className="text-sm font-display font-semibold">Consequences</h4>
-          </CardContent>
-        </Card>
-
-        <Card className="house-zone house-zone-roof relative">
-          <CardContent className="py-3">
-            <p className="text-xs font-mono text-muted-foreground mb-1 text-center">ELEMENT 2 — PURPOSE</p>
-            <Textarea
-              placeholder="Overarching Purpose..."
-              value={analysis.purpose}
-              onChange={(e) => onUpdateField?.("purpose", e.target.value)}
-              className="min-h-[60px] text-sm bg-card mb-2"
-              readOnly={!onUpdateField}
-            />
-            <p className="text-xs font-mono text-muted-foreground mb-1 text-center">2.1 — SUB-PURPOSES</p>
-            <Textarea
-              placeholder="Sub-purposes..."
-              value={analysis.sub_purposes}
-              onChange={(e) => onUpdateField?.("sub_purposes", e.target.value)}
-              className="min-h-[40px] text-sm bg-card"
-              readOnly={!onUpdateField}
-            />
-          </CardContent>
-        </Card>
-
-        <Card
-          className="house-zone house-zone-roof cursor-pointer"
-          onClick={() => onNavigate(`/analysis/${analysisId}/implications?view=builder`)}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const id = e.dataTransfer.getData("text/plain");
-            if (id) handleDropOnAnalysisZone("implications", id);
-          }}
-        >
-          <CardContent className="py-4 text-center">
-            <p className="text-xs font-mono text-muted-foreground mb-1">8a</p>
-            <h4 className="text-sm font-display font-semibold">Implications</h4>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Ceiling: Overarching Question / Conclusion */}
-      <Card className="house-zone house-zone-ceiling">
-        <CardContent className="py-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-mono mb-1 text-muted-foreground">3.1 — OVERARCHING QUESTION</p>
-              <Textarea
-                placeholder="What is your overarching question?"
-                value={analysis.overarching_question}
-                onChange={(e) => onUpdateField?.("overarching_question", e.target.value)}
-                className="min-h-[60px] text-sm bg-card text-foreground"
-                readOnly={!onUpdateField}
-              />
-            </div>
-            <div
-              className="cursor-pointer"
-              onClick={() => onNavigate(`/analysis/${analysisId}/synthesis?view=builder`)}
-            >
-              <p className="text-xs font-mono mb-1 text-muted-foreground">7.2 — OVERARCHING CONCLUSION</p>
-              <div className="min-h-[60px] p-3 rounded-md bg-card text-foreground text-sm border hover:shadow-md transition-shadow">
-                {analysis.overarching_conclusion || (
-                  <span className="text-muted-foreground italic">Click to synthesize →</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Columns: Sub-Questions */}
-      <Card
-        className="house-zone cursor-pointer"
-        onClick={() => onNavigate(`/analysis/${analysisId}/sub-questions?view=builder`)}
-      >
-        <CardContent className="py-4">
-          <p className="text-xs font-mono text-muted-foreground mb-2 text-center">
-            ELEMENT 3.2 — SUB-QUESTIONS (THE COLUMNS)
-          </p>
-          {subQuestions.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-muted-foreground">Click to add sub-questions →</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {["individual", "group", "ideas_disciplines"].map((pov) => (
-                <div key={pov} className="space-y-2">
-                  <p className="text-xs font-semibold text-center capitalize">
-                    {pov === "ideas_disciplines" ? "Ideas & Disciplines" : pov}
+        {(() => {
+          const SectionTile = ({
+            code,
+            title,
+            value,
+            zone,
+            onClickPath,
+            accept = true,
+          }: {
+            code: string;
+            title: string;
+            value?: string;
+            zone?: Parameters<typeof handleDropOnAnalysisZone>[0];
+            onClickPath: string;
+            accept?: boolean;
+          }) => {
+            const [over, setOver] = useState(false);
+            const isActive = !!draggingId && accept;
+            return (
+              <button
+                type="button"
+                onClick={() => onNavigate(onClickPath)}
+                onDragOver={(e) => {
+                  if (!accept) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (!over) setOver(true);
+                }}
+                onDragLeave={() => setOver(false)}
+                onDrop={(e) => {
+                  if (!accept || !zone) return;
+                  e.preventDefault();
+                  setOver(false);
+                  const id = e.dataTransfer.getData("text/plain");
+                  if (id) void handleDropOnAnalysisZone(zone, id);
+                }}
+                className={`text-left rounded-md border bg-background hover:bg-muted/50 transition-all p-3 ${
+                  over
+                    ? "ring-2 ring-[hsl(245_70%_45%)] border-[hsl(245_70%_45%)] bg-[hsl(245_85%_92%)] scale-[1.02] shadow-md"
+                    : isActive
+                      ? "ring-2 ring-[hsl(245_60%_60%)]/70 ring-dashed border-[hsl(245_60%_70%)] animate-pulse"
+                      : "border-border"
+                }`}
+              >
+                <p className="text-[10px] font-mono text-muted-foreground pointer-events-none">{code}</p>
+                <p className="text-sm font-display font-semibold text-foreground mt-0.5 pointer-events-none">{title}</p>
+                {value !== undefined && (
+                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 pointer-events-none">
+                    {value || <span className="italic">empty — click to edit</span>}
                   </p>
-                  {(povGroups[pov] || []).map((sq) => (
-                    <div
-                      key={sq.id}
-                      className={`p-2 text-xs rounded border cursor-pointer hover:shadow-md transition-shadow ${
-                        pov === "individual"
-                          ? "pov-individual"
-                          : pov === "group"
-                            ? "pov-group"
-                            : "pov-ideas"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`);
-                      }}
-                    >
-                      {sq.question || "Untitled"}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                )}
+              </button>
+            );
+          };
 
-      {/* (Standalone Assumptions card removed — assumption modes now live in the staging boxes) */}
-      {/* Foundation */}
-      <Card className="house-zone house-zone-foundation">
-        <CardContent className="py-4">
-          <p className="text-xs font-mono text-muted-foreground mb-2 text-center">
-            ELEMENT 4.2 — PERSONAL FOUNDATIONAL POINT OF VIEW
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {["Biological", "Social", "Familial", "Individual"].map((label) => (
-              <div key={label} className="text-center p-2 bg-card rounded border text-xs">
-                <p className="font-semibold">{label}</p>
-                <p className="text-muted-foreground mt-1">Set in Profile</p>
+          return (
+            <>
+              {/* Atmosphere */}
+              <div className="grid grid-cols-1">
+                <SectionTile
+                  code="ELEMENT 1 — ATMOSPHERE"
+                  title="Concepts, Theories & Definitions"
+                  zone="concepts"
+                  onClickPath={`/analysis/${analysisId}/concepts`}
+                />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
+              {/* Roof: Consequences / Purpose / Implications */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <SectionTile
+                  code="8b — CONSEQUENCES"
+                  title="Consequences"
+                  value={analysis.consequences}
+                  zone="consequences"
+                  onClickPath={`/analysis/${analysisId}/consequences?view=builder`}
+                />
+                <SectionTile
+                  code="ELEMENT 2 — PURPOSE"
+                  title="Overarching Purpose"
+                  value={analysis.purpose}
+                  zone="purpose"
+                  onClickPath={`/analysis/${analysisId}/?view=builder`}
+                />
+                <SectionTile
+                  code="8a — IMPLICATIONS"
+                  title="Implications"
+                  zone="implications"
+                  onClickPath={`/analysis/${analysisId}/implications?view=builder`}
+                />
+              </div>
+
+              {/* Ceiling: Question + Conclusion */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <SectionTile
+                  code="3.1 — OVERARCHING QUESTION"
+                  title="Overarching Question"
+                  value={analysis.overarching_question}
+                  zone="overarching_question"
+                  onClickPath={`/analysis/${analysisId}/?view=builder`}
+                />
+                <SectionTile
+                  code="7.2 — OVERARCHING CONCLUSION"
+                  title="Overarching Conclusion"
+                  value={analysis.overarching_conclusion}
+                  onClickPath={`/analysis/${analysisId}/synthesis?view=builder`}
+                  accept={false}
+                />
+              </div>
+
+              {/* Foundation */}
+              <div className="grid grid-cols-1">
+                <SectionTile
+                  code="ELEMENT 4.2 — PERSONAL FOUNDATIONAL POV"
+                  title="Personal Foundational Point of View"
+                  value="Biological · Social · Familial · Individual — set in Profile"
+                  onClickPath="/profile"
+                  accept={false}
+                />
+              </div>
+            </>
+          );
+        })()}
+      </div>
     </div>
   );
 }
