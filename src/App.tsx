@@ -28,6 +28,7 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const TeacherClassroomsPage = lazy(() => import("./pages/TeacherClassroomsPage"));
 const TeacherClassroomDetailPage = lazy(() => import("./pages/TeacherClassroomDetailPage"));
+const TeacherAssignmentDetailPage = lazy(() => import("./pages/TeacherAssignmentDetailPage"));
 const StudentClassroomPage = lazy(() => import("./pages/StudentClassroomPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/classrooms" element={<ProtectedRoute><TeacherClassroomsPage /></ProtectedRoute>} />
               <Route path="/classrooms/:id" element={<ProtectedRoute><TeacherClassroomDetailPage /></ProtectedRoute>} />
+              <Route path="/classrooms/:id/assignments/:assignmentId" element={<ProtectedRoute><TeacherAssignmentDetailPage /></ProtectedRoute>} />
               <Route path="/classroom" element={<ProtectedRoute><StudentClassroomPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
