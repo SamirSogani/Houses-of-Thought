@@ -1041,19 +1041,17 @@ export default function InteractiveHouseBuilder({
                   onRemove={() => removeStagingItem(item.id)}
                 />
               ))}
-              {/* Empty placeholder affordances */}
-              {Array.from({ length: Math.max(0, 3 - (visibleStaging.length % 4)) }).map(
-                (_, i) => (
-                  <button
-                    key={`placeholder-${i}`}
-                    type="button"
-                    onClick={() => setAddOpen(true)}
-                    className="rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs py-6 transition-colors"
-                  >
-                    + Add material
-                  </button>
-                ),
-              )}
+              {/* Always render two trailing placeholders so users can keep adding material */}
+              {Array.from({ length: 2 }).map((_, i) => (
+                <button
+                  key={`placeholder-${i}`}
+                  type="button"
+                  onClick={() => setAddOpen(true)}
+                  className="rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs py-6 transition-colors"
+                >
+                  + Add material
+                </button>
+              ))}
             </div>
           )}
         </div>
