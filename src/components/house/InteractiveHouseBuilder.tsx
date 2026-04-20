@@ -632,7 +632,7 @@ export default function InteractiveHouseBuilder({
           <div className="flex items-center gap-2">
             <div className="h-px flex-1 bg-border" />
             <span className="text-[10px] text-muted-foreground italic px-2">
-              staging area — add material, then drag into a sub-question or section above
+              staging area — add material, then drag into a sub-question or section above or below
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
