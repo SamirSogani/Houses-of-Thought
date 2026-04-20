@@ -101,6 +101,7 @@ function SubQuestionRowCard({
   isDragActive,
   onClick,
   onDrop,
+  onDropGroup,
 }: {
   sq: SubQuestion;
   povLabel: string;
@@ -108,6 +109,7 @@ function SubQuestionRowCard({
   isDragActive: boolean;
   onClick: () => void;
   onDrop: (itemId: string, itemType: StagingType) => void;
+  onDropGroup: (groupId: string) => void;
 }) {
   const info = countInfo(sq.information || "");
   const hasSubConc = !!sq.sub_conclusion;
@@ -159,6 +161,12 @@ function SubQuestionRowCard({
     dragCounter.current = 0;
     setOver(false);
     setReject(false);
+    const itemKind = e.dataTransfer.getData("application/x-item-kind");
+    if (itemKind === "group") {
+      const groupId = e.dataTransfer.getData("application/x-group-id");
+      if (groupId) onDropGroup(groupId);
+      return;
+    }
     const id = e.dataTransfer.getData("text/plain");
     const type = (e.dataTransfer.getData("application/x-staging-type") || "") as StagingType;
     if (!id) return;
@@ -393,7 +401,7 @@ export default function InteractiveHouseBuilder({
 
   /* Staging items — local-only state */
   const [staging, setStaging] = useState<StagingItem[]>([]);
-  const [filter, setFilter] = useState<"all" | StagingType>("all");
+  const [filter, setFilter] = useState<"all" | StagingType | `group:${string}`>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -401,26 +409,80 @@ export default function InteractiveHouseBuilder({
   type AssumptionMode = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
   const [assumptionMode, setAssumptionMode] = useState<AssumptionMode>("foundational_concepts");
   const ASSUMPTION_MODES: Array<{ key: AssumptionMode; el: string; label: string; desc: string }> = [
-    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
-    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
     { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know." },
+    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
+    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
   ];
 
-  const visibleStaging = useMemo(
-    () => (filter === "all" ? staging : staging.filter((s) => s.type === filter)),
-    [staging, filter],
-  );
+  /* Staging groups (Layer-1 draggable sections) */
+  interface StagingGroup {
+    id: string;
+    name: string;
+    baseType: StagingType;
+    assumptionMode?: AssumptionMode;
+    itemIds: string[];
+  }
+  const [groups, setGroups] = useState<StagingGroup[]>([]);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
 
-  const addStagingItem = useCallback((type: StagingType, content: string) => {
-    setStaging((prev) => [
-      { id: `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, content },
-      ...prev,
-    ]);
-    setAddOpen(false);
-  }, []);
+  const activeGroup = useMemo(() => {
+    if (typeof filter === "string" && filter.startsWith("group:")) {
+      const gid = filter.slice(6);
+      return groups.find((g) => g.id === gid) || null;
+    }
+    return null;
+  }, [filter, groups]);
+
+  const visibleStaging = useMemo(() => {
+    if (activeGroup) {
+      const setIds = new Set(activeGroup.itemIds);
+      return staging.filter((s) => setIds.has(s.id));
+    }
+    if (filter === "all") return staging;
+    return staging.filter((s) => s.type === filter);
+  }, [staging, filter, activeGroup]);
+
+  const addStagingItem = useCallback(
+    (type: StagingType, content: string, targetGroupId?: string) => {
+      const newId = `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setStaging((prev) => [{ id: newId, type, content }, ...prev]);
+      if (targetGroupId) {
+        setGroups((prev) =>
+          prev.map((g) => (g.id === targetGroupId ? { ...g, itemIds: [newId, ...g.itemIds] } : g)),
+        );
+      }
+      setAddOpen(false);
+    },
+    [],
+  );
 
   const removeStagingItem = useCallback((id: string) => {
     setStaging((prev) => prev.filter((s) => s.id !== id));
+    setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== id) })));
+  }, []);
+
+  const addGroup = useCallback(
+    (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
+      const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setGroups((prev) => [
+        ...prev,
+        {
+          id,
+          name: name.trim() || TYPE_LABEL[baseType],
+          baseType,
+          assumptionMode: baseType === "assumption" ? assumptionModeChoice : undefined,
+          itemIds: [],
+        },
+      ]);
+      setFilter(`group:${id}`);
+      setNewGroupOpen(false);
+    },
+    [],
+  );
+
+  const removeGroup = useCallback((groupId: string) => {
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    setFilter((f) => (f === `group:${groupId}` ? "all" : f));
   }, []);
 
   /* ─── Auto-scroll the window during drag ─── */
@@ -501,38 +563,69 @@ export default function InteractiveHouseBuilder({
     [subQuestions],
   );
 
+  const routeItemToSubQuestion = useCallback(
+    async (sqId: string, item: StagingItem, assumpMode: AssumptionMode) => {
+      if (item.type === "information") {
+        await appendFactToSubQuestion(sqId, item.content);
+      } else if (item.type === "assumption") {
+        await supabase.from("assumptions").insert({
+          sub_question_id: sqId,
+          assumption_type: assumpMode,
+          content: item.content,
+        });
+      } else if (item.type === "sub-conclusion") {
+        await supabase
+          .from("sub_questions")
+          .update({ sub_conclusion: item.content, updated_at: new Date().toISOString() })
+          .eq("id", sqId);
+      } else {
+        await appendFactToSubQuestion(sqId, item.content);
+      }
+    },
+    [appendFactToSubQuestion],
+  );
+
   const handleDropOnSubQuestion = useCallback(
     async (sqId: string, itemId: string) => {
       const item = staging.find((s) => s.id === itemId);
       if (!item) return;
       try {
-        if (item.type === "information") {
-          await appendFactToSubQuestion(sqId, item.content);
-          toast.success("Added as Information");
-        } else if (item.type === "assumption") {
-          await supabase.from("assumptions").insert({
-            sub_question_id: sqId,
-            assumption_type: assumptionMode,
-            content: item.content,
-          });
-          toast.success(`Added as Assumption (${assumptionMode.replace(/_/g, " ")})`);
-        } else if (item.type === "sub-conclusion") {
-          await supabase
-            .from("sub_questions")
-            .update({ sub_conclusion: item.content, updated_at: new Date().toISOString() })
-            .eq("id", sqId);
-          toast.success("Added as Sub-conclusion");
-        } else {
-          // Default: append to information so nothing is lost
-          await appendFactToSubQuestion(sqId, item.content);
-          toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
-        }
+        await routeItemToSubQuestion(sqId, item, assumptionMode);
+        toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
+        setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== itemId) })));
       } catch (err: any) {
         toast.error(err?.message || "Could not save dropped item");
       }
     },
-    [staging, appendFactToSubQuestion, assumptionMode],
+    [staging, routeItemToSubQuestion, assumptionMode],
+  );
+
+  const handleDropGroupOnSubQuestion = useCallback(
+    async (sqId: string, groupId: string) => {
+      const group = groups.find((g) => g.id === groupId);
+      if (!group) return;
+      const items = staging.filter((s) => group.itemIds.includes(s.id));
+      const accepted = items.filter((i) => !SQ_REJECT_TYPES.includes(i.type));
+      if (accepted.length === 0) {
+        toast.error("No items in this section can be dropped on a sub-question.");
+        return;
+      }
+      const mode = group.assumptionMode || assumptionMode;
+      try {
+        for (const item of accepted) {
+          // eslint-disable-next-line no-await-in-loop
+          await routeItemToSubQuestion(sqId, item, mode);
+        }
+        const acceptedIds = new Set(accepted.map((i) => i.id));
+        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save section");
+      }
+    },
+    [groups, staging, routeItemToSubQuestion, assumptionMode],
   );
 
   /* Drop onto an analysis-level zone (concepts / implications / consequences / conclusion / purpose) */
@@ -568,6 +661,72 @@ export default function InteractiveHouseBuilder({
       }
     },
     [staging, analysis, analysisId, onUpdateField],
+  );
+
+  const routeItemToZone = useCallback(
+    async (
+      zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+      item: StagingItem,
+      analysisSnapshot: Analysis,
+    ) => {
+      if (zone === "concepts") {
+        await supabase.from("concepts").insert({
+          analysis_id: analysisId,
+          term: item.type === "concept" ? item.content.slice(0, 60) : "Untitled",
+          definition: item.content,
+        });
+      } else {
+        const current = (analysisSnapshot as any)[zone] || "";
+        const next = current ? `${current}\n• ${item.content}` : `• ${item.content}`;
+        await supabase
+          .from("analyses")
+          .update({ [zone]: next, updated_at: new Date().toISOString() })
+          .eq("id", analysisId);
+        onUpdateField?.(zone as keyof Analysis, next);
+        (analysisSnapshot as any)[zone] = next;
+      }
+    },
+    [analysisId, onUpdateField],
+  );
+
+  const zoneAcceptsType = (
+    zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+    type: StagingType,
+  ): boolean => {
+    if (zone === "concepts") return type === "concept";
+    if (zone === "implications") return type === "implication";
+    if (zone === "consequences") return type === "consequence";
+    return true;
+  };
+
+  const handleDropGroupOnAnalysisZone = useCallback(
+    async (
+      zone: "concepts" | "implications" | "consequences" | "conclusion" | "purpose" | "sub_purposes" | "overarching_question",
+      groupId: string,
+    ) => {
+      const group = groups.find((g) => g.id === groupId);
+      if (!group) return;
+      const items = staging.filter((s) => group.itemIds.includes(s.id));
+      const accepted = items.filter((i) => zoneAcceptsType(zone, i.type));
+      if (accepted.length === 0) {
+        toast.error(`Section "${group.name}" has no items that fit ${zone.replace("_", " ")}.`);
+        return;
+      }
+      try {
+        const snap = { ...analysis };
+        for (const item of accepted) {
+          // eslint-disable-next-line no-await-in-loop
+          await routeItemToZone(zone, item, snap as Analysis);
+        }
+        const acceptedIds = new Set(accepted.map((i) => i.id));
+        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save section");
+      }
+    },
+    [groups, staging, analysis, routeItemToZone],
   );
 
   const getPovLabel = (sq: SubQuestion) => {
@@ -614,6 +773,7 @@ export default function InteractiveHouseBuilder({
                   onNavigate(`/analysis/${analysisId}/sub-question/${sq.id}?view=builder`)
                 }
                 onDrop={(itemId) => { void handleDropOnSubQuestion(sq.id, itemId); }}
+                onDropGroup={(groupId) => { void handleDropGroupOnSubQuestion(sq.id, groupId); }}
               />
             ))}
             <button
@@ -656,6 +816,50 @@ export default function InteractiveHouseBuilder({
                 {c.label}
               </button>
             ))}
+            {groups.map((g) => {
+              const active = filter === `group:${g.id}`;
+              const count = g.itemIds.length;
+              return (
+                <div
+                  key={g.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-item-kind", "group");
+                    e.dataTransfer.setData("application/x-group-id", g.id);
+                    e.dataTransfer.setData("application/x-staging-type", g.baseType);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggingId(g.id);
+                  }}
+                  onDragEnd={() => setDraggingId(null)}
+                  className={`group/chip flex items-center gap-1 text-[11px] pl-2 pr-1 py-0.5 rounded-full border-2 border-dashed cursor-grab active:cursor-grabbing transition-colors ${
+                    active
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-background border-border text-foreground hover:border-primary/50"
+                  }`}
+                  title={`Section: ${g.name} — drag onto a target to apply all items`}
+                >
+                  <GripVertical className="h-3 w-3 opacity-60" />
+                  <button type="button" onClick={() => setFilter(`group:${g.id}`)} className="px-1">
+                    {g.name} <span className="opacity-60">({count})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(g.id)}
+                    className="p-0.5 opacity-50 hover:opacity-100 hover:text-destructive"
+                    aria-label="Remove section"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setNewGroupOpen((v) => !v)}
+              className="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-colors"
+            >
+              <Plus className="h-3 w-3 inline -mt-0.5 mr-0.5" /> New section
+            </button>
             <div className="ml-auto">
               <Button
                 size="sm"
@@ -667,6 +871,22 @@ export default function InteractiveHouseBuilder({
               </Button>
             </div>
           </div>
+
+          {newGroupOpen && (
+            <NewGroupPanel
+              onCreate={addGroup}
+              onCancel={() => setNewGroupOpen(false)}
+              assumptionModes={ASSUMPTION_MODES}
+            />
+          )}
+
+          {activeGroup && (
+            <div className="mb-2 text-[11px] text-muted-foreground">
+              Adding to section: <span className="font-semibold text-foreground">{activeGroup.name}</span>
+              {" "}· base type <span className="font-mono">{TYPE_LABEL[activeGroup.baseType]}</span>
+              {" "}· drag this section's chip onto a sub-question or house section to apply all items.
+            </div>
+          )}
 
           {/* Assumption-mode list — shown when the Assumption filter chip is active */}
           {filter === "assumption" && (
@@ -702,7 +922,17 @@ export default function InteractiveHouseBuilder({
           )}
 
           {addOpen && (
-            <AddPanel onAdd={addStagingItem} onCancel={() => setAddOpen(false)} />
+            <AddPanel
+              onAdd={(type, content) =>
+                addStagingItem(
+                  activeGroup ? activeGroup.baseType : type,
+                  content,
+                  activeGroup?.id,
+                )
+              }
+              onCancel={() => setAddOpen(false)}
+              lockedType={activeGroup ? activeGroup.baseType : undefined}
+            />
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
