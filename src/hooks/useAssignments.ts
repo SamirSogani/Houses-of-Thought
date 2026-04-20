@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AssignmentMode = "empty" | "prefilled" | "template";
+export type AssignmentMode = "empty" | "prefilled" | "template" | "none";
+export type ResponseType = "acknowledge" | "text" | null;
 export type SubmissionStatus = "in_progress" | "submitted";
 
 export interface AssignmentRow {
@@ -12,6 +13,7 @@ export interface AssignmentRow {
   prompt: string;
   due_at: string | null;
   mode: AssignmentMode;
+  response_type: ResponseType;
   prefilled_question: string | null;
   prefilled_sub_purposes: string | null;
   template_analysis_id: string | null;
@@ -23,10 +25,11 @@ export interface SubmissionRow {
   id: string;
   assignment_id: string;
   student_id: string;
-  analysis_id: string;
+  analysis_id: string | null;
   status: SubmissionStatus;
   started_at: string;
   submitted_at: string | null;
+  response_text?: string | null;
 }
 
 export interface CreateAssignmentInput {
@@ -35,6 +38,7 @@ export interface CreateAssignmentInput {
   prompt: string;
   due_at: string | null;
   mode: AssignmentMode;
+  response_type?: ResponseType;
   prefilled_question?: string | null;
   prefilled_sub_purposes?: string | null;
   template_analysis_id?: string | null;
