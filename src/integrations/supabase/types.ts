@@ -214,6 +214,7 @@ export type Database = {
       profiles: {
         Row: {
           about_me: string
+          account_type: Database["public"]["Enums"]["account_type"]
           biological: string
           created_at: string
           current_project: string
@@ -228,6 +229,7 @@ export type Database = {
         }
         Insert: {
           about_me?: string
+          account_type?: Database["public"]["Enums"]["account_type"]
           biological?: string
           created_at?: string
           current_project?: string
@@ -242,6 +244,7 @@ export type Database = {
         }
         Update: {
           about_me?: string
+          account_type?: Database["public"]["Enums"]["account_type"]
           biological?: string
           created_at?: string
           current_project?: string
@@ -523,7 +526,7 @@ export type Database = {
       is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      account_type: "standard" | "student" | "teacher"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -650,6 +653,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: ["standard", "student", "teacher"],
+    },
   },
 } as const
