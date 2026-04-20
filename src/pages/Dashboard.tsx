@@ -21,10 +21,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const { permissions } = usePermissions(profile);
 
   useEffect(() => {
     fetchAnalyses();
+    fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+    setProfile(data || null);
+  };
 
   const fetchAnalyses = async () => {
     const { data, error } = await supabase
@@ -83,6 +92,16 @@ export default function Dashboard() {
             <h1 className="text-xl font-display font-bold text-foreground">Houses of Thought</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            {permissions.canCreateClassrooms && (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/classrooms")}>
+                <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Classrooms</span>
+              </Button>
+            )}
+            {permissions.canJoinClassroom && (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/classroom")}>
+                <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">My Classroom</span>
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
               <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
             </Button>
