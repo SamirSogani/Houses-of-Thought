@@ -442,16 +442,47 @@ export default function InteractiveHouseBuilder({
     return staging.filter((s) => s.type === filter);
   }, [staging, filter, activeGroup]);
 
-  const addStagingItem = useCallback((type: StagingType, content: string) => {
-    setStaging((prev) => [
-      { id: `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, content },
-      ...prev,
-    ]);
-    setAddOpen(false);
-  }, []);
+  const addStagingItem = useCallback(
+    (type: StagingType, content: string, targetGroupId?: string) => {
+      const newId = `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setStaging((prev) => [{ id: newId, type, content }, ...prev]);
+      if (targetGroupId) {
+        setGroups((prev) =>
+          prev.map((g) => (g.id === targetGroupId ? { ...g, itemIds: [newId, ...g.itemIds] } : g)),
+        );
+      }
+      setAddOpen(false);
+    },
+    [],
+  );
 
   const removeStagingItem = useCallback((id: string) => {
     setStaging((prev) => prev.filter((s) => s.id !== id));
+    setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== id) })));
+  }, []);
+
+  const addGroup = useCallback(
+    (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
+      const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setGroups((prev) => [
+        ...prev,
+        {
+          id,
+          name: name.trim() || TYPE_LABEL[baseType],
+          baseType,
+          assumptionMode: baseType === "assumption" ? assumptionModeChoice : undefined,
+          itemIds: [],
+        },
+      ]);
+      setFilter(`group:${id}`);
+      setNewGroupOpen(false);
+    },
+    [],
+  );
+
+  const removeGroup = useCallback((groupId: string) => {
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    setFilter((f) => (f === `group:${groupId}` ? "all" : f));
   }, []);
 
   /* ─── Auto-scroll the window during drag ─── */
