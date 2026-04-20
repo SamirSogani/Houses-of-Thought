@@ -17,8 +17,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useClassrooms, useClassroomDetail } from "@/hooks/useClassrooms";
+import { useAssignments } from "@/hooks/useAssignments";
 import ClassroomCodeBadge from "@/components/classroom/ClassroomCodeBadge";
 import RosterTable from "@/components/classroom/RosterTable";
+import AssignmentsList from "@/components/classroom/AssignmentsList";
+import CreateAssignmentDialog from "@/components/classroom/CreateAssignmentDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 export default function TeacherClassroomDetailPage() {
@@ -26,6 +30,7 @@ export default function TeacherClassroomDetailPage() {
   const navigate = useNavigate();
   const { updateClassroom, deleteClassroom, regenerateCode } = useClassrooms();
   const { classroom, roster, loading, refresh, removeStudent } = useClassroomDetail(id);
+  const { assignments, submissionCounts, createAssignment } = useAssignments(id);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [editingCap, setEditingCap] = useState(false);
@@ -195,17 +200,41 @@ export default function TeacherClassroomDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Roster */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-display">
-              Students ({roster.length}{classroom.student_cap ? ` / ${classroom.student_cap}` : ""})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RosterTable roster={roster} onRemove={removeStudent} />
-          </CardContent>
-        </Card>
+        {/* Roster + Assignments tabs */}
+        <Tabs defaultValue="roster" className="w-full">
+          <TabsList>
+            <TabsTrigger value="roster">Students ({roster.length})</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments ({assignments.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="roster" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-display">
+                  Students ({roster.length}{classroom.student_cap ? ` / ${classroom.student_cap}` : ""})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RosterTable roster={roster} onRemove={removeStudent} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="assignments" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg font-display">Assignments</CardTitle>
+                {id && <CreateAssignmentDialog classroomId={id} onCreate={createAssignment} />}
+              </CardHeader>
+              <CardContent>
+                <AssignmentsList
+                  role="teacher"
+                  classroomId={id || ""}
+                  assignments={assignments}
+                  counts={submissionCounts}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Danger zone */}
         <Card className="border-destructive/30">
