@@ -109,48 +109,66 @@ export default function StudentClassroomPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-12">
+      <main className="max-w-3xl mx-auto px-4 py-12 space-y-6">
         {loading ? (
           <Card className="animate-pulse h-48" />
         ) : classroom ? (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2 text-primary">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="text-sm font-medium">You're enrolled</span>
-              </div>
-              <CardTitle className="text-2xl font-display mt-1">{classroom.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Joined on {new Date(classroom.joined_at).toLocaleDateString()}
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Classroom code:</span>{" "}
-                <span className="font-mono font-bold">{classroom.code}</span>
-              </div>
+          <>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2 text-primary">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="text-sm font-medium">You're enrolled</span>
+                </div>
+                <CardTitle className="text-2xl font-display mt-1">{classroom.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Joined on {new Date(classroom.joined_at).toLocaleDateString()}
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Classroom code:</span>{" "}
+                  <span className="font-mono font-bold">{classroom.code}</span>
+                </div>
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="text-destructive border-destructive/30">
-                    <LogOut className="h-4 w-4 mr-2" /> Leave Classroom
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Leave this classroom?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Your work stays yours. You will be unlinked from this classroom and will no longer be visible to your teacher.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleLeave} disabled={busy}>Leave</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="text-destructive border-destructive/30">
+                      <LogOut className="h-4 w-4 mr-2" /> Leave Classroom
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Leave this classroom?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your work stays yours. You will be unlinked from this classroom and will no longer be visible to your teacher.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLeave} disabled={busy}>Leave</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-display">Assignments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AssignmentsList
+                  role="student"
+                  items={assignments}
+                  onStart={handleStart}
+                  onOpen={(analysisId) => navigate(`/analysis/${analysisId}`)}
+                  onSubmit={handleSubmit}
+                  onUnsubmit={handleUnsubmit}
+                />
+              </CardContent>
+            </Card>
+          </>
         ) : (
           <Card>
             <CardHeader>
