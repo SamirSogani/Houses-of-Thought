@@ -289,6 +289,37 @@ export default function AuthPage() {
                     </p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label>What best describes you?</Label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { type: "standard" as AccountType, label: "Standard", icon: UserIcon },
+                      { type: "student" as AccountType, label: "Student", icon: GraduationCap },
+                      { type: "teacher" as AccountType, label: "Teacher", icon: BookOpen },
+                    ].map(({ type, label, icon: Icon }) => {
+                      const active = accountType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setAccountType(type)}
+                          className={cn(
+                            "rounded-lg border px-2 py-2 text-xs font-medium transition-colors flex flex-col items-center gap-1",
+                            active
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-card text-foreground hover:bg-muted/50"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    You can change this later in your profile settings.
+                  </p>
+                </div>
                 <div className="space-y-3 pt-1">
                   <div className="flex items-start gap-2">
                     <Checkbox
