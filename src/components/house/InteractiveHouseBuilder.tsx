@@ -954,21 +954,14 @@ export default function InteractiveHouseBuilder({
                 </div>
               );
             })}
-            <button
-              type="button"
-              onClick={() => setNewGroupOpen((v) => !v)}
-              className="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-colors"
-            >
-              <Plus className="h-3 w-3 inline -mt-0.5 mr-0.5" /> New section
-            </button>
             <div className="ml-auto">
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={() => setAddOpen((v) => !v)}
+                onClick={() => setNewGroupOpen((v) => !v)}
               >
-                <Plus className="h-3 w-3 mr-1" /> Add
+                <Plus className="h-3 w-3 mr-1" /> New Section
               </Button>
             </div>
           </div>
