@@ -23,6 +23,10 @@ export interface Permissions {
   canUseLogicStrength: boolean;
   /** Use Reasoning Stress Test / Attack Mode. */
   canUseStressTest: boolean;
+  /** Teacher: create and manage classrooms. */
+  canCreateClassrooms: boolean;
+  /** Student: join a classroom via code. */
+  canJoinClassroom: boolean;
 }
 
 const STANDARD_PERMISSIONS: Permissions = {
@@ -32,11 +36,14 @@ const STANDARD_PERMISSIONS: Permissions = {
   canUseResearchPanel: false, // Standard accounts use Research inside the AI sidebar
   canUseLogicStrength: true,
   canUseStressTest: true,
+  canCreateClassrooms: false,
+  canJoinClassroom: false,
 };
 
 const TEACHER_PERMISSIONS: Permissions = {
-  // Phase 1: Teacher UI is identical to Standard.
+  // Phase 1: Teacher UI is identical to Standard, plus classroom management.
   ...STANDARD_PERMISSIONS,
+  canCreateClassrooms: true,
 };
 
 const STUDENT_PERMISSIONS: Permissions = {
@@ -46,6 +53,8 @@ const STUDENT_PERMISSIONS: Permissions = {
   canUseResearchPanel: true,     // Dedicated Research panel replaces sidebar research
   canUseLogicStrength: true,
   canUseStressTest: true,
+  canCreateClassrooms: false,
+  canJoinClassroom: true,
 };
 
 export function getAccountType(profile: Profile | null | undefined): AccountType {

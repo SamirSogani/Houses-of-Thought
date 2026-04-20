@@ -91,6 +91,65 @@ export type Database = {
           },
         ]
       }
+      classroom_members: {
+        Row: {
+          classroom_id: string
+          id: string
+          joined_at: string
+          student_id: string
+        }
+        Insert: {
+          classroom_id: string
+          id?: string
+          joined_at?: string
+          student_id: string
+        }
+        Update: {
+          classroom_id?: string
+          id?: string
+          joined_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_members_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classrooms: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          student_cap: number | null
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name?: string
+          student_cap?: number | null
+          teacher_id?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          student_cap?: number | null
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       concepts: {
         Row: {
           analysis_id: string
@@ -523,7 +582,19 @@ export type Database = {
         Args: { p_sub_question_id: string }
         Returns: boolean
       }
+      generate_classroom_code: { Args: never; Returns: string }
       is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
+      is_classroom_member: {
+        Args: { p_classroom_id: string }
+        Returns: boolean
+      }
+      is_classroom_owner: { Args: { p_classroom_id: string }; Returns: boolean }
+      join_classroom: { Args: { p_code: string }; Returns: Json }
+      leave_classroom: { Args: never; Returns: Json }
+      regenerate_classroom_code: {
+        Args: { p_classroom_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       account_type: "standard" | "student" | "teacher"

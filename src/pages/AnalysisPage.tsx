@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -156,6 +156,17 @@ export default function AnalysisPage() {
         </button>
 
         <div className="w-8 border-t border-border my-1" />
+
+        {/* Classroom entry — Teacher → /classrooms, Student → /classroom */}
+        {(permissions.canCreateClassrooms || permissions.canJoinClassroom) && (
+          <button
+            onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
+            className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors text-muted-foreground hover:bg-muted"
+            title={permissions.canCreateClassrooms ? "Classrooms" : "My Classroom"}
+          >
+            <GraduationCap className="h-5 w-5" />
+          </button>
+        )}
 
         {/* Research Mode toggle — only for accounts that use the dedicated Research panel (Students) */}
         {permissions.canUseResearchPanel && (
