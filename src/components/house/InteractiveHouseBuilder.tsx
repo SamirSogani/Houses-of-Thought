@@ -922,7 +922,17 @@ export default function InteractiveHouseBuilder({
           )}
 
           {addOpen && (
-            <AddPanel onAdd={addStagingItem} onCancel={() => setAddOpen(false)} />
+            <AddPanel
+              onAdd={(type, content) =>
+                addStagingItem(
+                  activeGroup ? activeGroup.baseType : type,
+                  content,
+                  activeGroup?.id,
+                )
+              }
+              onCancel={() => setAddOpen(false)}
+              lockedType={activeGroup ? activeGroup.baseType : undefined}
+            />
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
