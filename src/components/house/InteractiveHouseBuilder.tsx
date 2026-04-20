@@ -816,6 +816,50 @@ export default function InteractiveHouseBuilder({
                 {c.label}
               </button>
             ))}
+            {groups.map((g) => {
+              const active = filter === `group:${g.id}`;
+              const count = g.itemIds.length;
+              return (
+                <div
+                  key={g.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-item-kind", "group");
+                    e.dataTransfer.setData("application/x-group-id", g.id);
+                    e.dataTransfer.setData("application/x-staging-type", g.baseType);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggingId(g.id);
+                  }}
+                  onDragEnd={() => setDraggingId(null)}
+                  className={`group/chip flex items-center gap-1 text-[11px] pl-2 pr-1 py-0.5 rounded-full border-2 border-dashed cursor-grab active:cursor-grabbing transition-colors ${
+                    active
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-background border-border text-foreground hover:border-primary/50"
+                  }`}
+                  title={`Section: ${g.name} — drag onto a target to apply all items`}
+                >
+                  <GripVertical className="h-3 w-3 opacity-60" />
+                  <button type="button" onClick={() => setFilter(`group:${g.id}`)} className="px-1">
+                    {g.name} <span className="opacity-60">({count})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(g.id)}
+                    className="p-0.5 opacity-50 hover:opacity-100 hover:text-destructive"
+                    aria-label="Remove section"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setNewGroupOpen((v) => !v)}
+              className="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-colors"
+            >
+              <Plus className="h-3 w-3 inline -mt-0.5 mr-0.5" /> New section
+            </button>
             <div className="ml-auto">
               <Button
                 size="sm"
@@ -827,6 +871,22 @@ export default function InteractiveHouseBuilder({
               </Button>
             </div>
           </div>
+
+          {newGroupOpen && (
+            <NewGroupPanel
+              onCreate={addGroup}
+              onCancel={() => setNewGroupOpen(false)}
+              assumptionModes={ASSUMPTION_MODES}
+            />
+          )}
+
+          {activeGroup && (
+            <div className="mb-2 text-[11px] text-muted-foreground">
+              Adding to section: <span className="font-semibold text-foreground">{activeGroup.name}</span>
+              {" "}· base type <span className="font-mono">{TYPE_LABEL[activeGroup.baseType]}</span>
+              {" "}· drag this section's chip onto a sub-question or house section to apply all items.
+            </div>
+          )}
 
           {/* Assumption-mode list — shown when the Assumption filter chip is active */}
           {filter === "assumption" && (
