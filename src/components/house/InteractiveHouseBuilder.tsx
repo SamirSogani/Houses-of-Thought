@@ -496,7 +496,7 @@ export default function InteractiveHouseBuilder({
     };
   }, [subQuestions]);
 
-  /* Staging items — local-only state */
+  /* Staging items — persisted in DB */
   const [staging, setStaging] = useState<StagingItem[]>([]);
   const [filter, setFilter] = useState<"all" | StagingType | `group:${string}`>("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -511,7 +511,7 @@ export default function InteractiveHouseBuilder({
     { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
   ];
 
-  /* Staging groups (Layer-1 draggable sections) */
+  /* Staging groups (Layer-1 draggable sections) — persisted in DB */
   interface StagingGroup {
     id: string;
     name: string;
@@ -521,6 +521,42 @@ export default function InteractiveHouseBuilder({
   }
   const [groups, setGroups] = useState<StagingGroup[]>([]);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+
+  /* Load staging data from DB whenever the analysis changes */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sb = supabase as any;
+      const [itemsRes, groupsRes, joinRes] = await Promise.all([
+        sb.from("staging_items").select("*").eq("analysis_id", analysisId).order("created_at", { ascending: false }),
+        sb.from("staging_groups").select("*").eq("analysis_id", analysisId).order("created_at", { ascending: true }),
+        sb.from("staging_group_items").select("*"),
+      ]);
+      if (cancelled) return;
+      const items: StagingItem[] = (itemsRes.data || []).map((r: any) => ({
+        id: r.id,
+        type: r.type as StagingType,
+        content: r.content,
+      }));
+      const joinByGroup: Record<string, string[]> = {};
+      (joinRes.data || []).forEach((j: any) => {
+        if (!joinByGroup[j.group_id]) joinByGroup[j.group_id] = [];
+        joinByGroup[j.group_id].push(j.item_id);
+      });
+      const grps: StagingGroup[] = (groupsRes.data || []).map((g: any) => ({
+        id: g.id,
+        name: g.name || TYPE_LABEL[g.base_type as StagingType] || "Section",
+        baseType: g.base_type as StagingType,
+        assumptionMode: g.assumption_mode || undefined,
+        itemIds: joinByGroup[g.id] || [],
+      }));
+      setStaging(items);
+      setGroups(grps);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisId]);
 
   const activeGroup = useMemo(() => {
     if (typeof filter === "string" && filter.startsWith("group:")) {
@@ -540,27 +576,55 @@ export default function InteractiveHouseBuilder({
   }, [staging, filter, activeGroup]);
 
   const addStagingItem = useCallback(
-    (type: StagingType, content: string, targetGroupId?: string) => {
-      const newId = `stg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    async (type: StagingType, content: string, targetGroupId?: string) => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from("staging_items")
+        .insert({ analysis_id: analysisId, type, content })
+        .select("id")
+        .single();
+      if (error || !data) {
+        toast.error(error?.message || "Could not save material");
+        return;
+      }
+      const newId = data.id as string;
       setStaging((prev) => [{ id: newId, type, content }, ...prev]);
       if (targetGroupId) {
+        await sb.from("staging_group_items").insert({ group_id: targetGroupId, item_id: newId });
         setGroups((prev) =>
           prev.map((g) => (g.id === targetGroupId ? { ...g, itemIds: [newId, ...g.itemIds] } : g)),
         );
       }
       setAddOpen(false);
     },
-    [],
+    [analysisId],
   );
 
-  const removeStagingItem = useCallback((id: string) => {
+  const removeStagingItem = useCallback(async (id: string) => {
+    const sb = supabase as any;
+    await sb.from("staging_items").delete().eq("id", id);
     setStaging((prev) => prev.filter((s) => s.id !== id));
     setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== id) })));
   }, []);
 
   const addGroup = useCallback(
-    (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
-      const id = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    async (name: string, baseType: StagingType, assumptionModeChoice?: AssumptionMode) => {
+      const sb = supabase as any;
+      const { data, error } = await sb
+        .from("staging_groups")
+        .insert({
+          analysis_id: analysisId,
+          name: name.trim() || TYPE_LABEL[baseType],
+          base_type: baseType,
+          assumption_mode: baseType === "assumption" ? assumptionModeChoice : null,
+        })
+        .select("id")
+        .single();
+      if (error || !data) {
+        toast.error(error?.message || "Could not create section");
+        return;
+      }
+      const id = data.id as string;
       setGroups((prev) => [
         ...prev,
         {
@@ -574,10 +638,12 @@ export default function InteractiveHouseBuilder({
       setFilter(`group:${id}`);
       setNewGroupOpen(false);
     },
-    [],
+    [analysisId],
   );
 
-  const removeGroup = useCallback((groupId: string) => {
+  const removeGroup = useCallback(async (groupId: string) => {
+    const sb = supabase as any;
+    await sb.from("staging_groups").delete().eq("id", groupId);
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
     setFilter((f) => (f === `group:${groupId}` ? "all" : f));
   }, []);
