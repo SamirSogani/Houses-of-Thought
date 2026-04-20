@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -16,6 +16,8 @@ import TodoPanel from "@/components/house/TodoPanel";
 import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
 import StressTestPanel from "@/components/house/StressTestPanel";
 import AdminUsersPanel from "@/components/house/AdminUsersPanel";
+import ResearchPanel from "@/components/house/ResearchPanel";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -33,13 +35,14 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
-  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
+  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin" | "research">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [panelWidth, setPanelWidth] = useState(288);
   const isResizing = useRef(false);
   const [mobileToolOpen, setMobileToolOpen] = useState(false);
-  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin">("logic");
+  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin" | "research">("logic");
+  const { permissions } = usePermissions(profile);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -127,7 +130,7 @@ export default function AnalysisPage() {
 
   const showToolPanel = toolPanel !== "none" && !sidebarCollapsed;
 
-  const openMobileTool = (type: "logic" | "stress" | "admin") => {
+  const openMobileTool = (type: "logic" | "stress" | "admin" | "research") => {
     setMobileToolType(type);
     setMobileToolOpen(true);
   };
@@ -153,6 +156,17 @@ export default function AnalysisPage() {
         </button>
 
         <div className="w-8 border-t border-border my-1" />
+
+        {/* Research Mode toggle — only for accounts that use the dedicated Research panel (Students) */}
+        {permissions.canUseResearchPanel && (
+          <button
+            onClick={() => { setToolPanel(toolPanel === "research" ? "none" : "research"); setSidebarCollapsed(false); }}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "research" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            title="Research Mode"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+        )}
 
         {/* Tool toggles */}
         <button
@@ -192,7 +206,7 @@ export default function AnalysisPage() {
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs font-display font-semibold text-muted-foreground">
-              {toolPanel === "logic" ? "Logic Strength" : toolPanel === "stress" ? "Stress Test" : "Admin: Users"}
+              {toolPanel === "logic" ? "Logic Strength" : toolPanel === "stress" ? "Stress Test" : toolPanel === "research" ? "Research" : "Admin: Users"}
             </span>
             <button onClick={() => setSidebarCollapsed(true)} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-4 w-4" />
@@ -215,6 +229,7 @@ export default function AnalysisPage() {
                 onBack={() => setToolPanel("logic")}
               />
             )}
+            {toolPanel === "research" && <ResearchPanel />}
             {toolPanel === "admin" && <AdminUsersPanel />}
           </ScrollArea>
           {/* Drag handle */}
@@ -275,13 +290,24 @@ export default function AnalysisPage() {
             <Shield className="h-5 w-5" />
             <span className="text-[10px]">Stress</span>
           </button>
-          <button
-            onClick={() => setAiOpen(true)}
-            className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
-          >
-            <Bot className="h-5 w-5" />
-            <span className="text-[10px]">AI</span>
-          </button>
+          {permissions.canUseResearchPanel && (
+            <button
+              onClick={() => openMobileTool("research")}
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+            >
+              <Search className="h-5 w-5" />
+              <span className="text-[10px]">Research</span>
+            </button>
+          )}
+          {permissions.canUseAISidebar && (
+            <button
+              onClick={() => setAiOpen(true)}
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+            >
+              <Bot className="h-5 w-5" />
+              <span className="text-[10px]">AI</span>
+            </button>
+          )}
         </div>
       </nav>
 
@@ -290,7 +316,7 @@ export default function AnalysisPage() {
         <SheetContent side="bottom" className="h-[75vh] rounded-t-xl md:hidden">
           <SheetHeader>
             <SheetTitle className="font-display">
-              {mobileToolType === "logic" ? "Logic Strength" : mobileToolType === "stress" ? "Stress Test" : "Admin: Users"}
+              {mobileToolType === "logic" ? "Logic Strength" : mobileToolType === "stress" ? "Stress Test" : mobileToolType === "research" ? "Research" : "Admin: Users"}
             </SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 mt-4 h-[calc(75vh-5rem)]">
@@ -310,6 +336,7 @@ export default function AnalysisPage() {
                 onBack={() => { setMobileToolType("logic"); }}
               />
             )}
+            {mobileToolType === "research" && <ResearchPanel />}
             {mobileToolType === "admin" && <AdminUsersPanel />}
           </ScrollArea>
         </SheetContent>
@@ -317,25 +344,28 @@ export default function AnalysisPage() {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
-        {/* AI FAB (desktop only) */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="hidden md:flex fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => setAiOpen(true)}
-        >
-          <Bot className="h-5 w-5" />
-        </Button>
+        {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
+        {permissions.canUseAISidebar && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              className="hidden md:flex fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setAiOpen(true)}
+            >
+              <Bot className="h-5 w-5" />
+            </Button>
 
-        <AISidebar
-          open={aiOpen}
-          onOpenChange={setAiOpen}
-          analysis={analysis}
-          subQuestions={subQuestions}
-          profile={profile}
-          onDraftComplete={loadData}
-        />
-
+            <AISidebar
+              open={aiOpen}
+              onOpenChange={setAiOpen}
+              analysis={analysis}
+              subQuestions={subQuestions}
+              profile={profile}
+              onDraftComplete={loadData}
+            />
+          </>
+        )}
         <div className="page-container max-w-6xl">
           <div className="breadcrumb-nav">
             <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">

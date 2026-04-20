@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, X, GraduationCap, BookOpen, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, differenceInYears } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AccountType } from "@/lib/permissions";
 
 const RECAPTCHA_SITE_KEY = "6Lc04ZYsAAAAAFnj1YpUnZczombrN9FjB24QJjdD";
 
@@ -50,6 +51,7 @@ export default function AuthPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
+  const [accountType, setAccountType] = useState<AccountType>("standard");
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaWidgetId = useRef<number | null>(null);
   const recaptchaRendered = useRef(false);
@@ -171,6 +173,17 @@ export default function AuthPage() {
         setRecaptchaToken(null);
       }
     } else if (!isLogin) {
+      // Persist account type. Profile row is auto-created by the handle_new_user trigger
+      // with default 'standard', so we only need to update when the user picked something else.
+      if (accountType !== "standard") {
+        const { data: { user: newUser } } = await supabase.auth.getUser();
+        if (newUser) {
+          await supabase
+            .from("profiles")
+            .update({ account_type: accountType, updated_at: new Date().toISOString() } as any)
+            .eq("user_id", newUser.id);
+        }
+      }
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
@@ -275,6 +288,37 @@ export default function AuthPage() {
                       You must be at least {MIN_AGE} years old to create an account.
                     </p>
                   )}
+                </div>
+                <div className="space-y-2">
+                  <Label>What best describes you?</Label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { type: "standard" as AccountType, label: "Standard", icon: UserIcon },
+                      { type: "student" as AccountType, label: "Student", icon: GraduationCap },
+                      { type: "teacher" as AccountType, label: "Teacher", icon: BookOpen },
+                    ].map(({ type, label, icon: Icon }) => {
+                      const active = accountType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setAccountType(type)}
+                          className={cn(
+                            "rounded-lg border px-2 py-2 text-xs font-medium transition-colors flex flex-col items-center gap-1",
+                            active
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border bg-card text-foreground hover:bg-muted/50"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    You can change this later in your profile settings.
+                  </p>
                 </div>
                 <div className="space-y-3 pt-1">
                   <div className="flex items-start gap-2">
