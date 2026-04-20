@@ -229,7 +229,7 @@ export default function AnalysisPage() {
                 onBack={() => setToolPanel("logic")}
               />
             )}
-            {toolPanel === "research" && <ResearchPanel />}
+            {toolPanel === "research" && <ResearchPanel analysisId={id} />}
             {toolPanel === "admin" && <AdminUsersPanel />}
           </ScrollArea>
           {/* Drag handle */}
@@ -336,7 +336,7 @@ export default function AnalysisPage() {
                 onBack={() => { setMobileToolType("logic"); }}
               />
             )}
-            {mobileToolType === "research" && <ResearchPanel />}
+            {mobileToolType === "research" && <ResearchPanel analysisId={id} />}
             {mobileToolType === "admin" && <AdminUsersPanel />}
           </ScrollArea>
         </SheetContent>
