@@ -101,6 +101,7 @@ function SubQuestionRowCard({
   isDragActive,
   onClick,
   onDrop,
+  onDropGroup,
 }: {
   sq: SubQuestion;
   povLabel: string;
@@ -108,6 +109,7 @@ function SubQuestionRowCard({
   isDragActive: boolean;
   onClick: () => void;
   onDrop: (itemId: string, itemType: StagingType) => void;
+  onDropGroup: (groupId: string) => void;
 }) {
   const info = countInfo(sq.information || "");
   const hasSubConc = !!sq.sub_conclusion;
