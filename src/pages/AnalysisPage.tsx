@@ -139,9 +139,31 @@ export default function AnalysisPage() {
     setMobileToolOpen(true);
   };
 
+  const handleSubmit = async () => {
+    const { error } = await submit();
+    if (error) toast.error("Could not submit");
+    else toast.success("Assignment submitted");
+  };
+  const handleUnsubmit = async () => {
+    const { error } = await unsubmit();
+    if (error) toast.error("Could not unsubmit");
+    else toast.success("Submission withdrawn");
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background flex flex-col">
+      {assignment && submission && (
+        <AssignmentBanner
+          assignment={assignment}
+          submission={submission}
+          readonly={readonly}
+          onSubmit={handleSubmit}
+          onUnsubmit={handleUnsubmit}
+        />
+      )}
+      <div className="flex-1 flex flex-col md:flex-row">
       {/* Left Sidebar — View Toggle + Tools (Desktop only) */}
+      {!readonly && (
       <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
         <button
