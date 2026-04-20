@@ -954,16 +954,18 @@ export default function InteractiveHouseBuilder({
                 </div>
               );
             })}
-            <div className="ml-auto">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => setNewGroupOpen((v) => !v)}
-              >
-                <Plus className="h-3 w-3 mr-1" /> New Section
-              </Button>
-            </div>
+            {(groups.length > 0 || newGroupOpen) && (
+              <div className="ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setNewGroupOpen((v) => !v)}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> New Section
+                </Button>
+              </div>
+            )}
           </div>
 
           {newGroupOpen && (
@@ -1029,31 +1031,45 @@ export default function InteractiveHouseBuilder({
             />
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {visibleStaging.map((item) => (
-              <StagingCard
-                key={item.id}
-                item={item}
-                isDragging={draggingId === item.id}
-                onDragStart={() => setDraggingId(item.id)}
-                onDragEnd={() => setDraggingId(null)}
-                onRemove={() => removeStagingItem(item.id)}
-              />
-            ))}
-            {/* Empty placeholder affordances */}
-            {Array.from({ length: Math.max(0, 3 - (visibleStaging.length % 4)) }).map(
-              (_, i) => (
-                <button
-                  key={`placeholder-${i}`}
-                  type="button"
-                  onClick={() => setAddOpen(true)}
-                  className="rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs py-6 transition-colors"
-                >
-                  + Add material
-                </button>
-              ),
-            )}
-          </div>
+          {groups.length === 0 && !newGroupOpen && visibleStaging.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => setNewGroupOpen(true)}
+              className="w-full rounded-lg border-2 border-dashed border-primary/40 bg-background hover:bg-primary/5 hover:border-primary text-primary py-12 sm:py-16 flex flex-col items-center justify-center gap-2 transition-colors"
+            >
+              <Plus className="h-8 w-8" />
+              <span className="text-base font-semibold">New Section</span>
+              <span className="text-xs text-muted-foreground">
+                Create a section to group related material, then drag the whole section into a sub-question or house tile.
+              </span>
+            </button>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {visibleStaging.map((item) => (
+                <StagingCard
+                  key={item.id}
+                  item={item}
+                  isDragging={draggingId === item.id}
+                  onDragStart={() => setDraggingId(item.id)}
+                  onDragEnd={() => setDraggingId(null)}
+                  onRemove={() => removeStagingItem(item.id)}
+                />
+              ))}
+              {/* Empty placeholder affordances */}
+              {Array.from({ length: Math.max(0, 3 - (visibleStaging.length % 4)) }).map(
+                (_, i) => (
+                  <button
+                    key={`placeholder-${i}`}
+                    type="button"
+                    onClick={() => setAddOpen(true)}
+                    className="rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/40 text-xs py-6 transition-colors"
+                  >
+                    + Add material
+                  </button>
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
 
