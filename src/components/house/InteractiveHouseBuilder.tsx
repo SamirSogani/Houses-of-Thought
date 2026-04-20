@@ -292,31 +292,44 @@ function StagingCard({
 function AddPanel({
   onAdd,
   onCancel,
+  lockedType,
 }: {
   onAdd: (type: StagingType, content: string) => void;
   onCancel: () => void;
+  lockedType?: StagingType;
 }) {
-  const [type, setType] = useState<StagingType>("information");
+  const [type, setType] = useState<StagingType>(lockedType ?? "information");
   const [content, setContent] = useState("");
+
+  useEffect(() => {
+    if (lockedType) setType(lockedType);
+  }, [lockedType]);
 
   return (
     <div className="rounded-md border border-border bg-card p-3 mb-3 space-y-2">
-      <div className="flex flex-wrap gap-1.5">
-        {STAGING_TYPES.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setType(t)}
-            className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
-              type === t
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:text-foreground"
-            }`}
-          >
-            {TYPE_LABEL[t]}
-          </button>
-        ))}
-      </div>
+      {lockedType ? (
+        <p className="text-[11px] text-muted-foreground">
+          Adding as <span className="font-semibold text-foreground">{TYPE_LABEL[lockedType]}</span>
+          <span className="ml-1 opacity-70">(locked by active section)</span>
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {STAGING_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                type === t
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              {TYPE_LABEL[t]}
+            </button>
+          ))}
+        </div>
+      )}
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
@@ -338,6 +351,94 @@ function AddPanel({
           disabled={!content.trim()}
         >
           Add to staging
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── New Group Panel ─── */
+
+type AssumptionModeKey = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
+
+function NewGroupPanel({
+  onCreate,
+  onCancel,
+  assumptionModes,
+}: {
+  onCreate: (name: string, baseType: StagingType, assumptionMode?: AssumptionModeKey) => void;
+  onCancel: () => void;
+  assumptionModes: Array<{ key: AssumptionModeKey; el: string; label: string; desc: string }>;
+}) {
+  const [name, setName] = useState("");
+  const [baseType, setBaseType] = useState<StagingType>("information");
+  const [mode, setMode] = useState<AssumptionModeKey>("foundational_concepts");
+
+  return (
+    <div className="rounded-md border border-primary/40 bg-card p-3 mb-3 space-y-2 animate-fade-in">
+      <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
+        New section — groups multiple items so you can drag them all at once
+      </p>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Section name (e.g. Evidence for claim X)"
+        className="w-full text-sm px-2 py-1.5 rounded border border-border bg-background"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {STAGING_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setBaseType(t)}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+              baseType === t
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            {TYPE_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      {baseType === "assumption" && (
+        <div className="rounded-md border border-border bg-background p-2">
+          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider pb-1">
+            Assumption sub-type
+          </p>
+          <ul className="space-y-1">
+            {assumptionModes.map((a) => (
+              <li key={a.key}>
+                <button
+                  type="button"
+                  onClick={() => setMode(a.key)}
+                  className={`w-full text-left rounded-md border px-2 py-1 transition-colors ${
+                    mode === a.key
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <p className="text-[11px] font-semibold">
+                    <span className="font-mono text-muted-foreground mr-2">{a.el}</span>
+                    {a.label}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onCreate(name.trim(), baseType, baseType === "assumption" ? mode : undefined)}
+          disabled={!name.trim()}
+        >
+          Create section
         </Button>
       </div>
     </div>
@@ -1002,6 +1103,12 @@ export default function InteractiveHouseBuilder({
                   if (!accept || !zone) return;
                   e.preventDefault();
                   setOver(false);
+                  const kind = e.dataTransfer.getData("application/x-item-kind");
+                  if (kind === "group") {
+                    const groupId = e.dataTransfer.getData("application/x-group-id");
+                    if (groupId) void handleDropGroupOnAnalysisZone(zone, groupId);
+                    return;
+                  }
                   const id = e.dataTransfer.getData("text/plain");
                   if (id) void handleDropOnAnalysisZone(zone, id);
                 }}
