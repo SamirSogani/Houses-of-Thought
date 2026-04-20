@@ -1103,6 +1103,12 @@ export default function InteractiveHouseBuilder({
                   if (!accept || !zone) return;
                   e.preventDefault();
                   setOver(false);
+                  const kind = e.dataTransfer.getData("application/x-item-kind");
+                  if (kind === "group") {
+                    const groupId = e.dataTransfer.getData("application/x-group-id");
+                    if (groupId) void handleDropGroupOnAnalysisZone(zone, groupId);
+                    return;
+                  }
                   const id = e.dataTransfer.getData("text/plain");
                   if (id) void handleDropOnAnalysisZone(zone, id);
                 }}
