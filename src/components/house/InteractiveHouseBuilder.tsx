@@ -20,7 +20,6 @@ interface Props {
 /* ─── Staging item types ─── */
 
 type StagingType =
-  | "sub-question"
   | "information"
   | "assumption"
   | "sub-conclusion"
@@ -35,7 +34,6 @@ interface StagingItem {
 }
 
 const STAGING_TYPES: StagingType[] = [
-  "sub-question",
   "information",
   "assumption",
   "sub-conclusion",
@@ -45,7 +43,6 @@ const STAGING_TYPES: StagingType[] = [
 ];
 
 const TYPE_LABEL: Record<StagingType, string> = {
-  "sub-question": "Sub-question",
   information: "Information",
   assumption: "Assumption",
   "sub-conclusion": "Sub-conclusion",
@@ -55,7 +52,6 @@ const TYPE_LABEL: Record<StagingType, string> = {
 };
 
 const TYPE_BADGE: Record<StagingType, string> = {
-  "sub-question": "bg-[hsl(245_85%_94%)] text-[hsl(245_55%_38%)] border-[hsl(245_60%_82%)]",
   information: "bg-[hsl(165_55%_90%)] text-[hsl(165_55%_28%)] border-[hsl(165_45%_75%)]",
   assumption: "bg-[hsl(15_85%_92%)] text-[hsl(15_70%_35%)] border-[hsl(15_70%_80%)]",
   "sub-conclusion": "bg-[hsl(40_90%_88%)] text-[hsl(35_75%_30%)] border-[hsl(40_80%_75%)]",
