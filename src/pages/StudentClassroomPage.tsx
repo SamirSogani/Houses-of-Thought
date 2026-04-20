@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useMyClassroom } from "@/hooks/useMyClassroom";
+import { useStudentAssignments } from "@/hooks/useStudentAssignments";
+import AssignmentsList from "@/components/classroom/AssignmentsList";
 import { toast } from "sonner";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -29,6 +31,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default function StudentClassroomPage() {
   const navigate = useNavigate();
   const { classroom, loading, join, leave } = useMyClassroom();
+  const { items: assignments, startAssignment, submitAssignment, unsubmitAssignment } =
+    useStudentAssignments(classroom?.id);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +65,33 @@ export default function StudentClassroomPage() {
     setBusy(false);
     if (err) toast.error("Could not leave classroom");
     else toast.success("You left the classroom");
+  };
+
+  const handleStart = async (assignmentId: string) => {
+    const { data, error: err } = await startAssignment(assignmentId);
+    if (err) {
+      toast.error("Could not start assignment");
+      return;
+    }
+    const result = data as any;
+    if (result?.ok && result.analysis_id) {
+      toast.success("Assignment started");
+      navigate(`/analysis/${result.analysis_id}`);
+    } else {
+      toast.error(result?.error || "Could not start assignment");
+    }
+  };
+
+  const handleSubmit = async (submissionId: string) => {
+    const { error: err } = await submitAssignment(submissionId);
+    if (err) toast.error("Could not submit");
+    else toast.success("Assignment submitted");
+  };
+
+  const handleUnsubmit = async (submissionId: string) => {
+    const { error: err } = await unsubmitAssignment(submissionId);
+    if (err) toast.error("Could not unsubmit");
+    else toast.success("Submission withdrawn");
   };
 
   return (
