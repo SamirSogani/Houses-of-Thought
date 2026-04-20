@@ -383,7 +383,7 @@ export default function AnalysisPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
-        {permissions.canUseAISidebar && (
+        {!readonly && permissions.canUseAISidebar && (
           <>
             <Button
               variant="outline"
@@ -404,17 +404,17 @@ export default function AnalysisPage() {
             />
           </>
         )}
-        <div className="page-container max-w-6xl">
-          <div className="breadcrumb-nav">
-            <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Dashboard
+        <div className={`page-container max-w-6xl ${readonly ? "pointer-events-none select-text opacity-95" : ""}`}>
+          <div className="breadcrumb-nav pointer-events-auto">
+            <button onClick={() => readonly ? navigate(-1) : navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> {readonly ? "Back" : "Dashboard"}
             </button>
             <span>/</span>
             <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
           </div>
 
           <div className="flex items-center gap-3 mb-8">
-            {editingTitle ? (
+            {editingTitle && !readonly ? (
               <div className="flex items-center gap-2 flex-1">
                 <Input
                   value={titleDraft}
@@ -427,11 +427,11 @@ export default function AnalysisPage() {
               </div>
             ) : (
               <h1
-                className="text-3xl font-display font-bold text-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
-                onClick={() => setEditingTitle(true)}
+                className={`text-3xl font-display font-bold text-foreground flex items-center gap-2 ${readonly ? "" : "cursor-pointer hover:text-primary transition-colors"}`}
+                onClick={() => !readonly && setEditingTitle(true)}
               >
                 {analysis.title}
-                <Pencil className="h-4 w-4 text-muted-foreground" />
+                {!readonly && <Pencil className="h-4 w-4 text-muted-foreground" />}
               </h1>
             )}
           </div>
@@ -458,6 +458,7 @@ export default function AnalysisPage() {
             />
           )}
         </div>
+      </div>
       </div>
     </div>
   );
