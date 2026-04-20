@@ -754,6 +754,7 @@ export default function InteractiveHouseBuilder({
       if (!item) return;
       try {
         await routeItemToSubQuestion(sqId, item, assumptionMode);
+        await (supabase as any).from("staging_items").delete().eq("id", itemId);
         toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
         setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== itemId) })));
@@ -780,8 +781,11 @@ export default function InteractiveHouseBuilder({
           // eslint-disable-next-line no-await-in-loop
           await routeItemToSubQuestion(sqId, item, mode);
         }
-        const acceptedIds = new Set(accepted.map((i) => i.id));
-        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        const acceptedIds = accepted.map((i) => i.id);
+        const sb = supabase as any;
+        await sb.from("staging_items").delete().in("id", acceptedIds);
+        await sb.from("staging_groups").delete().eq("id", groupId);
+        setStaging((prev) => prev.filter((s) => !new Set(acceptedIds).has(s.id)));
         setGroups((prev) => prev.filter((g) => g.id !== groupId));
         toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
       } catch (err: any) {
@@ -818,6 +822,7 @@ export default function InteractiveHouseBuilder({
           onUpdateField?.(zone as keyof Analysis, next);
           toast.success(`Added to ${zone.replace("_", " ")}`);
         }
+        await (supabase as any).from("staging_items").delete().eq("id", itemId);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
       } catch (err: any) {
         toast.error(err?.message || "Could not save dropped item");
@@ -881,8 +886,11 @@ export default function InteractiveHouseBuilder({
           // eslint-disable-next-line no-await-in-loop
           await routeItemToZone(zone, item, snap as Analysis);
         }
-        const acceptedIds = new Set(accepted.map((i) => i.id));
-        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        const acceptedIds = accepted.map((i) => i.id);
+        const sb = supabase as any;
+        await sb.from("staging_items").delete().in("id", acceptedIds);
+        await sb.from("staging_groups").delete().eq("id", groupId);
+        setStaging((prev) => prev.filter((s) => !new Set(acceptedIds).has(s.id)));
         setGroups((prev) => prev.filter((g) => g.id !== groupId));
         toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
       } catch (err: any) {
