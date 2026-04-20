@@ -290,13 +290,24 @@ export default function AnalysisPage() {
             <Shield className="h-5 w-5" />
             <span className="text-[10px]">Stress</span>
           </button>
-          <button
-            onClick={() => setAiOpen(true)}
-            className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
-          >
-            <Bot className="h-5 w-5" />
-            <span className="text-[10px]">AI</span>
-          </button>
+          {permissions.canUseResearchPanel && (
+            <button
+              onClick={() => openMobileTool("research")}
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+            >
+              <Search className="h-5 w-5" />
+              <span className="text-[10px]">Research</span>
+            </button>
+          )}
+          {permissions.canUseAISidebar && (
+            <button
+              onClick={() => setAiOpen(true)}
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] text-muted-foreground"
+            >
+              <Bot className="h-5 w-5" />
+              <span className="text-[10px]">AI</span>
+            </button>
+          )}
         </div>
       </nav>
 
@@ -305,7 +316,7 @@ export default function AnalysisPage() {
         <SheetContent side="bottom" className="h-[75vh] rounded-t-xl md:hidden">
           <SheetHeader>
             <SheetTitle className="font-display">
-              {mobileToolType === "logic" ? "Logic Strength" : mobileToolType === "stress" ? "Stress Test" : "Admin: Users"}
+              {mobileToolType === "logic" ? "Logic Strength" : mobileToolType === "stress" ? "Stress Test" : mobileToolType === "research" ? "Research" : "Admin: Users"}
             </SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 mt-4 h-[calc(75vh-5rem)]">
@@ -325,6 +336,7 @@ export default function AnalysisPage() {
                 onBack={() => { setMobileToolType("logic"); }}
               />
             )}
+            {mobileToolType === "research" && <ResearchPanel />}
             {mobileToolType === "admin" && <AdminUsersPanel />}
           </ScrollArea>
         </SheetContent>
@@ -332,25 +344,28 @@ export default function AnalysisPage() {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
-        {/* AI FAB (desktop only) */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="hidden md:flex fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => setAiOpen(true)}
-        >
-          <Bot className="h-5 w-5" />
-        </Button>
+        {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
+        {permissions.canUseAISidebar && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              className="hidden md:flex fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setAiOpen(true)}
+            >
+              <Bot className="h-5 w-5" />
+            </Button>
 
-        <AISidebar
-          open={aiOpen}
-          onOpenChange={setAiOpen}
-          analysis={analysis}
-          subQuestions={subQuestions}
-          profile={profile}
-          onDraftComplete={loadData}
-        />
-
+            <AISidebar
+              open={aiOpen}
+              onOpenChange={setAiOpen}
+              analysis={analysis}
+              subQuestions={subQuestions}
+              profile={profile}
+              onDraftComplete={loadData}
+            />
+          </>
+        )}
         <div className="page-container max-w-6xl">
           <div className="breadcrumb-nav">
             <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
