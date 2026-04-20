@@ -18,6 +18,8 @@ import StressTestPanel from "@/components/house/StressTestPanel";
 import AdminUsersPanel from "@/components/house/AdminUsersPanel";
 import ResearchPanel from "@/components/house/ResearchPanel";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAnalysisAssignmentContext } from "@/hooks/useStudentAssignments";
+import AssignmentBanner from "@/components/classroom/AssignmentBanner";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -43,6 +45,8 @@ export default function AnalysisPage() {
   const [mobileToolOpen, setMobileToolOpen] = useState(false);
   const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin" | "research">("logic");
   const { permissions } = usePermissions(profile);
+  const readonly = searchParams.get("readonly") === "1";
+  const { submission, assignment, submit, unsubmit } = useAnalysisAssignmentContext(id);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
