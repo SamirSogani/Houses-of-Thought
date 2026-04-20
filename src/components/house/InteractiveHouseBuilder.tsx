@@ -563,38 +563,69 @@ export default function InteractiveHouseBuilder({
     [subQuestions],
   );
 
+  const routeItemToSubQuestion = useCallback(
+    async (sqId: string, item: StagingItem, assumpMode: AssumptionMode) => {
+      if (item.type === "information") {
+        await appendFactToSubQuestion(sqId, item.content);
+      } else if (item.type === "assumption") {
+        await supabase.from("assumptions").insert({
+          sub_question_id: sqId,
+          assumption_type: assumpMode,
+          content: item.content,
+        });
+      } else if (item.type === "sub-conclusion") {
+        await supabase
+          .from("sub_questions")
+          .update({ sub_conclusion: item.content, updated_at: new Date().toISOString() })
+          .eq("id", sqId);
+      } else {
+        await appendFactToSubQuestion(sqId, item.content);
+      }
+    },
+    [appendFactToSubQuestion],
+  );
+
   const handleDropOnSubQuestion = useCallback(
     async (sqId: string, itemId: string) => {
       const item = staging.find((s) => s.id === itemId);
       if (!item) return;
       try {
-        if (item.type === "information") {
-          await appendFactToSubQuestion(sqId, item.content);
-          toast.success("Added as Information");
-        } else if (item.type === "assumption") {
-          await supabase.from("assumptions").insert({
-            sub_question_id: sqId,
-            assumption_type: assumptionMode,
-            content: item.content,
-          });
-          toast.success(`Added as Assumption (${assumptionMode.replace(/_/g, " ")})`);
-        } else if (item.type === "sub-conclusion") {
-          await supabase
-            .from("sub_questions")
-            .update({ sub_conclusion: item.content, updated_at: new Date().toISOString() })
-            .eq("id", sqId);
-          toast.success("Added as Sub-conclusion");
-        } else {
-          // Default: append to information so nothing is lost
-          await appendFactToSubQuestion(sqId, item.content);
-          toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
-        }
+        await routeItemToSubQuestion(sqId, item, assumptionMode);
+        toast.success(`Added to sub-question (${TYPE_LABEL[item.type]})`);
         setStaging((prev) => prev.filter((s) => s.id !== itemId));
+        setGroups((prev) => prev.map((g) => ({ ...g, itemIds: g.itemIds.filter((x) => x !== itemId) })));
       } catch (err: any) {
         toast.error(err?.message || "Could not save dropped item");
       }
     },
-    [staging, appendFactToSubQuestion, assumptionMode],
+    [staging, routeItemToSubQuestion, assumptionMode],
+  );
+
+  const handleDropGroupOnSubQuestion = useCallback(
+    async (sqId: string, groupId: string) => {
+      const group = groups.find((g) => g.id === groupId);
+      if (!group) return;
+      const items = staging.filter((s) => group.itemIds.includes(s.id));
+      const accepted = items.filter((i) => !SQ_REJECT_TYPES.includes(i.type));
+      if (accepted.length === 0) {
+        toast.error("No items in this section can be dropped on a sub-question.");
+        return;
+      }
+      const mode = group.assumptionMode || assumptionMode;
+      try {
+        for (const item of accepted) {
+          // eslint-disable-next-line no-await-in-loop
+          await routeItemToSubQuestion(sqId, item, mode);
+        }
+        const acceptedIds = new Set(accepted.map((i) => i.id));
+        setStaging((prev) => prev.filter((s) => !acceptedIds.has(s.id)));
+        setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        toast.success(`Added ${accepted.length} item${accepted.length === 1 ? "" : "s"} from "${group.name}"`);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not save section");
+      }
+    },
+    [groups, staging, routeItemToSubQuestion, assumptionMode],
   );
 
   /* Drop onto an analysis-level zone (concepts / implications / consequences / conclusion / purpose) */
