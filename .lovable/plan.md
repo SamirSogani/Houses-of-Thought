@@ -1,88 +1,134 @@
 
 
-# Phase 3 — Assignments
+# Phase 3.5 — "No-house" assignments + file attachments
 
-Phase 3 builds the assignment system: teachers create assignments inside a classroom (with a due date and one of three starting-house modes), students see them on their classroom page, "start" the assignment to get a linked house, work on it, and submit. Teachers see a submission table per assignment with read-only access to each submitted house. **Comments move to Phase 4** and will attach to these submissions.
+Two additions to Phase 3, plus prep for Phase 4 comments.
 
-## What gets built
+## 1. New assignment mode: `none` (no house)
 
-### 1. Assignment creation modes (teacher chooses per assignment)
-- **Empty** — student gets a blank house tagged to the assignment. Just title, prompt, due date.
-- **Pre-filled question** — teacher provides the overarching question (and optional sub-purposes); student's house is created with those fields pre-populated.
-- **Template clone** — teacher picks one of their own existing houses as a template; when a student starts the assignment, the entire house is deep-cloned (concepts, sub-questions, POV labels, assumptions, staging — but no test results or chats) into the student's account.
+Add a fourth mode to the `assignment_mode` enum: **`none`** — no house is created. Teacher picks one of two sub-variants when creating it:
 
-### 2. Database schema
-- **`assignments`** — id, classroom_id, teacher_id, title, prompt (text), due_at (timestamptz, nullable = no due date), mode (`empty` | `prefilled` | `template`), prefilled_question (text, nullable), prefilled_sub_purposes (text, nullable), template_analysis_id (uuid, nullable, FK to teacher's own analysis), created_at, updated_at.
-- **`assignment_submissions`** — id, assignment_id, student_id, analysis_id (the student's house), status (`in_progress` | `submitted`), started_at, submitted_at (nullable). Unique on (assignment_id, student_id).
-- **`analyses`** — add nullable column `assignment_submission_id` so a house knows it belongs to a submission (used for read-only teacher access and the student's "Submitted" badge).
+- **Acknowledge** — students see the prompt + attachments and click **Mark Done**. Submission is just a status flip.
+- **Text response** — students see prompt + attachments AND a textarea. They type a response, optionally attach their own files, then **Submit**.
 
-### 3. RLS + SECURITY DEFINER functions
-- **`assignments`**: teachers CRUD their own; students SELECT assignments in their classroom (via `is_classroom_member`).
-- **`assignment_submissions`**: students SELECT/UPDATE their own row; teachers SELECT/DELETE rows for their own assignments. INSERT only via `start_assignment(p_assignment_id)` RPC which validates membership, creates/clones the analysis, and inserts the submission row atomically.
-- **`analyses` teacher read access**: extend RLS so a teacher can SELECT an analysis if it is the `analysis_id` of a submission for an assignment they own — read-only. New helper `can_teacher_view_analysis(p_analysis_id)`. Mirror this for `concepts`, `sub_questions`, `pov_labels`, `assumptions`, `staging_groups`, `staging_items`, `staging_group_items` so the whole house is visible.
-- **`submit_assignment(p_submission_id)`** RPC — sets status to `submitted` and stamps `submitted_at`. Owned by the student.
-- **`unsubmit_assignment(p_submission_id)`** RPC — student can pull back a submission before grading exists (will be locked once Phase 5 grading lands).
-- Submitted houses become **read-only for the student** while status is `submitted` (UI gate; DB still allows their writes so unsubmit works cleanly).
+Schema change on `assignments`:
+- Add `response_type` text column: `null` (for empty/prefilled/template), `'acknowledge'`, or `'text'` (only used when `mode='none'`).
 
-### 4. Teacher UI
-- **Classroom detail page (`/classrooms/:id`)** — add an **Assignments** tab next to the existing roster. Shows a list of assignments (title, mode badge, due date, submission count `5/12 submitted`).
-- **+ New Assignment** button → modal: title, prompt (textarea), due date (optional), mode picker. Mode picker reveals different fields:
-  - Empty: nothing extra.
-  - Pre-filled: question input + optional sub-purposes textarea.
-  - Template: dropdown of the teacher's own existing analyses.
-- **Assignment detail (`/classrooms/:id/assignments/:assignmentId`)** — header (title, prompt, due date, edit/delete buttons), submissions table (student name, status badge, started_at, submitted_at, **View house** button). Clicking "View house" opens the student's analysis in a read-only mode.
-- **Read-only house view**: reuse `AnalysisPage` with a `?readonly=1` flag (or a small wrapper) that hides editing UI, AI sidebar, builder edits, and shows a "Viewing as teacher" banner.
+Schema change on `assignment_submissions`:
+- Add `response_text` text column for the student's typed response (only used in text mode).
+- `analysis_id` becomes **nullable** (no house = no analysis). RLS and `start_assignment` updated to handle this.
 
-### 5. Student UI
-- **Student classroom page (`/classroom`)** — add an **Assignments** section listing all assignments in their classroom, sorted by due date. Each row shows: title, due date (with overdue badge), status (`Not started` | `In progress` | `Submitted`), and an action button:
-  - Not started → **Start Assignment** (calls `start_assignment` RPC; navigates to the new house).
-  - In progress → **Open** (navigates to the house) and **Submit** button.
-  - Submitted → **View** (read-only) and **Unsubmit** button.
-- **Assignment-linked house** — `AnalysisPage` shows a top banner when the analysis has an `assignment_submission_id`: "Assignment: {title} · Due {date} · {status}" with a **Submit** button (or **Unsubmit**) inline. Submit triggers a confirmation dialog.
+`start_assignment` RPC: when `mode='none'`, skips analysis creation entirely and just inserts the submission row with `analysis_id = null`.
 
-### 6. Permissions plumbing
-- Extend `src/lib/permissions.ts`:
-  - `canCreateAssignments` (teacher only)
-  - `canStartAssignments` (student only)
-- Standard accounts see no assignment UI anywhere.
+Student UI:
+- No "Open house" link — instead an inline card showing prompt + teacher attachments + (for text mode) a textarea + attachment uploader + Submit button. For acknowledge mode, just a **Mark Done** button.
 
-### 7. Removal/leave semantics
-- If a student is removed from a classroom OR leaves: their submissions stay theirs (the house is still in their dashboard), but the teacher loses the read-only RLS link automatically because membership is gone — `can_teacher_view_analysis` returns false. This matches your "students keep everything, teachers lose access" rule from Phase 2.
-- Deleting an assignment: marks submissions detached (the houses remain in students' accounts, the teacher view link is broken). Confirmation dialog spells this out.
+Teacher submissions table:
+- For no-house assignments, "View house" is replaced with **View Response** (opens a modal showing the student's text + files) or just status if acknowledge-only.
 
-## Explicitly NOT in Phase 3 (saved for later phases)
-- Comments (per-section, per-bullet, overall) — **Phase 4**, attaching to submissions built here.
-- Grading, scores, rubrics — Phase 5.
-- Notification bell + unread badges — Phase 6.
-- General teacher access to non-assignment student houses (still off, per your direction).
+## 2. File attachments — universal
 
-## Technical details
+### Storage
+- One **private bucket** `attachments`, RLS-gated.
+- Path convention: `assignments/{assignment_id}/{uuid}-{filename}`, `submissions/{submission_id}/{uuid}-{filename}`, `comments/{comment_id}/{uuid}-{filename}` (Phase 4).
+- Access via short-lived **signed URLs** (1 hour) generated server-side.
 
-**New files**
-- `src/pages/TeacherAssignmentDetailPage.tsx` — submission roster + read-only house viewer entry.
-- `src/components/classroom/AssignmentsList.tsx` (used by both teacher detail and student classroom pages, with role-aware actions).
-- `src/components/classroom/CreateAssignmentDialog.tsx` — three-mode form.
-- `src/components/classroom/SubmissionsTable.tsx`.
-- `src/components/classroom/AssignmentBanner.tsx` — top-of-house banner for student.
-- `src/hooks/useAssignments.ts` (teacher), `useStudentAssignments.ts` (student).
+### Database
+New table `attachments`:
+- `id`, `owner_id` (uploader), `storage_path`, `file_name`, `file_size`, `mime_type`, `created_at`
+- Polymorphic parent: `parent_type` (`'assignment' | 'submission' | 'comment'`), `parent_id` (uuid)
+- Indexed on `(parent_type, parent_id)`.
 
-**Edited files**
-- `src/lib/permissions.ts` — add two gates.
-- `src/App.tsx` — add `/classrooms/:id/assignments/:assignmentId` route.
-- `src/pages/TeacherClassroomDetailPage.tsx` — add Assignments tab.
-- `src/pages/StudentClassroomPage.tsx` — add Assignments section.
-- `src/pages/AnalysisPage.tsx` — read `assignment_submission_id`, show banner, gate editing in `readonly` mode.
+### RLS on `attachments`
+- INSERT: any authenticated user (path/parent validated by edge function before insert).
+- SELECT: 
+  - Owner always.
+  - For `parent_type='assignment'`: any classroom member of that assignment's classroom + the teacher.
+  - For `parent_type='submission'`: the student who owns the submission + the teacher of that assignment.
+  - For `parent_type='comment'` (Phase 4): same audience as the parent submission.
+- DELETE: owner only (and teacher can delete attachments on their own assignments).
+
+### RLS on `storage.objects` for `attachments` bucket
+- Mirror the rules above. Use `name LIKE 'assignments/%'` etc. with helper functions to look up parent and check membership/ownership.
+
+### Edge functions
+Two small functions:
+- **`upload-attachment`** — accepts multipart form-data: `parent_type`, `parent_id`, files. Validates parent ownership/membership, validates file types/sizes, uploads to storage, inserts `attachments` rows, returns the rows. Does the type/size enforcement server-side so client-side limits can't be bypassed.
+- **`sign-attachment-url`** — accepts an `attachment_id`, validates the caller can read it (via RLS-style helper), returns a signed URL.
+
+### Recommended limits (based on your project — academic Houses-of-Thought work, classroom artifacts like syllabi, readings, student essays, screenshots, sketches)
+
+**Allowed types** — practical for K-12/college reasoning classrooms:
+- Documents: `pdf`, `doc`, `docx`, `odt`, `txt`, `md`, `rtf`
+- Slides: `ppt`, `pptx`, `odp`
+- Spreadsheets: `xls`, `xlsx`, `csv`
+- Images: `png`, `jpg`/`jpeg`, `gif`, `webp`, `svg`, `heic`
+- Audio (for primary-source clips, recorded answers): `mp3`, `m4a`, `wav`, `ogg`
+- No archives (zip/rar), no executables, no video (too heavy for free-tier storage and rarely needed for this use case).
+
+**Per-file size**: **15 MB**. Big enough for a scanned PDF reading or a slide deck, small enough that one attachment can't blow your storage budget.
+
+**Per-upload count**: **8 files**. Matches typical "weekly readings + handout" patterns.
+
+**Per-record total**: **40 MB total** across all attachments on one assignment/submission/comment. Hard cap to prevent runaway uploads.
+
+These are enforced both client-side (UX) and inside `upload-attachment` (security).
+
+## 3. Reusable `<FileAttachmentInput />` component
+
+One component used in: assignment creator, comment box (Phase 4), and student submission box.
+
+Behavior:
+- Paperclip 📎 button triggers a hidden `<input type="file" multiple accept="..." />`.
+- The container is also a drop zone: `dragover` → highlight ring + "Drop files to attach"; `drop` → reads `event.dataTransfer.files`.
+- Below: preview list, one row per file: filename · human-readable size · ✕ remove. Files shown as **pending** until the parent record is saved.
+- Validates type/size/count client-side and shows toast errors immediately.
+- Returns selected files via `onChange(files: File[])`. Does NOT upload itself — parent component decides when to upload (after the assignment is created and we know the `parent_id`).
+
+## 4. Wiring into existing surfaces
+
+### `CreateAssignmentDialog`
+- Add `<FileAttachmentInput />` below the prompt textarea.
+- Add fourth radio "No house — direct response" with sub-radio (acknowledge / text response).
+- After `createAssignment` returns the new assignment id, call `upload-attachment` with `parent_type='assignment'` and the picked files. If upload fails, the assignment is still created — show toast offering to retry attachments from the assignment detail page.
+
+### Teacher assignment detail (`TeacherAssignmentDetailPage`)
+- Show existing attachments list with download (signed URL) and delete (teacher owns).
+- Allow adding more attachments after creation.
+- Submissions table: show "View Response" for `mode='none'` instead of "View house".
+
+### Student classroom (`StudentClassroomPage`)
+- For `mode='none'` assignments: render an inline card with prompt + teacher attachments (download via signed URL) + the appropriate response UI (textarea + own `<FileAttachmentInput />` for text mode, just a button for acknowledge mode).
+- For house-based assignments: unchanged.
+
+### Phase 4 comments (prep only)
+- The `attachments` table and `<FileAttachmentInput />` are built generically so the comment box drops in with `parent_type='comment'`. No comment UI shipped in this phase.
+
+## 5. Permissions (no changes to `permissions.ts`)
+- Anyone in the assignment's audience can attach files where the UI exposes the input. Server-side enforcement is the source of truth.
+
+## Files
+
+**New**
+- `supabase/migrations/...` — enum value `none`, columns on `assignments` & `assignment_submissions`, `attachments` table + RLS, `attachments` storage bucket + storage RLS, helper SQL functions `can_view_attachment(p_id)`, `can_attach_to(p_type, p_id)`.
+- `supabase/functions/upload-attachment/index.ts`
+- `supabase/functions/sign-attachment-url/index.ts`
+- `src/components/ui/FileAttachmentInput.tsx`
+- `src/components/classroom/AssignmentAttachmentsList.tsx` (download + delete)
+- `src/components/classroom/StudentNoHouseAssignment.tsx` (acknowledge / text response card)
+- `src/components/classroom/SubmissionResponseDialog.tsx` (teacher views student response + files)
+- `src/hooks/useAttachments.ts` (list/upload/delete/sign)
+
+**Edited**
+- `src/components/classroom/CreateAssignmentDialog.tsx` — add no-house mode + sub-mode + attachment input + post-create upload.
+- `src/hooks/useAssignments.ts` — surface `response_type` field; upload pipeline helper.
+- `src/pages/TeacherAssignmentDetailPage.tsx` — attachments section + response viewer.
+- `src/pages/StudentClassroomPage.tsx` — render no-house cards inline.
+- `src/components/classroom/AssignmentsList.tsx` — different action set for `mode='none'`.
 - `src/integrations/supabase/types.ts` — auto-regenerated.
 
-**Migrations**
-- Create `assignments`, `assignment_submissions`; add `analyses.assignment_submission_id`; indexes on `(classroom_id)`, `(assignment_id, student_id)`.
-- Helper functions `can_teacher_view_analysis`, `can_teacher_view_via_assignment` (checks assignment ownership + classroom membership at submission time).
-- RPCs `start_assignment`, `submit_assignment`, `unsubmit_assignment`, plus a private `_clone_analysis(src, target_user)` helper for template mode.
-- Extend SELECT policies on child tables (`concepts`, `sub_questions`, `pov_labels`, `assumptions`, `staging_*`) with an additional permissive policy: `can_teacher_view_analysis(analysis_id)`.
-
-**Read-only mode**
-- `AnalysisPage` and the section pages (`/analysis/:id/concepts` etc.) accept `?readonly=1`. When set: disable inputs, hide AI sidebar/research/logic/stress buttons, hide save/delete actions, show "Viewing as teacher" pill. The teacher's "View house" button always appends this query param.
-
-**Cloning (template mode)**
-- `start_assignment` RPC, when `mode = 'template'`, runs `_clone_analysis` which: inserts a new `analyses` row owned by the student, then copies `concepts`, `pov_labels`, `sub_questions` (with new ids and remapped `pov_label_id`), `assumptions` (remapped `sub_question_id`), and `staging_*` rows. Skips `test_results`, `sidebar_chats`, `draft_runs`. Sets `assignment_submission_id` on the new analysis.
+**Memory updates**
+- New: `mem://features/assignments-attachments-and-no-house.md` — documents the `none` mode, the `attachments` table, signed-URL access, and the limits (15 MB / 8 files / 40 MB / allowed types).
+- Update `mem://features/classrooms-phase3.md` to reference the addendum.
+- Update `mem://index.md` core rule on Account Types unchanged; add a one-liner: "Attachments live in private `attachments` bucket; access only via signed URLs from `sign-attachment-url`."
 
