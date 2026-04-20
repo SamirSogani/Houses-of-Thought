@@ -157,6 +157,17 @@ export default function AnalysisPage() {
 
         <div className="w-8 border-t border-border my-1" />
 
+        {/* Research Mode toggle — only for accounts that use the dedicated Research panel (Students) */}
+        {permissions.canUseResearchPanel && (
+          <button
+            onClick={() => { setToolPanel(toolPanel === "research" ? "none" : "research"); setSidebarCollapsed(false); }}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "research" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            title="Research Mode"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+        )}
+
         {/* Tool toggles */}
         <button
           onClick={() => { setToolPanel(toolPanel === "logic" ? "none" : "logic"); setSidebarCollapsed(false); }}
