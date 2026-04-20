@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -570,14 +569,6 @@ export default function InteractiveHouseBuilder({
     },
     [staging, analysis, analysisId, onUpdateField],
   );
-
-  /* POV groups for the standard house body */
-  const povGroups = subQuestions.reduce<Record<string, SubQuestion[]>>((acc, sq) => {
-    const key = sq.pov_category || "individual";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(sq);
-    return acc;
-  }, {});
 
   const getPovLabel = (sq: SubQuestion) => {
     if (sq.pov_label_id && povLabels[sq.pov_label_id]) return povLabels[sq.pov_label_id];
