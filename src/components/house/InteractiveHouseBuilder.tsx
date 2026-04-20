@@ -401,7 +401,7 @@ export default function InteractiveHouseBuilder({
 
   /* Staging items — local-only state */
   const [staging, setStaging] = useState<StagingItem[]>([]);
-  const [filter, setFilter] = useState<"all" | StagingType>("all");
+  const [filter, setFilter] = useState<"all" | StagingType | `group:${string}`>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -409,15 +409,38 @@ export default function InteractiveHouseBuilder({
   type AssumptionMode = "shaping_inferences" | "foundational_concepts" | "unknown_unknowns";
   const [assumptionMode, setAssumptionMode] = useState<AssumptionMode>("foundational_concepts");
   const ASSUMPTION_MODES: Array<{ key: AssumptionMode; el: string; label: string; desc: string }> = [
-    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
-    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
     { key: "unknown_unknowns", el: "5.1", label: "Unknown Unknowns", desc: "Things you don't know that you don't know." },
+    { key: "foundational_concepts", el: "5.2", label: "Foundational Concepts", desc: "Underlying assumptions taken for granted (not definitions)." },
+    { key: "shaping_inferences", el: "5.3", label: "Concepts that Shape Inferences", desc: "Evidence that leads to an inference or logical leap." },
   ];
 
-  const visibleStaging = useMemo(
-    () => (filter === "all" ? staging : staging.filter((s) => s.type === filter)),
-    [staging, filter],
-  );
+  /* Staging groups (Layer-1 draggable sections) */
+  interface StagingGroup {
+    id: string;
+    name: string;
+    baseType: StagingType;
+    assumptionMode?: AssumptionMode;
+    itemIds: string[];
+  }
+  const [groups, setGroups] = useState<StagingGroup[]>([]);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+
+  const activeGroup = useMemo(() => {
+    if (typeof filter === "string" && filter.startsWith("group:")) {
+      const gid = filter.slice(6);
+      return groups.find((g) => g.id === gid) || null;
+    }
+    return null;
+  }, [filter, groups]);
+
+  const visibleStaging = useMemo(() => {
+    if (activeGroup) {
+      const setIds = new Set(activeGroup.itemIds);
+      return staging.filter((s) => setIds.has(s.id));
+    }
+    if (filter === "all") return staging;
+    return staging.filter((s) => s.type === filter);
+  }, [staging, filter, activeGroup]);
 
   const addStagingItem = useCallback((type: StagingType, content: string) => {
     setStaging((prev) => [
