@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen } from "lucide-react";
+import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen, GraduationCap } from "lucide-react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type Analysis = Tables<"analyses">;
 
