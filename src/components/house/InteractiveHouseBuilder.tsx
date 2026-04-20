@@ -903,20 +903,6 @@ export default function InteractiveHouseBuilder({
         <div className="p-3 sm:p-4 bg-muted/40">
           {/* Filter chips + add button */}
           <div className="flex flex-wrap items-center gap-1.5 mb-3">
-            {filterChips.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => setFilter(c.key)}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                  filter === c.key
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:text-foreground"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
             {groups.map((g) => {
               const active = filter === `group:${g.id}`;
               const count = g.itemIds.length;
