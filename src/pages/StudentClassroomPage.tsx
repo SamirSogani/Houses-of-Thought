@@ -68,30 +68,36 @@ export default function StudentClassroomPage() {
   };
 
   const handleStart = async (assignmentId: string) => {
-    const { data, error: err } = await startAssignment(assignmentId);
+    const result = await startAssignment(assignmentId);
+    const { data, error: err } = result;
     if (err) {
       toast.error("Could not start assignment");
-      return;
+      return result;
     }
-    const result = data as any;
-    if (result?.ok && result.analysis_id) {
+    const r = data as any;
+    if (r?.ok && r.analysis_id) {
       toast.success("Assignment started");
-      navigate(`/analysis/${result.analysis_id}`);
+      navigate(`/analysis/${r.analysis_id}`);
+    } else if (r?.ok && !r.analysis_id) {
+      // No-house mode: stay on the page; the inline card will re-render with the new submission
     } else {
-      toast.error(result?.error || "Could not start assignment");
+      toast.error(r?.error || "Could not start assignment");
     }
+    return result;
   };
 
   const handleSubmit = async (submissionId: string) => {
-    const { error: err } = await submitAssignment(submissionId);
-    if (err) toast.error("Could not submit");
+    const result = await submitAssignment(submissionId);
+    if (result.error) toast.error("Could not submit");
     else toast.success("Assignment submitted");
+    return result;
   };
 
   const handleUnsubmit = async (submissionId: string) => {
-    const { error: err } = await unsubmitAssignment(submissionId);
-    if (err) toast.error("Could not unsubmit");
+    const result = await unsubmitAssignment(submissionId);
+    if (result.error) toast.error("Could not unsubmit");
     else toast.success("Submission withdrawn");
+    return result;
   };
 
   return (

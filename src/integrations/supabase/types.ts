@@ -72,27 +72,30 @@ export type Database = {
       }
       assignment_submissions: {
         Row: {
-          analysis_id: string
+          analysis_id: string | null
           assignment_id: string
           id: string
+          response_text: string | null
           started_at: string
           status: Database["public"]["Enums"]["submission_status"]
           student_id: string
           submitted_at: string | null
         }
         Insert: {
-          analysis_id: string
+          analysis_id?: string | null
           assignment_id: string
           id?: string
+          response_text?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           student_id: string
           submitted_at?: string | null
         }
         Update: {
-          analysis_id?: string
+          analysis_id?: string | null
           assignment_id?: string
           id?: string
+          response_text?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["submission_status"]
           student_id?: string
@@ -125,6 +128,7 @@ export type Database = {
           prefilled_question: string | null
           prefilled_sub_purposes: string | null
           prompt: string
+          response_type: string | null
           teacher_id: string
           template_analysis_id: string | null
           title: string
@@ -139,6 +143,7 @@ export type Database = {
           prefilled_question?: string | null
           prefilled_sub_purposes?: string | null
           prompt?: string
+          response_type?: string | null
           teacher_id?: string
           template_analysis_id?: string | null
           title?: string
@@ -153,6 +158,7 @@ export type Database = {
           prefilled_question?: string | null
           prefilled_sub_purposes?: string | null
           prompt?: string
+          response_type?: string | null
           teacher_id?: string
           template_analysis_id?: string | null
           title?: string
@@ -206,6 +212,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number
+          id: string
+          mime_type: string
+          owner_id: string
+          parent_id: string
+          parent_type: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size: number
+          id?: string
+          mime_type: string
+          owner_id?: string
+          parent_id: string
+          parent_type: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          owner_id?: string
+          parent_id?: string
+          parent_type?: string
+          storage_path?: string
+        }
+        Relationships: []
       }
       classroom_members: {
         Row: {
@@ -693,6 +735,26 @@ export type Database = {
         Args: { p_src_analysis_id: string; p_target_user: string }
         Returns: string
       }
+      attachment_row_for_storage: {
+        Args: { p_name: string }
+        Returns: {
+          created_at: string
+          file_name: string
+          file_size: number
+          id: string
+          mime_type: string
+          owner_id: string
+          parent_id: string
+          parent_type: string
+          storage_path: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attachments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_access_analysis: { Args: { p_analysis_id: string }; Returns: boolean }
       can_access_staging_group: {
         Args: { p_group_id: string }
@@ -702,8 +764,16 @@ export type Database = {
         Args: { p_sub_question_id: string }
         Returns: boolean
       }
+      can_attach_to: {
+        Args: { p_parent_id: string; p_parent_type: string }
+        Returns: boolean
+      }
       can_teacher_view_analysis: {
         Args: { p_analysis_id: string }
+        Returns: boolean
+      }
+      can_view_attachment: {
+        Args: { p_attachment_id: string }
         Returns: boolean
       }
       generate_classroom_code: { Args: never; Returns: string }
@@ -729,7 +799,7 @@ export type Database = {
     }
     Enums: {
       account_type: "standard" | "student" | "teacher"
-      assignment_mode: "empty" | "prefilled" | "template"
+      assignment_mode: "empty" | "prefilled" | "template" | "none"
       submission_status: "in_progress" | "submitted"
     }
     CompositeTypes: {
@@ -859,7 +929,7 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["standard", "student", "teacher"],
-      assignment_mode: ["empty", "prefilled", "template"],
+      assignment_mode: ["empty", "prefilled", "template", "none"],
       submission_status: ["in_progress", "submitted"],
     },
   },

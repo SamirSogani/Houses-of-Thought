@@ -2,8 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, FileText, Sparkles, Copy, BookOpen } from "lucide-react";
-import type { AssignmentRow } from "@/hooks/useAssignments";
+import { CalendarClock, FileText, Sparkles, Copy, BookOpen, MessageSquare } from "lucide-react";
+import type { AssignmentRow, SubmissionRow } from "@/hooks/useAssignments";
+import StudentNoHouseAssignment from "./StudentNoHouseAssignment";
 
 interface TeacherProps {
   role: "teacher";
@@ -14,11 +15,11 @@ interface TeacherProps {
 
 interface StudentProps {
   role: "student";
-  items: Array<AssignmentRow & { submission: { id: string; status: string; analysis_id: string } | null }>;
-  onStart: (assignmentId: string) => void;
+  items: Array<AssignmentRow & { submission: SubmissionRow | null }>;
+  onStart: (assignmentId: string) => Promise<{ data: any; error: any }>;
   onOpen: (analysisId: string) => void;
-  onSubmit: (submissionId: string) => void;
-  onUnsubmit: (submissionId: string) => void;
+  onSubmit: (submissionId: string) => Promise<{ data: any; error: any }>;
+  onUnsubmit: (submissionId: string) => Promise<{ data: any; error: any }>;
 }
 
 type Props = TeacherProps | StudentProps;
@@ -27,6 +28,7 @@ const MODE_META: Record<string, { label: string; icon: any }> = {
   empty: { label: "Empty", icon: FileText },
   prefilled: { label: "Pre-filled", icon: Sparkles },
   template: { label: "Template", icon: Copy },
+  none: { label: "No house", icon: MessageSquare },
 };
 
 function formatDue(due: string | null) {
@@ -104,6 +106,20 @@ export default function AssignmentsList(props: Props) {
   return (
     <div className="space-y-3">
       {props.items.map((a) => {
+        // No-house assignments render their own inline card
+        if (a.mode === "none") {
+          return (
+            <StudentNoHouseAssignment
+              key={a.id}
+              assignment={a}
+              submission={a.submission}
+              onStart={props.onStart}
+              onSubmit={props.onSubmit}
+              onUnsubmit={props.onUnsubmit}
+            />
+          );
+        }
+
         const sub = a.submission;
         const status: "not_started" | "in_progress" | "submitted" =
           !sub ? "not_started" : sub.status === "submitted" ? "submitted" : "in_progress";
@@ -133,15 +149,15 @@ export default function AssignmentsList(props: Props) {
                     <BookOpen className="h-4 w-4 mr-1" /> Start Assignment
                   </Button>
                 )}
-                {status === "in_progress" && sub && (
+                {status === "in_progress" && sub && sub.analysis_id && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id)}>Open</Button>
+                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id!)}>Open</Button>
                     <Button size="sm" onClick={() => props.onSubmit(sub.id)}>Submit</Button>
                   </>
                 )}
-                {status === "submitted" && sub && (
+                {status === "submitted" && sub && sub.analysis_id && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id)}>View</Button>
+                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id!)}>View</Button>
                     <Button size="sm" variant="ghost" onClick={() => props.onUnsubmit(sub.id)}>Unsubmit</Button>
                   </>
                 )}

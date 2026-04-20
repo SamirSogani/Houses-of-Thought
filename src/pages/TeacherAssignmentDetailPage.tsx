@@ -18,6 +18,7 @@ import {
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useAssignmentDetail, useAssignments } from "@/hooks/useAssignments";
 import SubmissionsTable from "@/components/classroom/SubmissionsTable";
+import AssignmentAttachmentsList from "@/components/classroom/AssignmentAttachmentsList";
 import { toast } from "sonner";
 
 export default function TeacherAssignmentDetailPage() {
@@ -91,12 +92,27 @@ export default function TeacherAssignmentDetailPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-lg font-display">Attachments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AssignmentAttachmentsList
+              parentType="assignment"
+              parentId={assignment.id}
+              canManage={true}
+              title=""
+              emptyHint="No attachments yet. Use the uploader below to add some."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-lg font-display">
               Submissions ({submitted}/{submissions.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <SubmissionsTable submissions={submissions} />
+            <SubmissionsTable submissions={submissions} isNoHouse={assignment.mode === "none"} />
           </CardContent>
         </Card>
 
