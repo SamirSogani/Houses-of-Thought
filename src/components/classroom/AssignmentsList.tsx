@@ -106,6 +106,20 @@ export default function AssignmentsList(props: Props) {
   return (
     <div className="space-y-3">
       {props.items.map((a) => {
+        // No-house assignments render their own inline card
+        if (a.mode === "none") {
+          return (
+            <StudentNoHouseAssignment
+              key={a.id}
+              assignment={a}
+              submission={a.submission}
+              onStart={props.onStart}
+              onSubmit={props.onSubmit}
+              onUnsubmit={props.onUnsubmit}
+            />
+          );
+        }
+
         const sub = a.submission;
         const status: "not_started" | "in_progress" | "submitted" =
           !sub ? "not_started" : sub.status === "submitted" ? "submitted" : "in_progress";
@@ -135,15 +149,15 @@ export default function AssignmentsList(props: Props) {
                     <BookOpen className="h-4 w-4 mr-1" /> Start Assignment
                   </Button>
                 )}
-                {status === "in_progress" && sub && (
+                {status === "in_progress" && sub && sub.analysis_id && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id)}>Open</Button>
+                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id!)}>Open</Button>
                     <Button size="sm" onClick={() => props.onSubmit(sub.id)}>Submit</Button>
                   </>
                 )}
-                {status === "submitted" && sub && (
+                {status === "submitted" && sub && sub.analysis_id && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id)}>View</Button>
+                    <Button size="sm" variant="outline" onClick={() => props.onOpen(sub.analysis_id!)}>View</Button>
                     <Button size="sm" variant="ghost" onClick={() => props.onUnsubmit(sub.id)}>Unsubmit</Button>
                   </>
                 )}
