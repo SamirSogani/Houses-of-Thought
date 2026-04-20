@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
@@ -16,6 +16,8 @@ import TodoPanel from "@/components/house/TodoPanel";
 import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
 import StressTestPanel from "@/components/house/StressTestPanel";
 import AdminUsersPanel from "@/components/house/AdminUsersPanel";
+import ResearchPanel from "@/components/house/ResearchPanel";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -33,13 +35,14 @@ export default function AnalysisPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
-  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin">("none");
+  const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin" | "research">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [panelWidth, setPanelWidth] = useState(288);
   const isResizing = useRef(false);
   const [mobileToolOpen, setMobileToolOpen] = useState(false);
-  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin">("logic");
+  const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin" | "research">("logic");
+  const { permissions } = usePermissions(profile);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -127,7 +130,7 @@ export default function AnalysisPage() {
 
   const showToolPanel = toolPanel !== "none" && !sidebarCollapsed;
 
-  const openMobileTool = (type: "logic" | "stress" | "admin") => {
+  const openMobileTool = (type: "logic" | "stress" | "admin" | "research") => {
     setMobileToolType(type);
     setMobileToolOpen(true);
   };
