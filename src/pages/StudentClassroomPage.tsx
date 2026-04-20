@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { useMyClassroom } from "@/hooks/useMyClassroom";
+import { useStudentAssignments } from "@/hooks/useStudentAssignments";
+import AssignmentsList from "@/components/classroom/AssignmentsList";
 import { toast } from "sonner";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -29,6 +31,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default function StudentClassroomPage() {
   const navigate = useNavigate();
   const { classroom, loading, join, leave } = useMyClassroom();
+  const { items: assignments, startAssignment, submitAssignment, unsubmitAssignment } =
+    useStudentAssignments(classroom?.id);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +67,33 @@ export default function StudentClassroomPage() {
     else toast.success("You left the classroom");
   };
 
+  const handleStart = async (assignmentId: string) => {
+    const { data, error: err } = await startAssignment(assignmentId);
+    if (err) {
+      toast.error("Could not start assignment");
+      return;
+    }
+    const result = data as any;
+    if (result?.ok && result.analysis_id) {
+      toast.success("Assignment started");
+      navigate(`/analysis/${result.analysis_id}`);
+    } else {
+      toast.error(result?.error || "Could not start assignment");
+    }
+  };
+
+  const handleSubmit = async (submissionId: string) => {
+    const { error: err } = await submitAssignment(submissionId);
+    if (err) toast.error("Could not submit");
+    else toast.success("Assignment submitted");
+  };
+
+  const handleUnsubmit = async (submissionId: string) => {
+    const { error: err } = await unsubmitAssignment(submissionId);
+    if (err) toast.error("Could not unsubmit");
+    else toast.success("Submission withdrawn");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -78,48 +109,66 @@ export default function StudentClassroomPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-12">
+      <main className="max-w-3xl mx-auto px-4 py-12 space-y-6">
         {loading ? (
           <Card className="animate-pulse h-48" />
         ) : classroom ? (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2 text-primary">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="text-sm font-medium">You're enrolled</span>
-              </div>
-              <CardTitle className="text-2xl font-display mt-1">{classroom.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Joined on {new Date(classroom.joined_at).toLocaleDateString()}
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Classroom code:</span>{" "}
-                <span className="font-mono font-bold">{classroom.code}</span>
-              </div>
+          <>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2 text-primary">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="text-sm font-medium">You're enrolled</span>
+                </div>
+                <CardTitle className="text-2xl font-display mt-1">{classroom.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Joined on {new Date(classroom.joined_at).toLocaleDateString()}
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Classroom code:</span>{" "}
+                  <span className="font-mono font-bold">{classroom.code}</span>
+                </div>
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="text-destructive border-destructive/30">
-                    <LogOut className="h-4 w-4 mr-2" /> Leave Classroom
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Leave this classroom?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Your work stays yours. You will be unlinked from this classroom and will no longer be visible to your teacher.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleLeave} disabled={busy}>Leave</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="text-destructive border-destructive/30">
+                      <LogOut className="h-4 w-4 mr-2" /> Leave Classroom
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Leave this classroom?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your work stays yours. You will be unlinked from this classroom and will no longer be visible to your teacher.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleLeave} disabled={busy}>Leave</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-display">Assignments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AssignmentsList
+                  role="student"
+                  items={assignments}
+                  onStart={handleStart}
+                  onOpen={(analysisId) => navigate(`/analysis/${analysisId}`)}
+                  onSubmit={handleSubmit}
+                  onUnsubmit={handleUnsubmit}
+                />
+              </CardContent>
+            </Card>
+          </>
         ) : (
           <Card>
             <CardHeader>

@@ -27,6 +27,10 @@ export interface Permissions {
   canCreateClassrooms: boolean;
   /** Student: join a classroom via code. */
   canJoinClassroom: boolean;
+  /** Teacher: create assignments inside their classrooms. */
+  canCreateAssignments: boolean;
+  /** Student: start/submit assignments in their classroom. */
+  canStartAssignments: boolean;
 }
 
 const STANDARD_PERMISSIONS: Permissions = {
@@ -38,12 +42,15 @@ const STANDARD_PERMISSIONS: Permissions = {
   canUseStressTest: true,
   canCreateClassrooms: false,
   canJoinClassroom: false,
+  canCreateAssignments: false,
+  canStartAssignments: false,
 };
 
 const TEACHER_PERMISSIONS: Permissions = {
   // Phase 1: Teacher UI is identical to Standard, plus classroom management.
   ...STANDARD_PERMISSIONS,
   canCreateClassrooms: true,
+  canCreateAssignments: true,
 };
 
 const STUDENT_PERMISSIONS: Permissions = {
@@ -55,6 +62,8 @@ const STUDENT_PERMISSIONS: Permissions = {
   canUseStressTest: true,
   canCreateClassrooms: false,
   canJoinClassroom: true,
+  canCreateAssignments: false,
+  canStartAssignments: true,
 };
 
 export function getAccountType(profile: Profile | null | undefined): AccountType {

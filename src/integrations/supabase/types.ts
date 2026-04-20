@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       analyses: {
         Row: {
+          assignment_submission_id: string | null
           consequences: string
           created_at: string
           id: string
@@ -30,6 +31,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assignment_submission_id?: string | null
           consequences?: string
           created_at?: string
           id?: string
@@ -44,6 +46,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          assignment_submission_id?: string | null
           consequences?: string
           created_at?: string
           id?: string
@@ -57,7 +60,120 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "analyses_assignment_submission_id_fkey"
+            columns: ["assignment_submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignment_submissions: {
+        Row: {
+          analysis_id: string
+          assignment_id: string
+          id: string
+          started_at: string
+          status: Database["public"]["Enums"]["submission_status"]
+          student_id: string
+          submitted_at: string | null
+        }
+        Insert: {
+          analysis_id: string
+          assignment_id: string
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["submission_status"]
+          student_id: string
+          submitted_at?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          assignment_id?: string
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["submission_status"]
+          student_id?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_submissions_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignments: {
+        Row: {
+          classroom_id: string
+          created_at: string
+          due_at: string | null
+          id: string
+          mode: Database["public"]["Enums"]["assignment_mode"]
+          prefilled_question: string | null
+          prefilled_sub_purposes: string | null
+          prompt: string
+          teacher_id: string
+          template_analysis_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          classroom_id: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          mode?: Database["public"]["Enums"]["assignment_mode"]
+          prefilled_question?: string | null
+          prefilled_sub_purposes?: string | null
+          prompt?: string
+          teacher_id?: string
+          template_analysis_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          classroom_id?: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          mode?: Database["public"]["Enums"]["assignment_mode"]
+          prefilled_question?: string | null
+          prefilled_sub_purposes?: string | null
+          prompt?: string
+          teacher_id?: string
+          template_analysis_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_template_analysis_id_fkey"
+            columns: ["template_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       assumptions: {
         Row: {
@@ -573,6 +689,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _clone_analysis: {
+        Args: { p_src_analysis_id: string; p_target_user: string }
+        Returns: string
+      }
       can_access_analysis: { Args: { p_analysis_id: string }; Returns: boolean }
       can_access_staging_group: {
         Args: { p_group_id: string }
@@ -582,8 +702,16 @@ export type Database = {
         Args: { p_sub_question_id: string }
         Returns: boolean
       }
+      can_teacher_view_analysis: {
+        Args: { p_analysis_id: string }
+        Returns: boolean
+      }
       generate_classroom_code: { Args: never; Returns: string }
       is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
+      is_assignment_owner: {
+        Args: { p_assignment_id: string }
+        Returns: boolean
+      }
       is_classroom_member: {
         Args: { p_classroom_id: string }
         Returns: boolean
@@ -595,9 +723,14 @@ export type Database = {
         Args: { p_classroom_id: string }
         Returns: Json
       }
+      start_assignment: { Args: { p_assignment_id: string }; Returns: Json }
+      submit_assignment: { Args: { p_submission_id: string }; Returns: Json }
+      unsubmit_assignment: { Args: { p_submission_id: string }; Returns: Json }
     }
     Enums: {
       account_type: "standard" | "student" | "teacher"
+      assignment_mode: "empty" | "prefilled" | "template"
+      submission_status: "in_progress" | "submitted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -726,6 +859,8 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["standard", "student", "teacher"],
+      assignment_mode: ["empty", "prefilled", "template"],
+      submission_status: ["in_progress", "submitted"],
     },
   },
 } as const

@@ -18,6 +18,8 @@ import StressTestPanel from "@/components/house/StressTestPanel";
 import AdminUsersPanel from "@/components/house/AdminUsersPanel";
 import ResearchPanel from "@/components/house/ResearchPanel";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAnalysisAssignmentContext } from "@/hooks/useStudentAssignments";
+import AssignmentBanner from "@/components/classroom/AssignmentBanner";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -43,6 +45,8 @@ export default function AnalysisPage() {
   const [mobileToolOpen, setMobileToolOpen] = useState(false);
   const [mobileToolType, setMobileToolType] = useState<"logic" | "stress" | "admin" | "research">("logic");
   const { permissions } = usePermissions(profile);
+  const readonly = searchParams.get("readonly") === "1";
+  const { submission, assignment, submit, unsubmit } = useAnalysisAssignmentContext(id);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -135,9 +139,31 @@ export default function AnalysisPage() {
     setMobileToolOpen(true);
   };
 
+  const handleSubmit = async () => {
+    const { error } = await submit();
+    if (error) toast.error("Could not submit");
+    else toast.success("Assignment submitted");
+  };
+  const handleUnsubmit = async () => {
+    const { error } = await unsubmit();
+    if (error) toast.error("Could not unsubmit");
+    else toast.success("Submission withdrawn");
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background flex flex-col">
+      {assignment && submission && (
+        <AssignmentBanner
+          assignment={assignment}
+          submission={submission}
+          readonly={readonly}
+          onSubmit={handleSubmit}
+          onUnsubmit={handleUnsubmit}
+        />
+      )}
+      <div className="flex-1 flex flex-col md:flex-row">
       {/* Left Sidebar — View Toggle + Tools (Desktop only) */}
+      {!readonly && (
       <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
         <button
@@ -208,9 +234,10 @@ export default function AnalysisPage() {
           </>
         )}
       </aside>
+      )}
 
       {/* Resizable Tool Panel */}
-      {showToolPanel && (
+      {!readonly && showToolPanel && (
         <aside
           className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col overflow-hidden relative"
           style={{ width: panelWidth, minWidth: 220, maxWidth: 600 }}
@@ -356,7 +383,7 @@ export default function AnalysisPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
-        {permissions.canUseAISidebar && (
+        {!readonly && permissions.canUseAISidebar && (
           <>
             <Button
               variant="outline"
@@ -377,17 +404,17 @@ export default function AnalysisPage() {
             />
           </>
         )}
-        <div className="page-container max-w-6xl">
-          <div className="breadcrumb-nav">
-            <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Dashboard
+        <div className={`page-container max-w-6xl ${readonly ? "pointer-events-none select-text opacity-95" : ""}`}>
+          <div className="breadcrumb-nav pointer-events-auto">
+            <button onClick={() => readonly ? navigate(-1) : navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> {readonly ? "Back" : "Dashboard"}
             </button>
             <span>/</span>
             <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
           </div>
 
           <div className="flex items-center gap-3 mb-8">
-            {editingTitle ? (
+            {editingTitle && !readonly ? (
               <div className="flex items-center gap-2 flex-1">
                 <Input
                   value={titleDraft}
@@ -400,11 +427,11 @@ export default function AnalysisPage() {
               </div>
             ) : (
               <h1
-                className="text-3xl font-display font-bold text-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
-                onClick={() => setEditingTitle(true)}
+                className={`text-3xl font-display font-bold text-foreground flex items-center gap-2 ${readonly ? "" : "cursor-pointer hover:text-primary transition-colors"}`}
+                onClick={() => !readonly && setEditingTitle(true)}
               >
                 {analysis.title}
-                <Pencil className="h-4 w-4 text-muted-foreground" />
+                {!readonly && <Pencil className="h-4 w-4 text-muted-foreground" />}
               </h1>
             )}
           </div>
@@ -431,6 +458,7 @@ export default function AnalysisPage() {
             />
           )}
         </div>
+      </div>
       </div>
     </div>
   );
