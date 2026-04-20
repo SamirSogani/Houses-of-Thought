@@ -40,10 +40,12 @@ const STANDARD_PERMISSIONS: Permissions = {
   canUseResearchPanel: false, // Standard accounts use Research inside the AI sidebar
   canUseLogicStrength: true,
   canUseStressTest: true,
-  canCreateClassrooms: false,
-  canJoinClassroom: false,
-  canCreateAssignments: false,
-  canStartAssignments: false,
+  // Classroom features are available to everyone — account type only changes
+  // the *recommended* defaults shown in the UI, not what's accessible.
+  canCreateClassrooms: true,
+  canJoinClassroom: true,
+  canCreateAssignments: true,
+  canStartAssignments: true,
 };
 
 const TEACHER_PERMISSIONS: Permissions = {
