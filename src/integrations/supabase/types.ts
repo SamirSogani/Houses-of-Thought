@@ -443,6 +443,7 @@ export type Database = {
           social: string
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           about_me?: string
@@ -458,6 +459,7 @@ export type Database = {
           social?: string
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           about_me?: string
@@ -473,6 +475,7 @@ export type Database = {
           social?: string
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }

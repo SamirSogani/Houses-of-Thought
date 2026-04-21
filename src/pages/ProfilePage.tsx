@@ -32,11 +32,16 @@ export default function ProfilePage() {
   const [locationContext, setLocationContext] = useState("");
   const [currentProject, setCurrentProject] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("standard");
+  const [username, setUsername] = useState("");
+  const [savedUsername, setSavedUsername] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<SaveStatus>("idle");
+  const [usernameError, setUsernameError] = useState<string>("");
   const [savingAccountType, setSavingAccountType] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   const isLoadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (user) loadProfile();
@@ -57,6 +62,8 @@ export default function ProfilePage() {
       setRoleTitle((data as any).role_title || "");
       setLocationContext((data as any).location_context || "");
       setCurrentProject((data as any).current_project || "");
+      setUsername((data as any).username || "");
+      setSavedUsername((data as any).username || "");
       const t = (data as any).account_type;
       if (t === "student" || t === "teacher" || t === "standard") setAccountType(t);
     }
@@ -115,6 +122,61 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biological, social, familial, individual, aboutMe, roleTitle, locationContext, currentProject]);
 
+  // Username auto-save (separate because it can fail with uniqueness / format errors)
+  useEffect(() => {
+    if (!user || !isLoadedRef.current) return;
+    const trimmed = username.trim();
+    if (trimmed === savedUsername) {
+      setUsernameStatus("idle");
+      setUsernameError("");
+      return;
+    }
+
+    // Client-side validation
+    if (trimmed.length === 0) {
+      setUsernameStatus("error");
+      setUsernameError("Username is required.");
+      return;
+    }
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      setUsernameStatus("error");
+      setUsernameError("Username must be 3–30 characters.");
+      return;
+    }
+    if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) {
+      setUsernameStatus("error");
+      setUsernameError("Only letters, numbers, underscore, dot, and dash are allowed.");
+      return;
+    }
+
+    setUsernameStatus("saving");
+    setUsernameError("");
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+    usernameTimerRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(
+          { user_id: user.id, username: trimmed, updated_at: new Date().toISOString() } as any,
+          { onConflict: "user_id" }
+        );
+      if (error) {
+        setUsernameStatus("error");
+        const msg = /duplicate key|unique/i.test(error.message)
+          ? "That username is already taken."
+          : error.message;
+        setUsernameError(msg);
+      } else {
+        setSavedUsername(trimmed);
+        setUsernameStatus("saved");
+      }
+    }, 600);
+
+    return () => {
+      if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+
   const statusLabel = () => {
     switch (saveStatus) {
       case "saving": return (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>);
@@ -151,6 +213,45 @@ export default function ProfilePage() {
           )}
         </div>
         <p className="text-muted-foreground mb-8">Personal information and foundational perspective. Changes save automatically.</p>
+
+        {/* Username section */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-display flex items-center gap-2 flex-wrap">
+              Username
+              {usernameStatus !== "idle" && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5 font-normal",
+                    usernameStatus === "error"
+                      ? "border-destructive/40 text-destructive bg-destructive/5"
+                      : "border-border text-muted-foreground bg-muted/30"
+                  )}
+                >
+                  {usernameStatus === "saving" && (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>)}
+                  {usernameStatus === "saved" && (<><Check className="h-3.5 w-3.5 text-primary" /> Saved</>)}
+                  {usernameStatus === "error" && (<><AlertCircle className="h-3.5 w-3.5" /> Not saved</>)}
+                </span>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              How teachers and classmates see you in classrooms. 3–30 characters: letters, numbers, underscore, dot, or dash.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. alex_miller"
+              maxLength={30}
+              className="bg-card"
+              autoComplete="username"
+            />
+            {usernameError && (
+              <p className="text-xs text-destructive mt-2">{usernameError}</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Account Type section */}
         <Card className="mb-8">

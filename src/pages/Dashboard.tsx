@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen, GraduationCap } from "lucide-react";
+import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen, GraduationCap, AlertCircle } from "lucide-react";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -115,6 +115,23 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {profile && !(profile as any).username && (
+          <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4 flex items-start gap-3 animate-fade-in">
+            <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Add a username so teachers and classmates can recognize you.
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Without one, you'll appear in classroom rosters as an anonymous ID.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => navigate("/profile")}>
+              Set username
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-display font-bold text-foreground">Your Analyses</h2>

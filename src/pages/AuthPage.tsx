@@ -45,6 +45,7 @@ export default function AuthPage() {
   const { signIn, signUp } = useAuth();
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -55,6 +56,12 @@ export default function AuthPage() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaWidgetId = useRef<number | null>(null);
   const recaptchaRendered = useRef(false);
+
+  const usernameTrimmed = username.trim();
+  const usernameValid =
+    usernameTrimmed.length >= 3 &&
+    usernameTrimmed.length <= 30 &&
+    /^[A-Za-z0-9_.-]+$/.test(usernameTrimmed);
 
   const passwordStrength = useMemo(() => PASSWORD_RULES.map(r => r.test(password)), [password]);
   const allPasswordRulesMet = passwordStrength.every(Boolean);
@@ -122,6 +129,10 @@ export default function AuthPage() {
       toast.error("Password does not meet all strength requirements.");
       return;
     }
+    if (!isLogin && !usernameValid) {
+      toast.error("Username must be 3–30 characters and only contain letters, numbers, underscore, dot, or dash.");
+      return;
+    }
     if (!isLogin && !birthDate) {
       toast.error("Please enter your date of birth.");
       return;
@@ -163,7 +174,7 @@ export default function AuthPage() {
 
     const { error } = isLogin
       ? await signIn(email, password)
-      : await signUp(email, password);
+      : await signUp(email, password, usernameTrimmed);
     setLoading(false);
     if (error) {
       toast.error(error.message);
@@ -173,22 +184,27 @@ export default function AuthPage() {
         setRecaptchaToken(null);
       }
     } else if (!isLogin) {
-      // Persist account type. Profile row is auto-created by the handle_new_user trigger
-      // with default 'standard', so we only need to update when the user picked something else.
-      if (accountType !== "standard") {
-        const { data: { user: newUser } } = await supabase.auth.getUser();
-        if (newUser) {
-          await supabase
-            .from("profiles")
-            .update({ account_type: accountType, updated_at: new Date().toISOString() } as any)
-            .eq("user_id", newUser.id);
-        }
+      // Persist account type + ensure username is saved (trigger also does this,
+      // but upsert here covers the case where the row already existed).
+      const { data: { user: newUser } } = await supabase.auth.getUser();
+      if (newUser) {
+        await supabase
+          .from("profiles")
+          .upsert(
+            {
+              user_id: newUser.id,
+              username: usernameTrimmed,
+              ...(accountType !== "standard" ? { account_type: accountType } : {}),
+              updated_at: new Date().toISOString(),
+            } as any,
+            { onConflict: "user_id" }
+          );
       }
       toast.success("Account created! Please check your email to verify your account before signing in.");
     }
   };
 
-  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && !!birthDate && !isTooYoung && !!recaptchaToken;
+  const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && usernameValid && !!birthDate && !isTooYoung && !!recaptchaToken;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -222,6 +238,30 @@ export default function AuthPage() {
                 required
               />
             </div>
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. alex_miller"
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  autoComplete="username"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  3–30 characters. Letters, numbers, underscore, dot, or dash. Shown to your teacher and classmates.
+                </p>
+                {username.length > 0 && !usernameValid && (
+                  <p className="text-xs text-destructive">
+                    Username must be 3–30 characters and only contain letters, numbers, underscore, dot, or dash.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input

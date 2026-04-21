@@ -38,11 +38,15 @@ export default function RosterTable({
       const ids = roster.map((r) => r.student_id);
       const { data: profs } = await (supabase as any)
         .from("profiles")
-        .select("user_id, role_title, about_me")
+        .select("user_id, username, role_title, about_me")
         .in("user_id", ids);
       const map: Record<string, string> = {};
       (profs || []).forEach((p: any) => {
-        map[p.user_id] = p.role_title || (p.about_me ? p.about_me.slice(0, 40) : "") || "";
+        map[p.user_id] =
+          p.username?.trim() ||
+          p.role_title?.trim() ||
+          (p.about_me ? p.about_me.slice(0, 40) : "") ||
+          "";
       });
       if (cancelled) return;
       setRows(

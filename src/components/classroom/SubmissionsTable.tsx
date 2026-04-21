@@ -27,11 +27,15 @@ export default function SubmissionsTable({ submissions, isNoHouse = false }: Pro
       const ids = Array.from(new Set(submissions.map((s) => s.student_id)));
       const { data } = await supabase
         .from("profiles")
-        .select("user_id, role_title, about_me")
+        .select("user_id, username, role_title, about_me")
         .in("user_id", ids);
       const map: Record<string, string> = {};
       (data || []).forEach((p: any) => {
-        const label = p.role_title?.trim() || p.about_me?.trim()?.slice(0, 40) || `Student ${p.user_id.slice(0, 6)}`;
+        const label =
+          p.username?.trim() ||
+          p.role_title?.trim() ||
+          p.about_me?.trim()?.slice(0, 40) ||
+          `Student ${p.user_id.slice(0, 6)}`;
         map[p.user_id] = label;
       });
       setNames(map);
