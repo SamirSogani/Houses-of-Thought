@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,11 +7,42 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import { useClassrooms } from "@/hooks/useClassrooms";
 import ClassroomCard from "@/components/classroom/ClassroomCard";
 import CreateClassroomDialog from "@/components/classroom/CreateClassroomDialog";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function TeacherClassroomsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { classrooms, counts, loading, createClassroom } = useClassrooms();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const { permissions } = usePermissions(profile);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+      setProfile(data || null);
+      setProfileLoaded(true);
+    })();
+  }, [user]);
+
+  // Route guard: students (or anyone without classroom-creation rights) go back to dashboard.
+  useEffect(() => {
+    if (!profileLoaded) return;
+    if (!permissions.canCreateClassrooms) navigate("/dashboard", { replace: true });
+  }, [profileLoaded, permissions.canCreateClassrooms, navigate]);
+
+  if (!profileLoaded || !permissions.canCreateClassrooms) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,9 +57,11 @@ export default function TeacherClassroomsPage() {
               <h1 className="text-xl font-display font-bold text-foreground">Classrooms</h1>
             </div>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Create Classroom
-          </Button>
+          {permissions.canCreateClassrooms && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Create Classroom
+            </Button>
+          )}
         </div>
       </header>
 
@@ -45,9 +78,11 @@ export default function TeacherClassroomsPage() {
               <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-display font-semibold mb-2">No classrooms yet</h3>
               <p className="text-muted-foreground mb-4">Create your first classroom to invite students.</p>
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Create First Classroom
-              </Button>
+              {permissions.canCreateClassrooms && (
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" /> Create First Classroom
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (

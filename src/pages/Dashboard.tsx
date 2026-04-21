@@ -97,11 +97,6 @@ export default function Dashboard() {
                 <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Classrooms</span>
               </Button>
             )}
-            {permissions.canJoinClassroom && (
-              <Button variant="ghost" size="sm" onClick={() => navigate("/classroom")}>
-                <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">My Classroom</span>
-              </Button>
-            )}
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
               <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
             </Button>
