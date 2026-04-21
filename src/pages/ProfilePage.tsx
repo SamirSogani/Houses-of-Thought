@@ -32,11 +32,16 @@ export default function ProfilePage() {
   const [locationContext, setLocationContext] = useState("");
   const [currentProject, setCurrentProject] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("standard");
+  const [username, setUsername] = useState("");
+  const [savedUsername, setSavedUsername] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<SaveStatus>("idle");
+  const [usernameError, setUsernameError] = useState<string>("");
   const [savingAccountType, setSavingAccountType] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   const isLoadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (user) loadProfile();
@@ -57,6 +62,8 @@ export default function ProfilePage() {
       setRoleTitle((data as any).role_title || "");
       setLocationContext((data as any).location_context || "");
       setCurrentProject((data as any).current_project || "");
+      setUsername((data as any).username || "");
+      setSavedUsername((data as any).username || "");
       const t = (data as any).account_type;
       if (t === "student" || t === "teacher" || t === "standard") setAccountType(t);
     }
