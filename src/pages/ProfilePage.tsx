@@ -214,6 +214,45 @@ export default function ProfilePage() {
         </div>
         <p className="text-muted-foreground mb-8">Personal information and foundational perspective. Changes save automatically.</p>
 
+        {/* Username section */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-display flex items-center gap-2 flex-wrap">
+              Username
+              {usernameStatus !== "idle" && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5 font-normal",
+                    usernameStatus === "error"
+                      ? "border-destructive/40 text-destructive bg-destructive/5"
+                      : "border-border text-muted-foreground bg-muted/30"
+                  )}
+                >
+                  {usernameStatus === "saving" && (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>)}
+                  {usernameStatus === "saved" && (<><Check className="h-3.5 w-3.5 text-primary" /> Saved</>)}
+                  {usernameStatus === "error" && (<><AlertCircle className="h-3.5 w-3.5" /> Not saved</>)}
+                </span>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              How teachers and classmates see you in classrooms. 3–30 characters: letters, numbers, underscore, dot, or dash.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. alex_miller"
+              maxLength={30}
+              className="bg-card"
+              autoComplete="username"
+            />
+            {usernameError && (
+              <p className="text-xs text-destructive mt-2">{usernameError}</p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Account Type section */}
         <Card className="mb-8">
           <CardHeader className="pb-3">
