@@ -24,10 +24,15 @@ import AssignmentsList from "@/components/classroom/AssignmentsList";
 import CreateAssignmentDialog from "@/components/classroom/CreateAssignmentDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function TeacherClassroomDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { updateClassroom, deleteClassroom, regenerateCode } = useClassrooms();
   const { classroom, roster, loading, refresh, removeStudent } = useClassroomDetail(id);
   const { assignments, submissionCounts, createAssignment } = useAssignments(id);
@@ -35,6 +40,16 @@ export default function TeacherClassroomDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [editingCap, setEditingCap] = useState(false);
   const [capDraft, setCapDraft] = useState("");
+  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const { permissions } = usePermissions(profile);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+      setProfile(data || null);
+    })();
+  }, [user]);
 
   useEffect(() => {
     if (classroom) {
@@ -149,25 +164,27 @@ export default function TeacherClassroomDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Code
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerate classroom code?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The old code will stop working immediately. Existing students stay enrolled. Share the new code with anyone you still want to invite.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleRegenerate}>Regenerate</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {permissions.canRegenerateClassroomCode && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <RefreshCw className="h-4 w-4 mr-2" /> Regenerate Code
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Regenerate classroom code?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        The old code will stop working immediately. Existing students stay enrolled. Share the new code with anyone you still want to invite.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleRegenerate}>Regenerate</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
 
               <div className="flex items-center gap-2 ml-auto">
                 <span className="text-sm text-muted-foreground">Student cap:</span>
@@ -222,7 +239,9 @@ export default function TeacherClassroomDetailPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-display">Assignments</CardTitle>
-                {id && <CreateAssignmentDialog classroomId={id} onCreate={createAssignment} />}
+                {id && permissions.canCreateAssignments && (
+                  <CreateAssignmentDialog classroomId={id} onCreate={createAssignment} />
+                )}
               </CardHeader>
               <CardContent>
                 <AssignmentsList
@@ -237,34 +256,36 @@ export default function TeacherClassroomDetailPage() {
         </Tabs>
 
         {/* Danger zone */}
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-lg font-display text-destructive">Danger Zone</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete Classroom
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this classroom?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    All students will be unlinked from this classroom. Their own houses and work are not affected. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
+        {permissions.canDeleteClassroom && (
+          <Card className="border-destructive/30">
+            <CardHeader>
+              <CardTitle className="text-lg font-display text-destructive">Danger Zone</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Classroom
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this classroom?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      All students will be unlinked from this classroom. Their own houses and work are not affected. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       <SiteFooter />

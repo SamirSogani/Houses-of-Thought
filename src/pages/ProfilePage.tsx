@@ -1,13 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save, GraduationCap, BookOpen, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Check, Loader2, AlertCircle, GraduationCap, BookOpen, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import DeleteAccountSection from "@/components/ai/DeleteAccountSection";
 import { ACCOUNT_TYPE_DESCRIPTIONS, type AccountType } from "@/lib/permissions";
@@ -18,6 +17,8 @@ const ACCOUNT_OPTIONS: { type: AccountType; label: string; icon: typeof UserIcon
   { type: "student", label: "Student", icon: GraduationCap },
   { type: "teacher", label: "Teacher", icon: BookOpen },
 ];
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -32,7 +33,10 @@ export default function ProfilePage() {
   const [currentProject, setCurrentProject] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("standard");
   const [savingAccountType, setSavingAccountType] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  const isLoadedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (user) loadProfile();
@@ -56,6 +60,8 @@ export default function ProfilePage() {
       const t = (data as any).account_type;
       if (t === "student" || t === "teacher" || t === "standard") setAccountType(t);
     }
+    // Allow auto-save to run only after the initial load is finished.
+    isLoadedRef.current = true;
   };
 
   const updateAccountType = async (newType: AccountType) => {
@@ -63,8 +69,10 @@ export default function ProfilePage() {
     setSavingAccountType(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ account_type: newType, updated_at: new Date().toISOString() } as any)
-      .eq("user_id", user!.id);
+      .upsert(
+        { user_id: user!.id, account_type: newType, updated_at: new Date().toISOString() } as any,
+        { onConflict: "user_id" }
+      );
     setSavingAccountType(false);
     if (error) {
       toast.error(error.message);
@@ -74,20 +82,46 @@ export default function ProfilePage() {
     toast.success(`Account type changed to ${newType.charAt(0).toUpperCase() + newType.slice(1)}.`);
   };
 
-  const saveProfile = async () => {
-    setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        biological, social, familial, individual,
-        about_me: aboutMe, role_title: roleTitle,
-        location_context: locationContext, current_project: currentProject,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("user_id", user!.id);
-    setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Profile saved");
+  // Auto-save the eight free-text fields (debounced 500ms) using upsert so
+  // it works even if the profile row is missing.
+  useEffect(() => {
+    if (!user || !isLoadedRef.current) return;
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            user_id: user.id,
+            biological, social, familial, individual,
+            about_me: aboutMe, role_title: roleTitle,
+            location_context: locationContext, current_project: currentProject,
+            updated_at: new Date().toISOString(),
+          } as any,
+          { onConflict: "user_id" }
+        );
+      if (error) {
+        setSaveStatus("error");
+        toast.error(error.message);
+      } else {
+        setSaveStatus("saved");
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biological, social, familial, individual, aboutMe, roleTitle, locationContext, currentProject]);
+
+  const statusLabel = () => {
+    switch (saveStatus) {
+      case "saving": return (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>);
+      case "saved":  return (<><Check className="h-3.5 w-3.5 text-primary" /> Saved</>);
+      case "error":  return (<><AlertCircle className="h-3.5 w-3.5 text-destructive" /> Save failed — retry</>);
+      default:       return null;
+    }
   };
 
   return (
@@ -101,8 +135,22 @@ export default function ProfilePage() {
           <span className="text-foreground">Profile</span>
         </div>
 
-        <h1 className="text-3xl font-display font-bold mb-2">Your Profile</h1>
-        <p className="text-muted-foreground mb-8">Personal information and foundational perspective.</p>
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="text-3xl font-display font-bold">Your Profile</h1>
+          {saveStatus !== "idle" && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5",
+                saveStatus === "error"
+                  ? "border-destructive/40 text-destructive bg-destructive/5"
+                  : "border-border text-muted-foreground bg-muted/30"
+              )}
+            >
+              {statusLabel()}
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground mb-8">Personal information and foundational perspective. Changes save automatically.</p>
 
         {/* Account Type section */}
         <Card className="mb-8">
@@ -208,12 +256,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        <div className="mt-8 flex justify-end">
-          <Button onClick={saveProfile} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save Profile"}
-          </Button>
         </div>
 
         <div className="mt-12">

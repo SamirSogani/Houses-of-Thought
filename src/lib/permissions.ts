@@ -31,6 +31,10 @@ export interface Permissions {
   canCreateAssignments: boolean;
   /** Student: start/submit assignments in their classroom. */
   canStartAssignments: boolean;
+  /** Teacher: regenerate the classroom join code. */
+  canRegenerateClassroomCode: boolean;
+  /** Teacher: delete a classroom entirely. */
+  canDeleteClassroom: boolean;
 }
 
 const STANDARD_PERMISSIONS: Permissions = {
@@ -46,6 +50,8 @@ const STANDARD_PERMISSIONS: Permissions = {
   canJoinClassroom: true,
   canCreateAssignments: true,
   canStartAssignments: true,
+  canRegenerateClassroomCode: true,
+  canDeleteClassroom: true,
 };
 
 const TEACHER_PERMISSIONS: Permissions = {
@@ -53,6 +59,8 @@ const TEACHER_PERMISSIONS: Permissions = {
   ...STANDARD_PERMISSIONS,
   canCreateClassrooms: true,
   canCreateAssignments: true,
+  canRegenerateClassroomCode: true,
+  canDeleteClassroom: true,
 };
 
 const STUDENT_PERMISSIONS: Permissions = {
@@ -62,10 +70,12 @@ const STUDENT_PERMISSIONS: Permissions = {
   canUseResearchPanel: true,     // Dedicated Research panel replaces sidebar research
   canUseLogicStrength: true,
   canUseStressTest: true,
-  canCreateClassrooms: true,
+  canCreateClassrooms: false,
   canJoinClassroom: true,
-  canCreateAssignments: true,
+  canCreateAssignments: false,
   canStartAssignments: true,
+  canRegenerateClassroomCode: false,
+  canDeleteClassroom: false,
 };
 
 export function getAccountType(profile: Profile | null | undefined): AccountType {
