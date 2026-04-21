@@ -122,6 +122,61 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biological, social, familial, individual, aboutMe, roleTitle, locationContext, currentProject]);
 
+  // Username auto-save (separate because it can fail with uniqueness / format errors)
+  useEffect(() => {
+    if (!user || !isLoadedRef.current) return;
+    const trimmed = username.trim();
+    if (trimmed === savedUsername) {
+      setUsernameStatus("idle");
+      setUsernameError("");
+      return;
+    }
+
+    // Client-side validation
+    if (trimmed.length === 0) {
+      setUsernameStatus("error");
+      setUsernameError("Username is required.");
+      return;
+    }
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      setUsernameStatus("error");
+      setUsernameError("Username must be 3–30 characters.");
+      return;
+    }
+    if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) {
+      setUsernameStatus("error");
+      setUsernameError("Only letters, numbers, underscore, dot, and dash are allowed.");
+      return;
+    }
+
+    setUsernameStatus("saving");
+    setUsernameError("");
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+    usernameTimerRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(
+          { user_id: user.id, username: trimmed, updated_at: new Date().toISOString() } as any,
+          { onConflict: "user_id" }
+        );
+      if (error) {
+        setUsernameStatus("error");
+        const msg = /duplicate key|unique/i.test(error.message)
+          ? "That username is already taken."
+          : error.message;
+        setUsernameError(msg);
+      } else {
+        setSavedUsername(trimmed);
+        setUsernameStatus("saved");
+      }
+    }, 600);
+
+    return () => {
+      if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+
   const statusLabel = () => {
     switch (saveStatus) {
       case "saving": return (<><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>);
