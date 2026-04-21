@@ -238,6 +238,30 @@ export default function AuthPage() {
                 required
               />
             </div>
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. alex_miller"
+                  required
+                  minLength={3}
+                  maxLength={30}
+                  autoComplete="username"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  3–30 characters. Letters, numbers, underscore, dot, or dash. Shown to your teacher and classmates.
+                </p>
+                {username.length > 0 && !usernameValid && (
+                  <p className="text-xs text-destructive">
+                    Username must be 3–30 characters and only contain letters, numbers, underscore, dot, or dash.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
