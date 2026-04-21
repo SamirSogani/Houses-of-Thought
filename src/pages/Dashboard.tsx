@@ -92,8 +92,12 @@ export default function Dashboard() {
             <h1 className="text-xl font-display font-bold text-foreground">Houses of Thought</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            {permissions.canCreateClassrooms && (
-              <Button variant="ghost" size="sm" onClick={() => navigate("/classrooms")}>
+            {(permissions.canCreateClassrooms || permissions.canJoinClassroom) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
+              >
                 <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Classrooms</span>
               </Button>
             )}
