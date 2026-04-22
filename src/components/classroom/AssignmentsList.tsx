@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarClock, FileText, Sparkles, Copy, BookOpen, MessageSquare } from "lucide-react";
 import type { AssignmentRow, SubmissionRow } from "@/hooks/useAssignments";
 import StudentNoHouseAssignment from "./StudentNoHouseAssignment";
+import { useUnreadComments } from "@/hooks/useUnreadComments";
 
 interface TeacherProps {
   role: "teacher";
@@ -44,6 +45,7 @@ function isOverdue(due: string | null) {
 
 export default function AssignmentsList(props: Props) {
   const navigate = useNavigate();
+  const { byAssignment } = useUnreadComments();
 
   if (props.role === "teacher") {
     if (!props.assignments.length) {
