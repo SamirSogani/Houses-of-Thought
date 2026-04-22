@@ -318,7 +318,7 @@ export default function ProfilePage() {
                     key={type}
                     type="button"
                     disabled={savingAccountType}
-                    onClick={() => updateAccountType(type)}
+                    onClick={() => requestAccountTypeChange(type)}
                     className={cn(
                       "text-left rounded-lg border p-3 transition-colors flex flex-col gap-1.5 disabled:opacity-60",
                       active
