@@ -212,6 +212,26 @@ export default function CreateAssignmentDialog({ classroomId, onCreate }: Props)
               </Select>
             </div>
           )}
+
+          <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3">
+            <Label>Comment privacy</Label>
+            <RadioGroup value={commentAudience} onValueChange={(v) => setCommentAudience(v as "one_way" | "two_way")}>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="two_way" id="ca-two" className="mt-1" />
+                <label htmlFor="ca-two" className="text-sm cursor-pointer flex-1">
+                  <span className="font-medium text-foreground">Two-way (student can reply)</span>
+                  <span className="block text-xs text-muted-foreground">Private back-and-forth between you and each student.</span>
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="one_way" id="ca-one" className="mt-1" />
+                <label htmlFor="ca-one" className="text-sm cursor-pointer flex-1">
+                  <span className="font-medium text-foreground">One-way (teacher only)</span>
+                  <span className="block text-xs text-muted-foreground">Only you can post comments. Students can read and resolve.</span>
+                </label>
+              </div>
+            </RadioGroup>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
