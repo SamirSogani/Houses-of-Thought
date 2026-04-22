@@ -19,6 +19,7 @@ export interface AssignmentRow {
   template_analysis_id: string | null;
   created_at: string;
   updated_at: string;
+  comment_audience: "one_way" | "two_way";
 }
 
 export interface SubmissionRow {
@@ -42,6 +43,7 @@ export interface CreateAssignmentInput {
   prefilled_question?: string | null;
   prefilled_sub_purposes?: string | null;
   template_analysis_id?: string | null;
+  comment_audience?: "one_way" | "two_way";
 }
 
 /** Teacher hook: list assignments for a classroom + submission counts. */

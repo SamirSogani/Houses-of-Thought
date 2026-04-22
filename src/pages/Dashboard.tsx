@@ -11,6 +11,7 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useUnreadComments } from "@/hooks/useUnreadComments";
 
 type Analysis = Tables<"analyses">;
 
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [renameValue, setRenameValue] = useState("");
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const { permissions } = usePermissions(profile);
+  const { total: unreadComments } = useUnreadComments();
 
   useEffect(() => {
     fetchAnalyses();
@@ -96,9 +98,15 @@ export default function Dashboard() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="relative"
                 onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
               >
                 <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Classrooms</span>
+                {unreadComments > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                    {unreadComments > 99 ? "99+" : unreadComments}
+                  </span>
+                )}
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>

@@ -12,9 +12,11 @@ interface Props {
   submissions: SubmissionRow[];
   /** Pass when the parent assignment has mode='none' so we render "View Response" instead. */
   isNoHouse?: boolean;
+  /** Pass to enable the per-submission comments thread inside the dialog. */
+  assignmentId?: string;
 }
 
-export default function SubmissionsTable({ submissions, isNoHouse = false }: Props) {
+export default function SubmissionsTable({ submissions, isNoHouse = false, assignmentId }: Props) {
   const navigate = useNavigate();
   const [names, setNames] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
@@ -95,13 +97,26 @@ export default function SubmissionsTable({ submissions, isNoHouse = false }: Pro
                       <MessageSquare className="h-4 w-4 mr-1" /> View Response
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/analysis/${s.analysis_id}?readonly=1`)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" /> View house
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setActiveId(s.id);
+                          setActiveLabel(studentLabel);
+                          setOpen(true);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" /> Comments
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/analysis/${s.analysis_id}?readonly=1`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View house
+                      </Button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
@@ -115,6 +130,7 @@ export default function SubmissionsTable({ submissions, isNoHouse = false }: Pro
         onOpenChange={setOpen}
         submissionId={activeId}
         studentLabel={activeLabel}
+        assignmentId={assignmentId}
       />
     </>
   );

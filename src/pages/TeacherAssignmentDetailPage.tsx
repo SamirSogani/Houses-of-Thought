@@ -20,6 +20,7 @@ import { useAssignmentDetail, useAssignments } from "@/hooks/useAssignments";
 import SubmissionsTable from "@/components/classroom/SubmissionsTable";
 import AssignmentAttachmentsList from "@/components/classroom/AssignmentAttachmentsList";
 import { toast } from "sonner";
+import CommentThread from "@/components/comments/CommentThread";
 
 export default function TeacherAssignmentDetailPage() {
   const { id: classroomId, assignmentId } = useParams<{ id: string; assignmentId: string }>();
@@ -107,12 +108,29 @@ export default function TeacherAssignmentDetailPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-lg font-display">Discussion</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Posts here are visible to all enrolled students. Students cannot reply on this thread (yet).
+            </p>
+            <CommentThread
+              assignmentId={assignment.id}
+              targetType="assignment"
+              canPost={true}
+              emptyMessage="No announcements yet. Post one to share with the whole class."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-lg font-display">
               Submissions ({submitted}/{submissions.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <SubmissionsTable submissions={submissions} isNoHouse={assignment.mode === "none"} />
+            <SubmissionsTable submissions={submissions} isNoHouse={assignment.mode === "none"} assignmentId={assignment.id} />
           </CardContent>
         </Card>
 
