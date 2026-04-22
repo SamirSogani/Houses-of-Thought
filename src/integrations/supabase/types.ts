@@ -24,6 +24,7 @@ export type Database = {
           is_public: boolean
           overarching_conclusion: string
           overarching_question: string
+          owner_account_type: Database["public"]["Enums"]["account_type"]
           purpose: string
           sub_purposes: string
           title: string
@@ -39,6 +40,7 @@ export type Database = {
           is_public?: boolean
           overarching_conclusion?: string
           overarching_question?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           purpose?: string
           sub_purposes?: string
           title?: string
@@ -54,6 +56,7 @@ export type Database = {
           is_public?: boolean
           overarching_conclusion?: string
           overarching_question?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           purpose?: string
           sub_purposes?: string
           title?: string
@@ -254,18 +257,21 @@ export type Database = {
           classroom_id: string
           id: string
           joined_at: string
+          owner_account_type: Database["public"]["Enums"]["account_type"]
           student_id: string
         }
         Insert: {
           classroom_id: string
           id?: string
           joined_at?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           student_id: string
         }
         Update: {
           classroom_id?: string
           id?: string
           joined_at?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           student_id?: string
         }
         Relationships: [
@@ -284,6 +290,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_account_type: Database["public"]["Enums"]["account_type"]
           student_cap: number | null
           teacher_id: string
           updated_at: string
@@ -293,6 +300,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           student_cap?: number | null
           teacher_id?: string
           updated_at?: string
@@ -302,6 +310,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          owner_account_type?: Database["public"]["Enums"]["account_type"]
           student_cap?: number | null
           teacher_id?: string
           updated_at?: string
@@ -778,6 +787,10 @@ export type Database = {
       can_view_attachment: {
         Args: { p_attachment_id: string }
         Returns: boolean
+      }
+      current_account_type: {
+        Args: never
+        Returns: Database["public"]["Enums"]["account_type"]
       }
       generate_classroom_code: { Args: never; Returns: string }
       is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
