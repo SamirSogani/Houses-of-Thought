@@ -38,6 +38,7 @@ export default function CreateAssignmentDialog({ classroomId, onCreate }: Props)
   const [prefilledSubPurposes, setPrefilledSubPurposes] = useState("");
   const [templateAnalysisId, setTemplateAnalysisId] = useState<string>("");
   const [files, setFiles] = useState<File[]>([]);
+  const [commentAudience, setCommentAudience] = useState<"one_way" | "two_way">("two_way");
 
   const reset = () => {
     setTitle("");
@@ -49,6 +50,7 @@ export default function CreateAssignmentDialog({ classroomId, onCreate }: Props)
     setPrefilledSubPurposes("");
     setTemplateAnalysisId("");
     setFiles([]);
+    setCommentAudience("two_way");
   };
 
   const handleCreate = async () => {
