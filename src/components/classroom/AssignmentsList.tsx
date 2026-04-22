@@ -142,6 +142,11 @@ export default function AssignmentsList(props: Props) {
                   {status === "in_progress" && <Badge variant="secondary">In progress</Badge>}
                   {status === "not_started" && <Badge variant="outline">Not started</Badge>}
                   {overdue && <Badge variant="destructive">Overdue</Badge>}
+                  {byAssignment(a.id) > 0 && (
+                    <Badge variant="destructive" className="gap-1">
+                      <MessageSquare className="h-3 w-3" /> {byAssignment(a.id)} new
+                    </Badge>
+                  )}
                 </div>
                 {a.prompt && <p className="text-sm text-muted-foreground mt-1 line-clamp-3">{a.prompt}</p>}
                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
