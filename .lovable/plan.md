@@ -1,98 +1,132 @@
 
 
-# Partition data per account type
+# Phase 4 — Comments
 
-Each user has one login but three independent "workspaces" (Standard / Student / Teacher). Switching account type hides the other workspaces' data; switching back fully restores it. Nothing is ever deleted.
+Three comment surfaces, per-assignment privacy mode, in-app unread badges, author edit/delete + student "resolve."
 
-## What gets partitioned
+## 1. Three comment surfaces
 
-Each row that belongs to a user gets stamped with the account type that was active when it was created, then RLS only shows rows whose stamp matches the user's *current* `profiles.account_type`.
+| Surface | Where | Anchor | Audience |
+|---|---|---|---|
+| **Submission thread** | Teacher's "Response from {student}" dialog + student's assignment card | `submission_id` | teacher ↔ that one student |
+| **Inline (per-section)** | A "Comments" pill button next to each *sub-question, concept, assumption, POV label, staging item/group, consequences block, overarching conclusion* in the read-only teacher view AND the student's working view | `analysis_id` + `target_type` + `target_id` | teacher ↔ that one student |
+| **Assignment-wide** | New tab on the teacher's assignment page and on the student's assignment card titled "Discussion" | `assignment_id` | teacher writes, all enrolled students read (Phase 4: still no student replies on assignment-wide threads — group chat is deferred) |
 
-| Table | New column | Notes |
-|---|---|---|
-| `analyses` | `owner_account_type` | Set on insert from current profile.account_type. Public read (`is_public=true`) and the teacher-view-of-submission policy are unaffected — those are cross-type by design. |
-| `classrooms` | `owner_account_type` | A teacher's classrooms are only visible while the user is in Teacher mode. |
-| `classroom_members` | `owner_account_type` | A student's joined classroom is only visible while the user is in Student mode. The cap check inside `join_classroom` still counts everyone regardless of type. |
+Submission and inline threads honor the **per-assignment privacy mode** the teacher picks at creation time:
+- **One-way (teacher → student):** student can only read. UI hides the student's reply box.
+- **Two-way private:** student can post replies on their own submission/inline threads only.
 
-Profile fields stay shared (one username, one email, one set of profile context). That matches your "shared login" answer.
+## 2. Data model (one new migration)
 
-## How "current account type" is read in RLS
+New enum + tables (RLS on all):
 
-Add a security-definer helper:
+```text
+type comment_target_type = 'submission' | 'inline' | 'assignment'
+type comment_audience    = 'one_way' | 'two_way'   -- copied from assignment for fast checks
 
-```sql
-create function public.current_account_type()
-returns public.account_type
-language sql stable security definer set search_path = public
-as $$ select account_type from public.profiles where user_id = auth.uid() $$;
+assignments
+  + comment_audience  comment_audience NOT NULL DEFAULT 'two_way'
+
+comments
+  id              uuid PK
+  assignment_id   uuid NOT NULL              -- always set, anchors permission checks
+  submission_id   uuid NULL                  -- set for 'submission' + 'inline'
+  analysis_id     uuid NULL                  -- set for 'inline'
+  target_type     comment_target_type NOT NULL
+  target_kind     text NULL                  -- e.g. 'sub_question','concept','assumption',
+                                             -- 'pov_label','staging_item','staging_group',
+                                             -- 'overarching_conclusion','consequences'
+  target_id       uuid NULL                  -- the row being commented on (NULL for whole-house targets)
+  author_id       uuid NOT NULL              -- auth.uid()
+  author_role     text NOT NULL              -- 'teacher' | 'student' (denormalized for display)
+  body            text NOT NULL
+  resolved_at     timestamptz NULL           -- set when student resolves an inline/submission comment
+  resolved_by     uuid NULL
+  edited_at       timestamptz NULL
+  created_at      timestamptz NOT NULL DEFAULT now()
+
+comment_reads
+  comment_id  uuid
+  user_id     uuid
+  read_at     timestamptz NOT NULL DEFAULT now()
+  PRIMARY KEY (comment_id, user_id)
 ```
 
-RLS `SELECT` policies on the three tables become:
+### RLS via security-definer helper
+
+```text
+can_view_comment(c) :=
+  ( target_type='assignment'   AND is_classroom_member(a.classroom_id) ) OR
+  ( target_type='assignment'   AND a.teacher_id = auth.uid() )           OR
+  ( target_type IN ('submission','inline') AND
+      ( s.student_id = auth.uid() OR a.teacher_id = auth.uid() ) )
+
+can_post_comment(c) :=
+  teacher  → always allowed on their own assignment
+  student  → only on target_type IN ('submission','inline'), only when
+             a.comment_audience='two_way', only on their OWN submission
 ```
-user_id = auth.uid() AND owner_account_type = public.current_account_type()
-```
-INSERT policies force the new column to equal `current_account_type()` so a row can never be created in the "wrong" partition. UPDATE/DELETE policies keep the same partition check so a user in Standard mode can't even reach their Teacher-mode rows by ID guessing.
 
-The cross-type SELECT policies stay untouched:
-- `analyses_public_read` (anyone with the link)
-- `analyses_teacher_view_submission` + the `*_teacher_view_submission` child policies (teachers reviewing student submissions — works because the teacher *is* in Teacher mode when reviewing)
+`SELECT/INSERT/UPDATE/DELETE` policies: author can `UPDATE`/`DELETE` own row; teacher can `DELETE` any comment in their assignment (moderation); student can `UPDATE` only `resolved_at`/`resolved_by` on inline + submission comments tied to their own submission (the "resolve" action). `comment_reads`: each user reads/inserts their own rows.
 
-## Backfill (one-time, per-user)
+Also wire up the previously-stubbed `'comment'` branch in `can_view_attachment` and `can_attach_to` to inherit the parent comment's audience (so a teacher can attach a file to a comment; same viewers as the parent thread).
 
-For every existing row, stamp `owner_account_type` with the owner's current `profiles.account_type` (defaulting to `standard`). This means existing users see all their old data exactly as before — it just becomes "Standard data" by default. If they later switch to Teacher and don't see their old houses, that's correct: those houses live in their Standard workspace.
+## 3. RPCs
 
-We won't try to be clever about classroom rows — owners (teachers) get them stamped Teacher, members (students) get them stamped Student.
+- `post_comment(assignment_id, target_type, target_kind, target_id, submission_id, analysis_id, body)` — validates audience + ownership, stamps `author_role`, returns the row.
+- `edit_comment(id, body)` — author only; sets `edited_at = now()`.
+- `delete_comment(id)` — author or assignment teacher.
+- `resolve_comment(id)` / `unresolve_comment(id)` — student-on-own-submission only; toggles `resolved_at`.
+- `mark_comments_read(ids[])` — bulk insert into `comment_reads` (ON CONFLICT DO NOTHING).
+- `unread_comment_counts()` — returns `{ assignment_id, submission_id, count }[]` for the current user, used to drive badges in one query.
 
-## RPC updates
+## 4. UI
 
-- `join_classroom(code)` — sets `owner_account_type = current_account_type()` on the new `classroom_members` row. Still rejects if the user already has a membership *in their current account type* (so a Standard user could join one classroom, switch to Student, join a different one, and have both — each visible only in its own mode). Cap check still counts all members.
-- `leave_classroom()` — only deletes the membership for the *current* account type.
-- `start_assignment(...)` — when it creates a new analysis for a student submission, stamp it `owner_account_type = 'student'` (not `current_account_type()`), because submissions intrinsically belong to the Student workspace.
-- `_clone_analysis(...)` — same: the clone lands in the target user's Student workspace.
+**Teacher**
+- `CreateAssignmentDialog.tsx` — add a Privacy radio: *One-way (teacher only)* / *Two-way (student can reply)*. Stored on `assignments.comment_audience`.
+- `TeacherAssignmentDetailPage.tsx` — new "Discussion" card above Submissions. Shows assignment-wide comments (teacher-post only this phase).
+- `SubmissionResponseDialog.tsx` — append a `<CommentThread>` panel under the existing response/attachments. Threaded list, composer at bottom (or read-only banner if one-way).
+- Read-only teacher analysis view — every house element renders a small "💬 N" pill (red dot if unread). Click opens a side `<InlineCommentDrawer>` listing all inline comments for that target with composer.
 
-## UI: switching with a confirmation dialog
+**Student**
+- `StudentClassroomPage.tsx` / `AssignmentsList.tsx` — assignment row gets an unread badge sourced from `unread_comment_counts()`. Clicking the assignment expands to show "Discussion" (read-only) and "Teacher feedback on your submission" sections.
+- Working analysis pages — same inline pill on every commentable element. Student opens the drawer, reads, can resolve, and (if two-way) reply.
+- `Dashboard.tsx` — small badge next to the **Classrooms** button when total unread > 0.
 
-`ProfilePage.tsx` — wrap the account-type buttons in a confirmation dialog when the user clicks a different type:
+**Shared**
+- New `<CommentThread>` component — list + composer + edit-in-place + delete-with-confirm + "edited" marker + resolved chip.
+- New hook `useComments({ assignment_id, submission_id?, target?: {kind,id} })` — fetches, subscribes via Supabase realtime, exposes mutate helpers.
+- New hook `useUnreadComments()` — single query backing all badges; auto-marks-read when a thread is opened.
 
-> Switch to **Teacher**?
->
-> Your **Standard** workspace will be hidden, including:
-> - 4 houses you've created
-> - any open analyses
->
-> Nothing is deleted. Switching back to Standard will restore everything.
->
-> [Cancel]  [Switch to Teacher]
+## 5. Memory
 
-The dialog fetches counts live via three small queries (count of `analyses` in current type, classroom memberships in current type, classrooms owned in current type) so the message reflects what's actually being hidden. After confirm:
-1. Update `profiles.account_type`.
-2. Navigate to `/dashboard` (hard reset — no stale in-memory analysis from the prior workspace).
-3. Toast: "Switched to Teacher. Your Standard workspace is preserved."
+- New: `mem://features/classrooms-phase4-comments.md` — surfaces, audience modes, RLS pattern, resolve semantics, badge query.
+- Update `mem://index.md` Memories index with one line referencing the new file. No Core change needed.
 
-## Edge cases handled
+## 6. Files
 
-- **Open analysis when switching**: the post-switch redirect to `/dashboard` prevents the user from sitting on a route like `/analysis/<id-from-old-workspace>`. If they bookmark such a URL and visit it later in the wrong mode, RLS returns nothing → existing "Not found" UI shows.
-- **Username uniqueness**: unchanged. One username per user.
-- **Public shared analyses**: still readable across types via the unchanged public-read policy.
-- **Teacher reviewing a student submission**: still works — teacher is in Teacher mode, and `can_teacher_view_analysis` is independent of `owner_account_type`.
-- **Auto-attached `assignment_submission_id`**: a Standard-mode user cannot have submissions, so this column stays NULL for non-student-partition analyses.
+**New migration** — enum, `comments`, `comment_reads`, `assignments.comment_audience` column, RLS policies, all RPCs, helper functions, realtime publication adds for both tables.
 
-## Files
+**New components/hooks**
+- `src/components/comments/CommentThread.tsx`
+- `src/components/comments/CommentPill.tsx`
+- `src/components/comments/InlineCommentDrawer.tsx`
+- `src/hooks/useComments.ts`
+- `src/hooks/useUnreadComments.ts`
 
-**New migration**
-- Add `owner_account_type account_type not null default 'standard'` to `analyses`, `classrooms`, `classroom_members`.
-- Backfill from each owner's current `profiles.account_type`.
-- Create `public.current_account_type()`.
-- Replace `analyses_select`, `analyses_insert`, `analyses_update`, `analyses_delete` to add the partition check (keep `analyses_public_read` and `analyses_teacher_view_submission` as-is).
-- Same treatment for `classrooms_*` and `classroom_members_*` policies (keep teacher-view and member-of-my-classroom policies cross-type).
-- Update `join_classroom`, `leave_classroom`, `start_assignment`, `_clone_analysis` to write/filter by `owner_account_type`.
+**Edited**
+- `src/components/classroom/CreateAssignmentDialog.tsx` — privacy radio
+- `src/components/classroom/SubmissionResponseDialog.tsx` — embed `<CommentThread target_type="submission">`
+- `src/components/classroom/AssignmentsList.tsx` — unread badge
+- `src/pages/TeacherAssignmentDetailPage.tsx` — Discussion card
+- `src/pages/StudentClassroomPage.tsx` — assignment expansion with Discussion + feedback
+- `src/pages/Dashboard.tsx` — badge on Classrooms button
+- All read-only/working house section components (sub-questions, concepts, assumptions, POVs, staging, consequences, overarching) — render `<CommentPill>` when inside a submission context
 
-**Edited code**
-- `src/pages/ProfilePage.tsx` — add a confirmation `<AlertDialog>` around `updateAccountType` that loads and shows the counts of what will be hidden; redirect to `/dashboard` on confirm.
-- `src/pages/Dashboard.tsx` — no change needed (RLS handles filtering); optional small banner: "You're in **Student** mode — your Standard houses are hidden until you switch back."
-- `src/hooks/useMyClassroom.ts` and `src/hooks/useClassrooms.ts` — no query changes needed (RLS filters automatically).
+## 7. Edge cases
 
-**Memory updates**
-- New: `mem://features/account-type-partitioning.md` — documents the partitioning rule, the `current_account_type()` helper, and the cross-type exceptions (public read, teacher-view-of-submission).
-- Update `mem://index.md` Core: add one line — "Each account type is an independent workspace; `analyses`, `classrooms`, `classroom_members` are partitioned by `owner_account_type` matching `profiles.account_type` via RLS. Public analyses and teacher-view-of-submission cross types intentionally."
+- **Switching account types** mid-classroom: comments are scoped via assignment/submission, so the existing partition rules already hide them when the relevant `classroom_members` / `analyses` rows are hidden.
+- **Teacher deletes assignment**: cascade-deletes `comments` and `comment_reads`.
+- **Student withdraws submission** (unsubmit): comments persist; teacher's view-of-submission RLS already handles this.
+- **One-way → two-way switch later**: changing `comment_audience` on the assignment immediately enables student replies; existing one-way comments stay.
 
