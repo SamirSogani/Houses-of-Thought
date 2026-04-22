@@ -124,6 +124,7 @@ export type Database = {
       assignments: {
         Row: {
           classroom_id: string
+          comment_audience: Database["public"]["Enums"]["comment_audience"]
           created_at: string
           due_at: string | null
           id: string
@@ -139,6 +140,7 @@ export type Database = {
         }
         Insert: {
           classroom_id: string
+          comment_audience?: Database["public"]["Enums"]["comment_audience"]
           created_at?: string
           due_at?: string | null
           id?: string
@@ -154,6 +156,7 @@ export type Database = {
         }
         Update: {
           classroom_id?: string
+          comment_audience?: Database["public"]["Enums"]["comment_audience"]
           created_at?: string
           due_at?: string | null
           id?: string
@@ -316,6 +319,105 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      comment_reads: {
+        Row: {
+          comment_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          read_at?: string
+          user_id?: string
+        }
+        Update: {
+          comment_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_reads_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          analysis_id: string | null
+          assignment_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string | null
+          target_id: string | null
+          target_kind: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        Insert: {
+          analysis_id?: string | null
+          assignment_id: string
+          author_id?: string
+          author_role: string
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          submission_id?: string | null
+          target_id?: string | null
+          target_kind?: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        Update: {
+          analysis_id?: string | null
+          assignment_id?: string
+          author_id?: string
+          author_role?: string
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          submission_id?: string | null
+          target_id?: string | null
+          target_kind?: string | null
+          target_type?: Database["public"]["Enums"]["comment_target_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       concepts: {
         Row: {
@@ -780,6 +882,14 @@ export type Database = {
         Args: { p_parent_id: string; p_parent_type: string }
         Returns: boolean
       }
+      can_post_comment: {
+        Args: {
+          p_assignment_id: string
+          p_submission_id: string
+          p_target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        Returns: boolean
+      }
       can_teacher_view_analysis: {
         Args: { p_analysis_id: string }
         Returns: boolean
@@ -788,9 +898,36 @@ export type Database = {
         Args: { p_attachment_id: string }
         Returns: boolean
       }
+      can_view_comment: { Args: { p_comment_id: string }; Returns: boolean }
       current_account_type: {
         Args: never
         Returns: Database["public"]["Enums"]["account_type"]
+      }
+      delete_comment: { Args: { p_id: string }; Returns: Json }
+      edit_comment: {
+        Args: { p_body: string; p_id: string }
+        Returns: {
+          analysis_id: string | null
+          assignment_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string | null
+          target_id: string | null
+          target_kind: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "comments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       generate_classroom_code: { Args: never; Returns: string }
       is_analysis_public: { Args: { p_analysis_id: string }; Returns: boolean }
@@ -805,17 +942,111 @@ export type Database = {
       is_classroom_owner: { Args: { p_classroom_id: string }; Returns: boolean }
       join_classroom: { Args: { p_code: string }; Returns: Json }
       leave_classroom: { Args: never; Returns: Json }
+      mark_comments_read: { Args: { p_ids: string[] }; Returns: Json }
+      post_comment: {
+        Args: {
+          p_analysis_id: string
+          p_assignment_id: string
+          p_body: string
+          p_submission_id: string
+          p_target_id: string
+          p_target_kind: string
+          p_target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        Returns: {
+          analysis_id: string | null
+          assignment_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string | null
+          target_id: string | null
+          target_kind: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "comments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       regenerate_classroom_code: {
         Args: { p_classroom_id: string }
         Returns: Json
       }
+      resolve_comment: {
+        Args: { p_id: string }
+        Returns: {
+          analysis_id: string | null
+          assignment_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string | null
+          target_id: string | null
+          target_kind: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "comments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       start_assignment: { Args: { p_assignment_id: string }; Returns: Json }
       submit_assignment: { Args: { p_submission_id: string }; Returns: Json }
+      unread_comment_counts: {
+        Args: never
+        Returns: {
+          assignment_id: string
+          count: number
+          submission_id: string
+        }[]
+      }
+      unresolve_comment: {
+        Args: { p_id: string }
+        Returns: {
+          analysis_id: string | null
+          assignment_id: string
+          author_id: string
+          author_role: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          submission_id: string | null
+          target_id: string | null
+          target_kind: string | null
+          target_type: Database["public"]["Enums"]["comment_target_type"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "comments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       unsubmit_assignment: { Args: { p_submission_id: string }; Returns: Json }
     }
     Enums: {
       account_type: "standard" | "student" | "teacher"
       assignment_mode: "empty" | "prefilled" | "template" | "none"
+      comment_audience: "one_way" | "two_way"
+      comment_target_type: "submission" | "inline" | "assignment"
       submission_status: "in_progress" | "submitted"
     }
     CompositeTypes: {
@@ -946,6 +1177,8 @@ export const Constants = {
     Enums: {
       account_type: ["standard", "student", "teacher"],
       assignment_mode: ["empty", "prefilled", "template", "none"],
+      comment_audience: ["one_way", "two_way"],
+      comment_target_type: ["submission", "inline", "assignment"],
       submission_status: ["in_progress", "submitted"],
     },
   },
