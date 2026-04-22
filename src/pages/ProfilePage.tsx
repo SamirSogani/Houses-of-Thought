@@ -412,6 +412,48 @@ export default function ProfilePage() {
         </div>
       </div>
       <SiteFooter />
+
+      <AlertDialog open={pendingType !== null} onOpenChange={(open) => { if (!open) setPendingType(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Switch to {pendingType ? ACCOUNT_LABEL[pendingType] : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Your <strong>{ACCOUNT_LABEL[accountType]}</strong> workspace will be hidden, including:
+                </p>
+                {loadingCounts || !switchCounts ? (
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking what will be hidden…
+                  </p>
+                ) : (
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>{switchCounts.analyses} {switchCounts.analyses === 1 ? "house" : "houses"} you've created</li>
+                    {switchCounts.classroomsOwned > 0 && (
+                      <li>{switchCounts.classroomsOwned} classroom{switchCounts.classroomsOwned === 1 ? "" : "s"} you own</li>
+                    )}
+                    {switchCounts.memberships > 0 && (
+                      <li>{switchCounts.memberships} classroom membership{switchCounts.memberships === 1 ? "" : "s"}</li>
+                    )}
+                    <li>any open analysis you have right now</li>
+                  </ul>
+                )}
+                <p className="text-muted-foreground">
+                  <strong className="text-foreground">Nothing is deleted.</strong> Switching back to {ACCOUNT_LABEL[accountType]} will restore everything.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingAccountType}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAccountTypeChange} disabled={savingAccountType || loadingCounts}>
+              {savingAccountType ? (<><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Switching…</>) : `Switch to ${pendingType ? ACCOUNT_LABEL[pendingType] : ""}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
