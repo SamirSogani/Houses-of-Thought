@@ -1,54 +1,98 @@
 
 
-# Auto-save Profile + tighten Student/Teacher gating
+# Partition data per account type
 
-Four small changes.
+Each user has one login but three independent "workspaces" (Standard / Student / Teacher). Switching account type hides the other workspaces' data; switching back fully restores it. Nothing is ever deleted.
 
-## 1. Auto-save profile (no Save button)
+## What gets partitioned
 
-In `src/pages/ProfilePage.tsx`:
-- Remove the **Save Profile** button at the bottom and the `saving` state.
-- Add a debounced auto-save (500ms) that fires whenever any of the eight text fields change after the initial load: `biological`, `social`, `familial`, `individual`, `about_me`, `role_title`, `location_context`, `current_project`.
-- Use **upsert** (`onConflict: 'user_id'`) instead of `update` so it works even if the profile row is missing for that user. Same fix applied to the account-type buttons (which already auto-save on click).
-- Show a tiny status indicator next to the "Your Profile" heading: `Saved` / `Saving…` / `Save failed — retry` with a small icon. No toast spam on every keystroke; only show toast on actual error.
-- Guard against firing the auto-save during the initial load (track an `isLoadedRef`).
+Each row that belongs to a user gets stamped with the account type that was active when it was created, then RLS only shows rows whose stamp matches the user's *current* `profiles.account_type`.
 
-## 2. Lock down student permissions
+| Table | New column | Notes |
+|---|---|---|
+| `analyses` | `owner_account_type` | Set on insert from current profile.account_type. Public read (`is_public=true`) and the teacher-view-of-submission policy are unaffected — those are cross-type by design. |
+| `classrooms` | `owner_account_type` | A teacher's classrooms are only visible while the user is in Teacher mode. |
+| `classroom_members` | `owner_account_type` | A student's joined classroom is only visible while the user is in Student mode. The cap check inside `join_classroom` still counts everyone regardless of type. |
 
-In `src/lib/permissions.ts`, the `STUDENT_PERMISSIONS` object becomes:
-- `canCreateClassrooms: false`
-- `canCreateAssignments: false`
-- (new) `canRegenerateClassroomCode: false`
-- (new) `canDeleteClassroom: false`
-- `canJoinClassroom: true` (unchanged)
-- `canStartAssignments: true` (unchanged)
+Profile fields stay shared (one username, one email, one set of profile context). That matches your "shared login" answer.
 
-Add the two new fields to the `Permissions` interface and to `STANDARD_PERMISSIONS` / `TEACHER_PERMISSIONS` (both `true`).
+## How "current account type" is read in RLS
 
-## 3. Apply the new gates in the UI
+Add a security-definer helper:
 
-- **`src/pages/Dashboard.tsx`**: the header already gates **Classrooms** behind `permissions.canCreateClassrooms`, so it now hides for students automatically — no change needed there beyond removing the "My Classroom" button (see #4).
-- **`src/pages/TeacherClassroomsPage.tsx`**: wrap the page in a permission check — if `!permissions.canCreateClassrooms`, redirect to `/dashboard`. Hide the **Create Classroom** button as a defense-in-depth (the route guard is the primary gate).
-- **`src/pages/TeacherClassroomDetailPage.tsx`**: hide the **Regenerate Code** button when `!permissions.canRegenerateClassroomCode`, hide the **Danger Zone / Delete Classroom** card when `!permissions.canDeleteClassroom`, and hide the **Create Assignment** button when `!permissions.canCreateAssignments`. Load the profile via `usePermissions` at the top of the page.
+```sql
+create function public.current_account_type()
+returns public.account_type
+language sql stable security definer set search_path = public
+as $$ select account_type from public.profiles where user_id = auth.uid() $$;
+```
 
-These are UI gates; the database RLS already restricts these operations to the classroom's `teacher_id`, so a student who somehow reached the URL still cannot mutate anything. This change just stops the buttons from appearing.
+RLS `SELECT` policies on the three tables become:
+```
+user_id = auth.uid() AND owner_account_type = public.current_account_type()
+```
+INSERT policies force the new column to equal `current_account_type()` so a row can never be created in the "wrong" partition. UPDATE/DELETE policies keep the same partition check so a user in Standard mode can't even reach their Teacher-mode rows by ID guessing.
 
-## 4. Remove "My Classroom" from the dashboard
+The cross-type SELECT policies stay untouched:
+- `analyses_public_read` (anyone with the link)
+- `analyses_teacher_view_submission` + the `*_teacher_view_submission` child policies (teachers reviewing student submissions — works because the teacher *is* in Teacher mode when reviewing)
 
-In `src/pages/Dashboard.tsx`, delete the second header button (lines 100–104, the one routing to `/classroom`). The route itself stays so existing student bookmarks keep working — students reach their classroom from the Classrooms link or directly via URL. The single **Classrooms** button remains for users who can create classrooms.
+## Backfill (one-time, per-user)
 
-> Note: this leaves students with no header link to their joined classroom. If you'd rather keep one entry point for students, say so and I'll instead make the **Classrooms** button route to `/classroom` for users with `canJoinClassroom && !canCreateClassrooms`. Default plan: just remove "My Classroom" as you asked.
+For every existing row, stamp `owner_account_type` with the owner's current `profiles.account_type` (defaulting to `standard`). This means existing users see all their old data exactly as before — it just becomes "Standard data" by default. If they later switch to Teacher and don't see their old houses, that's correct: those houses live in their Standard workspace.
+
+We won't try to be clever about classroom rows — owners (teachers) get them stamped Teacher, members (students) get them stamped Student.
+
+## RPC updates
+
+- `join_classroom(code)` — sets `owner_account_type = current_account_type()` on the new `classroom_members` row. Still rejects if the user already has a membership *in their current account type* (so a Standard user could join one classroom, switch to Student, join a different one, and have both — each visible only in its own mode). Cap check still counts all members.
+- `leave_classroom()` — only deletes the membership for the *current* account type.
+- `start_assignment(...)` — when it creates a new analysis for a student submission, stamp it `owner_account_type = 'student'` (not `current_account_type()`), because submissions intrinsically belong to the Student workspace.
+- `_clone_analysis(...)` — same: the clone lands in the target user's Student workspace.
+
+## UI: switching with a confirmation dialog
+
+`ProfilePage.tsx` — wrap the account-type buttons in a confirmation dialog when the user clicks a different type:
+
+> Switch to **Teacher**?
+>
+> Your **Standard** workspace will be hidden, including:
+> - 4 houses you've created
+> - any open analyses
+>
+> Nothing is deleted. Switching back to Standard will restore everything.
+>
+> [Cancel]  [Switch to Teacher]
+
+The dialog fetches counts live via three small queries (count of `analyses` in current type, classroom memberships in current type, classrooms owned in current type) so the message reflects what's actually being hidden. After confirm:
+1. Update `profiles.account_type`.
+2. Navigate to `/dashboard` (hard reset — no stale in-memory analysis from the prior workspace).
+3. Toast: "Switched to Teacher. Your Standard workspace is preserved."
+
+## Edge cases handled
+
+- **Open analysis when switching**: the post-switch redirect to `/dashboard` prevents the user from sitting on a route like `/analysis/<id-from-old-workspace>`. If they bookmark such a URL and visit it later in the wrong mode, RLS returns nothing → existing "Not found" UI shows.
+- **Username uniqueness**: unchanged. One username per user.
+- **Public shared analyses**: still readable across types via the unchanged public-read policy.
+- **Teacher reviewing a student submission**: still works — teacher is in Teacher mode, and `can_teacher_view_analysis` is independent of `owner_account_type`.
+- **Auto-attached `assignment_submission_id`**: a Standard-mode user cannot have submissions, so this column stays NULL for non-student-partition analyses.
 
 ## Files
 
-**Edited**
-- `src/lib/permissions.ts` — add `canRegenerateClassroomCode` + `canDeleteClassroom`; flip the student perms.
-- `src/pages/ProfilePage.tsx` — remove Save button, add debounced auto-save with upsert + status indicator.
-- `src/pages/Dashboard.tsx` — remove the "My Classroom" header button.
-- `src/pages/TeacherClassroomsPage.tsx` — route guard + hide Create button for non-creators.
-- `src/pages/TeacherClassroomDetailPage.tsx` — load profile, gate Regenerate / Delete / Create Assignment.
+**New migration**
+- Add `owner_account_type account_type not null default 'standard'` to `analyses`, `classrooms`, `classroom_members`.
+- Backfill from each owner's current `profiles.account_type`.
+- Create `public.current_account_type()`.
+- Replace `analyses_select`, `analyses_insert`, `analyses_update`, `analyses_delete` to add the partition check (keep `analyses_public_read` and `analyses_teacher_view_submission` as-is).
+- Same treatment for `classrooms_*` and `classroom_members_*` policies (keep teacher-view and member-of-my-classroom policies cross-type).
+- Update `join_classroom`, `leave_classroom`, `start_assignment`, `_clone_analysis` to write/filter by `owner_account_type`.
 
-**Not changed**
-- Database RLS / RPCs — already enforce teacher-only mutation.
-- `mem://index.md` — no new core rule needed; the existing Account Types core line still applies.
+**Edited code**
+- `src/pages/ProfilePage.tsx` — add a confirmation `<AlertDialog>` around `updateAccountType` that loads and shows the counts of what will be hidden; redirect to `/dashboard` on confirm.
+- `src/pages/Dashboard.tsx` — no change needed (RLS handles filtering); optional small banner: "You're in **Student** mode — your Standard houses are hidden until you switch back."
+- `src/hooks/useMyClassroom.ts` and `src/hooks/useClassrooms.ts` — no query changes needed (RLS filters automatically).
+
+**Memory updates**
+- New: `mem://features/account-type-partitioning.md` — documents the partitioning rule, the `current_account_type()` helper, and the cross-type exceptions (public read, teacher-view-of-submission).
+- Update `mem://index.md` Core: add one line — "Each account type is an independent workspace; `analyses`, `classrooms`, `classroom_members` are partitioned by `owner_account_type` matching `profiles.account_type` via RLS. Public analyses and teacher-view-of-submission cross types intentionally."
 
