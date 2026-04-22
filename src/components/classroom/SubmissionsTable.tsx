@@ -97,13 +97,26 @@ export default function SubmissionsTable({ submissions, isNoHouse = false, assig
                       <MessageSquare className="h-4 w-4 mr-1" /> View Response
                     </Button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/analysis/${s.analysis_id}?readonly=1`)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" /> View house
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setActiveId(s.id);
+                          setActiveLabel(studentLabel);
+                          setOpen(true);
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" /> Comments
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/analysis/${s.analysis_id}?readonly=1`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View house
+                      </Button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
@@ -117,6 +130,7 @@ export default function SubmissionsTable({ submissions, isNoHouse = false, assig
         onOpenChange={setOpen}
         submissionId={activeId}
         studentLabel={activeLabel}
+        assignmentId={assignmentId}
       />
     </>
   );
