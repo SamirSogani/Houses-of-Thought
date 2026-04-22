@@ -92,8 +92,32 @@ export default function ProfilePage() {
     isLoadedRef.current = true;
   };
 
-  const updateAccountType = async (newType: AccountType) => {
+  // User clicked an account-type button — open the confirmation dialog and
+  // load live counts of what's about to be hidden in the CURRENT workspace.
+  const requestAccountTypeChange = async (newType: AccountType) => {
     if (newType === accountType || savingAccountType) return;
+    setPendingType(newType);
+    setSwitchCounts(null);
+    setLoadingCounts(true);
+    try {
+      const [analysesRes, classroomsRes, membersRes] = await Promise.all([
+        supabase.from("analyses").select("id", { count: "exact", head: true }).eq("user_id", user!.id),
+        supabase.from("classrooms").select("id", { count: "exact", head: true }).eq("teacher_id", user!.id),
+        supabase.from("classroom_members").select("id", { count: "exact", head: true }).eq("student_id", user!.id),
+      ]);
+      setSwitchCounts({
+        analyses: analysesRes.count ?? 0,
+        classroomsOwned: classroomsRes.count ?? 0,
+        memberships: membersRes.count ?? 0,
+      });
+    } finally {
+      setLoadingCounts(false);
+    }
+  };
+
+  const confirmAccountTypeChange = async () => {
+    if (!pendingType) return;
+    const newType = pendingType;
     setSavingAccountType(true);
     const { error } = await supabase
       .from("profiles")
@@ -102,12 +126,15 @@ export default function ProfilePage() {
         { onConflict: "user_id" }
       );
     setSavingAccountType(false);
+    setPendingType(null);
     if (error) {
       toast.error(error.message);
       return;
     }
     setAccountType(newType);
-    toast.success(`Account type changed to ${newType.charAt(0).toUpperCase() + newType.slice(1)}.`);
+    toast.success(`Switched to ${ACCOUNT_LABEL[newType]}. Your ${ACCOUNT_LABEL[accountType]} workspace is preserved.`);
+    // Hard reset to the dashboard so no stale analysis from the prior workspace lingers.
+    navigate("/dashboard");
   };
 
   // Auto-save the eight free-text fields (debounced 500ms) using upsert so
