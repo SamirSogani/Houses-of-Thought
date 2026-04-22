@@ -55,6 +55,11 @@ export default function ProfilePage() {
   const [savingAccountType, setSavingAccountType] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
+  // Confirmation dialog state for switching account types
+  const [pendingType, setPendingType] = useState<AccountType | null>(null);
+  const [switchCounts, setSwitchCounts] = useState<{ analyses: number; classroomsOwned: number; memberships: number } | null>(null);
+  const [loadingCounts, setLoadingCounts] = useState(false);
+
   const isLoadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
