@@ -12,9 +12,11 @@ interface Props {
   submissions: SubmissionRow[];
   /** Pass when the parent assignment has mode='none' so we render "View Response" instead. */
   isNoHouse?: boolean;
+  /** Pass to enable the per-submission comments thread inside the dialog. */
+  assignmentId?: string;
 }
 
-export default function SubmissionsTable({ submissions, isNoHouse = false }: Props) {
+export default function SubmissionsTable({ submissions, isNoHouse = false, assignmentId }: Props) {
   const navigate = useNavigate();
   const [names, setNames] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
