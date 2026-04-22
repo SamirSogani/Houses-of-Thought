@@ -74,6 +74,11 @@ export default function AssignmentsList(props: Props) {
                     <Badge variant="secondary" className="gap-1">
                       <Icon className="h-3 w-3" /> {meta.label}
                     </Badge>
+                    {byAssignment(a.id) > 0 && (
+                      <Badge variant="destructive" className="gap-1">
+                        <MessageSquare className="h-3 w-3" /> {byAssignment(a.id)} new
+                      </Badge>
+                    )}
                   </div>
                   {a.prompt && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.prompt}</p>}
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
