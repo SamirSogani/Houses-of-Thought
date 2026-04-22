@@ -11,6 +11,22 @@ import { toast } from "sonner";
 import DeleteAccountSection from "@/components/ai/DeleteAccountSection";
 import { ACCOUNT_TYPE_DESCRIPTIONS, type AccountType } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const ACCOUNT_LABEL: Record<AccountType, string> = {
+  standard: "Standard",
+  student: "Student",
+  teacher: "Teacher",
+};
 
 const ACCOUNT_OPTIONS: { type: AccountType; label: string; icon: typeof UserIcon }[] = [
   { type: "standard", label: "Standard", icon: UserIcon },
