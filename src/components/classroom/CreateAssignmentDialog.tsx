@@ -77,6 +77,7 @@ export default function CreateAssignmentDialog({ classroomId, onCreate }: Props)
       prefilled_question: mode === "prefilled" ? prefilledQuestion.trim() : null,
       prefilled_sub_purposes: mode === "prefilled" ? prefilledSubPurposes.trim() : null,
       template_analysis_id: mode === "template" ? templateAnalysisId : null,
+      comment_audience: commentAudience,
     });
     if (error || !data?.id) {
       setBusy(false);
