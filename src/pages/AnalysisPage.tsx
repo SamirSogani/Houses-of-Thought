@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
 import InteractiveHouseBuilder from "@/components/house/InteractiveHouseBuilder";
+import SubmissionCommentOverlay from "@/components/comments/SubmissionCommentOverlay";
+import { useCommentContext } from "@/hooks/useCommentContext";
 import AISidebar from "@/components/ai/AISidebar";
 import TodoPanel from "@/components/house/TodoPanel";
 import LogicStrengthPanel from "@/components/house/LogicStrengthPanel";
@@ -47,6 +49,11 @@ export default function AnalysisPage() {
   const { permissions } = usePermissions(profile);
   const readonly = searchParams.get("readonly") === "1";
   const { submission, assignment, submit, unsubmit } = useAnalysisAssignmentContext(id);
+  const commentCtx = useCommentContext(id);
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
+  const houseContextSummary = analysis
+    ? `Title: ${analysis.title}\nQuestion: ${analysis.overarching_question || "—"}\nPurpose: ${analysis.purpose || "—"}\nConclusion: ${analysis.overarching_conclusion || "—"}`
+    : undefined;
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -404,8 +411,8 @@ export default function AnalysisPage() {
             />
           </>
         )}
-        <div className={`page-container max-w-6xl ${readonly ? "pointer-events-none select-text opacity-95" : ""}`}>
-          <div className="breadcrumb-nav pointer-events-auto">
+        <SubmissionCommentOverlay ctx={commentCtx} contextSummary={houseContextSummary} className="page-container max-w-6xl">
+          <div className="breadcrumb-nav">
             <button onClick={() => readonly ? navigate(-1) : navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" /> {readonly ? "Back" : "Dashboard"}
             </button>
@@ -438,7 +445,7 @@ export default function AnalysisPage() {
 
           {viewMode === "standard" ? (
             <>
-              <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />
+              {!readonly && <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />}
               <HouseVisualization
                 analysis={analysis}
                 subQuestions={subQuestions}
@@ -446,6 +453,9 @@ export default function AnalysisPage() {
                 onNavigate={navigate}
                 onAcceptDraft={acceptAllDrafts}
                 onDeclineDraft={declineAllDrafts}
+                commentCtx={commentCtx}
+                readonly={readonly}
+                navSuffix={navSuffix}
               />
             </>
           ) : (
@@ -457,7 +467,7 @@ export default function AnalysisPage() {
               onUpdateField={updateField}
             />
           )}
-        </div>
+        </SubmissionCommentOverlay>
       </div>
       </div>
     </div>
