@@ -36,6 +36,8 @@ interface Props {
   emptyMessage?: string;
   /** Mark visible comments as read when true. Default true. */
   autoMarkRead?: boolean;
+  /** Pre-fills the composer (used by highlight-to-comment). */
+  initialDraft?: string;
 }
 
 function formatTime(iso: string) {
@@ -57,6 +59,7 @@ export default function CommentThread(props: Props) {
     teacherId,
     emptyMessage = "No comments yet.",
     autoMarkRead = true,
+    initialDraft,
   } = props;
   const { user } = useAuth();
   const { comments, loading, post, edit, remove, resolve, unresolve } = useComments({
@@ -67,11 +70,17 @@ export default function CommentThread(props: Props) {
     targetKind,
     targetId,
   });
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft || "");
   const [posting, setPosting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const markedRef = useRef<Set<string>>(new Set());
+
+  // If a fresh initialDraft arrives (sheet reopened with selection), pre-fill.
+  useEffect(() => {
+    if (initialDraft) setDraft(initialDraft);
+  }, [initialDraft]);
+
 
   // Auto-mark visible others' comments as read
   useEffect(() => {
