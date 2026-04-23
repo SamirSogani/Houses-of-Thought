@@ -253,7 +253,6 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
-        </div>
       </section>
 
       {/* CTA */}
