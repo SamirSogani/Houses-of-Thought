@@ -396,7 +396,7 @@ export default function AnalysisPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
-        {!readonly && permissions.canUseAISidebar && (
+        {(!readonly || teacherReview) && permissions.canUseAISidebar && (
           <>
             <Button
               variant="outline"
@@ -414,6 +414,7 @@ export default function AnalysisPage() {
               subQuestions={subQuestions}
               profile={profile}
               onDraftComplete={loadData}
+              hideDraftFullHouse={teacherReview}
             />
           </>
         )}
