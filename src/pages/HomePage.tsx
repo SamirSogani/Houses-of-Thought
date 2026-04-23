@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SiteNavbar from "@/components/layout/SiteNavbar";
 import SiteFooter from "@/components/layout/SiteFooter";
+import elementsOfReason from "@/assets/elements-of-reason.png";
 import {
   Lightbulb,
   Search,
