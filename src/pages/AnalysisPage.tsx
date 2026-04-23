@@ -413,8 +413,8 @@ export default function AnalysisPage() {
         )}
         <SubmissionCommentOverlay ctx={commentCtx} contextSummary={houseContextSummary} className="page-container max-w-6xl">
           <div className="breadcrumb-nav">
-            <button onClick={() => readonly ? navigate(-1) : navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> {readonly ? "Back" : "Dashboard"}
+            <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Dashboard
             </button>
             <span>/</span>
             <span className="text-foreground truncate max-w-[200px]">{analysis.title}</span>
