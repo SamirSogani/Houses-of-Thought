@@ -146,34 +146,11 @@ export default function HomePage() {
 
             {/* House Diagram Visual */}
             <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-              <div className="relative mx-auto max-w-sm">
-                <div className="bg-atmosphere-bg border-2 border-atmosphere rounded-t-lg px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">ATMOSPHERE</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Concepts & Definitions</p>
-                </div>
-                <div className="bg-card border-2 border-roof px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">PURPOSE</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Overarching Question</p>
-                </div>
-                <div className="grid grid-cols-3 gap-1 my-1">
-                  <div className="pov-individual border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Individual</p>
-                  </div>
-                  <div className="pov-group border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Group</p>
-                  </div>
-                  <div className="pov-ideas border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Ideas</p>
-                  </div>
-                </div>
-                <div className="bg-assumption-bg border-2 border-assumption px-4 py-2 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">ASSUMPTIONS</p>
-                </div>
-                <div className="bg-foundation-bg border-2 border-foundation rounded-b-lg px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">FOUNDATION</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Conclusion & Implications</p>
-                </div>
-              </div>
+              <img
+                src={elementsOfReason}
+                alt="The Elements of Reason — House of Thought diagram by John Trapasso"
+                className="mx-auto w-full max-w-md rounded-lg border border-border bg-card shadow-lg"
+              />
             </div>
           </div>
         </div>
