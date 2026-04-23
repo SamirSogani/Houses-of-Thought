@@ -4,6 +4,7 @@ import CommentSheet from "./CommentSheet";
 import { useComments } from "@/hooks/useComments";
 import { useUnreadComments } from "@/hooks/useUnreadComments";
 import { useAuth } from "@/hooks/useAuth";
+import { useOpenInlineCommentListener } from "./SubmissionCommentOverlay";
 import type { CommentContextValue } from "@/hooks/useCommentContext";
 
 interface Props {
