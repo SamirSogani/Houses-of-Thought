@@ -1402,15 +1402,17 @@ CRITICAL RULES:
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full justify-center gap-2 text-sm"
-                onClick={() => setView("draft-info")}
-                disabled={draftLoading}
-              >
-                {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Draft Full House
-              </Button>
+              {!hideDraftFullHouse && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-center gap-2 text-sm"
+                  onClick={() => setView("draft-info")}
+                  disabled={draftLoading}
+                >
+                  {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Draft Full House
+                </Button>
+              )}
 
               <div className="flex gap-2">
                 <Textarea
