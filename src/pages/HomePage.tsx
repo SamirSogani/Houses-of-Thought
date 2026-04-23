@@ -20,6 +20,12 @@ import {
   Layers,
   ChevronRight,
   Shield,
+  X,
+  Check,
+  Shuffle,
+  Route,
+  HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
 
 const frameworkSteps = [
@@ -67,22 +73,18 @@ const features = [
   },
 ];
 
-const outcomeCards = [
-  {
-    icon: GraduationCap,
-    title: "Students",
-    outcome: "Learn faster and stay on track.",
-  },
-  {
-    icon: BookOpen,
-    title: "Teachers",
-    outcome: "Guide reasoning with clarity.",
-  },
-  {
-    icon: Briefcase,
-    title: "Professionals",
-    outcome: "Make defensible, well-structured decisions.",
-  },
+const withoutHoT = [
+  { icon: Shuffle, label: "Scattered, unstructured thinking" },
+  { icon: HelpCircle, label: "Chasing the wrong questions" },
+  { icon: Lightbulb, label: "Hidden assumptions go untested" },
+  { icon: X, label: "Weak, unsupported conclusions" },
+];
+
+const withHoT = [
+  { icon: Route, label: "A clear, step-by-step process" },
+  { icon: Target, label: "The right questions, in the right order" },
+  { icon: Shield, label: "Assumptions surfaced and stress-tested" },
+  { icon: CheckCircle2, label: "Defensible, well-founded conclusions" },
 ];
 
 const audiences = [
@@ -204,22 +206,50 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {outcomeCards.map((card, i) => (
-            <Card
-              key={card.title}
-              className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 animate-fade-in text-center"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              <CardContent className="p-8 flex flex-col items-center gap-4">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <card.icon className="h-7 w-7 text-primary" />
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {/* Without HoT */}
+          <Card className="border-destructive/20 bg-destructive/[0.02] animate-fade-in">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <X className="h-5 w-5 text-destructive" />
                 </div>
-                <h3 className="text-xl font-display font-semibold text-foreground">{card.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{card.outcome}</p>
-              </CardContent>
-            </Card>
-          ))}
+                <h3 className="text-lg font-display font-semibold text-foreground">
+                  Without a structured process
+                </h3>
+              </div>
+              <ul className="space-y-4">
+                {withoutHoT.map((item) => (
+                  <li key={item.label} className="flex items-start gap-3">
+                    <item.icon className="h-5 w-5 text-destructive/70 shrink-0 mt-0.5" />
+                    <span className="text-sm text-muted-foreground leading-relaxed">{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* With HoT */}
+          <Card className="border-primary/30 bg-primary/[0.03] shadow-md animate-fade-in" style={{ animationDelay: "150ms" }}>
+            <CardContent className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center">
+                  <Check className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="text-lg font-display font-semibold text-foreground">
+                  With Houses of Thought
+                </h3>
+              </div>
+              <ul className="space-y-4">
+                {withHoT.map((item) => (
+                  <li key={item.label} className="flex items-start gap-3">
+                    <item.icon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <span className="text-sm text-foreground leading-relaxed font-medium">{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
