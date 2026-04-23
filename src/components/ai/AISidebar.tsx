@@ -29,6 +29,8 @@ interface AISidebarProps {
   subQuestions?: SubQuestion[];
   profile?: Tables<"profiles"> | null;
   onDraftComplete?: () => void;
+  /** Hide the "Draft Full House" affordance (e.g. when teachers review a submission). */
+  hideDraftFullHouse?: boolean;
 }
 
 interface ChatRecord {
