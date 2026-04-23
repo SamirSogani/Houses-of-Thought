@@ -10,24 +10,19 @@ import type { CommentContextValue } from "@/hooks/useCommentContext";
 interface Props {
   ctx: CommentContextValue;
   targetKind: string;
-  /** Stable id of the row being commented on. Pass `null` for whole-zone targets. */
   targetId: string | null;
-  /** Human-readable label shown in the sheet header. */
   targetLabel: string;
   className?: string;
   size?: "xs" | "sm";
-  /** Optional ref-style trigger (used by selection toolbar to programmatically open). */
   initialDraft?: string;
-  /** When true the pill is rendered open immediately. Used by the selection toolbar. */
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
 /**
- * Self-contained inline pill that:
- *   • fetches its own thread count for this anchor
- *   • shows an unread red dot for the current user
- *   • opens the comment sheet on click
+ * Self-contained inline pill that fetches its own thread count, shows an unread
+ * dot, opens a side sheet on click, and listens for selection-toolbar events
+ * targeting its (kind, targetId) anchor.
  *
  * Renders nothing when the analysis is not part of an assignment submission.
  */
@@ -44,10 +39,19 @@ export default function InlinePill({
 }: Props) {
   const { user } = useAuth();
   const [open, setOpenInternal] = useState(!!defaultOpen);
+  const [draft, setDraft] = useState<string | undefined>(initialDraft);
   const setOpen = (v: boolean) => {
     setOpenInternal(v);
+    if (!v) setDraft(undefined);
     onOpenChange?.(v);
   };
+
+  useOpenInlineCommentListener(targetKind, targetId, (incomingDraft) => {
+    setDraft(incomingDraft);
+    setOpenInternal(true);
+    onOpenChange?.(true);
+  });
+
   const { comments } = useComments({
     assignmentId: ctx.assignmentId || undefined,
     targetType: "inline",
@@ -58,36 +62,27 @@ export default function InlinePill({
   });
   const { rows } = useUnreadComments();
 
-  const unreadIds = useMemo(() => {
-    if (!user) return new Set<string>();
-    const visibleIds = new Set(comments.filter((c) => c.author_id !== user.id).map((c) => c.id));
-    // We can't get per-thread unread without a join; approximate by using the
-    // submission-level unread bucket and filtering to the ids we currently see.
-    // The rpc returns ids grouped by submission only, so fall back to "any unread
-    // on this submission" → mark dot if at least one of *our* visible comments is
-    // newer than our last read. As a simpler heuristic we just say: if there's any
-    // unread in this submission AND we have other-author comments, show the dot.
+  const unreadCount = useMemo(() => {
+    if (!user) return 0;
+    const visible = comments.filter((c) => c.author_id !== user.id).length;
+    if (!visible) return 0;
     const subUnread = rows
       .filter((r) => r.submission_id === ctx.submissionId)
       .reduce((a, r) => a + r.count, 0);
-    if (subUnread > 0 && visibleIds.size > 0) return visibleIds;
-    return new Set<string>();
+    return subUnread > 0 ? Math.min(visible, subUnread) : 0;
   }, [comments, rows, user, ctx.submissionId]);
 
   if (!ctx.hasContext) return null;
 
-  const count = comments.length;
-  const unread = unreadIds.size;
-
   return (
     <>
       <CommentPill
-        count={count}
-        unread={unread}
+        count={comments.length}
+        unread={unreadCount}
         onClick={() => setOpen(true)}
         className={className}
         size={size}
-        label={`${count} comments on ${targetLabel}`}
+        label={`${comments.length} comments on ${targetLabel}`}
       />
       <CommentSheet
         open={open}
@@ -96,7 +91,7 @@ export default function InlinePill({
         targetKind={targetKind}
         targetId={targetId}
         targetLabel={targetLabel}
-        initialDraft={initialDraft}
+        initialDraft={draft}
       />
     </>
   );
