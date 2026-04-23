@@ -36,6 +36,8 @@ interface Props {
   emptyMessage?: string;
   /** Mark visible comments as read when true. Default true. */
   autoMarkRead?: boolean;
+  /** Pre-fills the composer (used by highlight-to-comment). */
+  initialDraft?: string;
 }
 
 function formatTime(iso: string) {
