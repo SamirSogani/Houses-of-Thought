@@ -50,6 +50,8 @@ export default function AnalysisPage() {
   const readonly = searchParams.get("readonly") === "1";
   const { submission, assignment, submit, unsubmit } = useAnalysisAssignmentContext(id);
   const commentCtx = useCommentContext(id);
+  const teacherReview = readonly && commentCtx.isTeacher;
+  const showLeftRail = !readonly || teacherReview;
   const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const houseContextSummary = analysis
     ? `Title: ${analysis.title}\nQuestion: ${analysis.overarching_question || "—"}\nPurpose: ${analysis.purpose || "—"}\nConclusion: ${analysis.overarching_conclusion || "—"}`
