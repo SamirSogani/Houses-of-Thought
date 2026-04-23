@@ -301,7 +301,7 @@ function parseActionFromReply(reply: string): { action: any | null; textContent:
 
 // ─── Main Component ─────────────────────────────────────────
 
-export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete }: AISidebarProps) {
+export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete, hideDraftFullHouse }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
