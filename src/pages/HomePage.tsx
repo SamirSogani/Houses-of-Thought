@@ -205,48 +205,21 @@ export default function HomePage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {outcomeCards.map((card, i) => (
+          {audiences.map((a, i) => (
             <Card
-              key={card.title}
+              key={a.title}
               className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 animate-fade-in text-center"
               style={{ animationDelay: `${i * 100}ms` }}
             >
               <CardContent className="p-8 flex flex-col items-center gap-4">
                 <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <card.icon className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="text-xl font-display font-semibold text-foreground">{card.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{card.outcome}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* WHO IS IT FOR (moved before Features) */}
-      <section className="bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              Who Is It For?
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {audiences.map((a, i) => (
-              <div
-                key={a.title}
-                className="text-center space-y-4 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                   <a.icon className="h-7 w-7 text-primary" />
                 </div>
                 <h3 className="text-xl font-display font-semibold text-foreground">{a.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
-              </div>
-            ))}
-          </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 
