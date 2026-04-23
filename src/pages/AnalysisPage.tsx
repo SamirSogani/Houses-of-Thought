@@ -250,7 +250,7 @@ export default function AnalysisPage() {
       )}
 
       {/* Resizable Tool Panel */}
-      {!readonly && showToolPanel && (
+      {showLeftRail && showToolPanel && (
         <aside
           className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col overflow-hidden relative"
           style={{ width: panelWidth, minWidth: 220, maxWidth: 600 }}
