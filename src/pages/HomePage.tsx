@@ -194,7 +194,8 @@ export default function HomePage() {
       </section>
 
       {/* SECTION 2: WHY IT MATTERS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <section className="bg-card border-y border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
             Why It Matters
@@ -221,11 +222,11 @@ export default function HomePage() {
             </Card>
           ))}
         </div>
+        </div>
       </section>
 
       {/* FEATURES */}
-      <section id="features" className="bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
               Powerful Features
@@ -252,7 +253,6 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
-        </div>
       </section>
 
       {/* CTA */}
