@@ -3,11 +3,12 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import SubPageCommentScope from "@/components/comments/SubPageCommentScope";
+import InlinePill from "@/components/comments/InlinePill";
 
 type Assumption = Tables<"assumptions">;
 
@@ -36,7 +37,8 @@ export default function AssumptionsPage() {
   const { analysisId, subQuestionId } = useParams<{ analysisId: string; subQuestionId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
+  const readonly = searchParams.get("readonly") === "1";
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [sqQuestion, setSqQuestion] = useState("");
 
@@ -57,7 +59,6 @@ export default function AssumptionsPage() {
     const defaultContent = type === "shaping_inferences"
       ? JSON.stringify({ evidence: "", inference: "" })
       : "";
-    // Map UI key to DB key
     const dbType = type === "shaping_inferences" ? "concepts_shaping_inferences" : type;
     const { data, error } = await supabase
       .from("assumptions")
@@ -94,97 +95,149 @@ export default function AssumptionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="page-container">
-        <div className="breadcrumb-nav">
-          <button
-            onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}${viewParam}`)}
-            className="flex items-center gap-1 hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> {sqQuestion || "Sub-Question"}
-          </button>
-          <span>/</span>
-          <span className="text-foreground">Assumptions</span>
-        </div>
+      <SubPageCommentScope
+        analysisId={analysisId}
+        contextSummary={`Assumptions for sub-question: ${sqQuestion}`}
+        className="page-container"
+      >
+        {(ctx) => (
+          <>
+            <div className="breadcrumb-nav">
+              <button
+                onClick={() => navigate(`/analysis/${analysisId}/sub-question/${subQuestionId}${navSuffix}`)}
+                className="flex items-center gap-1 hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" /> {sqQuestion || "Sub-Question"}
+              </button>
+              <span>/</span>
+              <span className="text-foreground">Assumptions</span>
+            </div>
 
-        <h1 className="text-3xl font-display font-bold mb-2">Assumptions</h1>
-        <p className="text-muted-foreground mb-8">Elements 5.1, 5.2, 5.3 — Examine the assumptions underlying your reasoning</p>
+            <h1 className="text-3xl font-display font-bold mb-2">Assumptions</h1>
+            <p className="text-muted-foreground mb-8">Elements 5.1, 5.2, 5.3 — Examine the assumptions underlying your reasoning</p>
 
-        <div className="space-y-8">
-          {ASSUMPTION_TYPES.map((type) => {
-            const items = getItemsForType(type.key);
-            const isShaping = type.key === "shaping_inferences";
-            return (
-              <div key={type.key}>
-                <Card className={`house-zone ${type.className}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg font-display">{type.label}</CardTitle>
-                        <p className="text-sm text-muted-foreground">Element {type.element} — {type.desc}</p>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => addAssumption(type.key)}>
-                        <Plus className="h-4 w-4 mr-1" /> Add
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {items.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic">
-                        {isShaping ? "No evidence→inference pairs listed yet" : "No assumptions listed yet"}
-                      </p>
-                    ) : isShaping ? (
-                      items.map((a) => {
-                        const parsed = parseShapingContent(a.content);
-                        return (
-                          <div key={a.id} className="flex gap-2 animate-fade-in">
-                            <div className="flex-1 space-y-2 p-3 rounded-md border border-border bg-card">
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Evidence (observable fact or data)</label>
-                                <Textarea
-                                  placeholder="e.g. Cloud cover is at 90% and humidity is high"
-                                  value={parsed.evidence}
-                                  onChange={(e) => updateShapingField(a.id, a.content, "evidence", e.target.value)}
-                                  className="min-h-[50px] bg-background"
-                                />
+            <div className="space-y-8">
+              {ASSUMPTION_TYPES.map((type) => {
+                const items = getItemsForType(type.key);
+                const isShaping = type.key === "shaping_inferences";
+                return (
+                  <div key={type.key}>
+                    <Card className={`house-zone ${type.className}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg font-display">{type.label}</CardTitle>
+                            <p className="text-sm text-muted-foreground">Element {type.element} — {type.desc}</p>
+                          </div>
+                          {!readonly && (
+                            <Button size="sm" variant="outline" onClick={() => addAssumption(type.key)}>
+                              <Plus className="h-4 w-4 mr-1" /> Add
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {items.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">
+                            {isShaping ? "No evidence→inference pairs listed yet" : "No assumptions listed yet"}
+                          </p>
+                        ) : isShaping ? (
+                          items.map((a) => {
+                            const parsed = parseShapingContent(a.content);
+                            return (
+                              <div key={a.id} className="flex gap-2 animate-fade-in" data-comment-kind="assumption" data-comment-target-id={a.id}>
+                                <div className="flex-1 space-y-2 p-3 rounded-md border border-border bg-card">
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Evidence (observable fact or data)</label>
+                                    {readonly ? (
+                                      <div className="bg-background rounded border px-2 py-1.5 text-sm whitespace-pre-wrap min-h-[50px]">
+                                        {parsed.evidence || <span className="text-muted-foreground italic">—</span>}
+                                      </div>
+                                    ) : (
+                                      <Textarea
+                                        placeholder="e.g. Cloud cover is at 90% and humidity is high"
+                                        value={parsed.evidence}
+                                        onChange={(e) => updateShapingField(a.id, a.content, "evidence", e.target.value)}
+                                        className="min-h-[50px] bg-background"
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Inference / Logical Leap</label>
+                                    {readonly ? (
+                                      <div className="bg-background rounded border px-2 py-1.5 text-sm whitespace-pre-wrap min-h-[50px]">
+                                        {parsed.inference || <span className="text-muted-foreground italic">—</span>}
+                                      </div>
+                                    ) : (
+                                      <Textarea
+                                        placeholder="e.g. It is likely to rain soon"
+                                        value={parsed.inference}
+                                        onChange={(e) => updateShapingField(a.id, a.content, "inference", e.target.value)}
+                                        className="min-h-[50px] bg-background"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0 self-start mt-3">
+                                  {ctx.hasContext && (
+                                    <InlinePill
+                                      ctx={ctx}
+                                      targetKind="assumption"
+                                      targetId={a.id}
+                                      targetLabel={parsed.evidence ? `${parsed.evidence.slice(0, 40)}…` : type.label}
+                                    />
+                                  )}
+                                  {!readonly && (
+                                    <Button variant="ghost" size="icon" onClick={() => deleteAssumption(a.id)} className="text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Inference / Logical Leap</label>
+                            );
+                          })
+                        ) : (
+                          items.map((a) => (
+                            <div key={a.id} className="flex gap-2 animate-fade-in" data-comment-kind="assumption" data-comment-target-id={a.id}>
+                              {readonly ? (
+                                <div className="flex-1 bg-card rounded border px-3 py-2 text-sm whitespace-pre-wrap min-h-[60px]">
+                                  {a.content || <span className="text-muted-foreground italic">—</span>}
+                                </div>
+                              ) : (
                                 <Textarea
-                                  placeholder="e.g. It is likely to rain soon"
-                                  value={parsed.inference}
-                                  onChange={(e) => updateShapingField(a.id, a.content, "inference", e.target.value)}
-                                  className="min-h-[50px] bg-background"
+                                  placeholder="Describe this assumption..."
+                                  value={a.content}
+                                  onChange={(e) => updateAssumption(a.id, e.target.value)}
+                                  className="flex-1 bg-card min-h-[60px]"
                                 />
+                              )}
+                              <div className="flex flex-col gap-1 shrink-0">
+                                {ctx.hasContext && (
+                                  <InlinePill
+                                    ctx={ctx}
+                                    targetKind="assumption"
+                                    targetId={a.id}
+                                    targetLabel={a.content ? a.content.slice(0, 40) : type.label}
+                                  />
+                                )}
+                                {!readonly && (
+                                  <Button variant="ghost" size="icon" onClick={() => deleteAssumption(a.id)} className="text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => deleteAssumption(a.id)} className="text-destructive shrink-0 self-start mt-3">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      items.map((a) => (
-                        <div key={a.id} className="flex gap-2 animate-fade-in">
-                          <Textarea
-                            placeholder="Describe this assumption..."
-                            value={a.content}
-                            onChange={(e) => updateAssumption(a.id, e.target.value)}
-                            className="flex-1 bg-card min-h-[60px]"
-                          />
-                          <Button variant="ghost" size="icon" onClick={() => deleteAssumption(a.id)} className="text-destructive shrink-0">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                          ))
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </SubPageCommentScope>
     </div>
   );
 }

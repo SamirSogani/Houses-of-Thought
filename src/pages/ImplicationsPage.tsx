@@ -7,6 +7,8 @@ import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import BulletListInput from "@/components/ui/BulletListInput";
 import type { Tables } from "@/integrations/supabase/types";
+import SubPageCommentScope from "@/components/comments/SubPageCommentScope";
+import InlinePill from "@/components/comments/InlinePill";
 
 type Analysis = Tables<"analyses">;
 type SubQuestion = Tables<"sub_questions">;
@@ -21,7 +23,6 @@ function parseStored(raw: string): StoredData {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    // Handle legacy format
     if (typeof parsed === "object" && !Array.isArray(parsed)) {
       return {
         consequences: Array.isArray(parsed.consequences) ? parsed.consequences : (parsed.consequences ? [parsed.consequences] : []),
@@ -40,7 +41,6 @@ function serializeStored(data: StoredData): string {
     consequences: data.consequences || [],
     implications_list: data.implications || [],
     ai_implications: data.ai_implications || "",
-    // Keep legacy keys for backward compat
     implications: data.ai_implications || "",
   });
 }
@@ -49,7 +49,8 @@ export default function ImplicationsPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
+  const readonly = searchParams.get("readonly") === "1";
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -155,73 +156,107 @@ ${subConclusionsSummary || "None yet"}`;
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="page-container max-w-6xl">
-        <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> {analysis.title}
-          </button>
-          <span>/</span>
-          <span className="text-foreground">Implications</span>
-        </div>
-
-        <h1 className="text-3xl font-display font-bold mb-2">Implications (Predicted Outcomes)</h1>
-        <p className="text-muted-foreground mb-8">
-          Element 8a — What should logically follow if your conclusion is correct? Add your own or generate with AI.
-        </p>
-
-        {/* User Implications */}
-        <Card className="house-zone house-zone-roof mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl font-display">Your Implications</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              Add your own predicted implications — what do you think will follow from your conclusion?
-            </p>
-            <BulletListInput
-              items={userImplications}
-              onChange={handleUserImplicationsChange}
-              placeholder="Add a predicted implication..."
-            />
-          </CardContent>
-        </Card>
-
-        {/* AI Implications */}
-        <Card className="house-zone house-zone-roof">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-display">AI-Generated Implications</CardTitle>
-              <Button onClick={generateImplications} disabled={generating || !analysis.overarching_conclusion} variant="outline" className="gap-2">
-                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {generating ? "Generating..." : "Generate Implications"}
-              </Button>
+      <SubPageCommentScope
+        analysisId={analysisId}
+        contextSummary={`Implications for ${analysis.title}`}
+        className="page-container max-w-6xl"
+      >
+        {(ctx) => (
+          <>
+            <div className="breadcrumb-nav">
+              <button onClick={() => navigate(`/analysis/${analysisId}${navSuffix}`)} className="flex items-center gap-1 hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" /> {analysis.title}
+              </button>
+              <span>/</span>
+              <span className="text-foreground">Implications</span>
             </div>
-          </CardHeader>
-          <CardContent>
-            {!analysis.overarching_conclusion && (
-              <p className="text-destructive text-xs mb-3">Set an overarching conclusion first to enable AI generation.</p>
-            )}
-            {aiImplications ? (
-              <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap border rounded-md p-4 bg-card">
-                {aiImplications}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground border rounded-md bg-card">
-                <p>No AI implications generated yet. Click "Generate Implications" to predict outcomes.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/consequences${viewParam}`)}>
-            View Consequences →
-          </Button>
-          <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>
-            Back to House
-          </Button>
-        </div>
-      </div>
+            <h1 className="text-3xl font-display font-bold mb-2">Implications (Predicted Outcomes)</h1>
+            <p className="text-muted-foreground mb-8">
+              Element 8a — What should logically follow if your conclusion is correct? Add your own or generate with AI.
+            </p>
+
+            <Card className="house-zone house-zone-roof mb-6" data-comment-kind="implications" data-comment-target-id={null}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-xl font-display">Your Implications</CardTitle>
+                  {ctx.hasContext && (
+                    <InlinePill
+                      ctx={ctx}
+                      targetKind="implications"
+                      targetId={null}
+                      targetLabel="Implications (8a)"
+                    />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {readonly ? (
+                  <div className="space-y-2">
+                    {userImplications.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">No implications recorded.</p>
+                    ) : (
+                      userImplications.map((im, i) => (
+                        <div key={i} className="bg-card border rounded p-2 text-sm whitespace-pre-wrap">{im}</div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Add your own predicted implications — what do you think will follow from your conclusion?
+                    </p>
+                    <BulletListInput
+                      items={userImplications}
+                      onChange={handleUserImplicationsChange}
+                      placeholder="Add a predicted implication..."
+                    />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="house-zone house-zone-roof">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl font-display">AI-Generated Implications</CardTitle>
+                  {!readonly && (
+                    <Button onClick={generateImplications} disabled={generating || !analysis.overarching_conclusion} variant="outline" className="gap-2">
+                      {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {generating ? "Generating..." : "Generate Implications"}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!analysis.overarching_conclusion && !readonly && (
+                  <p className="text-destructive text-xs mb-3">Set an overarching conclusion first to enable AI generation.</p>
+                )}
+                {aiImplications ? (
+                  <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap border rounded-md p-4 bg-card">
+                    {aiImplications}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground border rounded-md bg-card">
+                    <p>{readonly ? "No AI implications generated." : "No AI implications generated yet. Click \"Generate Implications\" to predict outcomes."}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {!readonly && (
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/consequences${navSuffix}`)}>
+                  View Consequences →
+                </Button>
+                <Button onClick={() => navigate(`/analysis/${analysisId}${navSuffix}`)}>
+                  Back to House
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </SubPageCommentScope>
     </div>
   );
 }
