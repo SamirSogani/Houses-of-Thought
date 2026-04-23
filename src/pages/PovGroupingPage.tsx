@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import SubPageCommentScope from "@/components/comments/SubPageCommentScope";
+import InlinePill from "@/components/comments/InlinePill";
 
 type SubQuestion = Tables<"sub_questions">;
 
@@ -28,7 +30,8 @@ export default function PovGroupingPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
+  const readonly = searchParams.get("readonly") === "1";
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
   const [analysisTitle, setAnalysisTitle] = useState("");
   const [povLabels, setPovLabels] = useState<PovLabel[]>([]);
@@ -81,139 +84,163 @@ export default function PovGroupingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="page-container max-w-6xl">
-        <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> {analysisTitle || "Analysis"}
-          </button>
-          <span>/</span>
-          <span className="text-foreground">POV Grouping</span>
-        </div>
+      <SubPageCommentScope
+        analysisId={analysisId}
+        contextSummary={`POV grouping for ${analysisTitle}`}
+        className="page-container max-w-6xl"
+      >
+        {(ctx) => (
+          <>
+            <div className="breadcrumb-nav">
+              <button onClick={() => navigate(`/analysis/${analysisId}${navSuffix}`)} className="flex items-center gap-1 hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" /> {analysisTitle || "Analysis"}
+              </button>
+              <span>/</span>
+              <span className="text-foreground">POV Grouping</span>
+            </div>
 
-        <h1 className="text-3xl font-display font-bold mb-2">Point of View Grouping</h1>
-        <p className="text-muted-foreground mb-8">Element 4.1 — Assign each sub-question to a point of view category</p>
+            <h1 className="text-3xl font-display font-bold mb-2">Point of View Grouping</h1>
+            <p className="text-muted-foreground mb-8">Element 4.1 — Assign each sub-question to a point of view category</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {POV_CATEGORIES.map((cat) => {
-            const labels = povLabels.filter((l) => l.parent_category === cat.key);
-            return (
-              <div key={cat.key}>
-                <Card className={cat.className}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-display flex items-center justify-between">
-                      {cat.label}
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setNewLabelCat(cat.key); setNewLabelText(""); }}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">{cat.desc}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 min-h-[120px]">
-                    {/* Add label input */}
-                    {newLabelCat === cat.key && (
-                      <div className="flex gap-2">
-                        <Input
-                          value={newLabelText}
-                          onChange={(e) => setNewLabelText(e.target.value)}
-                          placeholder="New label..."
-                          className="text-sm"
-                          autoFocus
-                          onKeyDown={(e) => e.key === "Enter" && addLabel(cat.key)}
-                        />
-                        <Button size="sm" onClick={() => addLabel(cat.key)}>Add</Button>
-                      </div>
-                    )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {POV_CATEGORIES.map((cat) => {
+                const labels = povLabels.filter((l) => l.parent_category === cat.key);
+                return (
+                  <div key={cat.key}>
+                    <Card className={cat.className}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg font-display flex items-center justify-between">
+                          {cat.label}
+                          {!readonly && (
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setNewLabelCat(cat.key); setNewLabelText(""); }}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground">{cat.desc}</p>
+                      </CardHeader>
+                      <CardContent className="space-y-3 min-h-[120px]">
+                        {!readonly && newLabelCat === cat.key && (
+                          <div className="flex gap-2">
+                            <Input
+                              value={newLabelText}
+                              onChange={(e) => setNewLabelText(e.target.value)}
+                              placeholder="New label..."
+                              className="text-sm"
+                              autoFocus
+                              onKeyDown={(e) => e.key === "Enter" && addLabel(cat.key)}
+                            />
+                            <Button size="sm" onClick={() => addLabel(cat.key)}>Add</Button>
+                          </div>
+                        )}
 
-                    {/* Nested labels */}
-                    {labels.map((lbl) => (
-                      <div key={lbl.id} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase">
-                          <span>{lbl.label}</span>
-                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => deleteLabel(lbl.id)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        {labels.map((lbl) => (
+                          <div
+                            key={lbl.id}
+                            className="space-y-1"
+                            data-comment-kind="pov_label"
+                            data-comment-target-id={lbl.id}
+                          >
+                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase">
+                              <span>{lbl.label}</span>
+                              <div className="flex items-center gap-1">
+                                {ctx.hasContext && (
+                                  <InlinePill
+                                    ctx={ctx}
+                                    targetKind="pov_label"
+                                    targetId={lbl.id}
+                                    targetLabel={`${cat.label} · ${lbl.label}`}
+                                  />
+                                )}
+                                {!readonly && (
+                                  <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => deleteLabel(lbl.id)}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            {subQuestions
+                              .filter((sq) => sq.pov_category === cat.key && (sq as any).pov_label_id === lbl.id)
+                              .map((sq) => (
+                                <div
+                                  key={sq.id}
+                                  className="p-2 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
+                                  onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${navSuffix}`)}
+                                >
+                                  {sq.question || "Untitled question"}
+                                </div>
+                              ))}
+                          </div>
+                        ))}
+
                         {subQuestions
-                          .filter((sq) => sq.pov_category === cat.key && (sq as any).pov_label_id === lbl.id)
+                          .filter((sq) => sq.pov_category === cat.key && !(sq as any).pov_label_id)
                           .map((sq) => (
                             <div
                               key={sq.id}
-                              className="p-2 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
+                              className="p-3 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
+                              onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${navSuffix}`)}
                             >
                               {sq.question || "Untitled question"}
                             </div>
                           ))}
-                      </div>
-                    ))}
-
-                    {/* Unlabeled in this category */}
-                    {subQuestions
-                      .filter((sq) => sq.pov_category === cat.key && !(sq as any).pov_label_id)
-                      .map((sq) => (
-                        <div
-                          key={sq.id}
-                          className="p-3 bg-card rounded-md border text-sm cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => navigate(`/analysis/${analysisId}/sub-question/${sq.id}${viewParam}`)}
-                        >
-                          {sq.question || "Untitled question"}
-                        </div>
-                      ))}
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Assign Sub-Questions */}
-        <div className="mt-8">
-          <h2 className="text-xl font-display font-semibold mb-4">Assign Sub-Questions</h2>
-          <div className="space-y-3">
-            {subQuestions.map((sq) => (
-              <Card key={sq.id} className="animate-fade-in">
-                <CardContent className="pt-4 pb-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <span className="text-sm flex-1 min-w-[200px]">{sq.question || "Untitled question"}</span>
-                    <div className="flex gap-2 flex-wrap">
-                      {POV_CATEGORIES.map((cat) => (
-                        <Button
-                          key={cat.key}
-                          size="sm"
-                          variant={sq.pov_category === cat.key ? "default" : "outline"}
-                          onClick={() => updatePov(sq.id, cat.key)}
-                          className="text-xs"
-                        >
-                          {cat.label}
-                        </Button>
-                      ))}
-                    </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                  {/* Assign to nested label */}
-                  {povLabels.filter((l) => l.parent_category === sq.pov_category).length > 0 && (
-                    <div className="mt-2 flex gap-1 flex-wrap">
-                      <span className="text-xs text-muted-foreground mr-1">Label:</span>
-                      {povLabels
-                        .filter((l) => l.parent_category === sq.pov_category)
-                        .map((lbl) => (
-                          <Button
-                            key={lbl.id}
-                            size="sm"
-                            variant={(sq as any).pov_label_id === lbl.id ? "default" : "outline"}
-                            onClick={() => assignLabel(sq.id, lbl.id)}
-                            className="text-xs h-6 px-2"
-                          >
-                            {lbl.label}
-                          </Button>
-                        ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
+                );
+              })}
+            </div>
+
+            {!readonly && (
+              <div className="mt-8">
+                <h2 className="text-xl font-display font-semibold mb-4">Assign Sub-Questions</h2>
+                <div className="space-y-3">
+                  {subQuestions.map((sq) => (
+                    <Card key={sq.id} className="animate-fade-in">
+                      <CardContent className="pt-4 pb-4">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <span className="text-sm flex-1 min-w-[200px]">{sq.question || "Untitled question"}</span>
+                          <div className="flex gap-2 flex-wrap">
+                            {POV_CATEGORIES.map((cat) => (
+                              <Button
+                                key={cat.key}
+                                size="sm"
+                                variant={sq.pov_category === cat.key ? "default" : "outline"}
+                                onClick={() => updatePov(sq.id, cat.key)}
+                                className="text-xs"
+                              >
+                                {cat.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        {povLabels.filter((l) => l.parent_category === sq.pov_category).length > 0 && (
+                          <div className="mt-2 flex gap-1 flex-wrap">
+                            <span className="text-xs text-muted-foreground mr-1">Label:</span>
+                            {povLabels
+                              .filter((l) => l.parent_category === sq.pov_category)
+                              .map((lbl) => (
+                                <Button
+                                  key={lbl.id}
+                                  size="sm"
+                                  variant={(sq as any).pov_label_id === lbl.id ? "default" : "outline"}
+                                  onClick={() => assignLabel(sq.id, lbl.id)}
+                                  className="text-xs h-6 px-2"
+                                >
+                                  {lbl.label}
+                                </Button>
+                              ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </SubPageCommentScope>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import BulletListInput from "@/components/ui/BulletListInput";
 import type { Tables } from "@/integrations/supabase/types";
+import SubPageCommentScope from "@/components/comments/SubPageCommentScope";
+import InlinePill from "@/components/comments/InlinePill";
 
 type Analysis = Tables<"analyses">;
 
@@ -30,7 +32,6 @@ function parseStored(raw: string): StoredData {
     }
     return {};
   } catch {
-    // Legacy plain text
     return { consequences: raw ? [raw] : [] };
   }
 }
@@ -39,7 +40,8 @@ export default function ConsequencesPage() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const viewParam = searchParams.get("view") === "builder" ? "?view=builder" : "";
+  const readonly = searchParams.get("readonly") === "1";
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [consequences, setConsequences] = useState<string[]>([]);
 
@@ -56,7 +58,6 @@ export default function ConsequencesPage() {
 
   const handleChange = async (items: string[]) => {
     setConsequences(items);
-    // Preserve existing implications data
     const current = parseStored(analysis?.consequences || "");
     const serialized = JSON.stringify({
       consequences: items,
@@ -74,45 +75,79 @@ export default function ConsequencesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="page-container max-w-6xl">
-        <div className="breadcrumb-nav">
-          <button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)} className="flex items-center gap-1 hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> {analysis.title}
-          </button>
-          <span>/</span>
-          <span className="text-foreground">Consequences</span>
-        </div>
+      <SubPageCommentScope
+        analysisId={analysisId}
+        contextSummary={`Consequences for ${analysis.title}`}
+        className="page-container max-w-6xl"
+      >
+        {(ctx) => (
+          <>
+            <div className="breadcrumb-nav">
+              <button onClick={() => navigate(`/analysis/${analysisId}${navSuffix}`)} className="flex items-center gap-1 hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" /> {analysis.title}
+              </button>
+              <span>/</span>
+              <span className="text-foreground">Consequences</span>
+            </div>
 
-        <h1 className="text-3xl font-display font-bold mb-2">Consequences (Actual Outcomes)</h1>
-        <p className="text-muted-foreground mb-8">
-          Element 8b — Record real-world consequences as they unfold. These are actual outcomes, not predictions.
-        </p>
-
-        <Card className="house-zone house-zone-roof">
-          <CardHeader>
-            <CardTitle className="text-xl font-display">Observed Consequences</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">
-              Add actual outcomes that have occurred as a result of this conclusion. Updating these will help refine AI-predicted implications.
+            <h1 className="text-3xl font-display font-bold mb-2">Consequences (Actual Outcomes)</h1>
+            <p className="text-muted-foreground mb-8">
+              Element 8b — Record real-world consequences as they unfold. These are actual outcomes, not predictions.
             </p>
-            <BulletListInput
-              items={consequences}
-              onChange={handleChange}
-              placeholder="Add an observed consequence..."
-            />
-          </CardContent>
-        </Card>
 
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/implications${viewParam}`)}>
-            View Implications →
-          </Button>
-          <Button onClick={() => navigate(`/analysis/${analysisId}${viewParam}`)}>
-            Back to House
-          </Button>
-        </div>
-      </div>
+            <Card className="house-zone house-zone-roof" data-comment-kind="consequences" data-comment-target-id={null}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-xl font-display">Observed Consequences</CardTitle>
+                  {ctx.hasContext && (
+                    <InlinePill
+                      ctx={ctx}
+                      targetKind="consequences"
+                      targetId={null}
+                      targetLabel="Consequences (8b)"
+                    />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {readonly ? (
+                  <div className="space-y-2">
+                    {consequences.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">No observed consequences recorded.</p>
+                    ) : (
+                      consequences.map((c, i) => (
+                        <div key={i} className="bg-card border rounded p-2 text-sm whitespace-pre-wrap">{c}</div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Add actual outcomes that have occurred as a result of this conclusion. Updating these will help refine AI-predicted implications.
+                    </p>
+                    <BulletListInput
+                      items={consequences}
+                      onChange={handleChange}
+                      placeholder="Add an observed consequence..."
+                    />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {!readonly && (
+              <div className="flex justify-between mt-8">
+                <Button variant="outline" onClick={() => navigate(`/analysis/${analysisId}/implications${navSuffix}`)}>
+                  View Implications →
+                </Button>
+                <Button onClick={() => navigate(`/analysis/${analysisId}${navSuffix}`)}>
+                  Back to House
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </SubPageCommentScope>
     </div>
   );
 }
