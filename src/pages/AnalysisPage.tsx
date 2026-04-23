@@ -50,6 +50,8 @@ export default function AnalysisPage() {
   const readonly = searchParams.get("readonly") === "1";
   const { submission, assignment, submit, unsubmit } = useAnalysisAssignmentContext(id);
   const commentCtx = useCommentContext(id);
+  const teacherReview = readonly && commentCtx.isTeacher;
+  const showLeftRail = !readonly || teacherReview;
   const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
   const houseContextSummary = analysis
     ? `Title: ${analysis.title}\nQuestion: ${analysis.overarching_question || "—"}\nPurpose: ${analysis.purpose || "—"}\nConclusion: ${analysis.overarching_conclusion || "—"}`
@@ -170,49 +172,53 @@ export default function AnalysisPage() {
       )}
       <div className="flex-1 flex flex-col md:flex-row">
       {/* Left Sidebar — View Toggle + Tools (Desktop only) */}
-      {!readonly && (
+      {showLeftRail && (
       <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
-        {/* View toggles */}
-        <button
-          onClick={() => setViewMode("standard")}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-          title="Standard Editing View"
-        >
-          <LayoutGrid className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => setViewMode("builder")}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "builder" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-          title="Interactive House Builder"
-        >
-          <Building2 className="h-5 w-5" />
-        </button>
+        {/* View toggles — hidden in teacher review (readonly) */}
+        {!teacherReview && (
+          <>
+            <button
+              onClick={() => setViewMode("standard")}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Standard Editing View"
+            >
+              <LayoutGrid className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setViewMode("builder")}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "builder" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+              title="Interactive House Builder"
+            >
+              <Building2 className="h-5 w-5" />
+            </button>
 
-        <div className="w-8 border-t border-border my-1" />
+            <div className="w-8 border-t border-border my-1" />
 
-        {/* Classroom entry — Teacher → /classrooms, Student → /classroom */}
-        {(permissions.canCreateClassrooms || permissions.canJoinClassroom) && (
-          <button
-            onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
-            className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors text-muted-foreground hover:bg-muted"
-            title={permissions.canCreateClassrooms ? "Classrooms" : "My Classroom"}
-          >
-            <GraduationCap className="h-5 w-5" />
-          </button>
+            {/* Classroom entry — Teacher → /classrooms, Student → /classroom */}
+            {(permissions.canCreateClassrooms || permissions.canJoinClassroom) && (
+              <button
+                onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
+                className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors text-muted-foreground hover:bg-muted"
+                title={permissions.canCreateClassrooms ? "Classrooms" : "My Classroom"}
+              >
+                <GraduationCap className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* Research Mode toggle — only for accounts that use the dedicated Research panel (Students) */}
+            {permissions.canUseResearchPanel && (
+              <button
+                onClick={() => { setToolPanel(toolPanel === "research" ? "none" : "research"); setSidebarCollapsed(false); }}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "research" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                title="Research Mode"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            )}
+          </>
         )}
 
-        {/* Research Mode toggle — only for accounts that use the dedicated Research panel (Students) */}
-        {permissions.canUseResearchPanel && (
-          <button
-            onClick={() => { setToolPanel(toolPanel === "research" ? "none" : "research"); setSidebarCollapsed(false); }}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "research" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            title="Research Mode"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-        )}
-
-        {/* Tool toggles */}
+        {/* Tool toggles — always available */}
         <button
           onClick={() => { setToolPanel(toolPanel === "logic" ? "none" : "logic"); setSidebarCollapsed(false); }}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${toolPanel === "logic" && !sidebarCollapsed ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
@@ -244,7 +250,7 @@ export default function AnalysisPage() {
       )}
 
       {/* Resizable Tool Panel */}
-      {!readonly && showToolPanel && (
+      {showLeftRail && showToolPanel && (
         <aside
           className="shrink-0 bg-card/50 sticky top-0 h-screen flex flex-col overflow-hidden relative"
           style={{ width: panelWidth, minWidth: 220, maxWidth: 600 }}
@@ -390,7 +396,7 @@ export default function AnalysisPage() {
       {/* Main Content */}
       <div className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* AI FAB + Sidebar (desktop) — gated by account permissions */}
-        {!readonly && permissions.canUseAISidebar && (
+        {(!readonly || teacherReview) && permissions.canUseAISidebar && (
           <>
             <Button
               variant="outline"
@@ -408,6 +414,7 @@ export default function AnalysisPage() {
               subQuestions={subQuestions}
               profile={profile}
               onDraftComplete={loadData}
+              hideDraftFullHouse={teacherReview}
             />
           </>
         )}

@@ -29,6 +29,8 @@ interface AISidebarProps {
   subQuestions?: SubQuestion[];
   profile?: Tables<"profiles"> | null;
   onDraftComplete?: () => void;
+  /** Hide the "Draft Full House" affordance (e.g. when teachers review a submission). */
+  hideDraftFullHouse?: boolean;
 }
 
 interface ChatRecord {
@@ -299,7 +301,7 @@ function parseActionFromReply(reply: string): { action: any | null; textContent:
 
 // ─── Main Component ─────────────────────────────────────────
 
-export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete }: AISidebarProps) {
+export default function AISidebar({ open, onOpenChange, analysis, subQuestions, profile, onDraftComplete, hideDraftFullHouse }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1400,15 +1402,17 @@ CRITICAL RULES:
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                className="w-full justify-center gap-2 text-sm"
-                onClick={() => setView("draft-info")}
-                disabled={draftLoading}
-              >
-                {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Draft Full House
-              </Button>
+              {!hideDraftFullHouse && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-center gap-2 text-sm"
+                  onClick={() => setView("draft-info")}
+                  disabled={draftLoading}
+                >
+                  {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Draft Full House
+                </Button>
+              )}
 
               <div className="flex gap-2">
                 <Textarea
