@@ -118,7 +118,7 @@ export default function HomePage() {
           backgroundSize: "40px 40px",
         }} />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-20 md:py-32 sm:px-[20px]">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6 animate-fade-in">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-foreground leading-tight">
