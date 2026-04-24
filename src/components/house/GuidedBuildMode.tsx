@@ -736,8 +736,20 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                   rows={6}
                   className="mb-2"
                 />
+                <Button
+                  onClick={generateInformation}
+                  disabled={generatingInfo}
+                  variant="outline"
+                  className="mb-2 w-full sm:w-auto"
+                >
+                  {generatingInfo ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Researching…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-4 w-4" /> Generate Evidence with AI (Research Mode)</>
+                  )}
+                </Button>
                 <p className="text-xs text-muted-foreground mb-4">
-                  You can add evidence to other sub-questions in Free Build Mode.
+                  AI uses Research Mode to evaluate source credibility. You can add evidence to other sub-questions in Free Build Mode.
                 </p>
               </>
             ) : (
