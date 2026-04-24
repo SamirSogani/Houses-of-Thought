@@ -119,6 +119,14 @@ export default function GuidedBuildMode({
   const [generatingInfo, setGeneratingInfo] = useState(false);
   const [generatingAssumptions, setGeneratingAssumptions] = useState(false);
 
+  // AI suggestion staging — user picks which to keep before inserting
+  const [suggestedSubQs, setSuggestedSubQs] = useState<string[]>([]);
+  const [selectedSubQs, setSelectedSubQs] = useState<Set<number>>(new Set());
+  const [suggestedInfo, setSuggestedInfo] = useState<string[]>([]);
+  const [selectedInfo, setSelectedInfo] = useState<Set<number>>(new Set());
+  const [suggestedAssumptions, setSuggestedAssumptions] = useState<string[]>([]);
+  const [selectedAssumptions, setSelectedAssumptions] = useState<Set<number>>(new Set());
+
   // For evidence/assumptions/sub-conclusions, work against the FIRST sub-question
   // (user-controlled "Done with this step" model — user can add more from the same UI).
   const activeSubQ = subQuestions[0] ?? null;
