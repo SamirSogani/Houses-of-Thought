@@ -207,26 +207,25 @@ export default function AuthPage() {
 
   const canSubmitSignup = termsAccepted && privacyAccepted && allPasswordRulesMet && usernameValid && !!birthDate && !isTooYoung && !!recaptchaToken;
 
-  const handleGoogleSignIn = async () => {
+  const handleOAuthSignIn = async (provider: "google" | "apple") => {
     if (!isLogin && (!termsAccepted || !privacyAccepted)) {
       toast.error("You must accept the Terms of Service and Privacy Policy to create an account.");
       return;
     }
     setLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
+      const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: window.location.origin,
       });
       if (result.error) {
-        toast.error(result.error.message || "Google sign-in failed.");
+        toast.error(result.error.message || `${provider} sign-in failed.`);
         setLoading(false);
         return;
       }
       if (result.redirected) return;
-      // Tokens received - session set
       navigate("/dashboard");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google sign-in failed.";
+      const msg = err instanceof Error ? err.message : `${provider} sign-in failed.`;
       toast.error(msg);
       setLoading(false);
     }
