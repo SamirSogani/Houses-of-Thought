@@ -190,6 +190,13 @@ export default function AnalysisPage() {
       <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
         <button
+          onClick={() => setViewMode("guided")}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "guided" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Guided Build Mode"
+        >
+          <Compass className="h-5 w-5" />
+        </button>
+        <button
           onClick={() => setViewMode("standard")}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
           title="Standard Editing View"
