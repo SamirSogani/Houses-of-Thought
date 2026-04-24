@@ -831,6 +831,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                     <><Sparkles className="mr-2 h-4 w-4" /> Generate Evidence with AI (Research Mode)</>
                   )}
                 </Button>
+                {suggestedInfo.length > 0 && (
+                  <SuggestionPicker
+                    title="AI Suggestions — pick which to add"
+                    items={suggestedInfo}
+                    selected={selectedInfo}
+                    onToggle={(i) => setSelectedInfo((s) => toggleIndex(s, i))}
+                    onSelectAll={() => setSelectedInfo(new Set(suggestedInfo.map((_, i) => i)))}
+                    onClearAll={() => setSelectedInfo(new Set())}
+                    onAccept={acceptSelectedInfo}
+                    onDiscard={discardSuggestedInfo}
+                    acceptLabel={`Add ${selectedInfo.size} selected`}
+                  />
+                )}
                 <p className="text-xs text-muted-foreground mb-4">
                   AI uses Research Mode to evaluate source credibility. You can add evidence to other sub-questions in Free Build Mode.
                 </p>
