@@ -24,6 +24,8 @@ import {
   ClipboardList,
   Home,
   X,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import LogicStrengthPanel from "./LogicStrengthPanel";
