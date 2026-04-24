@@ -410,21 +410,39 @@ ${subQuestions.map((s) => `- ${s.question}`).join("\n") || "(none)"}`;
         toast.error("AI returned no sub-questions. Try again.");
         return;
       }
-      const startOrder = subQuestions.length;
-      const inserts = cleaned.map((q, i) => ({
-        analysis_id: analysisId,
-        question: q,
-        sort_order: startOrder + i,
-      }));
-      const { error } = await supabase.from("sub_questions").insert(inserts);
-      if (error) throw new Error(error.message);
-      toast.success(`Generated ${cleaned.length} sub-questions`);
-      onReload();
+      setSuggestedSubQs(cleaned);
+      setSelectedSubQs(new Set(cleaned.map((_, i) => i)));
+      toast.success(`AI suggested ${cleaned.length} sub-questions — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate sub-questions");
     } finally {
       setGeneratingSubQ(false);
     }
+  };
+
+  const acceptSelectedSubQs = async () => {
+    const picks = suggestedSubQs.filter((_, i) => selectedSubQs.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one sub-question to add.");
+      return;
+    }
+    const startOrder = subQuestions.length;
+    const inserts = picks.map((q, i) => ({
+      analysis_id: analysisId,
+      question: q,
+      sort_order: startOrder + i,
+    }));
+    const { error } = await supabase.from("sub_questions").insert(inserts);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Added ${picks.length} sub-question${picks.length === 1 ? "" : "s"}`);
+    setSuggestedSubQs([]);
+    setSelectedSubQs(new Set());
+    onReload();
+  };
+
+  const discardSuggestedSubQs = () => {
+    setSuggestedSubQs([]);
+    setSelectedSubQs(new Set());
   };
 
   const generateInformation = async () => {
