@@ -775,7 +775,7 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
           >
             {activeSubQ ? (
               <>
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-3">
                   <Input
                     placeholder="An assumption you're making…"
                     value={assumption}
@@ -784,6 +784,18 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                   />
                   <Button onClick={addAssumption} variant="secondary"><Plus className="h-4 w-4" /></Button>
                 </div>
+                <Button
+                  onClick={generateAssumptions}
+                  disabled={generatingAssumptions}
+                  variant="outline"
+                  className="mb-4 w-full sm:w-auto"
+                >
+                  {generatingAssumptions ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-4 w-4" /> Generate Assumptions with AI</>
+                  )}
+                </Button>
                 <ItemList items={assumptionsList.map((a) => ({ id: a.id, text: a.content }))} onRemove={removeAssumption} />
               </>
             ) : (
