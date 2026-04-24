@@ -99,7 +99,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-display font-semibold mb-2">12. Contact</h2>
-            <p className="text-muted-foreground leading-relaxed">If you have questions about this Privacy Policy or your personal data, please contact us at <a href="mailto:houseofthought.support@gmail.com" className="text-primary hover:underline">houseofthought.support@gmail.com</a>.</p>
+            <p className="text-muted-foreground leading-relaxed">If you have questions about this Privacy Policy or your personal data, please contact us at <a href="mailto:housesofthought.support@gmail.com" className="text-primary hover:underline">housesofthought.support@gmail.com</a>.</p>
           </section>
         </div>
       </div>
