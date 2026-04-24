@@ -776,6 +776,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                 <><Sparkles className="mr-2 h-4 w-4" /> Generate Sub-Questions with AI</>
               )}
             </Button>
+            {suggestedSubQs.length > 0 && (
+              <SuggestionPicker
+                title="AI Suggestions — pick which to add"
+                items={suggestedSubQs}
+                selected={selectedSubQs}
+                onToggle={(i) => setSelectedSubQs((s) => toggleIndex(s, i))}
+                onSelectAll={() => setSelectedSubQs(new Set(suggestedSubQs.map((_, i) => i)))}
+                onClearAll={() => setSelectedSubQs(new Set())}
+                onAccept={acceptSelectedSubQs}
+                onDiscard={discardSuggestedSubQs}
+                acceptLabel={`Add ${selectedSubQs.size} selected`}
+              />
+            )}
             <ItemList items={subQuestions.map((s) => ({ id: s.id, text: s.question }))} onRemove={removeSubQ} />
             <NavButtons
               onBack={goBack}
