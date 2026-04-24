@@ -331,6 +331,13 @@ export default function AnalysisPage() {
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-area-bottom">
         <div className="flex items-center justify-around py-2 px-2">
           <button
+            onClick={() => setViewMode("guided")}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "guided" ? "text-primary" : "text-muted-foreground"}`}
+          >
+            <Compass className="h-5 w-5" />
+            <span className="text-[10px]">Guided</span>
+          </button>
+          <button
             onClick={() => setViewMode("standard")}
             className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "standard" ? "text-primary" : "text-muted-foreground"}`}
           >
