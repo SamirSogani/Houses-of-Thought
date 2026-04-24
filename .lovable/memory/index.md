@@ -64,6 +64,7 @@ Updated: just now
 - [AI research mode](mem://features/ai-research-mode) — Rigorous source evaluation via Brave Search
 - [Visual house builder](mem://features/visual-house-builder) — Drag-and-drop workspace and foundation warnings
 - [Builder view persistence](mem://features/builder-view-persistence) — URL parameter preservation for builder mode
+- [Guided Build Mode](mem://features/guided-build-mode) — Third view mode (Compass icon, above Standard/Interactive); 10-step onboarding flow with weighted progress, live-syncs to existing tables, auto-enters once per device
 - [Custom POV nesting](mem://features/custom-pov-nesting) — Nested category labels for Point of View columns
 - [Sharing visibility](mem://features/sharing-visibility) — Public read-only access and visibility rules
 - [Owner privileges](mem://auth/owner-privileges) — Hardcoded OWNER secrets for Admin Panel access

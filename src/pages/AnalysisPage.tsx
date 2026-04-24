@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search, GraduationCap } from "lucide-react";
+import { ArrowLeft, Pencil, Bot, LayoutGrid, Building2, TrendingUp, Shield, ChevronLeft, ChevronRight, Users, Search, GraduationCap, Compass } from "lucide-react";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import HouseVisualization from "@/components/house/HouseVisualization";
 import InteractiveHouseBuilder from "@/components/house/InteractiveHouseBuilder";
+import GuidedBuildMode from "@/components/house/GuidedBuildMode";
 import SubmissionCommentOverlay from "@/components/comments/SubmissionCommentOverlay";
 import { useCommentContext } from "@/hooks/useCommentContext";
 import AISidebar from "@/components/ai/AISidebar";
@@ -38,7 +39,9 @@ export default function AnalysisPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
+  const [viewMode, setViewMode] = useState<"standard" | "builder" | "guided">(
+    searchParams.get("view") === "builder" ? "builder" : searchParams.get("view") === "guided" ? "guided" : "standard"
+  );
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin" | "research">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -52,7 +55,7 @@ export default function AnalysisPage() {
   const commentCtx = useCommentContext(id);
   const teacherReview = readonly && commentCtx.isTeacher;
   const showLeftRail = !readonly || teacherReview;
-  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : searchParams.get("view") === "guided" ? "?view=guided" : "");
   const houseContextSummary = analysis
     ? `Title: ${analysis.title}\nQuestion: ${analysis.overarching_question || "—"}\nPurpose: ${analysis.purpose || "—"}\nConclusion: ${analysis.overarching_conclusion || "—"}`
     : undefined;
@@ -87,6 +90,17 @@ export default function AnalysisPage() {
       setIsOwner(!error && Array.isArray(data?.users));
     }).catch(() => setIsOwner(false));
   }, [user]);
+
+  // Auto-enter Guided Mode the first time a user opens an analysis (one-shot per device).
+  useEffect(() => {
+    if (!user || readonly || !analysis) return;
+    if (searchParams.get("view")) return; // respect explicit view param
+    const flagKey = `hot:guided-onboarded:${user.id}`;
+    if (typeof window !== "undefined" && !localStorage.getItem(flagKey)) {
+      setViewMode("guided");
+      localStorage.setItem(flagKey, "1");
+    }
+  }, [user, analysis?.id, readonly, searchParams]);
 
   const autoSave = useCallback(
     async (field: keyof Analysis, value: string) => {
@@ -175,6 +189,13 @@ export default function AnalysisPage() {
       {showLeftRail && (
       <aside className="hidden md:flex w-14 shrink-0 border-r border-border bg-card/80 flex-col items-center py-4 gap-2 sticky top-0 h-screen">
         {/* View toggles */}
+        <button
+          onClick={() => setViewMode("guided")}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "guided" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          title="Guided Build Mode"
+        >
+          <Compass className="h-5 w-5" />
+        </button>
         <button
           onClick={() => setViewMode("standard")}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${viewMode === "standard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
@@ -309,6 +330,13 @@ export default function AnalysisPage() {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-area-bottom">
         <div className="flex items-center justify-around py-2 px-2">
+          <button
+            onClick={() => setViewMode("guided")}
+            className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "guided" ? "text-primary" : "text-muted-foreground"}`}
+          >
+            <Compass className="h-5 w-5" />
+            <span className="text-[10px]">Guided</span>
+          </button>
           <button
             onClick={() => setViewMode("standard")}
             className={`flex flex-col items-center gap-0.5 p-2 rounded-lg min-w-[3rem] ${viewMode === "standard" ? "text-primary" : "text-muted-foreground"}`}
@@ -446,7 +474,16 @@ export default function AnalysisPage() {
             )}
           </div>
 
-          {viewMode === "standard" ? (
+          {viewMode === "guided" && !readonly ? (
+            <GuidedBuildMode
+              analysis={analysis}
+              subQuestions={subQuestions}
+              profile={profile}
+              onUpdateField={updateField}
+              onExit={() => setViewMode("standard")}
+              onReload={loadData}
+            />
+          ) : viewMode === "standard" ? (
             <>
               {!readonly && <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />}
               <HouseVisualization
