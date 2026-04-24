@@ -561,23 +561,39 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
         toast.error("AI returned no assumptions. Try again.");
         return;
       }
-      const inserts = cleaned.map((content) => ({
-        sub_question_id: activeSubQ.id,
-        content,
-        assumption_type: "unknown_unknowns" as const,
-      }));
-      const { data, error } = await supabase
-        .from("assumptions")
-        .insert(inserts)
-        .select();
-      if (error) throw new Error(error.message);
-      setAssumptionsList((a) => [...a, ...(data || [])]);
-      toast.success(`Generated ${cleaned.length} assumptions`);
+      setSuggestedAssumptions(cleaned);
+      setSelectedAssumptions(new Set(cleaned.map((_, i) => i)));
+      toast.success(`AI suggested ${cleaned.length} assumptions — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate assumptions");
     } finally {
       setGeneratingAssumptions(false);
     }
+  };
+
+  const acceptSelectedAssumptions = async () => {
+    if (!activeSubQ) return;
+    const picks = suggestedAssumptions.filter((_, i) => selectedAssumptions.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one assumption.");
+      return;
+    }
+    const inserts = picks.map((content) => ({
+      sub_question_id: activeSubQ.id,
+      content,
+      assumption_type: "unknown_unknowns" as const,
+    }));
+    const { data, error } = await supabase.from("assumptions").insert(inserts).select();
+    if (error) { toast.error(error.message); return; }
+    setAssumptionsList((a) => [...a, ...(data || [])]);
+    toast.success(`Added ${picks.length} assumption${picks.length === 1 ? "" : "s"}`);
+    setSuggestedAssumptions([]);
+    setSelectedAssumptions(new Set());
+  };
+
+  const discardSuggestedAssumptions = () => {
+    setSuggestedAssumptions([]);
+    setSelectedAssumptions(new Set());
   };
 
   const step = STEPS[stepIndex];
