@@ -119,6 +119,14 @@ export default function GuidedBuildMode({
   const [generatingInfo, setGeneratingInfo] = useState(false);
   const [generatingAssumptions, setGeneratingAssumptions] = useState(false);
 
+  // AI suggestion staging — user picks which to keep before inserting
+  const [suggestedSubQs, setSuggestedSubQs] = useState<string[]>([]);
+  const [selectedSubQs, setSelectedSubQs] = useState<Set<number>>(new Set());
+  const [suggestedInfo, setSuggestedInfo] = useState<string[]>([]);
+  const [selectedInfo, setSelectedInfo] = useState<Set<number>>(new Set());
+  const [suggestedAssumptions, setSuggestedAssumptions] = useState<string[]>([]);
+  const [selectedAssumptions, setSelectedAssumptions] = useState<Set<number>>(new Set());
+
   // For evidence/assumptions/sub-conclusions, work against the FIRST sub-question
   // (user-controlled "Done with this step" model — user can add more from the same UI).
   const activeSubQ = subQuestions[0] ?? null;
@@ -402,21 +410,39 @@ ${subQuestions.map((s) => `- ${s.question}`).join("\n") || "(none)"}`;
         toast.error("AI returned no sub-questions. Try again.");
         return;
       }
-      const startOrder = subQuestions.length;
-      const inserts = cleaned.map((q, i) => ({
-        analysis_id: analysisId,
-        question: q,
-        sort_order: startOrder + i,
-      }));
-      const { error } = await supabase.from("sub_questions").insert(inserts);
-      if (error) throw new Error(error.message);
-      toast.success(`Generated ${cleaned.length} sub-questions`);
-      onReload();
+      setSuggestedSubQs(cleaned);
+      setSelectedSubQs(new Set(cleaned.map((_, i) => i)));
+      toast.success(`AI suggested ${cleaned.length} sub-questions — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate sub-questions");
     } finally {
       setGeneratingSubQ(false);
     }
+  };
+
+  const acceptSelectedSubQs = async () => {
+    const picks = suggestedSubQs.filter((_, i) => selectedSubQs.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one sub-question to add.");
+      return;
+    }
+    const startOrder = subQuestions.length;
+    const inserts = picks.map((q, i) => ({
+      analysis_id: analysisId,
+      question: q,
+      sort_order: startOrder + i,
+    }));
+    const { error } = await supabase.from("sub_questions").insert(inserts);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Added ${picks.length} sub-question${picks.length === 1 ? "" : "s"}`);
+    setSuggestedSubQs([]);
+    setSelectedSubQs(new Set());
+    onReload();
+  };
+
+  const discardSuggestedSubQs = () => {
+    setSuggestedSubQs([]);
+    setSelectedSubQs(new Set());
   };
 
   const generateInformation = async () => {
@@ -456,21 +482,49 @@ ${activeSubQ.information || "(none)"}`;
         toast.error("AI returned no evidence. Try again.");
         return;
       }
-      const merged = evidence.trim()
-        ? `${evidence.trim()}\n\n${cleaned}`
-        : cleaned;
-      setEvidence(merged);
-      await supabase
-        .from("sub_questions")
-        .update({ information: merged, updated_at: new Date().toISOString() })
-        .eq("id", activeSubQ.id);
-      onReload();
-      toast.success("Generated evidence in research mode");
+      // Parse numbered/bulleted list into discrete items the user can pick.
+      const items = cleaned
+        .split(/\r?\n+/)
+        .map((line) => line.replace(/^\s*(?:\d+[\.\)]|[-*•])\s*/, "").trim())
+        .filter((line) => line.length > 0 && !/^research mode/i.test(line));
+      if (items.length === 0) {
+        toast.error("Couldn't parse AI output. Try again.");
+        return;
+      }
+      setSuggestedInfo(items);
+      setSelectedInfo(new Set(items.map((_, i) => i)));
+      toast.success(`AI suggested ${items.length} evidence points — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate evidence");
     } finally {
       setGeneratingInfo(false);
     }
+  };
+
+  const acceptSelectedInfo = async () => {
+    if (!activeSubQ) return;
+    const picks = suggestedInfo.filter((_, i) => selectedInfo.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one evidence point.");
+      return;
+    }
+    const additions = picks.map((p) => `• ${p}`).join("\n");
+    const merged = evidence.trim() ? `${evidence.trim()}\n${additions}` : additions;
+    setEvidence(merged);
+    const { error } = await supabase
+      .from("sub_questions")
+      .update({ information: merged, updated_at: new Date().toISOString() })
+      .eq("id", activeSubQ.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Added ${picks.length} evidence point${picks.length === 1 ? "" : "s"}`);
+    setSuggestedInfo([]);
+    setSelectedInfo(new Set());
+    onReload();
+  };
+
+  const discardSuggestedInfo = () => {
+    setSuggestedInfo([]);
+    setSelectedInfo(new Set());
   };
 
   const generateAssumptions = async () => {
@@ -507,23 +561,39 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
         toast.error("AI returned no assumptions. Try again.");
         return;
       }
-      const inserts = cleaned.map((content) => ({
-        sub_question_id: activeSubQ.id,
-        content,
-        assumption_type: "unknown_unknowns" as const,
-      }));
-      const { data, error } = await supabase
-        .from("assumptions")
-        .insert(inserts)
-        .select();
-      if (error) throw new Error(error.message);
-      setAssumptionsList((a) => [...a, ...(data || [])]);
-      toast.success(`Generated ${cleaned.length} assumptions`);
+      setSuggestedAssumptions(cleaned);
+      setSelectedAssumptions(new Set(cleaned.map((_, i) => i)));
+      toast.success(`AI suggested ${cleaned.length} assumptions — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate assumptions");
     } finally {
       setGeneratingAssumptions(false);
     }
+  };
+
+  const acceptSelectedAssumptions = async () => {
+    if (!activeSubQ) return;
+    const picks = suggestedAssumptions.filter((_, i) => selectedAssumptions.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one assumption.");
+      return;
+    }
+    const inserts = picks.map((content) => ({
+      sub_question_id: activeSubQ.id,
+      content,
+      assumption_type: "unknown_unknowns" as const,
+    }));
+    const { data, error } = await supabase.from("assumptions").insert(inserts).select();
+    if (error) { toast.error(error.message); return; }
+    setAssumptionsList((a) => [...a, ...(data || [])]);
+    toast.success(`Added ${picks.length} assumption${picks.length === 1 ? "" : "s"}`);
+    setSuggestedAssumptions([]);
+    setSelectedAssumptions(new Set());
+  };
+
+  const discardSuggestedAssumptions = () => {
+    setSuggestedAssumptions([]);
+    setSelectedAssumptions(new Set());
   };
 
   const step = STEPS[stepIndex];
@@ -706,6 +776,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                 <><Sparkles className="mr-2 h-4 w-4" /> Generate Sub-Questions with AI</>
               )}
             </Button>
+            {suggestedSubQs.length > 0 && (
+              <SuggestionPicker
+                title="AI Suggestions — pick which to add"
+                items={suggestedSubQs}
+                selected={selectedSubQs}
+                onToggle={(i) => setSelectedSubQs((s) => toggleIndex(s, i))}
+                onSelectAll={() => setSelectedSubQs(new Set(suggestedSubQs.map((_, i) => i)))}
+                onClearAll={() => setSelectedSubQs(new Set())}
+                onAccept={acceptSelectedSubQs}
+                onDiscard={discardSuggestedSubQs}
+                acceptLabel={`Add ${selectedSubQs.size} selected`}
+              />
+            )}
             <ItemList items={subQuestions.map((s) => ({ id: s.id, text: s.question }))} onRemove={removeSubQ} />
             <NavButtons
               onBack={goBack}
@@ -748,6 +831,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                     <><Sparkles className="mr-2 h-4 w-4" /> Generate Evidence with AI (Research Mode)</>
                   )}
                 </Button>
+                {suggestedInfo.length > 0 && (
+                  <SuggestionPicker
+                    title="AI Suggestions — pick which to add"
+                    items={suggestedInfo}
+                    selected={selectedInfo}
+                    onToggle={(i) => setSelectedInfo((s) => toggleIndex(s, i))}
+                    onSelectAll={() => setSelectedInfo(new Set(suggestedInfo.map((_, i) => i)))}
+                    onClearAll={() => setSelectedInfo(new Set())}
+                    onAccept={acceptSelectedInfo}
+                    onDiscard={discardSuggestedInfo}
+                    acceptLabel={`Add ${selectedInfo.size} selected`}
+                  />
+                )}
                 <p className="text-xs text-muted-foreground mb-4">
                   AI uses Research Mode to evaluate source credibility. You can add evidence to other sub-questions in Free Build Mode.
                 </p>
@@ -796,6 +892,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                     <><Sparkles className="mr-2 h-4 w-4" /> Generate Assumptions with AI</>
                   )}
                 </Button>
+                {suggestedAssumptions.length > 0 && (
+                  <SuggestionPicker
+                    title="AI Suggestions — pick which to add"
+                    items={suggestedAssumptions}
+                    selected={selectedAssumptions}
+                    onToggle={(i) => setSelectedAssumptions((s) => toggleIndex(s, i))}
+                    onSelectAll={() => setSelectedAssumptions(new Set(suggestedAssumptions.map((_, i) => i)))}
+                    onClearAll={() => setSelectedAssumptions(new Set())}
+                    onAccept={acceptSelectedAssumptions}
+                    onDiscard={discardSuggestedAssumptions}
+                    acceptLabel={`Add ${selectedAssumptions.size} selected`}
+                  />
+                )}
                 <ItemList items={assumptionsList.map((a) => ({ id: a.id, text: a.content }))} onRemove={removeAssumption} />
               </>
             ) : (
@@ -1071,6 +1180,89 @@ function CompletionScreen({
         <Button onClick={onReview}>Review Your House</Button>
         <Button variant="secondary" onClick={onRestart}>Strengthen Weak Points</Button>
         <Button variant="ghost" onClick={onReview}>Start a New House</Button>
+      </div>
+    </div>
+  );
+}
+
+function toggleIndex(set: Set<number>, i: number): Set<number> {
+  const next = new Set(set);
+  if (next.has(i)) next.delete(i);
+  else next.add(i);
+  return next;
+}
+
+function SuggestionPicker({
+  title,
+  items,
+  selected,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+  onAccept,
+  onDiscard,
+  acceptLabel,
+}: {
+  title: string;
+  items: string[];
+  selected: Set<number>;
+  onToggle: (i: number) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  onAccept: () => void;
+  onDiscard: () => void;
+  acceptLabel: string;
+}) {
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 mb-4">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-xs uppercase tracking-wider text-primary font-display font-semibold flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" />
+          {title}
+        </p>
+        <div className="flex gap-2 text-xs">
+          <button onClick={onSelectAll} className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+            Select all
+          </button>
+          <span className="text-muted-foreground">·</span>
+          <button onClick={onClearAll} className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+            Clear
+          </button>
+        </div>
+      </div>
+      <ul className="space-y-1.5 mb-3">
+        {items.map((text, i) => {
+          const isSelected = selected.has(i);
+          return (
+            <li key={i}>
+              <label
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                  isSelected
+                    ? "bg-card border-primary/50"
+                    : "bg-background border-border hover:border-primary/30"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggle(i)}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground break-words flex-1">{text}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={onAccept} disabled={selected.size === 0}>
+          <Check className="mr-1.5 h-4 w-4" />
+          {acceptLabel}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDiscard}>
+          <X className="mr-1.5 h-4 w-4" />
+          Discard suggestions
+        </Button>
       </div>
     </div>
   );
