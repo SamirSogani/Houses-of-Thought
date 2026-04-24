@@ -482,21 +482,49 @@ ${activeSubQ.information || "(none)"}`;
         toast.error("AI returned no evidence. Try again.");
         return;
       }
-      const merged = evidence.trim()
-        ? `${evidence.trim()}\n\n${cleaned}`
-        : cleaned;
-      setEvidence(merged);
-      await supabase
-        .from("sub_questions")
-        .update({ information: merged, updated_at: new Date().toISOString() })
-        .eq("id", activeSubQ.id);
-      onReload();
-      toast.success("Generated evidence in research mode");
+      // Parse numbered/bulleted list into discrete items the user can pick.
+      const items = cleaned
+        .split(/\r?\n+/)
+        .map((line) => line.replace(/^\s*(?:\d+[\.\)]|[-*•])\s*/, "").trim())
+        .filter((line) => line.length > 0 && !/^research mode/i.test(line));
+      if (items.length === 0) {
+        toast.error("Couldn't parse AI output. Try again.");
+        return;
+      }
+      setSuggestedInfo(items);
+      setSelectedInfo(new Set(items.map((_, i) => i)));
+      toast.success(`AI suggested ${items.length} evidence points — pick the ones you want`);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate evidence");
     } finally {
       setGeneratingInfo(false);
     }
+  };
+
+  const acceptSelectedInfo = async () => {
+    if (!activeSubQ) return;
+    const picks = suggestedInfo.filter((_, i) => selectedInfo.has(i));
+    if (picks.length === 0) {
+      toast.error("Select at least one evidence point.");
+      return;
+    }
+    const additions = picks.map((p) => `• ${p}`).join("\n");
+    const merged = evidence.trim() ? `${evidence.trim()}\n${additions}` : additions;
+    setEvidence(merged);
+    const { error } = await supabase
+      .from("sub_questions")
+      .update({ information: merged, updated_at: new Date().toISOString() })
+      .eq("id", activeSubQ.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Added ${picks.length} evidence point${picks.length === 1 ? "" : "s"}`);
+    setSuggestedInfo([]);
+    setSelectedInfo(new Set());
+    onReload();
+  };
+
+  const discardSuggestedInfo = () => {
+    setSuggestedInfo([]);
+    setSelectedInfo(new Set());
   };
 
   const generateAssumptions = async () => {
