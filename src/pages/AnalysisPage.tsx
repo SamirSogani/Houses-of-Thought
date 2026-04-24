@@ -39,7 +39,9 @@ export default function AnalysisPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const [viewMode, setViewMode] = useState<"standard" | "builder">(searchParams.get("view") === "builder" ? "builder" : "standard");
+  const [viewMode, setViewMode] = useState<"standard" | "builder" | "guided">(
+    searchParams.get("view") === "builder" ? "builder" : searchParams.get("view") === "guided" ? "guided" : "standard"
+  );
   const [toolPanel, setToolPanel] = useState<"none" | "logic" | "stress" | "admin" | "research">("none");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -53,7 +55,7 @@ export default function AnalysisPage() {
   const commentCtx = useCommentContext(id);
   const teacherReview = readonly && commentCtx.isTeacher;
   const showLeftRail = !readonly || teacherReview;
-  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : "");
+  const navSuffix = readonly ? "?readonly=1" : (searchParams.get("view") === "builder" ? "?view=builder" : searchParams.get("view") === "guided" ? "?view=guided" : "");
   const houseContextSummary = analysis
     ? `Title: ${analysis.title}\nQuestion: ${analysis.overarching_question || "—"}\nPurpose: ${analysis.purpose || "—"}\nConclusion: ${analysis.overarching_conclusion || "—"}`
     : undefined;
