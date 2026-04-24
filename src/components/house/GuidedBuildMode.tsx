@@ -1184,3 +1184,86 @@ function CompletionScreen({
     </div>
   );
 }
+
+function toggleIndex(set: Set<number>, i: number): Set<number> {
+  const next = new Set(set);
+  if (next.has(i)) next.delete(i);
+  else next.add(i);
+  return next;
+}
+
+function SuggestionPicker({
+  title,
+  items,
+  selected,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+  onAccept,
+  onDiscard,
+  acceptLabel,
+}: {
+  title: string;
+  items: string[];
+  selected: Set<number>;
+  onToggle: (i: number) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  onAccept: () => void;
+  onDiscard: () => void;
+  acceptLabel: string;
+}) {
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 mb-4">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-xs uppercase tracking-wider text-primary font-display font-semibold flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" />
+          {title}
+        </p>
+        <div className="flex gap-2 text-xs">
+          <button onClick={onSelectAll} className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+            Select all
+          </button>
+          <span className="text-muted-foreground">·</span>
+          <button onClick={onClearAll} className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+            Clear
+          </button>
+        </div>
+      </div>
+      <ul className="space-y-1.5 mb-3">
+        {items.map((text, i) => {
+          const isSelected = selected.has(i);
+          return (
+            <li key={i}>
+              <label
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                  isSelected
+                    ? "bg-card border-primary/50"
+                    : "bg-background border-border hover:border-primary/30"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggle(i)}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground break-words flex-1">{text}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={onAccept} disabled={selected.size === 0}>
+          <Check className="mr-1.5 h-4 w-4" />
+          {acceptLabel}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDiscard}>
+          <X className="mr-1.5 h-4 w-4" />
+          Discard suggestions
+        </Button>
+      </div>
+    </div>
+  );
+}
