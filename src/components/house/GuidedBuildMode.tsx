@@ -24,6 +24,8 @@ import {
   ClipboardList,
   Home,
   X,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import LogicStrengthPanel from "./LogicStrengthPanel";
@@ -113,6 +115,9 @@ export default function GuidedBuildMode({
 
   // Sub-questions are passed in via prop; we add new ones via supabase
   const [newSubQ, setNewSubQ] = useState("");
+  const [generatingSubQ, setGeneratingSubQ] = useState(false);
+  const [generatingInfo, setGeneratingInfo] = useState(false);
+  const [generatingAssumptions, setGeneratingAssumptions] = useState(false);
 
   // For evidence/assumptions/sub-conclusions, work against the FIRST sub-question
   // (user-controlled "Done with this step" model — user can add more from the same UI).
@@ -329,6 +334,198 @@ export default function GuidedBuildMode({
     await persistImplicationsConsequences(implications, next);
   };
 
+  // ---------- AI generation helpers ----------
+  const callAI = async (systemPrompt: string, userPrompt: string) => {
+    const res = await supabase.functions.invoke("ai-router", {
+      body: {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        mode: "chat",
+      },
+    });
+    if (res.error) throw new Error(res.error.message || "AI request failed");
+    const reply = res.data?.choices?.[0]?.message?.content || "";
+    return reply;
+  };
+
+  const extractJsonArray = (text: string): any[] => {
+    // Try fenced JSON first
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidate = fenced ? fenced[1] : text;
+    // Find first [ ... ] block
+    const arrMatch = candidate.match(/\[[\s\S]*\]/);
+    if (!arrMatch) return [];
+    try {
+      const parsed = JSON.parse(arrMatch[0]);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const generateSubQuestions = async () => {
+    if (!analysis.overarching_question?.trim()) {
+      toast.error("Add an overarching question first.");
+      return;
+    }
+    setGeneratingSubQ(true);
+    try {
+      const povSummary = povs.length > 0
+        ? povs.map((p) => `- [${p.parent_category}] ${p.label}`).join("\n")
+        : "(none provided)";
+      const sys = `You are the Houses of Thought AI. Generate sub-questions that break the user's overarching question into smaller, answerable parts.
+
+Rules:
+- Generate 5-8 substantive sub-questions
+- Cover multiple perspectives (individual, group, ideas/disciplines) when applicable
+- Each sub-question must be specific and directly tied to answering the overarching question
+- Do NOT repeat any existing sub-questions
+- Output ONLY a JSON array of strings, wrapped in \`\`\`json fences. Example:
+\`\`\`json
+["First sub-question?", "Second sub-question?"]
+\`\`\`
+
+## Context
+- Purpose: ${analysis.purpose || "(not set)"}
+- Overarching Question: ${analysis.overarching_question}
+- Perspectives:
+${povSummary}
+- Existing sub-questions (do not duplicate):
+${subQuestions.map((s) => `- ${s.question}`).join("\n") || "(none)"}`;
+
+      const reply = await callAI(sys, `Generate sub-questions for: "${analysis.overarching_question}"`);
+      const arr = extractJsonArray(reply);
+      const cleaned = arr.map((x) => (typeof x === "string" ? x.trim() : "")).filter(Boolean);
+      if (cleaned.length === 0) {
+        toast.error("AI returned no sub-questions. Try again.");
+        return;
+      }
+      const startOrder = subQuestions.length;
+      const inserts = cleaned.map((q, i) => ({
+        analysis_id: analysisId,
+        question: q,
+        sort_order: startOrder + i,
+      }));
+      const { error } = await supabase.from("sub_questions").insert(inserts);
+      if (error) throw new Error(error.message);
+      toast.success(`Generated ${cleaned.length} sub-questions`);
+      onReload();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate sub-questions");
+    } finally {
+      setGeneratingSubQ(false);
+    }
+  };
+
+  const generateInformation = async () => {
+    if (!activeSubQ) {
+      toast.error("Add a sub-question first.");
+      return;
+    }
+    setGeneratingInfo(true);
+    try {
+      // Research mode ON for information gathering
+      const sys = `You are the Houses of Thought AI in RESEARCH MODE.
+
+## RESEARCH MODE ACTIVE
+- Provide thorough, well-reasoned evidence with deep investigation.
+- Evaluate the reliability and credibility of information sources.
+- Avoid citing unreliable, unverified, or speculative sources.
+- Distinguish between established facts, expert consensus, and contested claims.
+- Flag areas where evidence is weak or conflicting.
+
+Task: Generate observable, measurable, verifiable facts and evidence that help answer the sub-question.
+
+Rules:
+- Provide 5-8 substantive evidence points
+- Each point should be a specific fact, datum, or finding (not opinion)
+- Where possible, mention the type of source (study, report, dataset, etc.)
+- Output as a plain numbered list, one fact per line. No JSON, no preamble.
+
+## Context
+- Overarching Question: ${analysis.overarching_question || "(not set)"}
+- Sub-Question: "${activeSubQ.question}"
+- Existing evidence (build on, do not repeat):
+${activeSubQ.information || "(none)"}`;
+
+      const reply = await callAI(sys, `Generate evidence for: "${activeSubQ.question}"`);
+      const cleaned = reply.trim();
+      if (!cleaned) {
+        toast.error("AI returned no evidence. Try again.");
+        return;
+      }
+      const merged = evidence.trim()
+        ? `${evidence.trim()}\n\n${cleaned}`
+        : cleaned;
+      setEvidence(merged);
+      await supabase
+        .from("sub_questions")
+        .update({ information: merged, updated_at: new Date().toISOString() })
+        .eq("id", activeSubQ.id);
+      onReload();
+      toast.success("Generated evidence in research mode");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate evidence");
+    } finally {
+      setGeneratingInfo(false);
+    }
+  };
+
+  const generateAssumptions = async () => {
+    if (!activeSubQ) {
+      toast.error("Add a sub-question first.");
+      return;
+    }
+    setGeneratingAssumptions(true);
+    try {
+      const sys = `You are the Houses of Thought AI. Identify the unstated assumptions underlying the reasoning for this sub-question.
+
+Rules:
+- Generate 4-7 substantive assumptions
+- Focus on beliefs or premises that MUST be true for the reasoning to hold
+- Include blind spots, foundational concepts, and inferences from evidence
+- Do NOT repeat existing assumptions
+- Output ONLY a JSON array of strings, wrapped in \`\`\`json fences. Example:
+\`\`\`json
+["Assumption one.", "Assumption two."]
+\`\`\`
+
+## Context
+- Overarching Question: ${analysis.overarching_question || "(not set)"}
+- Sub-Question: "${activeSubQ.question}"
+- Evidence so far:
+${activeSubQ.information || "(none)"}
+- Existing assumptions (do not duplicate):
+${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
+
+      const reply = await callAI(sys, `Identify assumptions for: "${activeSubQ.question}"`);
+      const arr = extractJsonArray(reply);
+      const cleaned = arr.map((x) => (typeof x === "string" ? x.trim() : "")).filter(Boolean);
+      if (cleaned.length === 0) {
+        toast.error("AI returned no assumptions. Try again.");
+        return;
+      }
+      const inserts = cleaned.map((content) => ({
+        sub_question_id: activeSubQ.id,
+        content,
+        assumption_type: "unknown_unknowns" as const,
+      }));
+      const { data, error } = await supabase
+        .from("assumptions")
+        .insert(inserts)
+        .select();
+      if (error) throw new Error(error.message);
+      setAssumptionsList((a) => [...a, ...(data || [])]);
+      toast.success(`Generated ${cleaned.length} assumptions`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate assumptions");
+    } finally {
+      setGeneratingAssumptions(false);
+    }
+  };
+
   const step = STEPS[stepIndex];
   const StepIcon = step.icon;
 
@@ -488,7 +685,7 @@ export default function GuidedBuildMode({
             header="Step 4: Break the Problem Down"
             body="Big questions need smaller pieces. Add sub-questions to explore your main question from each perspective."
           >
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-3">
               <Input
                 placeholder='Example: "What evidence supports…?", "How does this impact…?"'
                 value={newSubQ}
@@ -497,6 +694,18 @@ export default function GuidedBuildMode({
               />
               <Button onClick={addSubQ} variant="secondary"><Plus className="h-4 w-4" /></Button>
             </div>
+            <Button
+              onClick={generateSubQuestions}
+              disabled={generatingSubQ || !analysis.overarching_question?.trim()}
+              variant="outline"
+              className="mb-4 w-full sm:w-auto"
+            >
+              {generatingSubQ ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…</>
+              ) : (
+                <><Sparkles className="mr-2 h-4 w-4" /> Generate Sub-Questions with AI</>
+              )}
+            </Button>
             <ItemList items={subQuestions.map((s) => ({ id: s.id, text: s.question }))} onRemove={removeSubQ} />
             <NavButtons
               onBack={goBack}
@@ -527,8 +736,20 @@ export default function GuidedBuildMode({
                   rows={6}
                   className="mb-2"
                 />
+                <Button
+                  onClick={generateInformation}
+                  disabled={generatingInfo}
+                  variant="outline"
+                  className="mb-2 w-full sm:w-auto"
+                >
+                  {generatingInfo ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Researching…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-4 w-4" /> Generate Evidence with AI (Research Mode)</>
+                  )}
+                </Button>
                 <p className="text-xs text-muted-foreground mb-4">
-                  You can add evidence to other sub-questions in Free Build Mode.
+                  AI uses Research Mode to evaluate source credibility. You can add evidence to other sub-questions in Free Build Mode.
                 </p>
               </>
             ) : (
@@ -554,7 +775,7 @@ export default function GuidedBuildMode({
           >
             {activeSubQ ? (
               <>
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-3">
                   <Input
                     placeholder="An assumption you're making…"
                     value={assumption}
@@ -563,6 +784,18 @@ export default function GuidedBuildMode({
                   />
                   <Button onClick={addAssumption} variant="secondary"><Plus className="h-4 w-4" /></Button>
                 </div>
+                <Button
+                  onClick={generateAssumptions}
+                  disabled={generatingAssumptions}
+                  variant="outline"
+                  className="mb-4 w-full sm:w-auto"
+                >
+                  {generatingAssumptions ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-4 w-4" /> Generate Assumptions with AI</>
+                  )}
+                </Button>
                 <ItemList items={assumptionsList.map((a) => ({ id: a.id, text: a.content }))} onRemove={removeAssumption} />
               </>
             ) : (
