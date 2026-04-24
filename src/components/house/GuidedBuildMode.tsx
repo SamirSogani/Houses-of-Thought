@@ -115,6 +115,9 @@ export default function GuidedBuildMode({
 
   // Sub-questions are passed in via prop; we add new ones via supabase
   const [newSubQ, setNewSubQ] = useState("");
+  const [generatingSubQ, setGeneratingSubQ] = useState(false);
+  const [generatingInfo, setGeneratingInfo] = useState(false);
+  const [generatingAssumptions, setGeneratingAssumptions] = useState(false);
 
   // For evidence/assumptions/sub-conclusions, work against the FIRST sub-question
   // (user-controlled "Done with this step" model — user can add more from the same UI).
