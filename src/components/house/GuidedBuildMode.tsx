@@ -892,6 +892,19 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
                     <><Sparkles className="mr-2 h-4 w-4" /> Generate Assumptions with AI</>
                   )}
                 </Button>
+                {suggestedAssumptions.length > 0 && (
+                  <SuggestionPicker
+                    title="AI Suggestions — pick which to add"
+                    items={suggestedAssumptions}
+                    selected={selectedAssumptions}
+                    onToggle={(i) => setSelectedAssumptions((s) => toggleIndex(s, i))}
+                    onSelectAll={() => setSelectedAssumptions(new Set(suggestedAssumptions.map((_, i) => i)))}
+                    onClearAll={() => setSelectedAssumptions(new Set())}
+                    onAccept={acceptSelectedAssumptions}
+                    onDiscard={discardSuggestedAssumptions}
+                    acceptLabel={`Add ${selectedAssumptions.size} selected`}
+                  />
+                )}
                 <ItemList items={assumptionsList.map((a) => ({ id: a.id, text: a.content }))} onRemove={removeAssumption} />
               </>
             ) : (
