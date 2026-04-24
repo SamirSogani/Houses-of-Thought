@@ -53,7 +53,7 @@ export default function ContactPage() {
       setSubmitted(true);
     } catch (err: any) {
       console.error("Contact form error:", err);
-      toast.error("Something went wrong. Please try emailing us directly at houseofthought.support@gmail.com");
+      toast.error("Something went wrong. Please try emailing us directly at housesofthought.support@gmail.com");
     } finally {
       setLoading(false);
     }
@@ -161,8 +161,8 @@ export default function ContactPage() {
                 <CardTitle className="text-base">Direct Email</CardTitle>
               </CardHeader>
               <CardContent>
-                <a href="mailto:houseofthought.support@gmail.com" className="text-sm text-primary hover:underline break-all">
-                  houseofthought.support@gmail.com
+                <a href="mailto:housesofthought.support@gmail.com" className="text-sm text-primary hover:underline break-all">
+                  housesofthought.support@gmail.com
                 </a>
               </CardContent>
             </Card>
