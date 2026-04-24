@@ -474,7 +474,16 @@ export default function AnalysisPage() {
             )}
           </div>
 
-          {viewMode === "standard" ? (
+          {viewMode === "guided" && !readonly ? (
+            <GuidedBuildMode
+              analysis={analysis}
+              subQuestions={subQuestions}
+              profile={profile}
+              onUpdateField={updateField}
+              onExit={() => setViewMode("standard")}
+              onReload={loadData}
+            />
+          ) : viewMode === "standard" ? (
             <>
               {!readonly && <TodoPanel analysis={analysis} subQuestions={subQuestions} onNavigate={navigate} />}
               <HouseVisualization
