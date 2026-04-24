@@ -685,7 +685,7 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
             header="Step 4: Break the Problem Down"
             body="Big questions need smaller pieces. Add sub-questions to explore your main question from each perspective."
           >
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-3">
               <Input
                 placeholder='Example: "What evidence supports…?", "How does this impact…?"'
                 value={newSubQ}
@@ -694,6 +694,18 @@ ${assumptionsList.map((a) => `- ${a.content}`).join("\n") || "(none)"}`;
               />
               <Button onClick={addSubQ} variant="secondary"><Plus className="h-4 w-4" /></Button>
             </div>
+            <Button
+              onClick={generateSubQuestions}
+              disabled={generatingSubQ || !analysis.overarching_question?.trim()}
+              variant="outline"
+              className="mb-4 w-full sm:w-auto"
+            >
+              {generatingSubQ ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…</>
+              ) : (
+                <><Sparkles className="mr-2 h-4 w-4" /> Generate Sub-Questions with AI</>
+              )}
+            </Button>
             <ItemList items={subQuestions.map((s) => ({ id: s.id, text: s.question }))} onRemove={removeSubQ} />
             <NavButtons
               onBack={goBack}
