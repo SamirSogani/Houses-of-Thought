@@ -91,6 +91,17 @@ export default function AnalysisPage() {
     }).catch(() => setIsOwner(false));
   }, [user]);
 
+  // Auto-enter Guided Mode the first time a user opens an analysis (one-shot per device).
+  useEffect(() => {
+    if (!user || readonly || !analysis) return;
+    if (searchParams.get("view")) return; // respect explicit view param
+    const flagKey = `hot:guided-onboarded:${user.id}`;
+    if (typeof window !== "undefined" && !localStorage.getItem(flagKey)) {
+      setViewMode("guided");
+      localStorage.setItem(flagKey, "1");
+    }
+  }, [user, analysis?.id, readonly, searchParams]);
+
   const autoSave = useCallback(
     async (field: keyof Analysis, value: string) => {
       if (!id) return;
