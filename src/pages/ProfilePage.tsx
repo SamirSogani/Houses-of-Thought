@@ -119,16 +119,19 @@ export default function ProfilePage() {
     if (!pendingType) return;
     const newType = pendingType;
     setSavingAccountType(true);
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        { user_id: user!.id, account_type: newType, updated_at: new Date().toISOString() } as any,
-        { onConflict: "user_id" }
-      );
+    // Account type changes go through a SECURITY DEFINER RPC so users can't
+    // self-promote by writing the column directly (RLS now blocks that).
+    const { data, error } = await supabase.rpc("set_account_type" as any, {
+      p_new_type: newType,
+    });
     setSavingAccountType(false);
     setPendingType(null);
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    if (data && (data as any).ok === false) {
+      toast.error((data as any).error ?? "Could not switch account type.");
       return;
     }
     setAccountType(newType);
