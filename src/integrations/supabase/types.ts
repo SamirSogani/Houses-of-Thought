@@ -1005,6 +1005,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_account_type: {
+        Args: { p_new_type: Database["public"]["Enums"]["account_type"] }
+        Returns: Json
+      }
       start_assignment: { Args: { p_assignment_id: string }; Returns: Json }
       submit_assignment: { Args: { p_submission_id: string }; Returns: Json }
       unread_comment_counts: {
