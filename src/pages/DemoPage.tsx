@@ -20,7 +20,6 @@ import {
   Home,
   Save,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   type DemoSession,
   type DemoPovCategory,
