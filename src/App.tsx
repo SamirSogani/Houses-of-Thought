@@ -10,6 +10,7 @@ import HomePage from "./pages/HomePage";
 
 // Lazy-load non-landing routes to reduce initial JS bundle size
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const DemoPage = lazy(() => import("./pages/DemoPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
@@ -71,6 +72,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
+              <Route path="/demo" element={<DemoPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
