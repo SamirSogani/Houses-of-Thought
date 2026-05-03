@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useUnreadComments } from "@/hooks/useUnreadComments";
+import { consumePendingImport, importDemoToAccount, clearDemo } from "@/lib/demoSession";
 
 type Analysis = Tables<"analyses">;
 
@@ -27,9 +28,25 @@ export default function Dashboard() {
   const { total: unreadComments } = useUnreadComments();
 
   useEffect(() => {
-    fetchAnalyses();
-    fetchProfile();
-  }, []);
+    (async () => {
+      // If returning from demo signup, import the staged session into a real analysis
+      const pending = consumePendingImport();
+      if (pending && user) {
+        const newId = await importDemoToAccount(pending);
+        if (newId) {
+          clearDemo();
+          toast.success("Your demo House was saved to your account.");
+          navigate(`/analysis/${newId}`);
+          return;
+        } else {
+          toast.error("Could not import your demo House — please try again from the analysis page.");
+        }
+      }
+      fetchAnalyses();
+      fetchProfile();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchProfile = async () => {
     if (!user) return;
