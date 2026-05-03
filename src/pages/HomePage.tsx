@@ -134,16 +134,19 @@ export default function HomePage() {
                 Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>
+                <Button size="lg" onClick={() => navigate("/demo")}>
+                  Try it instantly
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
                   Create Account
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
+                <Button size="lg" variant="ghost" onClick={() => navigate("/auth")}>
                   Log In
                 </Button>
-                <Button size="lg" variant="secondary" onClick={() => navigate("/auth?mode=signup")}>
-                  Start Free Trial
-                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                No sign-up required to try — your work is saved locally until you create an account.
+              </p>
             </div>
 
             {/* House Diagram Visual */}
@@ -343,11 +346,11 @@ export default function HomePage() {
             Join students, teachers, and professionals who use the Houses of Thought to reason more clearly.
           </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <Button size="lg" onClick={() => navigate("/auth?mode=signup")}>
-              Create Account
+            <Button size="lg" onClick={() => navigate("/demo")}>
+              Try it instantly
             </Button>
             <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
-              Start Free Trial
+              Create Account
             </Button>
           </div>
         </div>
