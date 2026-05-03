@@ -54,7 +54,7 @@ export default function DemoPage() {
   const navigate = useNavigate();
   const [demo, setDemo] = useState<DemoSession | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
-  const [saveOpen, setSaveOpen] = useState(false);
+  // (no save dialog state needed)
 
   // Load existing demo on mount
   useEffect(() => {
