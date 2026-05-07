@@ -23,6 +23,9 @@ import {
   Library,
   Check,
   X,
+  AlertTriangle,
+  Wand2,
+  ShieldAlert,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
@@ -162,10 +165,10 @@ function Reveal({ children, delay = 0, className = "" }: { children: React.React
 /* -------------------------------------------------------------------------- */
 
 const problems = [
-  { icon: MessageSquareOff, title: "AI conversations vanish", body: "Every chat starts from zero. Yesterday's reasoning is gone. Context never compounds." },
-  { icon: Boxes,            title: "Ideas scatter across apps", body: "Notes here, chats there, docs somewhere else. Your thinking lives nowhere." },
-  { icon: FileQuestion,     title: "Outputs feel shallow",      body: "Fast answers without structure. Confident words without weighed evidence." },
-  { icon: Brain,            title: "You generate, you don't build", body: "Endless thoughts, no system. No place where understanding accumulates." },
+  { icon: ShieldAlert,     title: "Confident, often wrong",     body: "AI delivers fluent answers whether or not they're true. Hallucinations, fabricated sources, and unverifiable claims arrive in the same authoritative tone as facts." },
+  { icon: FileQuestion,    title: "Shallow by default",         body: "Single perspective. No weighing of evidence. No assumptions surfaced. You get a verdict — not the reasoning that should justify it." },
+  { icon: AlertTriangle,   title: "No accountability for claims", body: "Citations are optional, sources go unchecked, and counter-arguments are skipped unless you remember to ask. Reliability is on you." },
+  { icon: MessageSquareOff,title: "Context that won't compound", body: "Every chat starts from zero. Yesterday's reasoning is gone — so understanding never builds, it only restarts." },
 ];
 
 const useCases = [
