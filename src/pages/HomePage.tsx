@@ -1,108 +1,180 @@
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SiteNavbar from "@/components/layout/SiteNavbar";
 import SiteFooter from "@/components/layout/SiteFooter";
-
 import {
-  Lightbulb,
-  Search,
-  Bot,
-  LayoutDashboard,
-  Users,
   ArrowRight,
-  GraduationCap,
-  Briefcase,
-  BookOpen,
-  Target,
-  MessageSquare,
-  Eye,
+  Sparkles,
   Layers,
-  ChevronRight,
-  Shield,
-  X,
+  Network,
+  Compass,
+  Brain,
+  Boxes,
+  MessageSquareOff,
+  FileQuestion,
+  Workflow,
+  Microscope,
+  GraduationCap,
+  Target,
+  BookOpen,
+  Rocket,
+  Library,
   Check,
-  Shuffle,
-  Route,
-  HelpCircle,
-  CheckCircle2,
+  X,
 } from "lucide-react";
 
-const frameworkSteps = [
-  { label: "Purpose", icon: Target, color: "text-roof" },
-  { label: "Question", icon: MessageSquare, color: "text-primary" },
-  { label: "Points of View", icon: Eye, color: "text-pov-individual" },
-  { label: "Sub-Questions", icon: Layers, color: "text-pov-group" },
-  { label: "Information", icon: Search, color: "text-atmosphere" },
-  { label: "Assumptions", icon: Lightbulb, color: "text-assumption" },
-  { label: "Sub-Conclusions", icon: ChevronRight, color: "text-pov-ideas" },
-  { label: "Conclusion", icon: Target, color: "text-ceiling" },
-  { label: "Implications & Consequences", icon: ArrowRight, color: "text-foundation" },
+/* -------------------------------------------------------------------------- */
+/*  HERO VISUAL — animated spatial graph of connected "rooms"                 */
+/* -------------------------------------------------------------------------- */
+
+function SpatialGraph() {
+  // Simple deterministic node graph — feels like rooms/concepts wired together
+  const nodes = [
+    { id: "purpose",    x: 50,  y: 18, label: "Purpose",     size: 14 },
+    { id: "question",   x: 50,  y: 42, label: "Question",    size: 18 },
+    { id: "pov-self",   x: 18,  y: 62, label: "Self",        size: 11 },
+    { id: "pov-group",  x: 50,  y: 70, label: "Group",       size: 11 },
+    { id: "pov-ideas",  x: 82,  y: 62, label: "Ideas",       size: 11 },
+    { id: "evidence",   x: 30,  y: 86, label: "Evidence",    size: 9  },
+    { id: "assumption", x: 70,  y: 86, label: "Assumption",  size: 9  },
+    { id: "conclusion", x: 50,  y: 96, label: "Conclusion",  size: 13 },
+  ];
+  const edges: [string, string][] = [
+    ["purpose", "question"],
+    ["question", "pov-self"],
+    ["question", "pov-group"],
+    ["question", "pov-ideas"],
+    ["pov-self", "evidence"],
+    ["pov-group", "evidence"],
+    ["pov-group", "assumption"],
+    ["pov-ideas", "assumption"],
+    ["evidence", "conclusion"],
+    ["assumption", "conclusion"],
+  ];
+  const find = (id: string) => nodes.find((n) => n.id === id)!;
+
+  return (
+    <div className="relative aspect-square w-full max-w-md mx-auto">
+      {/* blueprint grid */}
+      <div
+        className="absolute inset-0 rounded-2xl opacity-[0.18]"
+        style={{
+          backgroundImage: `linear-gradient(hsl(var(--blueprint-line)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--blueprint-line)) 1px, transparent 1px)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
+      {/* glow */}
+      <div className="absolute -inset-8 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
+
+      <svg viewBox="0 0 100 110" className="absolute inset-0 w-full h-full">
+        <defs>
+          <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
+            <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
+          </linearGradient>
+        </defs>
+        {edges.map(([a, b], i) => {
+          const A = find(a);
+          const B = find(b);
+          return (
+            <line
+              key={`${a}-${b}`}
+              x1={A.x} y1={A.y} x2={B.x} y2={B.y}
+              stroke="url(#edgeGrad)"
+              strokeWidth="0.35"
+              strokeDasharray="1.5 1.5"
+              style={{
+                animation: `dashflow 6s linear infinite`,
+                animationDelay: `${i * 0.25}s`,
+              }}
+            />
+          );
+        })}
+        {nodes.map((n, i) => (
+          <g key={n.id} style={{ animation: `nodepulse 4s ease-in-out infinite`, animationDelay: `${i * 0.3}s`, transformOrigin: `${n.x}px ${n.y}px` }}>
+            <circle cx={n.x} cy={n.y} r={n.size / 6 + 1.5} fill="hsl(var(--primary))" opacity="0.12" />
+            <circle cx={n.x} cy={n.y} r={n.size / 8} fill="hsl(var(--card))" stroke="hsl(var(--primary))" strokeWidth="0.4" />
+          </g>
+        ))}
+      </svg>
+
+      {/* labels */}
+      {nodes.map((n) => (
+        <div
+          key={n.id}
+          className="absolute -translate-x-1/2 -translate-y-1/2 text-[10px] sm:text-xs font-mono tracking-wide text-foreground/80 bg-card/70 backdrop-blur-sm px-1.5 py-0.5 rounded border border-border/60 whitespace-nowrap"
+          style={{ left: `${n.x}%`, top: `${(n.y / 110) * 100}%` }}
+        >
+          {n.label}
+        </div>
+      ))}
+
+      <style>{`
+        @keyframes dashflow {
+          to { stroke-dashoffset: -30; }
+        }
+        @keyframes nodepulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.15); opacity: 0.85; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Reveal-on-scroll wrapper                                                  */
+/* -------------------------------------------------------------------------- */
+
+function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect(); } },
+      { threshold: 0.15 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={`${className} transition-all duration-700 ease-out`}
+      style={{
+        opacity: shown ? 1 : 0,
+        transform: shown ? "translateY(0)" : "translateY(24px)",
+        transitionDelay: `${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
+const problems = [
+  { icon: MessageSquareOff, title: "AI conversations vanish", body: "Every chat starts from zero. Yesterday's reasoning is gone. Context never compounds." },
+  { icon: Boxes,            title: "Ideas scatter across apps", body: "Notes here, chats there, docs somewhere else. Your thinking lives nowhere." },
+  { icon: FileQuestion,     title: "Outputs feel shallow",      body: "Fast answers without structure. Confident words without weighed evidence." },
+  { icon: Brain,            title: "You generate, you don't build", body: "Endless thoughts, no system. No place where understanding accumulates." },
 ];
 
-const features = [
-  {
-    icon: LayoutDashboard,
-    title: "Draft Full House",
-    description: "Generate a structured first draft of a house based on your question and context, so you can move faster and focus more time on refining and improving your reasoning.",
-  },
-  {
-    icon: Search,
-    title: "Research Mode",
-    description: "Find and verify up-to-date sources to support and strengthen your reasoning with credible information.",
-  },
-  {
-    icon: Bot,
-    title: "AI Reasoning Assistant",
-    description: "Generate sub-questions, test assumptions, and get intelligent feedback on your reasoning.",
-  },
-  {
-    icon: Layers,
-    title: "Interactive House Diagram",
-    description: "Build your reasoning visually using the Houses of Thought framework diagram.",
-  },
-  {
-    icon: Users,
-    title: "Student & Teacher Collaboration",
-    description: "Teachers can monitor and guide student reasoning projects in real-time.",
-  },
-  {
-    icon: Shield,
-    title: "Analysis & Testing Tools",
-    description: "Evaluate your reasoning with a Logic Strength Meter, stress-test arguments with AI Attack Mode, and measure evidence quality with the Evidence Strength Meter.",
-  },
-];
-
-const withoutHoT = [
-  { icon: Shuffle, label: "Scattered, unstructured thinking" },
-  { icon: HelpCircle, label: "Chasing the wrong questions" },
-  { icon: Lightbulb, label: "Hidden assumptions go untested" },
-  { icon: X, label: "Weak, unsupported conclusions" },
-];
-
-const withHoT = [
-  { icon: Route, label: "A clear, step-by-step process" },
-  { icon: Target, label: "The right questions, in the right order" },
-  { icon: Shield, label: "Assumptions surfaced and stress-tested" },
-  { icon: CheckCircle2, label: "Defensible, well-founded conclusions" },
-];
-
-const audiences = [
-  {
-    icon: GraduationCap,
-    title: "Students",
-    description: "Develop critical thinking skills through structured reasoning exercises and AI guidance.",
-  },
-  {
-    icon: BookOpen,
-    title: "Teachers",
-    description: "Monitor and guide reasoning projects. Provide structured feedback on student thinking.",
-  },
-  {
-    icon: Briefcase,
-    title: "Researchers & Professionals",
-    description: "Analyze complex problems systematically. Build defensible arguments and decisions.",
-  },
+const useCases = [
+  { icon: Rocket,     title: "Startup planning",      body: "Pressure-test strategy across stakeholders, assumptions, and second-order effects." },
+  { icon: Microscope, title: "Research organization", body: "Map sources, claims, and counter-claims into one coherent reasoning surface." },
+  { icon: Library,    title: "Philosophy & worldview",body: "Build, revise, and stress-test the ideas you actually live by." },
+  { icon: GraduationCap, title: "Studying & learning", body: "Move from highlights to genuine understanding through structured questioning." },
+  { icon: Target,     title: "Long-term goals",        body: "Reason about decisions over months — not in a chat thread that disappears." },
+  { icon: BookOpen,   title: "Personal knowledge",     body: "A persistent place where your best thinking compounds instead of dissolving." },
 ];
 
 export default function HomePage() {
@@ -113,249 +185,239 @@ export default function HomePage() {
       <SiteNavbar />
 
       <main>
-      {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `linear-gradient(hsl(var(--blueprint-line)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--blueprint-line)) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }} />
+        {/* ============================== HERO ============================== */}
+        <section className="relative overflow-hidden">
+          {/* ambient blueprint grid */}
+          <div
+            className="absolute inset-0 opacity-[0.04] pointer-events-none"
+            style={{
+              backgroundImage: `linear-gradient(hsl(var(--blueprint-line)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--blueprint-line)) 1px, transparent 1px)`,
+              backgroundSize: "48px 48px",
+            }}
+          />
+          {/* radial glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/[0.07] rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-20 md:py-32 sm:px-[20px]">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 animate-fade-in">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold text-foreground leading-tight">
-                Think through anything—
-                <span className="text-primary">fast, step by step.</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed">
-                Break down complex questions, track every step of your reasoning, and reach clear, well-founded conclusions — all with AI-powered support.
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+            <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
+              <div className="space-y-7 animate-fade-in">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/60 backdrop-blur text-xs font-mono text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  A workspace for <span className="text-foreground">slow thinking</span>
+                </div>
+
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-foreground leading-[1.05] tracking-tight">
+                  AI generates thoughts.{" "}
+                  <span className="text-primary">Build reasoning instead.</span>
+                </h1>
+
+                <p className="text-lg sm:text-xl text-muted-foreground max-w-xl leading-relaxed">
+                  Houses of Thought is a spatial, persistent environment for structured thinking — where ideas connect, context survives, and decisions get measurably better over time.
+                </p>
+
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <Button size="lg" onClick={() => navigate("/demo")} className="group">
+                    Try it instantly
+                    <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
+                    Create Account
+                  </Button>
+                  <Button size="lg" variant="ghost" onClick={() => navigate("/auth")}>
+                    Log In
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  No sign-up required to try — your work is saved locally until you create an account.
+                </p>
+                <p className="text-xs text-muted-foreground/80 pt-1">
+                  Created by <span className="font-semibold text-foreground/90">Samir Sogani</span> · Based on <span className="font-semibold text-foreground/90">John Trapasso's</span> <em>House of Thought</em> model
+                </p>
+              </div>
+
+              <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+                <SpatialGraph />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============================== PROBLEM ============================ */}
+        <section className="relative border-t border-border bg-card/40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <Reveal>
+              <div className="max-w-3xl">
+                <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">The problem</p>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
+                  Modern tools make you faster.{" "}
+                  <span className="text-muted-foreground">They don't make you wiser.</span>
+                </h2>
+                <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+                  We've never had more ways to capture thoughts — and never felt more mentally fragmented. Chats forget you. Notes pile up. Reasoning never accumulates into anything you can stand on.
+                </p>
+              </div>
+            </Reveal>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
+              {problems.map((p, i) => (
+                <Reveal key={p.title} delay={i * 90}>
+                  <Card className="h-full bg-background/60 backdrop-blur border-border/60 hover:border-primary/40 transition-colors">
+                    <CardContent className="p-6 space-y-3">
+                      <div className="h-10 w-10 rounded-md bg-destructive/10 flex items-center justify-center">
+                        <p.icon className="h-5 w-5 text-destructive/80" />
+                      </div>
+                      <h3 className="font-display font-semibold text-foreground">{p.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{p.body}</p>
+                    </CardContent>
+                  </Card>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ============================== DIFFERENCE ========================= */}
+        <section className="relative border-t border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <Reveal>
+              <div className="text-center max-w-3xl mx-auto mb-14">
+                <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">The difference</p>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
+                  A new shape for thinking.
+                </h2>
+                <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
+                  Chat is a line. Thought is a structure. Houses of Thought gives reasoning the space, persistence, and architecture it deserves.
+                </p>
+              </div>
+            </Reveal>
+
+            <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+              <Reveal>
+                <Card className="h-full border-border/60 bg-card/30">
+                  <CardContent className="p-8 space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                        <MessageSquareOff className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <h3 className="font-display font-semibold text-foreground">Traditional AI Chat</h3>
+                    </div>
+                    <ul className="space-y-3">
+                      {[
+                        "Linear conversations",
+                        "Disposable context",
+                        "Instant, shallow answers",
+                        "Fragmented reasoning",
+                        "No long-term structure",
+                      ].map((t) => (
+                        <li key={t} className="flex items-start gap-3 text-sm text-muted-foreground">
+                          <X className="h-4 w-4 text-muted-foreground/70 shrink-0 mt-0.5" />
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </Reveal>
+
+              <Reveal delay={120}>
+                <Card className="h-full border-primary/40 bg-primary/[0.04] shadow-lg shadow-primary/[0.06]">
+                  <CardContent className="p-8 space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-md bg-primary/15 flex items-center justify-center">
+                        <Network className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-display font-semibold text-foreground">Houses of Thought</h3>
+                    </div>
+                    <ul className="space-y-3">
+                      {[
+                        "Spatial cognition",
+                        "Persistent structures",
+                        "Interconnected concepts",
+                        "Reflective, deliberate thinking",
+                        "Long-term reasoning that compounds",
+                      ].map((t) => (
+                        <li key={t} className="flex items-start gap-3 text-sm text-foreground/90">
+                          <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          <span className="font-medium">{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            </div>
+
+            <Reveal delay={200}>
+              <p className="text-center text-sm text-muted-foreground italic mt-10 max-w-2xl mx-auto">
+                Slowness, here, is a feature. Deliberation is the product.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Created by <span className="font-semibold text-foreground">Samir Sogani</span> · Based on <span className="font-semibold text-foreground">John Trapasso's</span> <em>House of Thought</em> model, derived from the <span className="font-semibold text-foreground">Paul-Elder Critical Thinking Framework</span>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ============================== USE CASES ========================== */}
+        <section className="relative border-t border-border bg-card/40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <Reveal>
+              <div className="max-w-3xl mb-14">
+                <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">Built for</p>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
+                  The questions worth thinking slowly about.
+                </h2>
+              </div>
+            </Reveal>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {useCases.map((u, i) => (
+                <Reveal key={u.title} delay={i * 70}>
+                  <Card className="group h-full border-border/60 bg-background/60 backdrop-blur hover:border-primary/40 hover:-translate-y-0.5 transition-all">
+                    <CardContent className="p-6 space-y-3">
+                      <div className="h-11 w-11 rounded-md bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <u.icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-display font-semibold text-foreground">{u.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{u.body}</p>
+                    </CardContent>
+                  </Card>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ============================== EXPERIENCE ========================= */}
+        <section className="relative border-t border-border overflow-hidden">
+          {/* atmospheric glow */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-primary/[0.06] rounded-full blur-3xl" />
+          </div>
+
+          <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-28 text-center">
+            <Reveal>
+              <Compass className="h-10 w-10 text-primary mx-auto mb-6" />
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
+                Step inside. Build something you can return to.
+              </h2>
+              <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                Explore a live house in seconds — no signup, no friction. When you're ready, your work moves with you.
               </p>
-              <div className="flex flex-wrap gap-3 pt-2">
-                <Button size="lg" onClick={() => navigate("/demo")}>
+              <div className="flex flex-wrap justify-center gap-3 mt-10">
+                <Button size="lg" onClick={() => navigate("/demo")} className="group">
                   Try it instantly
+                  <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Button>
                 <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
                   Create Account
                 </Button>
-                <Button size="lg" variant="ghost" onClick={() => navigate("/auth")}>
-                  Log In
+                <Button size="lg" variant="ghost" onClick={() => navigate("/framework")}>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Learn the framework
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                No sign-up required to try — your work is saved locally until you create an account.
-              </p>
-            </div>
-
-            {/* House Diagram Visual */}
-            <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-              <div className="relative mx-auto max-w-sm">
-                <div className="bg-atmosphere-bg border-2 border-atmosphere rounded-t-lg px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">ATMOSPHERE</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Concepts & Definitions</p>
-                </div>
-                <div className="bg-card border-2 border-roof px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">PURPOSE</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Overarching Question</p>
-                </div>
-                <div className="grid grid-cols-3 gap-1 my-1">
-                  <div className="pov-individual border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Individual</p>
-                  </div>
-                  <div className="pov-group border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Group</p>
-                  </div>
-                  <div className="pov-ideas border rounded p-2 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground">Ideas</p>
-                  </div>
-                </div>
-                <div className="bg-assumption-bg border-2 border-assumption px-4 py-2 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">ASSUMPTIONS</p>
-                </div>
-                <div className="bg-foundation-bg border-2 border-foundation rounded-b-lg px-4 py-3 text-center">
-                  <p className="text-xs font-mono text-muted-foreground">FOUNDATION</p>
-                  <p className="text-sm font-display font-semibold text-foreground">Conclusion & Implications</p>
-                </div>
-              </div>
-            </div>
+            </Reveal>
           </div>
-        </div>
-      </section>
-
-      {/* SECTION 1: WHAT IS HOUSES OF THOUGHT */}
-      <section id="about" className="bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              A system for thinking clearly, quickly, and completely
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Houses of Thought helps you break down any question, track every step of your reasoning, and see the full picture of your thought process. Whether you're a student tackling tricky problems, a teacher guiding reasoning projects, or a professional analyzing complex decisions, the platform gives you a step-by-step roadmap from question to conclusion — fast, clear, and structured.
-            </p>
-          </div>
-
-          {/* Framework step flow */}
-          <div className="flex flex-wrap justify-center gap-2 md:gap-0 items-center">
-            {frameworkSteps.map((step, i) => (
-              <div key={step.label} className="flex items-center">
-                <div className="flex flex-col items-center gap-1.5 px-3 py-2">
-                  <step.icon className={`h-6 w-6 ${step.color}`} />
-                  <span className="text-xs font-medium text-foreground text-center leading-tight max-w-[80px]">
-                    {step.label}
-                  </span>
-                </div>
-                {i < frameworkSteps.length - 1 && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground hidden md:block shrink-0" />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <Button variant="outline" onClick={() => navigate("/framework")}>
-              <BookOpen className="h-4 w-4 mr-2" /> Learn the Full Framework
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 2: WHY IT MATTERS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-            Why It Matters
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Most reasoning fails not because people aren't capable of thinking critically, but because their thinking is unstructured. Without a clear process, you waste time chasing the wrong questions, get stuck in logical fallacies, and risk weak and unsupported conclusions. Houses of Thought fixes this by providing a visible, structured process that guides you from your initial question to a defensible answer — faster, smarter, and easy to track.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {/* Without HoT */}
-          <Card className="border-destructive/20 bg-destructive/[0.02] animate-fade-in">
-            <CardContent className="p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <X className="h-5 w-5 text-destructive" />
-                </div>
-                <h3 className="text-lg font-display font-semibold text-foreground">
-                  Without a structured process
-                </h3>
-              </div>
-              <ul className="space-y-4">
-                {withoutHoT.map((item) => (
-                  <li key={item.label} className="flex items-start gap-3">
-                    <item.icon className="h-5 w-5 text-destructive/70 shrink-0 mt-0.5" />
-                    <span className="text-sm text-muted-foreground leading-relaxed">{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* With HoT */}
-          <Card className="border-primary/30 bg-primary/[0.03] shadow-md animate-fade-in" style={{ animationDelay: "150ms" }}>
-            <CardContent className="p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center">
-                  <Check className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="text-lg font-display font-semibold text-foreground">
-                  With Houses of Thought
-                </h3>
-              </div>
-              <ul className="space-y-4">
-                {withHoT.map((item) => (
-                  <li key={item.label} className="flex items-start gap-3">
-                    <item.icon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm text-foreground leading-relaxed font-medium">{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* WHO IS IT FOR (moved before Features) */}
-      <section className="bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-              Who Is It For?
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {audiences.map((a, i) => (
-              <div
-                key={a.title}
-                className="text-center space-y-4 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <a.icon className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="text-xl font-display font-semibold text-foreground">{a.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{a.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURES (moved after Who Is It For) */}
-      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-4">
-            Powerful Features
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to think critically, reason systematically, and build stronger arguments.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f, i) => (
-            <Card
-              key={f.title}
-              className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 animate-fade-in"
-              style={{ animationDelay: `${i * 80}ms` }}
-            >
-              <CardContent className="p-6">
-                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center mb-4">
-                  <f.icon className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="text-lg font-display font-semibold text-foreground mb-2">{f.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{f.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center space-y-6">
-          <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground">
-            Start Building Better Thinking Today
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            Join students, teachers, and professionals who use the Houses of Thought to reason more clearly.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <Button size="lg" onClick={() => navigate("/demo")}>
-              Try it instantly
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=signup")}>
-              Create Account
-            </Button>
-          </div>
-        </div>
-      </section>
-
+        </section>
       </main>
 
       <SiteFooter />
