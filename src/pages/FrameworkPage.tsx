@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import SiteFooter from "@/components/layout/SiteFooter";
+import AppNavbar from "@/components/layout/AppNavbar";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Tooltip,
@@ -69,6 +70,7 @@ export default function FrameworkPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body">
+      <AppNavbar />
       {/* ── HERO ── */}
       <section className="relative py-24 px-6 text-center border-b border-border">
         <div className="max-w-3xl mx-auto space-y-6">

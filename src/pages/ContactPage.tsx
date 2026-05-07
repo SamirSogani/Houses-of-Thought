@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import SiteNavbar from "@/components/layout/SiteNavbar";
+import AppNavbar from "@/components/layout/AppNavbar";
 import SiteFooter from "@/components/layout/SiteFooter";
+import { useAuth } from "@/hooks/useAuth";
 import { Send, Bug, Lightbulb, HelpCircle } from "lucide-react";
 
 const userTypes = ["Free", "Student", "Teacher", "Pro", "Other"];
