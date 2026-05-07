@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import SiteNavbar from "@/components/layout/SiteNavbar";
+import AppNavbar from "@/components/layout/AppNavbar";
 import SiteFooter from "@/components/layout/SiteFooter";
 import {
   ArrowRight,
@@ -185,7 +185,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteNavbar />
+      <AppNavbar />
 
       <main>
         {/* ============================== HERO ============================== */}

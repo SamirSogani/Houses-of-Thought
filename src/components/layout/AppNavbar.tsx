@@ -51,14 +51,15 @@ export default function AppNavbar({ showHomeIcon = true }: AppNavbarProps) {
   }, [user]);
 
   const navLinks = [
+    { to: "/", label: "Home", icon: Home, exact: true },
     { to: "/features", label: "Features", icon: Sparkles },
     { to: "/about", label: "About", icon: Info },
     { to: "/framework", label: "Framework", icon: BookOpen },
     { to: "/contact", label: "Contact", icon: MessageCircle },
   ];
 
-  const isActive = (to: string) =>
-    location.pathname === to || location.pathname.startsWith(to + "/");
+  const isActive = (to: string, exact?: boolean) =>
+    exact ? location.pathname === to : (location.pathname === to || location.pathname.startsWith(to + "/"));
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
