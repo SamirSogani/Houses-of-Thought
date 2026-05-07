@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import SiteNavbar from "@/components/layout/SiteNavbar";
+import AppNavbar from "@/components/layout/AppNavbar";
 import SiteFooter from "@/components/layout/SiteFooter";
 import { Send, Bug, Lightbulb, HelpCircle } from "lucide-react";
 
@@ -62,7 +62,7 @@ export default function ContactPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-background">
-        <SiteNavbar />
+        <AppNavbar />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center animate-fade-in">
           <div className="h-16 w-16 rounded-full bg-pov-ideas/10 flex items-center justify-center mx-auto mb-6">
             <Send className="h-8 w-8 text-pov-ideas" />
@@ -82,7 +82,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteNavbar />
+      <AppNavbar />
 
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="text-center mb-10">
