@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Plus, LogOut, Home, Settings, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, BookOpen, GraduationCap, AlertCircle } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Share2, Trash2, Globe, Lock, AlertCircle } from "lucide-react";
 import SiteFooter from "@/components/layout/SiteFooter";
+import AppNavbar from "@/components/layout/AppNavbar";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -103,41 +104,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Home className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-display font-bold text-foreground">Houses of Thought</h1>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            {(permissions.canCreateClassrooms || permissions.canJoinClassroom) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative"
-                onClick={() => navigate(permissions.canCreateClassrooms ? "/classrooms" : "/classroom")}
-              >
-                <GraduationCap className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Classrooms</span>
-                {unreadComments > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
-                    {unreadComments > 99 ? "99+" : unreadComments}
-                  </span>
-                )}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => navigate("/framework")}>
-              <BookOpen className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Framework</span>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/profile")}>
-              <Settings className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Profile</span>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/"); }}>
-              <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sign Out</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AppNavbar />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {profile && !(profile as any).username && (
