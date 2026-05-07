@@ -11,22 +11,18 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import AppNavbar from "@/components/layout/AppNavbar";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { usePermissions } from "@/hooks/usePermissions";
-import { useUnreadComments } from "@/hooks/useUnreadComments";
 import { consumePendingImport, importDemoToAccount, clearDemo } from "@/lib/demoSession";
 
 type Analysis = Tables<"analyses">;
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
-  const { permissions } = usePermissions(profile);
-  const { total: unreadComments } = useUnreadComments();
 
   useEffect(() => {
     (async () => {
