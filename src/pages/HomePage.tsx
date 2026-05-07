@@ -253,11 +253,11 @@ export default function HomePage() {
               <div className="max-w-3xl">
                 <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">The problem</p>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
-                  Modern tools make you faster.{" "}
-                  <span className="text-muted-foreground">They don't make you wiser.</span>
+                  AI sounds certain.{" "}
+                  <span className="text-muted-foreground">That doesn't mean it's right.</span>
                 </h2>
                 <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-                  We've never had more ways to capture thoughts — and never felt more mentally fragmented. Chats forget you. Notes pile up. Reasoning never accumulates into anything you can stand on.
+                  Modern chatbots optimize for fluency, not truth. They produce confident, polished answers without showing the reasoning, weighing the evidence, or surfacing what they assumed — leaving you to trust an output you can't actually verify.
                 </p>
               </div>
             </Reveal>
