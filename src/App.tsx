@@ -12,6 +12,8 @@ import HomePage from "./pages/HomePage";
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DemoPage = lazy(() => import("./pages/DemoPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const AnalysisPage = lazy(() => import("./pages/AnalysisPage"));
@@ -74,6 +76,8 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/demo" element={<DemoPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/about" element={<AboutPage />} />
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/analysis/:id" element={<ProtectedRoute><AnalysisPage /></ProtectedRoute>} />
