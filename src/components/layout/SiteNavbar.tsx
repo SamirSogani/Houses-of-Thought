@@ -9,8 +9,9 @@ export default function SiteNavbar() {
 
   const links = [
     { label: "Home", href: "/" },
-    { label: "Features", href: "/#features" },
-    { label: "About", href: "/#about" },
+    { label: "Features", href: "/features" },
+    { label: "About", href: "/about" },
+    { label: "Framework", href: "/framework" },
     { label: "Contact", href: "/contact" },
   ];
 
