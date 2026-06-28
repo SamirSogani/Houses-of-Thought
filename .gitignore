@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Next.js build
+.next/
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Claude Code local settings
+.claude/settings.local.json
