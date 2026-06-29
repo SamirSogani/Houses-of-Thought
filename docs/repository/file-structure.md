@@ -59,6 +59,19 @@ exists to locate the right file, not to invite broad exploration.
 - **New files:** Drop source material into the subfolder matching its **content**.
 - **Workflow:** Treat as read-only source; cite it, don't load it by default.
 
+## `lib/`
+
+- **Purpose:** Shared utility modules used by the application.
+- **Belongs here:** Client/server helpers, SDK wrappers, shared logic.
+- **Does NOT belong:** React components, pages, or documentation.
+- **Current contents:** `supabase/client.ts` (browser client),
+  `supabase/server.ts` (server client).
+
+## Root files
+
+- `middleware.ts` — Next.js middleware; refreshes Supabase auth sessions on
+  every request.
+
 ---
 
 ## Reading discipline

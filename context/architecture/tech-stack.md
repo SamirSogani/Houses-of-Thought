@@ -9,16 +9,27 @@ Decided during the founding planning session (2026-06-27).
 | Frontend | React / Next.js | SSR for marketing pages; SPA for the builder |
 | Styling | CSS custom properties | Tokens defined in design-tokens.md |
 | Backend / Auth | Supabase | Auth, database, storage |
-| Deployment | TBD | Vercel is the natural fit for Next.js |
+| Deployment | Vercel | Auto-deploys from `main` on GitHub |
 
 ## Supabase configuration
 
-Environment variables (`.env`, gitignored):
-- `SUPABASE_URL` — project URL
-- `SUPABASE_ANON_KEY` — public/anon key (client-side, RLS-protected)
+Environment variables (`.env` locally, Vercel dashboard in production):
+- `NEXT_PUBLIC_SUPABASE_URL` — project URL (`https://eolyqhughtndelsflalt.supabase.co`)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — public/anon JWT key (client-side, RLS-protected)
 - `SUPABASE_SERVICE_ROLE_KEY` — server-side only, bypasses RLS
 
+Supabase also provides a **publishable key** (`sb_publishable_…`) — the new
+replacement for the legacy anon JWT. Both work simultaneously; the current
+`@supabase/ssr` setup uses the JWT-based anon key. When the SDK migrates to
+publishable keys, swap the anon key for the publishable key.
+
 `.env.example` exists with placeholder values. Never hardcode secrets.
+
+## Deployment
+
+- **Hosting:** Vercel, connected to `SamirSogani/houses-of-thought` on GitHub.
+- **Env vars:** Configured in Vercel dashboard (Settings → Environment Variables).
+- **Auto-deploy:** Every push to `main` triggers a production deployment.
 
 ## Key architectural boundaries
 
