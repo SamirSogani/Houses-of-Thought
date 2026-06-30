@@ -59,6 +59,14 @@ exists to locate the right file, not to invite broad exploration.
 - **New files:** Drop source material into the subfolder matching its **content**.
 - **Workflow:** Treat as read-only source; cite it, don't load it by default.
 
+## `app/`
+
+- **Purpose:** Next.js App Router — routes, pages, layouts.
+- **Belongs here:** `page.tsx`/`layout.tsx` per route, route-scoped styles.
+- **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
+- **Current routes:** `/` (landing page), `/login` (auth shell — Log in /
+  Sign up tabs, no auth logic wired yet).
+
 ## `lib/`
 
 - **Purpose:** Shared utility modules used by the application.

@@ -31,6 +31,12 @@ publishable keys, swap the anon key for the publishable key.
 - **Env vars:** Configured in Vercel dashboard (Settings → Environment Variables).
 - **Auto-deploy:** Every push to `main` triggers a production deployment.
 
+## Auth UI status
+
+`/login` (`app/login/page.tsx`) is a **UI shell only** — Log in / Sign up tab
+toggle, email + password fields, styled to match the homepage design system.
+No Supabase auth calls are wired in yet; `handleSubmit` is a stub.
+
 ## Key architectural boundaries
 
 - **Pre-login site** = static/SSR marketing pages + the `/try` no-login builder.
