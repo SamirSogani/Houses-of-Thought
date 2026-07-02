@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LogoMark } from './icons'
 
 const navLinks = [
@@ -13,6 +14,7 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     const header = document.getElementById('site-header')
@@ -66,23 +68,32 @@ export default function Header() {
 
           {/* Desktop nav */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 28, marginLeft: 'auto' }} className="desktop-only">
-            {navLinks.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 15,
-                  color: 'var(--ink-mid)',
-                  transition: 'color 0.15s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-mid)')}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {navLinks.map((l) => {
+              const active = pathname === l.href
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: 15,
+                    color: active ? 'var(--ink)' : 'var(--ink-mid)',
+                    borderBottom: active ? '2px solid var(--amber)' : '2px solid transparent',
+                    paddingBottom: 4,
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) e.currentTarget.style.color = 'var(--ink)'
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) e.currentTarget.style.color = 'var(--ink-mid)'
+                  }}
+                >
+                  {l.label}
+                </Link>
+              )
+            })}
             <Link
               href="/login"
               style={{

@@ -1,4 +1,4 @@
-export default function SheetStrip() {
+export default function SheetStrip({ sheet = 'Sheet 01 / Home' }: { sheet?: string }) {
   const sep = <span style={{ color: 'var(--rule)', margin: '0 6px' }}>/</span>
 
   return (
@@ -18,7 +18,7 @@ export default function SheetStrip() {
         <span>
           Project · Houses of Thought {sep} Method · Trapasso / Paul–Elder {sep} Rev. A
         </span>
-        <span style={{ marginLeft: 'auto' }}>Sheet 01 / Home</span>
+        <span style={{ marginLeft: 'auto' }}>{sheet}</span>
       </div>
     </div>
   )

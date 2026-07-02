@@ -23,3 +23,49 @@ export function LogoMark({ stroke = '#14213A' }: { stroke?: string }) {
     </svg>
   )
 }
+
+export function CheckIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="9" stroke="var(--green-strong)" strokeWidth="1.4" fill="none" />
+      <path
+        d="M6 10.5l2.5 2.5L14 7"
+        stroke="var(--green-strong)"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function XIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="9" stroke="var(--warning)" strokeWidth="1.4" fill="none" />
+      <path
+        d="M7 7l6 6M13 7l-6 6"
+        stroke="var(--warning)"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+export function ChevronIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
+      <path
+        d="M4 6l4 4 4-4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
