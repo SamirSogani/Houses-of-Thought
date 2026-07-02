@@ -92,7 +92,7 @@ export default function Footer() {
                 marginTop: 14,
               }}
             >
-              Structured, defensible reasoning — with AI that guides instead of
+              Structured, defensible reasoning, with AI that guides instead of
               deciding.
             </p>
           </div>
