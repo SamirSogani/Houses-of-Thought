@@ -68,6 +68,20 @@ exists to locate the right file, not to invite broad exploration.
   Sign up tabs, no auth logic wired yet), `/how-it-works`, `/educators`,
   `/story`, `/faq` (pre-login marketing pages).
 
+## `components/`
+
+- **Purpose:** Shared React components consumed by `app/` routes.
+- **Belongs here:** Reusable UI. Top-level holds the site shell (`Header`,
+  `SheetStrip`, `Footer` lives under `sections/`), `ScrollReveal`, and
+  `icons.tsx` (shared SVG set). Route-specific building blocks live in
+  `sections/`.
+- **`sections/`:** One component per full-width page section, prefixed by the
+  page it belongs to (`Hero*`, `How*`, `Educator*`, `Faq*`, `Story*`).
+  Cross-page reusable sections have plain names (`CTASection`, `Footer`).
+- **Does NOT belong:** Route entry points (`app/`) or non-UI utilities (`lib/`).
+- **New files:** Add a section component when a page needs a new full-width
+  block; reuse `CTASection` for end-of-page CTAs rather than writing a new one.
+
 ## `lib/`
 
 - **Purpose:** Shared utility modules used by the application.
