@@ -2,19 +2,40 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { LogoMark } from '@/components/icons'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const isLogin = mode === 'login'
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // Auth logic goes here
+    setError(null)
+    setLoading(true)
+
+    const supabase = createClient()
+    const { error } = isLogin
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password })
+
+    setLoading(false)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    router.push(`/welcome?mode=${mode}`)
+    router.refresh()
   }
 
   return (
@@ -77,7 +98,10 @@ export default function LoginPage() {
               {(['login', 'signup'] as const).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => {
+                    setMode(m)
+                    setError(null)
+                  }}
                   style={{
                     flex: 1,
                     height: 40,
@@ -155,6 +179,7 @@ export default function LoginPage() {
                   type="password"
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
                   required
+                  minLength={isLogin ? undefined : 8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={isLogin ? '••••••••' : 'Min. 8 characters'}
@@ -193,12 +218,31 @@ export default function LoginPage() {
                 </div>
               )}
 
+              {error && (
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    color: 'var(--warning)',
+                  }}
+                >
+                  {error}
+                </p>
+              )}
+
               <button
                 type="submit"
                 className="btn-primary"
-                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  marginTop: 8,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? 'default' : 'pointer',
+                }}
               >
-                {isLogin ? 'Log in' : 'Create account'}
+                {loading ? 'Please wait…' : isLogin ? 'Log in' : 'Create account'}
               </button>
             </form>
 

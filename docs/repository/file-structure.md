@@ -64,9 +64,10 @@ exists to locate the right file, not to invite broad exploration.
 - **Purpose:** Next.js App Router — routes, pages, layouts.
 - **Belongs here:** `page.tsx`/`layout.tsx` per route, route-scoped styles.
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
-- **Current routes:** `/` (landing page), `/login` (auth shell, Log in /
-  Sign up tabs, no auth logic wired yet), `/how-it-works`, `/educators`,
-  `/story`, `/faq` (pre-login marketing pages).
+- **Current routes:** `/` (landing page), `/login` (Log in / Sign up tabs,
+  wired to Supabase email/password auth), `/welcome` (placeholder
+  post-auth landing screen), `/how-it-works`, `/educators`, `/story`,
+  `/faq` (pre-login marketing pages).
 
 ## `components/`
 
