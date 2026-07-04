@@ -4,8 +4,9 @@ Ordered SQL migrations for the Supabase Postgres database, and the **tracked
 source of truth** for schema. Apply changes here — never only in the dashboard.
 
 - Filenames: `NNNN_short-name.sql`, applied in ascending order.
-- Apply with the Supabase CLI (`supabase db push`) or by pasting into the SQL
-  editor in order.
+- Apply by pasting each file's SQL into the Supabase SQL editor, in filename
+  order. Record schema changes here first, then run them — these files are the
+  source of truth, not the dashboard.
 - Write migrations idempotently (`if not exists`, `drop ... if exists`,
   `create or replace`) so re-running is safe.
 
