@@ -33,9 +33,19 @@ publishable keys, swap the anon key for the publishable key.
 
 ## Auth UI status
 
-`/login` (`app/login/page.tsx`) is a **UI shell only** — Log in / Sign up tab
-toggle, email + password fields, styled to match the homepage design system.
-No Supabase auth calls are wired in yet; `handleSubmit` is a stub.
+`/login` (`app/login/page.tsx`) is wired to Supabase email/password auth —
+`signInWithPassword` / `signUp`, with loading and error states. On success,
+redirects to `/welcome` (`app/welcome/page.tsx`), a placeholder post-auth
+screen. Verified working end-to-end in production (2026-07-03).
+
+Email confirmation is **off** (Supabase dashboard → Authentication →
+Providers → Email → "Confirm email" disabled) — signup logs the user in
+immediately rather than requiring a confirmation link.
+
+A `public.profiles` table mirrors `auth.users` (id, email, created_at),
+populated via an `on_auth_user_created` trigger on signup, protected by RLS
+(a user can only select/update their own row). This SQL was run directly in
+the Supabase SQL editor and is not tracked as a migration file in this repo.
 
 ## Key architectural boundaries
 
