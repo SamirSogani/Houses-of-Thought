@@ -34,7 +34,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push(`/welcome?mode=${mode}`)
+    router.push('/dashboard')
     router.refresh()
   }
 
