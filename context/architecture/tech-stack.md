@@ -44,8 +44,10 @@ immediately rather than requiring a confirmation link.
 
 A `public.profiles` table mirrors `auth.users` (id, email, created_at),
 populated via an `on_auth_user_created` trigger on signup, protected by RLS
-(a user can only select/update their own row). This SQL was run directly in
-the Supabase SQL editor and is not tracked as a migration file in this repo.
+(a user can only select/update their own row). This SQL was originally run
+directly in the Supabase SQL editor; it is now backfilled as a tracked
+migration at `supabase/migrations/0001_profiles.sql` (reconstructed from this
+description — diff against the live DB before treating it as authoritative).
 
 ## Key architectural boundaries
 
