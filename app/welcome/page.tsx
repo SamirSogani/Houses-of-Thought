@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Header from '@/components/Header'
 
@@ -29,6 +30,26 @@ function WelcomeMessage() {
       >
         {heading}
       </h1>
+
+      <p
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 16,
+          lineHeight: 1.6,
+          color: 'var(--ink-mid)',
+          marginTop: 16,
+        }}
+      >
+        Your Collab workspace is ready. Start building your house of reasoning.
+      </p>
+
+      <Link
+        href="/build"
+        className="btn-primary"
+        style={{ marginTop: 28, justifyContent: 'center' }}
+      >
+        Continue to your house
+      </Link>
     </div>
   )
 }

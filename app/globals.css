@@ -3,13 +3,16 @@
   --ink-mid: #2C3A57;
   --ink-subtle: #5A6B85;
   --rule: #AEB8C7;
+  --rule-soft: #DCE1E8;
   --amber: #F2B021;
   --amber-hover: #D9990C;
+  --amber-tint: rgba(242, 176, 33, 0.14);
   --parchment: #F7F6F2;
   --white: #FFFFFF;
   --green-strong: #3F8F5B;
   --green-mid: #8A7A3F;
   --warning: #C2682B;
+  --blueprint: #3E5C8A;
 
   --font-display: var(--font-fraunces), serif;
   --font-body: var(--font-inter-tight), sans-serif;
@@ -137,6 +140,36 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
   transition: color 0.2s, border-color 0.2s;
 }
 .text-link:hover { color: var(--amber-hover); border-color: var(--amber-hover); }
+
+/* Build a House — mono label helper + entrance animations (handoff 01 §2) */
+.mono {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+.fade-in { animation: fadeIn 0.32s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.pop { animation: pop 0.28s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes pop {
+  0% { transform: scale(0.96); opacity: 0; }
+  60% { transform: scale(1.01); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-in, .pop { animation: none; }
+  .build-bar-fill { transition: none !important; }
+}
+
+/* Thin custom scrollbars for the workspace rails + canvas */
+.build-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.build-scroll::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 6px;
+  border: 3px solid var(--parchment);
+}
 
 /* Scroll reveal */
 [data-reveal] {
