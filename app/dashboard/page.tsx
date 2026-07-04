@@ -1,32 +1,77 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { HouseCard, CreateHouseCard } from '@/components/dashboard/HouseCard'
 import Footer from '@/components/sections/Footer'
-import { houses } from '@/lib/dashboard/houses'
+import { rowToSummary, type HouseRow, type HouseSummary } from '@/lib/dashboard/houses'
+
+// Columns selected for the grid — keep in sync with HouseRow.
+const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at'
+
+const centerNotice: React.CSSProperties = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'var(--parchment)',
+  fontFamily: 'var(--font-mono)',
+  fontSize: 11,
+  letterSpacing: '0.11em',
+  textTransform: 'uppercase',
+  color: 'var(--ink-subtle)',
+}
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
+  const [houses, setHouses] = useState<HouseSummary[] | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Route protection is handled by middleware.ts, so by the time this renders
+  // the user is authenticated; here we only load their houses.
+  const loadHouses = useCallback(async () => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('houses')
+      .select(HOUSE_COLUMNS)
+      .order('updated_at', { ascending: false })
+
+    if (error) {
+      setError('Could not load your houses. Please refresh.')
+      setHouses([])
+      return
+    }
+    setError(null)
+    setHouses((data as HouseRow[]).map(rowToSummary))
+  }, [])
 
   useEffect(() => {
+    loadHouses()
+  }, [loadHouses])
+
+  async function handleCreate() {
+    if (creating) return
+    setCreating(true)
     const supabase = createClient()
-    let active = true
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active) return
-      if (!data.user) {
-        router.replace('/login')
-        return
-      }
-      setReady(true)
-    })
-    return () => {
-      active = false
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      router.replace('/login')
+      return
     }
-  }, [router])
+    const { error } = await supabase.from('houses').insert({ owner_id: user.id })
+    if (error) {
+      setError('Could not create a new house. Please try again.')
+      setCreating(false)
+      return
+    }
+    await loadHouses()
+    setCreating(false)
+  }
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -35,25 +80,8 @@ export default function DashboardPage() {
     router.refresh()
   }
 
-  if (!ready) {
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--parchment)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 11,
-          letterSpacing: '0.11em',
-          textTransform: 'uppercase',
-          color: 'var(--ink-subtle)',
-        }}
-      >
-        Loading your houses…
-      </main>
-    )
+  if (houses === null) {
+    return <main style={centerNotice}>Loading your houses…</main>
   }
 
   return (
@@ -70,6 +98,12 @@ export default function DashboardPage() {
             Build and explore your Houses of Thought.
           </p>
 
+          {error && (
+            <p className="mono" style={{ fontSize: 11, color: 'var(--warning)', marginTop: 16 }}>
+              {error}
+            </p>
+          )}
+
           {/* Grid */}
           <div
             style={{
@@ -82,7 +116,7 @@ export default function DashboardPage() {
             {houses.map((h) => (
               <HouseCard key={h.id} house={h} href="/build" />
             ))}
-            <CreateHouseCard href="/build" />
+            <CreateHouseCard onClick={handleCreate} disabled={creating} />
           </div>
         </div>
       </main>

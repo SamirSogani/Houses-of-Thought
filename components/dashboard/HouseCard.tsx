@@ -102,10 +102,12 @@ export function HouseCard({ house, href }: { house: HouseSummary; href: string }
   )
 }
 
-export function CreateHouseCard({ href }: { href: string }) {
+export function CreateHouseCard({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -113,12 +115,17 @@ export function CreateHouseCard({ href }: { href: string }) {
         justifyContent: 'center',
         gap: 14,
         minHeight: 190,
+        width: '100%',
         border: '1.5px dashed var(--rule)',
         borderRadius: 'var(--radius-card)',
         color: 'var(--ink)',
+        background: 'transparent',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
         transition: 'border-color 0.15s, background 0.15s',
       }}
       onMouseEnter={(e) => {
+        if (disabled) return
         e.currentTarget.style.borderColor = 'var(--ink)'
         e.currentTarget.style.background = 'rgba(20,33,58,0.02)'
       }}
@@ -141,7 +148,9 @@ export function CreateHouseCard({ href }: { href: string }) {
       >
         <PlusIcon size={22} />
       </span>
-      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, color: 'var(--ink)' }}>Create New House</span>
-    </Link>
+      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, color: 'var(--ink)' }}>
+        {disabled ? 'Creating…' : 'Create New House'}
+      </span>
+    </button>
   )
 }

@@ -1,6 +1,7 @@
-// Seed data for the "Your Houses" dashboard. No backend yet; this is the source of
-// truth for the dashboard grid. Progress is measured against the 7 layers of the
-// Build a House flow (see lib/build), so the dashboard and the workspace stay coherent.
+// Types + helpers for the "Your Houses" dashboard. House rows come from Supabase
+// (see app/dashboard/page.tsx); this module maps a DB row to the HouseSummary the
+// grid renders. Progress is measured against the 7 layers of the Build a House flow
+// (see lib/build), so the dashboard and the workspace stay coherent.
 
 export type HouseStatus = 'empty' | 'in-progress' | 'complete'
 
@@ -25,45 +26,40 @@ export const statusMeta: Record<HouseStatus, { label: string; color: string; bg:
   complete: { label: 'Complete', color: 'var(--green-strong)', bg: 'rgba(63,143,91,0.12)' },
 }
 
-export const houses: HouseSummary[] = [
-  {
-    id: 'ai-schools',
-    title: 'Should AI be used in schools?',
-    question: 'Should AI be used in schools?',
-    layersComplete: 6,
-    status: 'in-progress',
-    editedLabel: 'Edited 2d ago',
-  },
-  {
-    id: 'career',
-    title: 'My First House: Choosing a Career',
-    question: 'Which career path best fits my strengths, values, and long-term goals?',
-    layersComplete: 7,
-    status: 'complete',
-    editedLabel: 'Edited Jun 6',
-  },
-  {
-    id: 'untitled-1',
-    title: null,
-    question: null,
-    layersComplete: 0,
-    status: 'empty',
-    editedLabel: 'Edited 6d ago',
-  },
-  {
-    id: 'untitled-2',
-    title: null,
-    question: null,
-    layersComplete: 0,
-    status: 'empty',
-    editedLabel: 'Edited 6d ago',
-  },
-  {
-    id: 'untitled-3',
-    title: null,
-    question: null,
-    layersComplete: 0,
-    status: 'empty',
-    editedLabel: 'Edited 6d ago',
-  },
-]
+// Shape of a public.houses row as selected for the dashboard grid (see 0003).
+export interface HouseRow {
+  id: string
+  title: string | null
+  question: string | null
+  status: HouseStatus
+  layers_complete: number
+  updated_at: string
+}
+
+export function rowToSummary(row: HouseRow): HouseSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    question: row.question,
+    layersComplete: row.layers_complete,
+    status: row.status,
+    editedLabel: editedLabel(row.updated_at),
+  }
+}
+
+// Relative "Edited …" label matching the reference wording (e.g. "Edited 2d ago",
+// falling back to "Edited Jun 6" past a week).
+export function editedLabel(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const min = 60_000
+  const hr = 60 * min
+  const day = 24 * hr
+
+  if (diffMs < min) return 'Edited just now'
+  if (diffMs < hr) return `Edited ${Math.floor(diffMs / min)}m ago`
+  if (diffMs < day) return `Edited ${Math.floor(diffMs / hr)}h ago`
+  if (diffMs < 7 * day) return `Edited ${Math.floor(diffMs / day)}d ago`
+
+  const d = new Date(iso)
+  return `Edited ${d.toLocaleString('en-US', { month: 'short', day: 'numeric' })}`
+}
