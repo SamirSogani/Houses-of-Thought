@@ -4,6 +4,7 @@ import ScrollRevealInit from '@/components/ScrollReveal'
 import HowIntroSection from '@/components/sections/HowIntroSection'
 import HowBuildFlowSection from '@/components/sections/HowBuildFlowSection'
 import HowAiRoleSection from '@/components/sections/HowAiRoleSection'
+import HowCollaborationSection from '@/components/sections/HowCollaborationSection'
 import HowOutcomeSection from '@/components/sections/HowOutcomeSection'
 import CTASection from '@/components/sections/CTASection'
 import Footer from '@/components/sections/Footer'
@@ -18,6 +19,7 @@ export default function HowItWorksPage() {
         <HowIntroSection />
         <HowBuildFlowSection />
         <HowAiRoleSection />
+        <HowCollaborationSection />
         <HowOutcomeSection />
         <CTASection
           eyebrow="Start"

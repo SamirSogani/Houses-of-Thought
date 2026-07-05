@@ -1,4 +1,5 @@
 import { CheckIcon, XIcon } from '@/components/icons'
+import { SparkIcon, PlusIcon } from '@/components/build/buildIcons'
 
 const doesItems = [
   'Asks sharpening questions to pressure-test your framing.',
@@ -75,6 +76,47 @@ export default function HowAiRoleSection() {
             </div>
           </div>
         </div>
+
+        {/* Co-pilot in action: a faithful render of a single suggestion from the rail. */}
+        <figure style={{ marginTop: 32, maxWidth: 540 }}>
+          <figcaption
+            className="mono"
+            style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-subtle)', marginBottom: 12 }}
+          >
+            From the Co-pilot rail
+          </figcaption>
+          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: 18 }}>
+            {/* Intro tile */}
+            <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 11, padding: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', borderRadius: 8, flex: '0 0 auto' }}>
+                <SparkIcon size={14} fill="var(--amber)" />
+              </span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Co-pilot · Evidence</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
+                  Suggestions for this layer only. It guides. You decide what enters the house.
+                </div>
+              </div>
+            </div>
+
+            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', margin: '18px 0 10px' }}>
+              Suggested for this layer
+            </div>
+
+            <div style={{ border: '1px solid var(--rule)', borderRadius: 11, padding: 13 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>
+                Add the OECD figure: 76% of countries now have a national AI-in-schools policy.
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 }}>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>Evidence · sourced</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px' }}>
+                  <PlusIcon size={12} />
+                  Add
+                </span>
+              </div>
+            </div>
+          </div>
+        </figure>
       </div>
     </section>
   )
