@@ -1,59 +1,57 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BuildHousePage } from '@/components/build/BuildHousePage'
 
+// The id-less /build route no longer renders a house. It creates a fresh blank
+// house for the signed-in user and redirects into /build/[id], where load +
+// autosave live. This keeps entry points that link to bare /build working.
 export default function BuildPage() {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
     let active = true
-    supabase.auth.getUser().then(({ data }) => {
+    ;(async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!active || !user) return
+
+      const { data, error } = await supabase
+        .from('houses')
+        .insert({ owner_id: user.id })
+        .select('id')
+        .single()
       if (!active) return
-      if (!data.user) {
-        router.replace('/login')
+      if (error || !data) {
+        router.replace('/dashboard')
         return
       }
-      setUserEmail(data.user.email ?? null)
-      setReady(true)
-    })
+      router.replace(`/build/${data.id}`)
+    })()
     return () => {
       active = false
     }
   }, [router])
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
-
-  if (!ready) {
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--parchment)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 11,
-          letterSpacing: '0.11em',
-          textTransform: 'uppercase',
-          color: 'var(--ink-subtle)',
-        }}
-      >
-        Loading your house…
-      </main>
-    )
-  }
-
-  return <BuildHousePage userEmail={userEmail} onSignOut={handleSignOut} />
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--parchment)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        letterSpacing: '0.11em',
+        textTransform: 'uppercase',
+        color: 'var(--ink-subtle)',
+      }}
+    >
+      Creating your house…
+    </main>
+  )
 }

@@ -4,8 +4,11 @@
 // + toast. Owns the reducer. See handoff 02 §3 / 05 §1.
 
 import { useEffect, useReducer, useRef } from 'react'
-import { reducer, initialState } from '@/lib/build/state'
+import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
+import { saveHouse, serializeContent } from '@/lib/build/persistence'
+import { createClient } from '@/lib/supabase/client'
+import type { State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
 import { ContextBar } from './ContextBar'
 import { BlueprintRail } from './BlueprintRail'
@@ -17,9 +20,13 @@ import { WhatsNewDrawer } from './WhatsNewDrawer'
 import { Toast } from './Toast'
 
 export function BuildHousePage({
+  houseId,
+  initialState,
   userEmail,
   onSignOut,
 }: {
+  houseId: string
+  initialState: State
   userEmail: string | null
   onSignOut: () => void
 }) {
@@ -27,6 +34,8 @@ export function BuildHousePage({
   const strength = computeStrength(state)
   const canvasRef = useRef<HTMLElement>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const firstSave = useRef(true)
 
   // Toast auto-dismiss after 2200ms; a new toast resets the timer (04 §13).
   useEffect(() => {
@@ -37,6 +46,26 @@ export function BuildHousePage({
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
   }, [state.toast])
+
+  // Debounced autosave. Keyed on the persistable content only (contentKey), so
+  // ephemeral changes (step, tabs, toast, invite) never trigger a write. Skips
+  // the first render after load — that state matches the DB already.
+  const contentKey = serializeContent(state)
+  useEffect(() => {
+    if (firstSave.current) {
+      firstSave.current = false
+      return
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveHouse(createClient(), houseId, state)
+    }, 800)
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+    // contentKey is the intended dependency; state is read inside the timer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentKey, houseId])
 
   // Every navigation scrolls the canvas to top (02 §10).
   useEffect(() => {

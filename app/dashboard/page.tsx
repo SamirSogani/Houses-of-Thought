@@ -63,14 +63,17 @@ export default function DashboardPage() {
       router.replace('/login')
       return
     }
-    const { error } = await supabase.from('houses').insert({ owner_id: user.id })
-    if (error) {
+    const { data, error } = await supabase
+      .from('houses')
+      .insert({ owner_id: user.id })
+      .select('id')
+      .single()
+    if (error || !data) {
       setError('Could not create a new house. Please try again.')
       setCreating(false)
       return
     }
-    await loadHouses()
-    setCreating(false)
+    router.push(`/build/${data.id}`)
   }
 
   async function handleSignOut() {
@@ -114,7 +117,7 @@ export default function DashboardPage() {
             }}
           >
             {houses.map((h) => (
-              <HouseCard key={h.id} house={h} href="/build" />
+              <HouseCard key={h.id} house={h} href={`/build/${h.id}`} />
             ))}
             <CreateHouseCard onClick={handleCreate} disabled={creating} />
           </div>
