@@ -3,8 +3,9 @@
 Move the logged-in app off in-memory seed data and onto Supabase. Houses,
 dashboard summaries, and profiles become real, per-user, durable records.
 
-**Status:** In progress (started 2026-07-04). Phases 0–1, 4 done; Phase 2/3
-dashboard subsection done. Next: `/build` per-house load + autosave.
+**Status:** Core complete (2026-07-04). All phases (0–4) done: `/profile` and
+`/build` now read/write real per-user rows. Remaining work is the follow-up
+items below (collaboration UI, `/try` import, atomic-save RPC).
 
 Schema shape and scope: **fully normalized** tables, **single-owner** scope
 ([decisions/002-house-schema.md](../../../decisions/002-house-schema.md),
@@ -57,13 +58,14 @@ middleware layer — unauthenticated requests redirect to `/login?next=<path>`.
 - Removed now-redundant client-side auth guard from `/dashboard/page.tsx`.
 - `CreateHouseCard` Link → button with `onClick` + loading state.
 
-⏳ **Phase 3 (profile + builder)** — planned, not started. Two execution-ready
-handoffs; a fresh session can run either cold. Do profile first, then builder:
-- [phase-3-profile.md](phase-3-profile.md) — `/profile` read/write to `profiles`.
-  Small; re-proves the round-trip.
-- [phase-3-builder.md](phase-3-builder.md) — `/build` → `/build/[id]`: load a
-  house into the reducer, debounced autosave. The big one; watch the integer-id
-  ↔ uuid mapping and the ephemeral-field exclusions called out there.
+✅ **Phase 3 (profile + builder)** (2026-07-04).
+- [phase-3-profile.md](phase-3-profile.md) — `/profile` reads its `profiles` row
+  and debounce-saves edits (`rowToProfile`/`profileToRow`); blocks invalid
+  usernames, surfaces `23505` as "taken".
+- [phase-3-builder.md](phase-3-builder.md) — `/build` → `/build/[id]`: `loadHouse`
+  seeds the reducer, ~800ms debounced `saveHouse` (whole-house replace). Mapping
+  lives at `lib/build/persistence.ts`; the reducer's integer ids ↔ uuids and the
+  ephemeral-field exclusions are handled there. New houses load blank.
 
 ## Deferred to follow-up milestones
 
