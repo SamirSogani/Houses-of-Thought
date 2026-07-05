@@ -5,9 +5,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
-  initialProfile,
   perspectiveFields,
+  profileToRow,
   usernameError,
   type AccountType,
   type PerspectiveKey,
@@ -25,32 +26,41 @@ const twoCol: React.CSSProperties = {
   gap: 16,
 }
 
-export function ProfileForm({ username }: { username?: string }) {
-  const [profile, setProfile] = useState<ProfileData>(() => ({
-    ...initialProfile,
-    username: username || initialProfile.username,
-  }))
+export function ProfileForm({ initial, userId }: { initial: ProfileData; userId: string }) {
+  const [profile, setProfile] = useState<ProfileData>(initial)
   const [save, setSave] = useState<SaveState>('saved')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [tourNote, setTourNote] = useState(false)
+  const [taken, setTaken] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstRender = useRef(true)
 
   const nameError = usernameError(profile.username)
 
-  // Debounced "auto-save" indicator. Local only; there is no persistence layer yet.
+  // Debounced auto-save to public.profiles. Skips the first render (the loaded
+  // state) and never writes while the username is locally invalid.
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
       return
     }
+    if (nameError) return
     setSave('saving')
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => setSave('saved'), 650)
+    saveTimer.current = setTimeout(async () => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileToRow(profile))
+        .eq('id', userId)
+      // 23505 = unique_violation: the username is already taken by another user.
+      setTaken(error?.code === '23505')
+      setSave('saved')
+    }, 650)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [profile])
+  }, [profile, nameError, userId])
 
   const set = <K extends keyof ProfileData>(key: K, value: ProfileData[K]) =>
     setProfile((p) => ({ ...p, [key]: value }))
@@ -84,8 +94,9 @@ export function ProfileForm({ username }: { username?: string }) {
         {/* Username */}
         <SectionCard>
           <FieldLabel label="Username" helper="How teachers and classmates see you in classrooms. 3-30 characters: letters, numbers, underscore, dot, or dash." />
-          <TextInput value={profile.username} onChange={(v) => set('username', v)} ariaLabel="Username" invalid={!!nameError} />
+          <TextInput value={profile.username} onChange={(v) => set('username', v)} ariaLabel="Username" invalid={!!nameError || taken} />
           {nameError && <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>{nameError}</p>}
+          {!nameError && taken && <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>That username is taken.</p>}
         </SectionCard>
 
         {/* Account Type */}

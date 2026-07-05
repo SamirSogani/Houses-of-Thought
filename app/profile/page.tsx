@@ -6,30 +6,47 @@ import { createClient } from '@/lib/supabase/client'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { ProfileForm } from '@/components/profile/ProfileForm'
 import Footer from '@/components/sections/Footer'
+import { rowToProfile, type ProfileData, type ProfileRow } from '@/lib/profile/data'
+
+// Columns selected for the form — keep in sync with ProfileRow.
+const PROFILE_COLUMNS =
+  'username, account_type, about_me, current_project, role, location, perspectives'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
-  const [seedUsername, setSeedUsername] = useState<string | undefined>(undefined)
+  const [initial, setInitial] = useState<ProfileData | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
+  // Route protection is handled by middleware.ts; here we only load the profile.
   useEffect(() => {
     const supabase = createClient()
     let active = true
-    supabase.auth.getUser().then(({ data }) => {
+    ;(async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!active || !user) return
+
+      const { data: row } = await supabase
+        .from('profiles')
+        .select(PROFILE_COLUMNS)
+        .eq('id', user.id)
+        .maybeSingle()
       if (!active) return
-      if (!data.user) {
-        router.replace('/login')
-        return
+
+      const profile = rowToProfile(row as ProfileRow | null)
+      // Seed the username from the email local-part only when the DB value is null.
+      if (!profile.username) {
+        const local = user.email?.split('@')[0]
+        if (local) profile.username = local
       }
-      // Seed the username field from the email local-part if present.
-      const local = data.user.email?.split('@')[0]
-      if (local) setSeedUsername(local)
-      setReady(true)
-    })
+      setUserId(user.id)
+      setInitial(profile)
+    })()
     return () => {
       active = false
     }
-  }, [router])
+  }, [])
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -38,7 +55,7 @@ export default function ProfilePage() {
     router.refresh()
   }
 
-  if (!ready) {
+  if (initial === null || userId === null) {
     return (
       <main
         style={{
@@ -65,7 +82,7 @@ export default function ProfilePage() {
 
       <main style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(28px, 4vw, 48px)', maxWidth: 900 }}>
-          <ProfileForm username={seedUsername} />
+          <ProfileForm initial={initial} userId={userId} />
         </div>
       </main>
 

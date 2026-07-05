@@ -84,6 +84,51 @@ export const initialProfile: ProfileData = {
   perspectives: { biological: '', social: '', familial: '', individual: '' },
 }
 
+// Shape of a public.profiles row (see 0002_profiles_extend.sql). Column names are
+// snake_case; username is nullable until the user sets one.
+export interface ProfileRow {
+  username: string | null
+  account_type: AccountType
+  about_me: string
+  current_project: string
+  role: string
+  location: string
+  perspectives: Record<PerspectiveKey, string> | null
+}
+
+// Map a DB row (or null, when the row is somehow missing) to the form's camelCase
+// shape. A null username becomes '' so the page can seed it from the email.
+export function rowToProfile(row: ProfileRow | null): ProfileData {
+  return {
+    username: row?.username ?? '',
+    accountType: row?.account_type ?? 'standard',
+    aboutMe: row?.about_me ?? '',
+    currentProject: row?.current_project ?? '',
+    role: row?.role ?? '',
+    location: row?.location ?? '',
+    perspectives: {
+      biological: row?.perspectives?.biological ?? '',
+      social: row?.perspectives?.social ?? '',
+      familial: row?.perspectives?.familial ?? '',
+      individual: row?.perspectives?.individual ?? '',
+    },
+  }
+}
+
+// Map the form shape back to a profiles row for update(). An empty username is
+// stored as null so the nullable unique/regex constraints are satisfied.
+export function profileToRow(p: ProfileData): ProfileRow {
+  return {
+    username: p.username || null,
+    account_type: p.accountType,
+    about_me: p.aboutMe,
+    current_project: p.currentProject,
+    role: p.role,
+    location: p.location,
+    perspectives: p.perspectives,
+  }
+}
+
 // Username rule from the reference: 3-30 chars; letters, numbers, underscore, dot, dash.
 const USERNAME_RE = /^[A-Za-z0-9_.-]{3,30}$/
 
