@@ -44,9 +44,9 @@ export default function ExamplesPage() {
                 maxWidth: '60ch',
               }}
             >
-              Browse complete Houses of Thought across decisions, debates, and classroom
-              topics. Every one is a real, finished house — open it and inspect the perspectives,
-              cited evidence, and stress-tested conclusion.
+              Browse finished Houses of Thought across decisions, debates, and classroom
+              topics. Open any of them to read the perspectives, check the cited evidence,
+              and see how the conclusion holds up.
             </p>
 
             {/* Filter chips */}
@@ -177,7 +177,7 @@ function ExampleCard({ example }: { example: ExampleHouse }) {
           marginTop: 10,
         }}
       >
-        {example.stance}
+        {example.summary}
       </p>
 
       {/* Mini axis bars */}
