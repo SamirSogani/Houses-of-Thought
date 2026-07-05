@@ -57,10 +57,13 @@ middleware layer — unauthenticated requests redirect to `/login?next=<path>`.
 - Removed now-redundant client-side auth guard from `/dashboard/page.tsx`.
 - `CreateHouseCard` Link → button with `onClick` + loading state.
 
-⏳ **Phase 3 (profile + builder)** (next).
-- Profile `/profile/page.tsx`: read/write `profiles` (small, can run parallel).
-- Builder `/build` → `/build/[id]`: load a specific house, hydrate the reducer
-  from 4 child tables, debounced autosave back. Most complex piece.
+⏳ **Phase 3 (profile + builder)** — planned, not started. Two execution-ready
+handoffs; a fresh session can run either cold. Do profile first, then builder:
+- [phase-3-profile.md](phase-3-profile.md) — `/profile` read/write to `profiles`.
+  Small; re-proves the round-trip.
+- [phase-3-builder.md](phase-3-builder.md) — `/build` → `/build/[id]`: load a
+  house into the reducer, debounced autosave. The big one; watch the integer-id
+  ↔ uuid mapping and the ephemeral-field exclusions called out there.
 
 ## Deferred to follow-up milestones
 
