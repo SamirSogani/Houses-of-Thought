@@ -10,7 +10,7 @@ export default function ProblemSection() {
           </h2>
           <p className="body-text" style={{ maxWidth: '54ch', margin: '20px auto 0' }}>
             AI can sound certain and still be wrong. You can&rsquo;t see the
-            assumptions, the evidence, or the perspectives it skipped — so you
+            assumptions, the evidence, or the perspectives it skipped, so you
             can&rsquo;t defend it, and you don&rsquo;t learn anything.
           </p>
         </div>

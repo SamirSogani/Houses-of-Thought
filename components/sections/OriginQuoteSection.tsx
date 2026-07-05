@@ -19,7 +19,7 @@ export default function OriginQuoteSection() {
           }}
         >
           &ldquo;Built by a student, around a framework his teacher chose to
-          share — John Trapasso&rsquo;s House of Reason, derived from the
+          share: John Trapasso&rsquo;s House of Reason, derived from the
           Paul–Elder model for critical thinking.&rdquo;
         </blockquote>
 

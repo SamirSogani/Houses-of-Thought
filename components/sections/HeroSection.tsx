@@ -136,7 +136,7 @@ export default function HeroSection() {
           >
             For hard decisions and arguments that deserve more than a chat reply.
             Houses of Thought turns a question into structured, defensible
-            reasoning — with AI that guides instead of deciding.
+            reasoning, with AI that guides instead of deciding.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 32 }}>
@@ -171,7 +171,7 @@ export default function HeroSection() {
                 marginBottom: 16,
               }}
             >
-              <span>House — Detail</span>
+              <span>House / Detail</span>
               <span>Foundation → Roof</span>
             </div>
 

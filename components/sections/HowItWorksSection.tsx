@@ -9,12 +9,12 @@ const steps = [
   {
     num: '02',
     title: 'Explore perspectives and evidence.',
-    body: 'AI guides with questions and cites real sources in Research Mode — it won’t write your conclusion for you.',
+    body: 'AI guides with questions and cites real sources in Research Mode. It won’t write your conclusion for you.',
   },
   {
     num: '03',
     title: 'Reach a conclusion you can defend.',
-    body: 'See a House Strength score across evidence, logic, and coverage — then stress-test it.',
+    body: 'See a House Strength score across evidence, logic, and coverage, then stress-test it.',
   },
 ]
 

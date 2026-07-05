@@ -22,13 +22,13 @@ export default function EducatorsSection() {
         <div style={{ flex: '1 1 360px', minWidth: 280 }}>
           <p className="eyebrow">Section 06 — Built for classrooms</p>
           <h2 className="h2" style={{ marginTop: 16 }}>
-            Make critical thinking visible — and gradeable.
+            Make critical thinking visible, and gradeable.
           </h2>
           <p className="body-text" style={{ marginTop: 16, maxWidth: '48ch' }}>
-            Teachers use Houses of Thought to see how students reason, not just
-            what they conclude. Every layer is visible, scored, and open to
-            feedback — turning a black-box essay into a transparent structure
-            you can discuss, grade, and improve.
+            Teachers use Houses of Thought to follow how students reason their
+            way to an answer, layer by layer. Every layer is visible, scored,
+            and open to feedback, so a black-box essay becomes a transparent
+            structure you can discuss, grade, and improve.
           </p>
           <div style={{ marginTop: 24 }}>
             <Link href="/educators" className="text-link">

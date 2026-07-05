@@ -8,7 +8,7 @@ const layerDefs: Record<LayerKey, { num: string; name: string; definition: strin
   concepts: {
     num: '01',
     name: 'Concepts',
-    definition: 'The key terms that frame the topic — defined before you reason, so everyone shares the same vocabulary.',
+    definition: 'The key terms that frame the topic, defined before you reason so everyone shares the same vocabulary.',
   },
   question: {
     num: '02',
@@ -18,7 +18,7 @@ const layerDefs: Record<LayerKey, { num: string; name: string; definition: strin
   perspectives: {
     num: '03',
     name: 'Perspectives',
-    definition: 'Three lenses on the question — Self, Group, and Ideas — so you reason past your own point of view.',
+    definition: 'Three lenses on the question (Self, Group, and Ideas), so you reason past your own point of view.',
   },
   evidence: {
     num: '04',
@@ -28,7 +28,7 @@ const layerDefs: Record<LayerKey, { num: string; name: string; definition: strin
   assumptions: {
     num: '05',
     name: 'Assumptions',
-    definition: 'Beliefs taken as true without direct evidence — including the unknown unknowns you might miss.',
+    definition: 'Beliefs taken as true without direct evidence, including the unknown unknowns you might miss.',
   },
   conclusion: {
     num: '06',
@@ -38,7 +38,7 @@ const layerDefs: Record<LayerKey, { num: string; name: string; definition: strin
   implications: {
     num: '07',
     name: 'Implications',
-    definition: 'What follows from the conclusion — sorted into positive, negative, and uncertain.',
+    definition: 'What follows from the conclusion, sorted into positive, negative, and uncertain.',
   },
 }
 
@@ -136,8 +136,8 @@ export default function InteractiveHouseSection() {
           <p className="eyebrow">Section 03 — What a house is</p>
           <h2 className="h2" style={{ marginTop: 16 }}>Reasoning, built one layer at a time.</h2>
           <p className="body-text" style={{ marginTop: 16 }}>
-            Every house is built from the foundation up — each layer depending
-            on the ones below it. Hover or tap a layer to see what it holds.
+            Every house is built from the foundation up, each layer resting on
+            the ones below it. Hover or tap a layer to see what it holds.
           </p>
         </div>
 

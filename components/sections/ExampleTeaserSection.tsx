@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 const perspectives = [
-  { label: 'Students', questions: '6 questions', desc: 'Want tools that help them learn — not surveillance.' },
+  { label: 'Students', questions: '6 questions', desc: 'Want tools that help them learn rather than watch them.' },
   { label: 'Teachers', questions: '8 questions', desc: 'Worry that shortcuts will replace the thinking.' },
   { label: 'Parents', questions: '5 questions', desc: 'Split between screen-time fears and opportunity.' },
 ]

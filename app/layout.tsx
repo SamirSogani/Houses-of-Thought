@@ -26,7 +26,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Houses of Thought — Structured, Defensible Reasoning',
   description:
-    'Build the reasoning, not just the answer. Houses of Thought turns a question into structured, defensible reasoning — with AI that guides instead of deciding.',
+    'Build the reasoning, not just the answer. Houses of Thought turns a question into structured, defensible reasoning, with AI that guides instead of deciding.',
 }
 
 export default function RootLayout({

@@ -49,7 +49,7 @@ export default function FinalCtaSection() {
             marginTop: 22,
           }}
         >
-          No sign-up to try — your work is saved locally until you create an
+          No sign-up to try. Your work is saved locally until you create an
           account.
         </p>
       </div>

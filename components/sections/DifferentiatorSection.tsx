@@ -11,7 +11,7 @@ const columns = [
   },
   {
     title: 'Grounded in evidence',
-    body: 'Research Mode cites real sources, so the reasoning rests on facts you can check — not on hallucination.',
+    body: 'Research Mode cites real sources, so the reasoning rests on facts you can check instead of on hallucination.',
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
         <rect x="6" y="4" width="16" height="20" rx="2" stroke="#F2B021" strokeWidth="1.4" fill="none" />
