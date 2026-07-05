@@ -63,7 +63,7 @@ export default function ProblemSection() {
                   color: 'var(--rule)',
                 }}
               >
-                ASSISTANT
+                ChatGPT
               </span>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--ink-mid)', marginTop: 8, lineHeight: 1.6 }}>
                 &ldquo;Yes, you should definitely do it. It&rsquo;s the best option.&rdquo;
