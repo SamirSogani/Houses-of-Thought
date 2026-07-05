@@ -26,6 +26,7 @@ export default function BuildPage() {
         .single()
       if (!active) return
       if (error || !data) {
+        console.error('Failed to create house:', error)
         router.replace('/dashboard')
         return
       }

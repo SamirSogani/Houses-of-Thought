@@ -40,6 +40,7 @@ export default function DashboardPage() {
       .order('updated_at', { ascending: false })
 
     if (error) {
+      console.error('Failed to load houses:', error)
       setError('Could not load your houses. Please refresh.')
       setHouses([])
       return
@@ -60,6 +61,7 @@ export default function DashboardPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
+      setCreating(false)
       router.replace('/login')
       return
     }
@@ -69,6 +71,12 @@ export default function DashboardPage() {
       .select('id')
       .single()
     if (error || !data) {
+      // Log the fields as a flat string — the dev overlay collapses raw error
+      // objects to `{}`, hiding the message/code/hint that actually matter.
+      const e = error as { message?: string; code?: string; details?: string; hint?: string; status?: number } | null
+      console.error(
+        `Failed to create house — status=${e?.status ?? ''} code=${e?.code ?? ''} message=${e?.message ?? ''} details=${e?.details ?? ''} hint=${e?.hint ?? ''}`
+      )
       setError('Could not create a new house. Please try again.')
       setCreating(false)
       return
