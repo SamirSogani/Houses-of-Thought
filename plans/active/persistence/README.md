@@ -3,9 +3,12 @@
 Move the logged-in app off in-memory seed data and onto Supabase. Houses,
 dashboard summaries, and profiles become real, per-user, durable records.
 
-**Status:** Planned (2026-07-04). Schema shape and scope decided in
-[decisions/002-house-schema.md](../../../decisions/002-house-schema.md):
-**fully normalized** tables, **single-owner** scope for this first cut.
+**Status:** In progress (started 2026-07-04). Phases 0–1, 4 done; Phase 2/3
+dashboard subsection done. Next: `/build` per-house load + autosave.
+
+Schema shape and scope: **fully normalized** tables, **single-owner** scope
+([decisions/002-house-schema.md](../../../decisions/002-house-schema.md),
+[decisions/003-collaboration-model.md](../../../decisions/003-collaboration-model.md)).
 
 ## Starting point
 
@@ -32,27 +35,32 @@ dashboard summaries, and profiles become real, per-user, durable records.
 
 ## Phases
 
-**Phase 0 — Migrations foundation.** Adopt `supabase/migrations/*.sql` as the
-tracked source of truth. `0001_profiles.sql` backfills the hand-run `profiles`
-SQL so repo == live DB. *(Scaffolded 2026-07-04; diff `0001` against live DB.)*
+✅ **Phase 0 — Migrations foundation** (2026-07-04).
+Adopt `supabase/migrations/*.sql` as tracked source of truth. `0001_profiles.sql`
+backfills the hand-run `profiles` SQL so repo == live DB.
 
-**Phase 1 — Schema + RLS.** `0002_profiles_extend.sql` (profile columns +
-unique username), `0003_houses.sql` (houses + child tables + RLS).
+✅ **Phase 1 — Schema + RLS** (2026-07-04).
+- `0002_profiles_extend.sql`: profile columns + unique username.
+- `0003_houses.sql`: houses + 4 child tables + owner-only RLS.
+- `0004_collaborators.sql`: collaborators table + access helpers; RLS rewritten
+  to honor collaborators (foundation only, no app feature yet).
+All three migrations applied to live DB.
 
-**Phase 2 — Data-access layer.** Replace the three seed modules with typed
-Supabase queries; keep `lib/build/types.ts` shapes as the row contracts. Derive
-`layers_complete`/`status` via existing `computeStrength`/`layerKey` helpers.
+✅ **Phase 4 — Route protection** (2026-07-04).
+`middleware.ts` now server-guards `/dashboard`, `/build`, `/profile` at the
+middleware layer — unauthenticated requests redirect to `/login?next=<path>`.
 
-**Phase 3 — Wire the UI.**
-- Dashboard lists the user's houses; "create house" inserts a row.
-- Refactor `/build` → `/build/[id]`: hydrate the reducer from rows,
-  debounced autosave back. UI-only reducer fields (step, tabs, toast,
-  inviteOpen) stay ephemeral — never persisted.
-- Profile reads/writes `profiles`.
+⏳ **Phase 2 + Phase 3 (dashboard subsection)** (2026-07-04).
+- Dashboard queries the signed-in user's `houses` on mount, ordered by
+  `updated_at` desc.
+- "Create New House" inserts a real row and refreshes the grid.
+- Removed now-redundant client-side auth guard from `/dashboard/page.tsx`.
+- `CreateHouseCard` Link → button with `onClick` + loading state.
 
-**Phase 4 — Route protection.** `middleware.ts` (`@supabase/ssr`
-`updateSession`) refreshes tokens and server-guards `/dashboard`, `/build`,
-`/profile`.
+⏳ **Phase 3 (profile + builder)** (next).
+- Profile `/profile/page.tsx`: read/write `profiles` (small, can run parallel).
+- Builder `/build` → `/build/[id]`: load a specific house, hydrate the reducer
+  from 4 child tables, debounced autosave back. Most complex piece.
 
 ## Deferred to follow-up milestones
 
