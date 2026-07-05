@@ -158,21 +158,39 @@ export default function HowBuildFlowSection() {
   const [activeStep, setActiveStep] = useState(0)
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
 
+  // Highlight the step whose card sits nearest the vertical center of the
+  // viewport as you scroll. A plain scroll handler is used instead of an
+  // IntersectionObserver: the previous observer keyed off a 10%-tall band with
+  // thresholds a taller-than-band card can never reach, so it never advanced.
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = stepRefs.current.findIndex((el) => el === entry.target)
-            if (idx !== -1) setActiveStep(idx)
-          }
-        })
-      },
-      { rootMargin: '-45% 0px -45% 0px', threshold: [0, 0.5, 1] }
-    )
-
-    stepRefs.current.forEach((el) => el && observer.observe(el))
-    return () => observer.disconnect()
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const line = window.innerHeight / 2
+      let nearest = 0
+      let nearestDist = Infinity
+      stepRefs.current.forEach((el, i) => {
+        if (!el) return
+        const rect = el.getBoundingClientRect()
+        const dist = Math.abs(rect.top + rect.height / 2 - line)
+        if (dist < nearestDist) {
+          nearestDist = dist
+          nearest = i
+        }
+      })
+      setActiveStep(nearest)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [])
 
   return (
@@ -187,7 +205,10 @@ export default function HowBuildFlowSection() {
           </h2>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(32px, 5vw, 72px)', alignItems: 'flex-start', marginTop: 44 }}>
+        {/* No alignItems override: the columns stretch to equal height so the
+            left column is taller than the diagram, giving position: sticky the
+            travel room it needs to stay pinned while the steps scroll past. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(32px, 5vw, 72px)', marginTop: 44 }}>
           <div style={{ flex: '1 1 320px' }}>
             <HouseDiagram activeLayers={steps[activeStep].layers} stepLabel={`Step 0${activeStep + 1}`} />
           </div>
