@@ -8,7 +8,7 @@
 // perspective detail, conclusion, reasoning) is the stored copy in
 // lib/build/content.ts. It is rendered verbatim, not re-authored.
 
-import type { State } from '@/lib/build/types'
+import type { PersonKey, State } from '@/lib/build/types'
 import { blankState } from '@/lib/build/persistence'
 import { initialState } from '@/lib/build/state'
 import {
@@ -43,13 +43,32 @@ export interface ExampleHouse {
   detail?: Record<number, PerspectiveDetail>
 }
 
+// Perspectives here are authored at the card level (no drill-in detail), so the
+// detail fields normalize to empty. `questions` in the source data is ignored.
+type SeedPerspective = { id: number; name: string; summary: string; questions?: number; strength: number; owner: PersonKey }
+
 // Fill the ephemeral/default State fields, override only real content. Concepts
-// are authored as plain term strings here and normalized to { term, definition }.
-function mkHouse({ concepts, ...content }: Omit<Partial<State>, 'concepts'> & { concepts?: string[] }): State {
+// are authored as plain term strings and normalized to { term, definition }.
+function mkHouse({
+  concepts,
+  perspectives,
+  ...content
+}: Omit<Partial<State>, 'concepts' | 'perspectives'> & { concepts?: string[]; perspectives?: SeedPerspective[] }): State {
   return {
     ...blankState(),
     ...content,
     concepts: (concepts ?? []).map((term) => ({ term, definition: '' })),
+    perspectives: (perspectives ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      summary: p.summary,
+      stance: '',
+      subQuestions: [],
+      supportingEvidence: [],
+      counters: [],
+      strength: p.strength,
+      owner: p.owner,
+    })),
   }
 }
 

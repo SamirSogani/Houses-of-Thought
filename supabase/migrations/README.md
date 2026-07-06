@@ -20,6 +20,7 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0006_fix_houses_select_returning.sql` | houses | Rewrites `houses_select` to check `owner_id` directly + `is_house_collaborator()` helper; fixes RLS violation on `INSERT ... RETURNING` (create house) |
 | `0007_houses_frame_conclusion.sql` | houses | Adds `purpose` / `conclusion` / `reasoning` columns so the builder persists the editable Frame + Conclusion prose (`question` already existed in `0003`) |
 | `0008_house_concept_definitions.sql` | houses | Adds `concept_definitions text[]` (parallel to `concepts`) so each Frame concept can carry a definition |
+| `0009_perspective_detail.sql` | houses | Adds `stance` / `sub_questions` / `supporting_evidence` / `counters` to `house_perspectives` so the drill-in detail is editable and persisted |
 
 ## Applying to a fresh database
 

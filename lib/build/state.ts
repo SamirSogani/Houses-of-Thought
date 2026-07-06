@@ -1,9 +1,32 @@
 // Initial seed (03 §2) + reducer for every action (03 §8, 04-INTERACTIONS.md).
 // Toast auto-dismiss timing lives in the view; the reducer only sets the string.
 
-import type { Action, ImplicationKind, State } from './types'
+import type { Action, ImplicationKind, PersonKey, Perspective, State } from './types'
 import { people, ownerCycle } from './people'
-import { layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary } from './content'
+import { layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary, perspectiveDetails } from './content'
+
+// Seed the demo house's perspectives with their rich detail (stance, sub-questions,
+// supporting evidence, counterarguments) from content.ts, so initialState carries
+// the same editable detail a user would build by hand.
+const perspectiveSeed: { id: number; name: string; summary: string; strength: number; owner: PersonKey }[] = [
+  { id: 1, name: 'Students', summary: 'Benefit most when AI tutors rather than answers.', strength: 78, owner: 'maya' },
+  { id: 2, name: 'Teachers', summary: 'Gain prep leverage but face new oversight duties.', strength: 64, owner: 'maya' },
+  { id: 3, name: 'Parents', summary: 'Supportive when given transparency and opt-outs.', strength: 55, owner: 'devan' },
+  { id: 4, name: 'Society', summary: 'Benefits are real but unevenly distributed today.', strength: 60, owner: 'devan' },
+  { id: 5, name: 'Employers', summary: 'Value AI-fluent graduates, reshaping entry roles.', strength: 72, owner: 'you' },
+  { id: 6, name: 'Administrators', summary: 'Balance cost, liability, and measurable outcomes.', strength: 58, owner: 'you' },
+]
+
+const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
+  const d = perspectiveDetails[p.id]
+  return {
+    ...p,
+    stance: d.stance,
+    subQuestions: d.questions,
+    supportingEvidence: d.evidence,
+    counters: d.counters,
+  }
+})
 import { suggestions } from './suggestions'
 import { computeStrength } from './strength'
 
@@ -28,14 +51,7 @@ export const initialState: State = {
     { term: 'Data privacy', definition: '' },
   ],
 
-  perspectives: [
-    { id: 1, name: 'Students', summary: 'Benefit most when AI tutors rather than answers.', questions: 3, strength: 78, owner: 'maya' },
-    { id: 2, name: 'Teachers', summary: 'Gain prep leverage but face new oversight duties.', questions: 3, strength: 64, owner: 'maya' },
-    { id: 3, name: 'Parents', summary: 'Supportive when given transparency and opt-outs.', questions: 2, strength: 55, owner: 'devan' },
-    { id: 4, name: 'Society', summary: 'Benefits are real but unevenly distributed today.', questions: 2, strength: 60, owner: 'devan' },
-    { id: 5, name: 'Employers', summary: 'Value AI-fluent graduates, reshaping entry roles.', questions: 2, strength: 72, owner: 'you' },
-    { id: 6, name: 'Administrators', summary: 'Balance cost, liability, and measurable outcomes.', questions: 2, strength: 58, owner: 'you' },
-  ],
+  perspectives: seededPerspectives,
 
   evidence: [
     { id: 1, text: 'Global K-12 AI-in-education market projected to reach $32B by 2027.', source: 'HolonIQ Global Education Outlook (2025)', owner: 'devan', byAI: false },
@@ -77,6 +93,12 @@ export const initialState: State = {
 
 function nextId(items: { id: number }[]): number {
   return items.reduce((max, i) => Math.max(max, i.id), 0) + 1
+}
+
+// Replace the perspective with id `pid` by applying `fn`. Keeps the detail-edit
+// cases below terse.
+function mapPerspective(state: State, pid: number, fn: (p: Perspective) => Perspective): State {
+  return { ...state, perspectives: state.perspectives.map((p) => (p.id === pid ? fn(p) : p)) }
 }
 
 const implicationHorizon: Record<ImplicationKind, 'Near-term' | 'Long-term'> = {
@@ -131,7 +153,10 @@ export function reducer(state: State, action: Action): State {
             id: nextId(state.perspectives),
             name: '',
             summary: '',
-            questions: 0,
+            stance: '',
+            subQuestions: [],
+            supportingEvidence: [],
+            counters: [],
             strength: 0,
             owner: 'you',
           },
@@ -153,6 +178,39 @@ export function reducer(state: State, action: Action): State {
         perspectives: state.perspectives.filter((p) => p.id !== action.id),
         activePerspective: state.activePerspective === action.id ? null : state.activePerspective,
       }
+
+    case 'ADD_SUBQUESTION':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, subQuestions: [...p.subQuestions, { q: '', note: '' }] }))
+
+    case 'EDIT_SUBQUESTION':
+      return mapPerspective(state, action.pid, (p) => ({
+        ...p,
+        subQuestions: p.subQuestions.map((sq, i) => (i === action.idx ? { ...sq, [action.field]: action.value } : sq)),
+      }))
+
+    case 'REMOVE_SUBQUESTION':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, subQuestions: p.subQuestions.filter((_, i) => i !== action.idx) }))
+
+    case 'ADD_PERSPECTIVE_EVIDENCE':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, supportingEvidence: [...p.supportingEvidence, { text: '', source: '' }] }))
+
+    case 'EDIT_PERSPECTIVE_EVIDENCE':
+      return mapPerspective(state, action.pid, (p) => ({
+        ...p,
+        supportingEvidence: p.supportingEvidence.map((e, i) => (i === action.idx ? { ...e, [action.field]: action.value } : e)),
+      }))
+
+    case 'REMOVE_PERSPECTIVE_EVIDENCE':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, supportingEvidence: p.supportingEvidence.filter((_, i) => i !== action.idx) }))
+
+    case 'ADD_COUNTER':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, counters: [...p.counters, ''] }))
+
+    case 'EDIT_COUNTER':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, counters: p.counters.map((c, i) => (i === action.idx ? action.value : c)) }))
+
+    case 'REMOVE_COUNTER':
+      return mapPerspective(state, action.pid, (p) => ({ ...p, counters: p.counters.filter((_, i) => i !== action.idx) }))
 
     case 'OPEN_PERSPECTIVE':
       return { ...state, activePerspective: action.id }

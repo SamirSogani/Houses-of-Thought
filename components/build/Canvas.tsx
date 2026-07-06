@@ -50,7 +50,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
           {step === 1 && <FrameLayer state={state} dispatch={dispatch} />}
           {step === 2 &&
             (activePerspective ? (
-              <PerspectiveDetail perspective={activePerspective} onBack={() => dispatch({ type: 'CLOSE_PERSPECTIVE' })} />
+              <PerspectiveDetail perspective={activePerspective} dispatch={dispatch} onBack={() => dispatch({ type: 'CLOSE_PERSPECTIVE' })} />
             ) : (
               <PerspectivesLayer state={state} dispatch={dispatch} />
             ))}

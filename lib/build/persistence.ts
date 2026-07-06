@@ -4,7 +4,7 @@
 // row↔state mapping lives here. See plans/active/persistence/phase-3-builder.md
 // and decisions/002-house-schema.md.
 
-import type { Concept, State } from './types'
+import type { Concept, Perspective, State } from './types'
 import { doneCount } from './strength'
 
 // Normalize stored concepts into { term, definition } objects. Tolerates the
@@ -16,6 +16,23 @@ function toConcepts(raw: unknown): Concept[] {
       ? { term: c, definition: '' }
       : { term: (c?.term as string) ?? '', definition: (c?.definition as string) ?? '' }
   )
+}
+
+// Normalize stored perspectives, filling the detail fields (stance, sub-questions,
+// supporting evidence, counters) so pre-detail saved houses still load.
+function toPerspectives(raw: unknown): Perspective[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((p, i) => ({
+    id: typeof p?.id === 'number' ? p.id : i + 1,
+    name: p?.name ?? '',
+    summary: p?.summary ?? '',
+    stance: p?.stance ?? '',
+    subQuestions: Array.isArray(p?.subQuestions) ? p.subQuestions : [],
+    supportingEvidence: Array.isArray(p?.supportingEvidence) ? p.supportingEvidence : [],
+    counters: Array.isArray(p?.counters) ? p.counters : [],
+    strength: typeof p?.strength === 'number' ? p.strength : 0,
+    owner: p?.owner ?? 'you',
+  }))
 }
 import type { HouseStatus } from '@/lib/dashboard/houses'
 
@@ -104,7 +121,7 @@ export function loadLocalHouse(): State | null {
     state.conclusion = c.conclusion ?? ''
     state.reasoning = c.reasoning ?? ''
     state.concepts = toConcepts(c.concepts)
-    state.perspectives = c.perspectives ?? []
+    state.perspectives = toPerspectives(c.perspectives)
     state.evidence = c.evidence ?? []
     state.assumptions = c.assumptions ?? []
     state.pos = c.pos ?? []
@@ -173,7 +190,10 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
     id: i + 1,
     name: r.name,
     summary: r.summary ?? '',
-    questions: r.questions,
+    stance: (r.stance as string | null) ?? '',
+    subQuestions: (r.sub_questions as Perspective['subQuestions'] | null) ?? [],
+    supportingEvidence: (r.supporting_evidence as Perspective['supportingEvidence'] | null) ?? [],
+    counters: (r.counters as string[] | null) ?? [],
     strength: r.strength,
     owner: r.owner_key,
   }))
@@ -236,7 +256,11 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
         house_id: id,
         name: p.name,
         summary: p.summary,
-        questions: p.questions,
+        questions: p.subQuestions.length,
+        stance: p.stance,
+        sub_questions: p.subQuestions,
+        supporting_evidence: p.supportingEvidence,
+        counters: p.counters,
         strength: p.strength,
         owner_key: p.owner,
         position: i,

@@ -16,11 +16,24 @@ export interface Concept {
   definition: string
 }
 
+export interface SubQuestion {
+  q: string
+  note: string
+}
+
+export interface SupportingEvidence {
+  text: string
+  source: string
+}
+
 export interface Perspective {
   id: number
   name: string
   summary: string
-  questions: number
+  stance: string
+  subQuestions: SubQuestion[]
+  supportingEvidence: SupportingEvidence[]
+  counters: string[]
   strength: number
   owner: PersonKey
 }
@@ -91,8 +104,17 @@ export type Action =
   | { type: 'EDIT_CONCEPT'; idx: number; field: 'term' | 'definition'; value: string }
   | { type: 'REMOVE_CONCEPT'; idx: number }
   | { type: 'ADD_PERSPECTIVE' }
-  | { type: 'EDIT_PERSPECTIVE'; id: number; field: 'name' | 'summary'; value: string }
+  | { type: 'EDIT_PERSPECTIVE'; id: number; field: 'name' | 'summary' | 'stance'; value: string }
   | { type: 'REMOVE_PERSPECTIVE'; id: number }
+  | { type: 'ADD_SUBQUESTION'; pid: number }
+  | { type: 'EDIT_SUBQUESTION'; pid: number; idx: number; field: 'q' | 'note'; value: string }
+  | { type: 'REMOVE_SUBQUESTION'; pid: number; idx: number }
+  | { type: 'ADD_PERSPECTIVE_EVIDENCE'; pid: number }
+  | { type: 'EDIT_PERSPECTIVE_EVIDENCE'; pid: number; idx: number; field: 'text' | 'source'; value: string }
+  | { type: 'REMOVE_PERSPECTIVE_EVIDENCE'; pid: number; idx: number }
+  | { type: 'ADD_COUNTER'; pid: number }
+  | { type: 'EDIT_COUNTER'; pid: number; idx: number; value: string }
+  | { type: 'REMOVE_COUNTER'; pid: number; idx: number }
   | { type: 'OPEN_PERSPECTIVE'; id: number }
   | { type: 'CLOSE_PERSPECTIVE' }
   | { type: 'CYCLE_OWNER'; id: number }

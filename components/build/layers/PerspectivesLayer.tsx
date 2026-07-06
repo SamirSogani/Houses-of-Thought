@@ -98,7 +98,7 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{p.questions} questions</span>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{p.subQuestions.length} questions</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ width: 52, height: 5, background: 'var(--rule)', borderRadius: 3, overflow: 'hidden' }}>
                     <span className="build-bar-fill" style={{ display: 'block', height: '100%', width: `${p.strength}%`, background: strengthCol, transition: 'width 0.4s cubic-bezier(0.2,0.7,0.2,1)' }} />
