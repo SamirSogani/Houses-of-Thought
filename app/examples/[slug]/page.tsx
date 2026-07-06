@@ -141,8 +141,8 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
                       <div style={monoLabel}>Key concepts</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {h.concepts.map((c, i) => (
-                          <span key={`${c}-${i}`} style={{ fontSize: 13, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 20, padding: '7px 14px' }}>
-                            {c}
+                          <span key={`${c.term}-${i}`} style={{ fontSize: 13, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 20, padding: '7px 14px' }}>
+                            {c.term}
                           </span>
                         ))}
                       </div>

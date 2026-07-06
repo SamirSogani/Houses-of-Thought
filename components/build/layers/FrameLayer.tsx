@@ -65,46 +65,48 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
         </div>
       </div>
 
-      {/* Key concepts */}
+      {/* Concepts / definitions */}
       <div>
-        <div style={monoLabel}>Key concepts</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        <div style={monoLabel}>Concepts / definitions</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
           {state.concepts.map((c, i) => (
-            <span
+            <div
               key={i}
               className="pop"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 13,
-                color: 'var(--ink)',
-                background: 'var(--white)',
-                border: '1px solid var(--rule)',
-                borderRadius: 20,
-                padding: '7px 12px',
-              }}
+              style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '12px 14px' }}
             >
-              <input
-                aria-label="Concept"
-                value={c}
-                placeholder="Concept"
-                size={Math.max(c.length || 7, 4)}
-                onChange={(e) => dispatch({ type: 'EDIT_CONCEPT', idx: i, value: e.target.value })}
-                style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', padding: 0, width: 'auto' }}
-              />
-              <RemoveButton
-                title="Remove concept"
-                onClick={() => dispatch({ type: 'REMOVE_CONCEPT', idx: i })}
-                style={{ width: 16, height: 16, fontSize: 13 }}
-              />
-            </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+                  <InlineText
+                    ariaLabel="Concept"
+                    value={c.term}
+                    placeholder="Concept"
+                    onChange={(value) => dispatch({ type: 'EDIT_CONCEPT', idx: i, field: 'term', value })}
+                  />
+                </span>
+                <RemoveButton
+                  title="Remove concept"
+                  onClick={() => dispatch({ type: 'REMOVE_CONCEPT', idx: i })}
+                  style={{ width: 16, height: 16, fontSize: 13 }}
+                />
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, marginTop: 6 }}>
+                <InlineText
+                  ariaLabel="Definition"
+                  multiline
+                  value={c.definition}
+                  placeholder="Define this concept…"
+                  onChange={(value) => dispatch({ type: 'EDIT_CONCEPT', idx: i, field: 'definition', value })}
+                />
+              </div>
+            </div>
           ))}
           <button
             type="button"
             onClick={() => dispatch({ type: 'ADD_CONCEPT' })}
             className="mono"
             style={{
+              alignSelf: 'flex-start',
               fontSize: 10,
               color: 'var(--ink-subtle)',
               background: 'transparent',

@@ -21,7 +21,12 @@ export const initialState: State = {
   notesOpen: false,
   toast: '',
 
-  concepts: ['Academic integrity', 'Equity', 'Supervision', 'Data privacy'],
+  concepts: [
+    { term: 'Academic integrity', definition: '' },
+    { term: 'Equity', definition: '' },
+    { term: 'Supervision', definition: '' },
+    { term: 'Data privacy', definition: '' },
+  ],
 
   perspectives: [
     { id: 1, name: 'Students', summary: 'Benefit most when AI tutors rather than answers.', questions: 3, strength: 78, owner: 'maya' },
@@ -104,10 +109,15 @@ export function reducer(state: State, action: Action): State {
       return { ...state, rightTab: action.tab }
 
     case 'ADD_CONCEPT':
-      return { ...state, concepts: [...state.concepts, ''] }
+      return { ...state, concepts: [...state.concepts, { term: '', definition: '' }] }
 
     case 'EDIT_CONCEPT':
-      return { ...state, concepts: state.concepts.map((c, i) => (i === action.idx ? action.value : c)) }
+      return {
+        ...state,
+        concepts: state.concepts.map((c, i) =>
+          i === action.idx ? { ...c, [action.field]: action.value } : c
+        ),
+      }
 
     case 'REMOVE_CONCEPT':
       return { ...state, concepts: state.concepts.filter((_, i) => i !== action.idx) }

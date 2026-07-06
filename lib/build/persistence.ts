@@ -4,8 +4,19 @@
 // row↔state mapping lives here. See plans/active/persistence/phase-3-builder.md
 // and decisions/002-house-schema.md.
 
-import type { State } from './types'
+import type { Concept, State } from './types'
 import { doneCount } from './strength'
+
+// Normalize stored concepts into { term, definition } objects. Tolerates the
+// pre-definitions shape (a bare string[]) so older saved houses still load.
+function toConcepts(raw: unknown): Concept[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((c) =>
+    typeof c === 'string'
+      ? { term: c, definition: '' }
+      : { term: (c?.term as string) ?? '', definition: (c?.definition as string) ?? '' }
+  )
+}
 import type { HouseStatus } from '@/lib/dashboard/houses'
 
 type Supabase = ReturnType<typeof import('@/lib/supabase/client').createClient>
@@ -92,7 +103,7 @@ export function loadLocalHouse(): State | null {
     state.question = c.question ?? ''
     state.conclusion = c.conclusion ?? ''
     state.reasoning = c.reasoning ?? ''
-    state.concepts = c.concepts ?? []
+    state.concepts = toConcepts(c.concepts)
     state.perspectives = c.perspectives ?? []
     state.evidence = c.evidence ?? []
     state.assumptions = c.assumptions ?? []
@@ -134,7 +145,7 @@ export function serializeContent(state: State): string {
 export async function loadHouse(supabase: Supabase, id: string): Promise<State | null> {
   const { data: house, error } = await supabase
     .from('houses')
-    .select('title, question, purpose, conclusion, reasoning, concepts, watchpoints, accepted')
+    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted')
     .eq('id', id)
     .maybeSingle()
   if (error || !house) return null
@@ -152,7 +163,9 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
   state.purpose = house.purpose ?? ''
   state.conclusion = house.conclusion ?? ''
   state.reasoning = house.reasoning ?? ''
-  state.concepts = house.concepts ?? []
+  const conceptTerms = (house.concepts as string[] | null) ?? []
+  const conceptDefs = (house.concept_definitions as string[] | null) ?? []
+  state.concepts = conceptTerms.map((term, i) => ({ term, definition: conceptDefs[i] ?? '' }))
   state.watchpoints = house.watchpoints ?? []
   state.accepted = (house.accepted as Record<number, number[]>) ?? {}
 
@@ -206,7 +219,8 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
       purpose: state.purpose || null,
       conclusion: state.conclusion || null,
       reasoning: state.reasoning || null,
-      concepts: state.concepts,
+      concepts: state.concepts.map((c) => c.term),
+      concept_definitions: state.concepts.map((c) => c.definition),
       watchpoints: state.watchpoints,
       accepted: state.accepted,
       layers_complete: doneCount(state),

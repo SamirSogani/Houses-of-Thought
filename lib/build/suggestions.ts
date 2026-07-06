@@ -19,7 +19,7 @@ export const suggestions: Record<number, Suggestion[]> = {
       text: 'Add "Cost of inaction" as a concept: what happens if schools opt out entirely?',
       tag: 'Concept',
       run: (d) => {
-        d.concepts = [...d.concepts, 'Cost of inaction']
+        d.concepts = [...d.concepts, { term: 'Cost of inaction', definition: '' }]
       },
     },
     {

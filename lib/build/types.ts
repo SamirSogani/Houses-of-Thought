@@ -11,6 +11,11 @@ export interface Person {
   fg: string
 }
 
+export interface Concept {
+  term: string
+  definition: string
+}
+
 export interface Perspective {
   id: number
   name: string
@@ -60,7 +65,7 @@ export interface State {
   copied: boolean
   notesOpen: boolean
   toast: string
-  concepts: string[]
+  concepts: Concept[]
   perspectives: Perspective[]
   evidence: Evidence[]
   assumptions: Assumption[]
@@ -83,7 +88,7 @@ export type Action =
   | { type: 'SET_REASONING'; value: string }
   | { type: 'SET_TAB'; tab: RightTab }
   | { type: 'ADD_CONCEPT' }
-  | { type: 'EDIT_CONCEPT'; idx: number; value: string }
+  | { type: 'EDIT_CONCEPT'; idx: number; field: 'term' | 'definition'; value: string }
   | { type: 'REMOVE_CONCEPT'; idx: number }
   | { type: 'ADD_PERSPECTIVE' }
   | { type: 'EDIT_PERSPECTIVE'; id: number; field: 'name' | 'summary'; value: string }

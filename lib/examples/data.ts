@@ -43,9 +43,14 @@ export interface ExampleHouse {
   detail?: Record<number, PerspectiveDetail>
 }
 
-// Fill the ephemeral/default State fields, override only real content.
-function mkHouse(content: Partial<State>): State {
-  return { ...blankState(), ...content }
+// Fill the ephemeral/default State fields, override only real content. Concepts
+// are authored as plain term strings here and normalized to { term, definition }.
+function mkHouse({ concepts, ...content }: Omit<Partial<State>, 'concepts'> & { concepts?: string[] }): State {
+  return {
+    ...blankState(),
+    ...content,
+    concepts: (concepts ?? []).map((term) => ({ term, definition: '' })),
+  }
 }
 
 export const examples: ExampleHouse[] = [
