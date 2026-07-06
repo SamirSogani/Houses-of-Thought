@@ -56,7 +56,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
             ))}
           {step === 3 && <EvidenceLayer state={state} dispatch={dispatch} />}
           {step === 4 && <AssumptionsLayer state={state} dispatch={dispatch} />}
-          {step === 5 && <ConclusionLayer />}
+          {step === 5 && <ConclusionLayer state={state} dispatch={dispatch} />}
           {step === 6 && <ImplicationsLayer state={state} dispatch={dispatch} />}
           {step === 7 && <ReviewLayer state={state} strength={strength} dispatch={dispatch} />}
 

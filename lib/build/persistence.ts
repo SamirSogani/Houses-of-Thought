@@ -17,6 +17,10 @@ export function blankState(): State {
   return {
     step: 1,
     title: '',
+    purpose: '',
+    question: '',
+    conclusion: '',
+    reasoning: '',
     rightTab: 'copilot',
     inviteOpen: false,
     inviteInput: '',
@@ -52,11 +56,66 @@ export function deriveStatus(state: State): HouseStatus {
   return 'empty'
 }
 
+// Local (no-login) persistence, backing the /house builder and the planned /try
+// surface. Stores only the persistable subset (serializeContent's shape) in
+// localStorage under one generic key, so any no-login builder shares the adapter.
+// Deliberately no Supabase / auth / RLS — the counterpart to save/loadHouse below.
+export const LOCAL_HOUSE_KEY = 'hot:house:draft'
+
+export function saveLocalHouse(state: State): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LOCAL_HOUSE_KEY, serializeContent(state))
+  } catch {
+    // Quota exceeded or storage disabled (private mode): drop the write rather
+    // than crash the editor. The in-memory reducer keeps working.
+  }
+}
+
+export function loadLocalHouse(): State | null {
+  if (typeof window === 'undefined') return null
+  let raw: string | null
+  try {
+    raw = window.localStorage.getItem(LOCAL_HOUSE_KEY)
+  } catch {
+    return null
+  }
+  if (!raw) return null
+
+  try {
+    // serializeContent stores full reducer objects, so fields map straight back
+    // onto a blank house — no row↔state remapping needed (unlike loadHouse).
+    const c = JSON.parse(raw) as Partial<State>
+    const state = blankState()
+    state.title = c.title ?? ''
+    state.purpose = c.purpose ?? ''
+    state.question = c.question ?? ''
+    state.conclusion = c.conclusion ?? ''
+    state.reasoning = c.reasoning ?? ''
+    state.concepts = c.concepts ?? []
+    state.perspectives = c.perspectives ?? []
+    state.evidence = c.evidence ?? []
+    state.assumptions = c.assumptions ?? []
+    state.pos = c.pos ?? []
+    state.neg = c.neg ?? []
+    state.unc = c.unc ?? []
+    state.watchpoints = c.watchpoints ?? []
+    state.accepted = c.accepted ?? {}
+    return state
+  } catch {
+    return null
+  }
+}
+
 // JSON of just the persistable subset — used as the autosave effect's dependency
 // so ephemeral changes (step, tabs, toast, invite) never trigger a save.
 export function serializeContent(state: State): string {
   return JSON.stringify({
     title: state.title,
+    purpose: state.purpose,
+    question: state.question,
+    conclusion: state.conclusion,
+    reasoning: state.reasoning,
     concepts: state.concepts,
     perspectives: state.perspectives,
     evidence: state.evidence,
@@ -75,7 +134,7 @@ export function serializeContent(state: State): string {
 export async function loadHouse(supabase: Supabase, id: string): Promise<State | null> {
   const { data: house, error } = await supabase
     .from('houses')
-    .select('title, concepts, watchpoints, accepted')
+    .select('title, question, purpose, conclusion, reasoning, concepts, watchpoints, accepted')
     .eq('id', id)
     .maybeSingle()
   if (error || !house) return null
@@ -89,6 +148,10 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
 
   const state = blankState()
   state.title = house.title ?? ''
+  state.question = house.question ?? ''
+  state.purpose = house.purpose ?? ''
+  state.conclusion = house.conclusion ?? ''
+  state.reasoning = house.reasoning ?? ''
   state.concepts = house.concepts ?? []
   state.watchpoints = house.watchpoints ?? []
   state.accepted = (house.accepted as Record<number, number[]>) ?? {}
@@ -139,6 +202,10 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
     .from('houses')
     .update({
       title: state.title || null,
+      question: state.question || null,
+      purpose: state.purpose || null,
+      conclusion: state.conclusion || null,
+      reasoning: state.reasoning || null,
       concepts: state.concepts,
       watchpoints: state.watchpoints,
       accepted: state.accepted,

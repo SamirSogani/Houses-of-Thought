@@ -3,13 +3,17 @@
 
 import type { Action, ImplicationKind, State } from './types'
 import { people, ownerCycle } from './people'
-import { conceptRotation, layerKey } from './content'
+import { conceptRotation, layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary } from './content'
 import { suggestions } from './suggestions'
 import { computeStrength } from './strength'
 
 export const initialState: State = {
   step: 1,
   title: 'Should AI be used in schools?',
+  purpose: framePurpose,
+  question: frameQuestion,
+  conclusion: conclusionBullets.join('\n\n'),
+  reasoning: reasoningSummary,
   rightTab: 'copilot',
   inviteOpen: false,
   inviteInput: '',
@@ -84,6 +88,18 @@ export function reducer(state: State, action: Action): State {
     case 'SET_TITLE':
       return { ...state, title: action.value }
 
+    case 'SET_PURPOSE':
+      return { ...state, purpose: action.value }
+
+    case 'SET_QUESTION':
+      return { ...state, question: action.value }
+
+    case 'SET_CONCLUSION':
+      return { ...state, conclusion: action.value }
+
+    case 'SET_REASONING':
+      return { ...state, reasoning: action.value }
+
     case 'SET_TAB':
       return { ...state, rightTab: action.tab }
 
@@ -91,6 +107,12 @@ export function reducer(state: State, action: Action): State {
       const next = conceptRotation[state.concepts.length % conceptRotation.length]
       return { ...state, concepts: [...state.concepts, next] }
     }
+
+    case 'EDIT_CONCEPT':
+      return { ...state, concepts: state.concepts.map((c, i) => (i === action.idx ? action.value : c)) }
+
+    case 'REMOVE_CONCEPT':
+      return { ...state, concepts: state.concepts.filter((_, i) => i !== action.idx) }
 
     case 'ADD_PERSPECTIVE':
       return {
@@ -107,6 +129,21 @@ export function reducer(state: State, action: Action): State {
           },
         ],
         toast: 'Perspective added',
+      }
+
+    case 'EDIT_PERSPECTIVE':
+      return {
+        ...state,
+        perspectives: state.perspectives.map((p) =>
+          p.id === action.id ? { ...p, [action.field]: action.value } : p
+        ),
+      }
+
+    case 'REMOVE_PERSPECTIVE':
+      return {
+        ...state,
+        perspectives: state.perspectives.filter((p) => p.id !== action.id),
+        activePerspective: state.activePerspective === action.id ? null : state.activePerspective,
       }
 
     case 'OPEN_PERSPECTIVE':
@@ -144,6 +181,17 @@ export function reducer(state: State, action: Action): State {
         toast: 'Evidence added',
       }
 
+    case 'EDIT_EVIDENCE':
+      return {
+        ...state,
+        evidence: state.evidence.map((e) =>
+          e.id === action.id ? { ...e, [action.field]: action.value } : e
+        ),
+      }
+
+    case 'REMOVE_EVIDENCE':
+      return { ...state, evidence: state.evidence.filter((e) => e.id !== action.id) }
+
     case 'RESEARCH_MODE':
       return {
         ...state,
@@ -174,6 +222,17 @@ export function reducer(state: State, action: Action): State {
         toast: 'Assumption added',
       }
 
+    case 'EDIT_ASSUMPTION':
+      return {
+        ...state,
+        assumptions: state.assumptions.map((a) =>
+          a.id === action.id ? { ...a, text: action.value } : a
+        ),
+      }
+
+    case 'REMOVE_ASSUMPTION':
+      return { ...state, assumptions: state.assumptions.filter((a) => a.id !== action.id) }
+
     case 'ADD_IMPLICATION': {
       const { kind } = action
       const stub = implicationStub[kind]
@@ -181,6 +240,43 @@ export function reducer(state: State, action: Action): State {
       const item = { id: nextId(list), text: stub.text, horizon: stub.horizon, who: 'Add group' }
       return { ...state, [kind]: [...list, item] }
     }
+
+    case 'EDIT_IMPLICATION': {
+      const { kind, id, field, value } = action
+      return {
+        ...state,
+        [kind]: state[kind].map((it) => (it.id === id ? { ...it, [field]: value } : it)),
+      }
+    }
+
+    case 'TOGGLE_IMPLICATION_HORIZON': {
+      const { kind, id } = action
+      return {
+        ...state,
+        [kind]: state[kind].map((it) =>
+          it.id === id
+            ? { ...it, horizon: it.horizon === 'Near-term' ? 'Long-term' : 'Near-term' }
+            : it
+        ),
+      }
+    }
+
+    case 'REMOVE_IMPLICATION': {
+      const { kind, id } = action
+      return { ...state, [kind]: state[kind].filter((it) => it.id !== id) }
+    }
+
+    case 'ADD_WATCHPOINT':
+      return { ...state, watchpoints: [...state.watchpoints, ''] }
+
+    case 'EDIT_WATCHPOINT':
+      return {
+        ...state,
+        watchpoints: state.watchpoints.map((w, i) => (i === action.idx ? action.value : w)),
+      }
+
+    case 'REMOVE_WATCHPOINT':
+      return { ...state, watchpoints: state.watchpoints.filter((_, i) => i !== action.idx) }
 
     case 'ACCEPT_SUGGESTION': {
       const bank = suggestions[action.step] ?? []

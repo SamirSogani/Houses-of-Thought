@@ -5,6 +5,11 @@ import type { Action, State } from '@/lib/build/types'
 import { color } from '@/lib/build/strength'
 import { Avatar } from '../Avatar'
 import { ChevronRight } from '../buildIcons'
+import { InlineText, RemoveButton } from '../Editable'
+
+// Keep clicks and Enter/Space keystrokes inside an editable field from bubbling
+// to the card (which opens the perspective detail on click/keydown).
+const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
 export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   return (
@@ -56,9 +61,17 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--ink)')}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--rule)')}
             >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--ink)' }}>{p.name}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <span onClick={stop} onKeyDown={stop} style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--ink)' }}>
+                  <InlineText
+                    ariaLabel="Perspective name"
+                    value={p.name}
+                    placeholder="Stakeholder"
+                    onChange={(value) => dispatch({ type: 'EDIT_PERSPECTIVE', id: p.id, field: 'name', value })}
+                  />
+                </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <RemoveButton title="Remove perspective" onClick={(e) => { stop(e); dispatch({ type: 'REMOVE_PERSPECTIVE', id: p.id }) }} />
                   <button
                     type="button"
                     title="Reassign owner"
@@ -75,7 +88,15 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
                   </span>
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, minHeight: 38 }}>{p.summary}</div>
+              <div onClick={stop} onKeyDown={stop} style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, minHeight: 38 }}>
+                <InlineText
+                  ariaLabel="Perspective summary"
+                  multiline
+                  value={p.summary}
+                  placeholder="What does this stakeholder value and fear?"
+                  onChange={(value) => dispatch({ type: 'EDIT_PERSPECTIVE', id: p.id, field: 'summary', value })}
+                />
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{p.questions} questions</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

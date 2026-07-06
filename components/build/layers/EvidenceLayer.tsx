@@ -4,6 +4,7 @@ import type { Action, State } from '@/lib/build/types'
 import { Avatar } from '../Avatar'
 import { SearchIcon } from '../buildIcons'
 import { people } from '@/lib/build/people'
+import { InlineText, RemoveButton } from '../Editable'
 
 export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   return (
@@ -39,13 +40,31 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
         {state.evidence.map((e) => (
           <div key={e.id} className="pop" style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <Avatar who={e.owner} size={24} title={people[e.owner].name} />
-            <div>
-              <div style={{ fontSize: 14, color: 'var(--ink)' }}>{e.text}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>
+                <InlineText
+                  ariaLabel="Evidence claim"
+                  multiline
+                  value={e.text}
+                  placeholder="A claim to support with a citation."
+                  onChange={(value) => dispatch({ type: 'EDIT_EVIDENCE', id: e.id, field: 'text', value })}
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
-                <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px' }}>{e.source}</span>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px', display: 'inline-flex' }}>
+                  <input
+                    aria-label="Evidence source"
+                    value={e.source}
+                    placeholder="Add source"
+                    size={Math.max(e.source.length || 10, 8)}
+                    onChange={(ev) => dispatch({ type: 'EDIT_EVIDENCE', id: e.id, field: 'source', value: ev.target.value })}
+                    style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', padding: 0, width: 'auto' }}
+                  />
+                </span>
                 {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>}
               </div>
             </div>
+            <RemoveButton title="Remove evidence" onClick={() => dispatch({ type: 'REMOVE_EVIDENCE', id: e.id })} />
           </div>
         ))}
       </div>

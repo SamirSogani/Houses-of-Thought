@@ -61,7 +61,7 @@ export function layerDone(i: number, s: State): boolean {
   if (i === 2) return s.perspectives.length >= 4
   if (i === 3) return s.evidence.length >= 2
   if (i === 4) return s.assumptions.length >= 3
-  if (i === 5) return true
+  if (i === 5) return s.conclusion.trim().length > 0 || s.reasoning.trim().length > 0
   if (i === 6) return s.pos.length + s.neg.length + s.unc.length >= 4
   if (i === 7) return computeStrength(s).overall >= 60
   return false

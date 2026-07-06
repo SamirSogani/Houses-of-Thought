@@ -13,7 +13,7 @@ function meta(step: number, s: State, strength: Strength): string {
     case 2: return `${s.perspectives.length} perspectives`
     case 3: return `${s.evidence.length} sourced`
     case 4: return `${s.assumptions.length} assumptions`
-    case 5: return 'summary set'
+    case 5: return s.conclusion.trim() || s.reasoning.trim() ? 'summary set' : 'not set'
     case 6: return `${s.pos.length + s.neg.length + s.unc.length} implications`
     case 7: return `score ${strength.overall}`
     default: return ''

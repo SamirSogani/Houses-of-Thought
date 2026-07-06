@@ -1,7 +1,7 @@
 // Layer 1 — Frame. See handoff 05 §6 / 07 §6.1.
 
 import type { Action, State } from '@/lib/build/types'
-import { framePurpose, frameQuestion } from '@/lib/build/content'
+import { InlineText, RemoveButton } from '../Editable'
 
 const monoLabel: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
@@ -29,7 +29,13 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
             lineHeight: 1.55,
           }}
         >
-          {framePurpose}
+          <InlineText
+            ariaLabel="Purpose"
+            multiline
+            value={state.purpose}
+            placeholder="Why does this question matter, and who does the reasoning have to hold up to?"
+            onChange={(value) => dispatch({ type: 'SET_PURPOSE', value })}
+          />
         </div>
       </div>
 
@@ -49,7 +55,13 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
             color: 'var(--ink)',
           }}
         >
-          {frameQuestion}
+          <InlineText
+            ariaLabel="Overarching question"
+            multiline
+            value={state.question}
+            placeholder="What's a question you can't crack?"
+            onChange={(value) => dispatch({ type: 'SET_QUESTION', value })}
+          />
         </div>
       </div>
 
@@ -59,18 +71,33 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
           {state.concepts.map((c, i) => (
             <span
-              key={`${c}-${i}`}
+              key={i}
               className="pop"
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
                 fontSize: 13,
                 color: 'var(--ink)',
                 background: 'var(--white)',
                 border: '1px solid var(--rule)',
                 borderRadius: 20,
-                padding: '7px 14px',
+                padding: '7px 12px',
               }}
             >
-              {c}
+              <input
+                aria-label="Concept"
+                value={c}
+                placeholder="Concept"
+                size={Math.max(c.length || 7, 4)}
+                onChange={(e) => dispatch({ type: 'EDIT_CONCEPT', idx: i, value: e.target.value })}
+                style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', padding: 0, width: 'auto' }}
+              />
+              <RemoveButton
+                title="Remove concept"
+                onClick={() => dispatch({ type: 'REMOVE_CONCEPT', idx: i })}
+                style={{ width: 16, height: 16, fontSize: 13 }}
+              />
             </span>
           ))}
           <button

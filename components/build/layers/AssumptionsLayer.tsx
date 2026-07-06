@@ -2,6 +2,7 @@
 
 import type { Action, State } from '@/lib/build/types'
 import { Avatar } from '../Avatar'
+import { InlineText, RemoveButton } from '../Editable'
 
 export function AssumptionsLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   return (
@@ -27,8 +28,17 @@ export function AssumptionsLayer({ state, dispatch }: { state: State; dispatch: 
             <span className="mono" style={{ width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--rule)', borderRadius: 6, fontSize: 9, color: 'var(--ink-subtle)', flex: '0 0 auto' }}>
               {String(i + 1).padStart(2, '0')}
             </span>
-            <span style={{ fontSize: 14, color: 'var(--ink)', flex: 1 }}>{a.text}</span>
+            <span style={{ fontSize: 14, color: 'var(--ink)', flex: 1, minWidth: 0 }}>
+              <InlineText
+                ariaLabel="Assumption"
+                multiline
+                value={a.text}
+                placeholder="What has to be true for the reasoning to hold?"
+                onChange={(value) => dispatch({ type: 'EDIT_ASSUMPTION', id: a.id, value })}
+              />
+            </span>
             <Avatar who={a.owner} size={22} />
+            <RemoveButton title="Remove assumption" onClick={() => dispatch({ type: 'REMOVE_ASSUMPTION', id: a.id })} />
           </div>
         ))}
       </div>

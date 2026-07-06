@@ -6,7 +6,7 @@ import { layers } from '@/lib/build/content'
 import { suggestions } from '@/lib/build/suggestions'
 import { PlusIcon, SparkIcon } from '../buildIcons'
 
-export function CopilotPanel({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
+export function CopilotPanel({ state }: { state: State; dispatch: React.Dispatch<Action> }) {
   const kicker = layers[state.step - 1].kicker
   const accepted = state.accepted[state.step] ?? []
   const bank = suggestions[state.step] ?? []
@@ -38,10 +38,11 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
                 <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{s.tag}</span>
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: 'ACCEPT_SUGGESTION', step: state.step, idx })}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--amber)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--amber-tint)')}
+                  // Placeholder until the co-pilot is wired to the Groq API; the
+                  // suggestion bank is illustrative, so Add is a no-op for now.
+                  disabled
+                  title="Co-pilot suggestions are coming soon"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink-subtle)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px', cursor: 'not-allowed', opacity: 0.6 }}
                 >
                   <PlusIcon size={12} />
                   Add

@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BuildHousePage } from '@/components/build/BuildHousePage'
-import { loadHouse } from '@/lib/build/persistence'
+import { loadHouse, saveHouse } from '@/lib/build/persistence'
 import type { State } from '@/lib/build/types'
 
 const centerNotice: React.CSSProperties = {
@@ -64,10 +64,11 @@ export default function BuildHouseRoute({ params }: { params: Promise<{ id: stri
 
   return (
     <BuildHousePage
-      houseId={id}
+      mode="account"
       initialState={loaded}
       userEmail={userEmail}
       onSignOut={handleSignOut}
+      onSave={(s) => saveHouse(createClient(), id, s)}
     />
   )
 }

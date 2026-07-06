@@ -6,8 +6,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
-import { saveHouse, serializeContent } from '@/lib/build/persistence'
-import { createClient } from '@/lib/supabase/client'
+import { serializeContent } from '@/lib/build/persistence'
 import type { State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
 import { ContextBar } from './ContextBar'
@@ -20,15 +19,20 @@ import { WhatsNewDrawer } from './WhatsNewDrawer'
 import { Toast } from './Toast'
 
 export function BuildHousePage({
-  houseId,
+  mode,
   initialState,
   userEmail,
   onSignOut,
+  onSave,
 }: {
-  houseId: string
+  // 'account' = signed-in workspace (Supabase autosave). 'local' = no-login
+  // builder (localStorage autosave). Drives the Team rail's empty state.
+  mode: 'local' | 'account'
   initialState: State
   userEmail: string | null
   onSignOut: () => void
+  // Persistence adapter, called (debounced) whenever persistable content changes.
+  onSave: (state: State) => void
 }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const strength = computeStrength(state)
@@ -36,6 +40,9 @@ export function BuildHousePage({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstSave = useRef(true)
+  // Held in a ref so a fresh onSave closure each render never resets the debounce.
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
 
   // Toast auto-dismiss after 2200ms; a new toast resets the timer (04 §13).
   useEffect(() => {
@@ -58,14 +65,14 @@ export function BuildHousePage({
     }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      saveHouse(createClient(), houseId, state)
+      onSaveRef.current(state)
     }, 800)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-    // contentKey is the intended dependency; state is read inside the timer.
+    // contentKey is the intended dependency; state/onSave are read via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contentKey, houseId])
+  }, [contentKey])
 
   // Every navigation scrolls the canvas to top (02 §10).
   useEffect(() => {
@@ -83,6 +90,7 @@ export function BuildHousePage({
         />
         <ContextBar
           title={state.title}
+          question={state.question}
           strength={strength}
           onTitleChange={(v) => dispatch({ type: 'SET_TITLE', value: v })}
           onOpenReview={() => dispatch({ type: 'GO_STEP', n: 7 })}
@@ -95,7 +103,7 @@ export function BuildHousePage({
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
         <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />
         <Canvas ref={canvasRef} state={state} strength={strength} dispatch={dispatch} />
-        <RightRail state={state} dispatch={dispatch} />
+        <RightRail mode={mode} state={state} dispatch={dispatch} />
       </div>
 
       {/* Overlays */}
@@ -106,7 +114,7 @@ export function BuildHousePage({
   )
 }
 
-function RightRail({ state, dispatch }: { state: React.ComponentProps<typeof CopilotPanel>['state']; dispatch: React.ComponentProps<typeof CopilotPanel>['dispatch'] }) {
+function RightRail({ mode, state, dispatch }: { mode: 'local' | 'account'; state: React.ComponentProps<typeof CopilotPanel>['state']; dispatch: React.ComponentProps<typeof CopilotPanel>['dispatch'] }) {
   const tabs: { key: 'copilot' | 'team'; label: string }[] = [
     { key: 'copilot', label: 'Co-pilot' },
     { key: 'team', label: 'Team' },
@@ -131,10 +139,30 @@ function RightRail({ state, dispatch }: { state: React.ComponentProps<typeof Cop
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
         {state.rightTab === 'copilot' ? (
           <CopilotPanel state={state} dispatch={dispatch} />
+        ) : mode === 'local' ? (
+          <EmptyTeam />
         ) : (
           <TeamPanel step={state.step} onInvite={() => dispatch({ type: 'OPEN_INVITE' })} />
         )}
       </div>
     </aside>
+  )
+}
+
+// No-login Team tab: collaboration isn't wired yet, so the tab is a single
+// centered invite prompt. The button is intentionally inert until invite is built.
+function EmptyTeam() {
+  return (
+    <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: '32px 8px' }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-subtle)', lineHeight: 1.5, maxWidth: 220 }}>
+        Build with other people. Invite them to reason on this house together.
+      </p>
+      <button
+        type="button"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', border: '1px solid var(--ink)', borderRadius: 8, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'var(--white)' }}
+      >
+        Invite people
+      </button>
+    </div>
   )
 }

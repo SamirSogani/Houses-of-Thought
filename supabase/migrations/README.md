@@ -18,6 +18,7 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0004_collaborators.sql` | houses | `house_collaborators` + access helpers; RLS rewritten to honor collaborators (foundation only, no app feature yet) |
 | `0005_houses_grants.sql` | houses | Grants table privileges on the house tables to `authenticated` (RLS still restricts rows); fixes `42501 permission denied` on create/load |
 | `0006_fix_houses_select_returning.sql` | houses | Rewrites `houses_select` to check `owner_id` directly + `is_house_collaborator()` helper; fixes RLS violation on `INSERT ... RETURNING` (create house) |
+| `0007_houses_frame_conclusion.sql` | houses | Adds `purpose` / `conclusion` / `reasoning` columns so the builder persists the editable Frame + Conclusion prose (`question` already existed in `0003`) |
 
 ## Applying to a fresh database
 

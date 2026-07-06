@@ -48,6 +48,12 @@ export type RightTab = 'copilot' | 'team'
 export interface State {
   step: number
   title: string
+  // Frame layer, user-editable prose (start empty).
+  purpose: string
+  question: string
+  // Conclusion layer, user-editable prose (start empty).
+  conclusion: string
+  reasoning: string
   rightTab: RightTab
   inviteOpen: boolean
   inviteInput: string
@@ -71,16 +77,34 @@ export type ImplicationKind = 'pos' | 'neg' | 'unc'
 export type Action =
   | { type: 'GO_STEP'; n: number }
   | { type: 'SET_TITLE'; value: string }
+  | { type: 'SET_PURPOSE'; value: string }
+  | { type: 'SET_QUESTION'; value: string }
+  | { type: 'SET_CONCLUSION'; value: string }
+  | { type: 'SET_REASONING'; value: string }
   | { type: 'SET_TAB'; tab: RightTab }
   | { type: 'ADD_CONCEPT' }
+  | { type: 'EDIT_CONCEPT'; idx: number; value: string }
+  | { type: 'REMOVE_CONCEPT'; idx: number }
   | { type: 'ADD_PERSPECTIVE' }
+  | { type: 'EDIT_PERSPECTIVE'; id: number; field: 'name' | 'summary'; value: string }
+  | { type: 'REMOVE_PERSPECTIVE'; id: number }
   | { type: 'OPEN_PERSPECTIVE'; id: number }
   | { type: 'CLOSE_PERSPECTIVE' }
   | { type: 'CYCLE_OWNER'; id: number }
   | { type: 'ADD_EVIDENCE' }
+  | { type: 'EDIT_EVIDENCE'; id: number; field: 'text' | 'source'; value: string }
+  | { type: 'REMOVE_EVIDENCE'; id: number }
   | { type: 'RESEARCH_MODE' }
   | { type: 'ADD_ASSUMPTION' }
+  | { type: 'EDIT_ASSUMPTION'; id: number; value: string }
+  | { type: 'REMOVE_ASSUMPTION'; id: number }
   | { type: 'ADD_IMPLICATION'; kind: ImplicationKind }
+  | { type: 'EDIT_IMPLICATION'; kind: ImplicationKind; id: number; field: 'text' | 'who'; value: string }
+  | { type: 'TOGGLE_IMPLICATION_HORIZON'; kind: ImplicationKind; id: number }
+  | { type: 'REMOVE_IMPLICATION'; kind: ImplicationKind; id: number }
+  | { type: 'ADD_WATCHPOINT' }
+  | { type: 'EDIT_WATCHPOINT'; idx: number; value: string }
+  | { type: 'REMOVE_WATCHPOINT'; idx: number }
   | { type: 'ACCEPT_SUGGESTION'; step: number; idx: number }
   | { type: 'OPEN_INVITE' }
   | { type: 'CLOSE_INVITE' }

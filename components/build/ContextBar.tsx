@@ -12,6 +12,7 @@ const presenceOrder: PersonKey[] = ['you', 'maya', 'devan', 'ai']
 
 export function ContextBar({
   title,
+  question,
   strength,
   onTitleChange,
   onOpenReview,
@@ -19,6 +20,9 @@ export function ContextBar({
   onPublish,
 }: {
   title: string
+  // The overarching question — used as the title placeholder so an unnamed
+  // house is identified by its question when no title is entered.
+  question: string
   strength: Strength
   onTitleChange: (v: string) => void
   onOpenReview: () => void
@@ -47,6 +51,7 @@ export function ContextBar({
           aria-label="House title"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          placeholder={question.trim() || 'Name your house'}
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 500,
