@@ -3,7 +3,7 @@
 
 import type { Action, ImplicationKind, State } from './types'
 import { people, ownerCycle } from './people'
-import { conceptRotation, layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary } from './content'
+import { layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary } from './content'
 import { suggestions } from './suggestions'
 import { computeStrength } from './strength'
 
@@ -74,10 +74,10 @@ function nextId(items: { id: number }[]): number {
   return items.reduce((max, i) => Math.max(max, i.id), 0) + 1
 }
 
-const implicationStub: Record<ImplicationKind, { text: string; horizon: 'Near-term' | 'Long-term' }> = {
-  pos: { text: 'New positive implication', horizon: 'Near-term' },
-  neg: { text: 'New negative implication', horizon: 'Near-term' },
-  unc: { text: 'New uncertain implication', horizon: 'Long-term' },
+const implicationHorizon: Record<ImplicationKind, 'Near-term' | 'Long-term'> = {
+  pos: 'Near-term',
+  neg: 'Near-term',
+  unc: 'Long-term',
 }
 
 export function reducer(state: State, action: Action): State {
@@ -103,10 +103,8 @@ export function reducer(state: State, action: Action): State {
     case 'SET_TAB':
       return { ...state, rightTab: action.tab }
 
-    case 'ADD_CONCEPT': {
-      const next = conceptRotation[state.concepts.length % conceptRotation.length]
-      return { ...state, concepts: [...state.concepts, next] }
-    }
+    case 'ADD_CONCEPT':
+      return { ...state, concepts: [...state.concepts, ''] }
 
     case 'EDIT_CONCEPT':
       return { ...state, concepts: state.concepts.map((c, i) => (i === action.idx ? action.value : c)) }
@@ -121,10 +119,10 @@ export function reducer(state: State, action: Action): State {
           ...state.perspectives,
           {
             id: nextId(state.perspectives),
-            name: 'New group',
-            summary: 'Describe what this stakeholder values and fears.',
+            name: '',
+            summary: '',
             questions: 0,
-            strength: 35,
+            strength: 0,
             owner: 'you',
           },
         ],
@@ -172,8 +170,8 @@ export function reducer(state: State, action: Action): State {
           ...state.evidence,
           {
             id: nextId(state.evidence),
-            text: 'New claim to support with a citation.',
-            source: 'Add source',
+            text: '',
+            source: '',
             owner: 'you',
             byAI: false,
           },
@@ -215,7 +213,7 @@ export function reducer(state: State, action: Action): State {
           ...state.assumptions,
           {
             id: nextId(state.assumptions),
-            text: 'New assumption the reasoning depends on.',
+            text: '',
             owner: 'you',
           },
         ],
@@ -235,9 +233,8 @@ export function reducer(state: State, action: Action): State {
 
     case 'ADD_IMPLICATION': {
       const { kind } = action
-      const stub = implicationStub[kind]
       const list = state[kind]
-      const item = { id: nextId(list), text: stub.text, horizon: stub.horizon, who: 'Add group' }
+      const item = { id: nextId(list), text: '', horizon: implicationHorizon[kind], who: '' }
       return { ...state, [kind]: [...list, item] }
     }
 

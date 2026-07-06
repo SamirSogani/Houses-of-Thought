@@ -13,21 +13,16 @@ import { ContextBar } from './ContextBar'
 import { BlueprintRail } from './BlueprintRail'
 import { Canvas } from './Canvas'
 import { CopilotPanel } from './rail/CopilotPanel'
-import { TeamPanel } from './rail/TeamPanel'
 import { InviteModal } from './InviteModal'
 import { WhatsNewDrawer } from './WhatsNewDrawer'
 import { Toast } from './Toast'
 
 export function BuildHousePage({
-  mode,
   initialState,
   userEmail,
   onSignOut,
   onSave,
 }: {
-  // 'account' = signed-in workspace (Supabase autosave). 'local' = no-login
-  // builder (localStorage autosave). Drives the Team rail's empty state.
-  mode: 'local' | 'account'
   initialState: State
   userEmail: string | null
   onSignOut: () => void
@@ -103,7 +98,7 @@ export function BuildHousePage({
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
         <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />
         <Canvas ref={canvasRef} state={state} strength={strength} dispatch={dispatch} />
-        <RightRail mode={mode} state={state} dispatch={dispatch} />
+        <RightRail state={state} dispatch={dispatch} />
       </div>
 
       {/* Overlays */}
@@ -114,7 +109,7 @@ export function BuildHousePage({
   )
 }
 
-function RightRail({ mode, state, dispatch }: { mode: 'local' | 'account'; state: React.ComponentProps<typeof CopilotPanel>['state']; dispatch: React.ComponentProps<typeof CopilotPanel>['dispatch'] }) {
+function RightRail({ state, dispatch }: { state: React.ComponentProps<typeof CopilotPanel>['state']; dispatch: React.ComponentProps<typeof CopilotPanel>['dispatch'] }) {
   const tabs: { key: 'copilot' | 'team'; label: string }[] = [
     { key: 'copilot', label: 'Co-pilot' },
     { key: 'team', label: 'Team' },
@@ -139,18 +134,16 @@ function RightRail({ mode, state, dispatch }: { mode: 'local' | 'account'; state
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
         {state.rightTab === 'copilot' ? (
           <CopilotPanel state={state} dispatch={dispatch} />
-        ) : mode === 'local' ? (
-          <EmptyTeam />
         ) : (
-          <TeamPanel step={state.step} onInvite={() => dispatch({ type: 'OPEN_INVITE' })} />
+          <EmptyTeam />
         )}
       </div>
     </aside>
   )
 }
 
-// No-login Team tab: collaboration isn't wired yet, so the tab is a single
-// centered invite prompt. The button is intentionally inert until invite is built.
+// Collaboration isn't wired yet, so the Team tab is a single centered invite
+// prompt. The button is intentionally inert until invite is built.
 function EmptyTeam() {
   return (
     <div className="fade-in" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: '32px 8px' }}>

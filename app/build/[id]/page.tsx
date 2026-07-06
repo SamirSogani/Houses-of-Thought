@@ -64,7 +64,6 @@ export default function BuildHouseRoute({ params }: { params: Promise<{ id: stri
 
   return (
     <BuildHousePage
-      mode="account"
       initialState={loaded}
       userEmail={userEmail}
       onSignOut={handleSignOut}

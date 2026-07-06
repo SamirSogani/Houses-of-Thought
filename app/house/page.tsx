@@ -42,7 +42,6 @@ export default function HousePage() {
 
   return (
     <BuildHousePage
-      mode="local"
       initialState={initial}
       userEmail={null}
       onSignOut={() => router.push('/')}

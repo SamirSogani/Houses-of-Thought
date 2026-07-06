@@ -15,10 +15,10 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
         <span style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
-            onClick={() => dispatch({ type: 'RESEARCH_MODE' })}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--amber)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--amber-tint)')}
+            // AI feature — inert until the co-pilot is wired to the Groq API.
+            disabled
+            title="Research Mode is coming soon"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink-subtle)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px', cursor: 'not-allowed', opacity: 0.6 }}
           >
             <SearchIcon size={13} />
             Research Mode
