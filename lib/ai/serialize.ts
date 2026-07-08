@@ -13,6 +13,7 @@ import type {
   Evidence,
   Assumption,
   Implication,
+  AiContext,
 } from '@/lib/build/types'
 
 // The persistable subset of State, as parsed back from serializeContent. Optional
@@ -31,7 +32,7 @@ export interface HouseForPrompt {
   neg?: Implication[]
   unc?: Implication[]
   watchpoints?: string[]
-  aiContext?: string
+  aiContext?: AiContext | null
   mode?: string
 }
 
@@ -48,6 +49,8 @@ const MAX_EVIDENCE = 20
 const MAX_ASSUMPTIONS = 15
 const MAX_IMPLICATIONS = 10
 const MAX_WATCHPOINTS = 10
+const MAX_FACTS = 8
+const HARD_CAP_CONTEXT = 800
 const HARD_CAP = 14_000
 
 function clip(s: string | undefined, max: number): string {
@@ -70,7 +73,13 @@ export function serializeHouseForPrompt(content: HouseForPrompt, focusStep?: num
   }
 
   out.push(`# House: ${clip(content.title, PROSE) || '(untitled)'}`)
-  if (content.aiContext) out.push(`Context: ${clip(content.aiContext, PROSE)}`)
+  if (content.aiContext && (content.aiContext.summary || content.aiContext.facts?.length)) {
+    out.push('\n## CONTEXT (from interview)')
+    if (content.aiContext.summary) out.push(clip(content.aiContext.summary, HARD_CAP_CONTEXT))
+    for (const f of (content.aiContext.facts ?? []).slice(0, MAX_FACTS)) {
+      out.push(`- ${clip(f, ITEM)}`)
+    }
+  }
 
   // Layer 1 — Frame: purpose, question, concepts.
   header(1, 'Frame')

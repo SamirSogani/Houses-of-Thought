@@ -15,11 +15,19 @@ export const maxDuration = 30
 
 const MAX_BODY_BYTES = 100 * 1024
 
+const AiContextSchema = z.object({
+  summary: z.string(),
+  facts: z.array(z.string()),
+})
+
 const RequestSchema = z.object({
   // House shape is validated defensively by serialize; accept any object here.
   house: z.record(z.string(), z.unknown()),
   step: z.number().int().min(1).max(7),
   mode: z.enum(['learn', 'decide']),
+  // Optional; the house payload already carries aiContext, but a caller may send
+  // it separately — the serializer picks up whichever is present.
+  aiContext: AiContextSchema.nullish(),
 })
 
 export async function POST(req: Request): Promise<Response> {
@@ -40,10 +48,14 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
   }
-  const { house, step, mode } = parsed.data
+  const { house, step, mode, aiContext } = parsed.data
 
+  const houseForPrompt: HouseForPrompt = {
+    ...(house as HouseForPrompt),
+    aiContext: aiContext ?? (house as HouseForPrompt).aiContext ?? null,
+  }
   const system = `${PERSONA}\n\n${SUGGEST_BLOCK}`
-  const user = `Mode: ${mode}\n\n${serializeHouseForPrompt(house as HouseForPrompt, step)}`
+  const user = `Mode: ${mode}\n\n${serializeHouseForPrompt(houseForPrompt, step)}`
 
   try {
     const { findings } = await completeJSON({

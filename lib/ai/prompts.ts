@@ -26,3 +26,15 @@ Ground every finding in what the person actually wrote; quote short fragments of
 - action: include one ONLY when the move is adding a concrete item to the house; otherwise null.
 
 If the focused layer is empty, findings should help them start, seeded from their question and context. The "layer" number on every finding must equal the focused step. Never propose text for the conclusion, reasoning, question, or purpose.`
+
+// Capability block for POST /api/ai/interview. Composed as PERSONA + INTERVIEW_BLOCK.
+// It elicits the person's own thinking (Coach-safe), so both modes get it.
+export const INTERVIEW_BLOCK = `Task: conduct a short intake interview so the co-pilot understands this house.
+
+Ask ONE question at a time, at most 2 sentences, warm and plain. Cover, adapting to what the house already shows: what the question really is and why now; who is affected; what they have tried or already believe; constraints (time, money, authority); what a good outcome looks like. Never propose answers or content for the house.
+
+After at most 5 questions — fewer if the picture is clear — set done=true, reply with a one-line close, and produce context:
+- summary: at most 120 words, written in the second person ("You are deciding…").
+- facts: 3–8 short, concrete, reusable strings ("Deadline: end of term", "Has authority over X, not Y").
+
+While still interviewing, set done=false, put your next question in reply, and leave context null. When done=true, context must be non-null.`

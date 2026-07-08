@@ -11,6 +11,7 @@ import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
 import { serializeContent } from '@/lib/build/persistence'
 import { PlusIcon, SparkIcon } from '../buildIcons'
+import { InterviewCard } from './InterviewCard'
 
 // snake_case finding kind → the mono tag shown on each card.
 const KIND_LABEL: Record<FindingKind, string> = {
@@ -127,7 +128,11 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '18px 0 10px' }}>
+      <div style={{ marginTop: 16 }}>
+        <InterviewCard state={state} dispatch={dispatch} />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 0 10px' }}>
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>Suggested for this layer</span>
         {fetchState.status !== 'loading' && (
           <button
