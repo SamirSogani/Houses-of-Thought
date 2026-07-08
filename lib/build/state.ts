@@ -33,6 +33,8 @@ import { computeStrength } from './strength'
 
 export const initialState: State = {
   step: 1,
+  mode: 'decide',
+  aiContext: null,
   title: 'Should AI be used in schools?',
   purpose: framePurpose,
   question: frameQuestion,
@@ -130,6 +132,20 @@ export function reducer(state: State, action: Action): State {
 
     case 'SET_TAB':
       return { ...state, rightTab: action.tab }
+
+    case 'SET_MODE':
+      if (action.mode === state.mode) return state
+      return {
+        ...state,
+        mode: action.mode,
+        toast:
+          action.mode === 'learn'
+            ? 'Co-pilot will ask questions, not give answers.'
+            : 'Co-pilot will make concrete suggestions.',
+      }
+
+    case 'SET_AI_CONTEXT':
+      return { ...state, aiContext: action.context }
 
     case 'ADD_CONCEPT':
       return { ...state, concepts: [...state.concepts, { term: '', definition: '' }] }

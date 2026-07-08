@@ -1,7 +1,7 @@
 // Context bar: editable title, live strength pill, presence stack, Invite, Publish.
 // See handoff 02 §5 / 05 §3.
 
-import type { PersonKey } from '@/lib/build/types'
+import type { AiMode, PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
@@ -14,6 +14,8 @@ export function ContextBar({
   title,
   question,
   strength,
+  mode,
+  onModeChange,
   onTitleChange,
   onOpenReview,
   onInvite,
@@ -24,6 +26,8 @@ export function ContextBar({
   // house is identified by its question when no title is entered.
   question: string
   strength: Strength
+  mode: AiMode
+  onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
   onInvite: () => void
@@ -108,6 +112,38 @@ export function ContextBar({
           />
         </span>
       </button>
+
+      {/* Co-pilot mode: Learn | Decide (decision 007) */}
+      <div
+        title="How much help the co-pilot gives."
+        style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)' }}
+      >
+        {(['learn', 'decide'] as AiMode[]).map((m) => {
+          const active = mode === m
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onModeChange(m)}
+              aria-pressed={active}
+              className="mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.02em',
+                textTransform: 'uppercase',
+                padding: '7px 12px',
+                border: 'none',
+                cursor: 'pointer',
+                color: active ? 'var(--ink)' : 'var(--ink-subtle)',
+                background: active ? 'var(--amber-tint)' : 'transparent',
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {m}
+            </button>
+          )
+        })}
+      </div>
 
       {/* Right cluster */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>

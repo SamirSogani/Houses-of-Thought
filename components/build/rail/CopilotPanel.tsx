@@ -6,7 +6,7 @@
 // (invariant 2). See plans/active/ai/03-suggest-and-copilot.md.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Action, State } from '@/lib/build/types'
+import type { Action, AiMode, State } from '@/lib/build/types'
 import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
 import { serializeContent } from '@/lib/build/persistence'
@@ -40,12 +40,12 @@ type FetchState =
   | { status: 'error'; code: string }
   | { status: 'success'; findings: Finding[]; hash: string }
 
-// Until Phase 2 the client always asks in Decide mode.
-const MODE: 'learn' | 'decide' = 'decide'
-
 export function CopilotPanel({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   const kicker = layers[state.step - 1].kicker
   const step = state.step
+  // The model fills every rendering, so switching mode only re-renders the
+  // cached findings — no refetch (deps below are step-only).
+  const mode = state.mode
 
   // Cache keyed step → { findings, hash }, so moving between layers (or back)
   // doesn't refetch. Lives across step changes but resets when the panel unmounts
@@ -77,7 +77,7 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
         const res = await fetch('/api/ai/suggest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ house: JSON.parse(content), step: targetStep, mode: MODE }),
+          body: JSON.stringify({ house: JSON.parse(content), step: targetStep, mode: state.mode }),
           signal: controller.signal,
         })
         if (!res.ok) {
@@ -173,6 +173,7 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
         <FindingList
           findings={fetchState.findings}
           consumed={consumed}
+          mode={mode}
           onAdd={(finding, idx) => {
             if (finding.action) dispatch({ type: 'APPLY_AI_ACTION', action: finding.action })
             setConsumed((prev) => new Set(prev).add(idx))
@@ -186,10 +187,12 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
 function FindingList({
   findings,
   consumed,
+  mode,
   onAdd,
 }: {
   findings: Finding[]
   consumed: Set<number>
+  mode: AiMode
   onAdd: (finding: Finding, idx: number) => void
 }) {
   const visible = findings.map((f, idx) => ({ f, idx })).filter(({ idx }) => !consumed.has(idx))
@@ -205,13 +208,13 @@ function FindingList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {visible.map(({ f, idx }) => (
-        <FindingCard key={idx} finding={f} onAdd={() => onAdd(f, idx)} />
+        <FindingCard key={idx} finding={f} mode={mode} onAdd={() => onAdd(f, idx)} />
       ))}
     </div>
   )
 }
 
-function FindingCard({ finding, onAdd }: { finding: Finding; onAdd: () => void }) {
+function FindingCard({ finding, mode, onAdd }: { finding: Finding; mode: AiMode; onAdd: () => void }) {
   const important = finding.severity === 'important'
   return (
     <div
@@ -223,13 +226,19 @@ function FindingCard({ finding, onAdd }: { finding: Finding; onAdd: () => void }
         padding: 13,
       }}
     >
-      {/* Decide rendering: observation + suggestion. (Learn rendering — question
-          only — arrives in Phase 2.) */}
-      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{finding.observation}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{finding.suggestion}</div>
+      {mode === 'learn' ? (
+        // Learn rendering: the Socratic question only — no suggestion, no Add.
+        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{finding.question}</div>
+      ) : (
+        // Decide rendering: observation + suggestion.
+        <>
+          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{finding.observation}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{finding.suggestion}</div>
+        </>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 }}>
         <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{KIND_LABEL[finding.kind]}</span>
-        {finding.action && (
+        {mode === 'decide' && finding.action && (
           <button
             type="button"
             onClick={onAdd}

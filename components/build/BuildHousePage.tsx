@@ -87,6 +87,8 @@ export function BuildHousePage({
           title={state.title}
           question={state.question}
           strength={strength}
+          mode={state.mode}
+          onModeChange={(mode) => dispatch({ type: 'SET_MODE', mode })}
           onTitleChange={(v) => dispatch({ type: 'SET_TITLE', value: v })}
           onOpenReview={() => dispatch({ type: 'GO_STEP', n: 7 })}
           onInvite={() => dispatch({ type: 'OPEN_INVITE' })}

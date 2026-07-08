@@ -44,6 +44,8 @@ type Supabase = ReturnType<typeof import('@/lib/supabase/client').createClient>
 export function blankState(): State {
   return {
     step: 1,
+    mode: 'decide',
+    aiContext: null,
     title: '',
     purpose: '',
     question: '',
@@ -115,6 +117,9 @@ export function loadLocalHouse(): State | null {
     // onto a blank house — no row↔state remapping needed (unlike loadHouse).
     const c = JSON.parse(raw) as Partial<State>
     const state = blankState()
+    // Normalize the AI fields so pre-0010 drafts still load.
+    state.mode = c.mode === 'learn' ? 'learn' : 'decide'
+    state.aiContext = c.aiContext ?? null
     state.title = c.title ?? ''
     state.purpose = c.purpose ?? ''
     state.question = c.question ?? ''
@@ -139,6 +144,8 @@ export function loadLocalHouse(): State | null {
 // so ephemeral changes (step, tabs, toast, invite) never trigger a save.
 export function serializeContent(state: State): string {
   return JSON.stringify({
+    mode: state.mode,
+    aiContext: state.aiContext,
     title: state.title,
     purpose: state.purpose,
     question: state.question,
@@ -162,7 +169,7 @@ export function serializeContent(state: State): string {
 export async function loadHouse(supabase: Supabase, id: string): Promise<State | null> {
   const { data: house, error } = await supabase
     .from('houses')
-    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted')
+    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted, mode, ai_context')
     .eq('id', id)
     .maybeSingle()
   if (error || !house) return null
@@ -175,6 +182,8 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
   ])
 
   const state = blankState()
+  state.mode = house.mode === 'learn' ? 'learn' : 'decide'
+  state.aiContext = (house.ai_context as State['aiContext'] | null) ?? null
   state.title = house.title ?? ''
   state.question = house.question ?? ''
   state.purpose = house.purpose ?? ''
@@ -204,6 +213,7 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
     source: r.source ?? '',
     owner: r.owner_key,
     byAI: r.by_ai,
+    url: (r.url as string | null) ?? undefined,
   }))
 
   state.assumptions = (assum.data ?? []).map((r, i) => ({
@@ -243,6 +253,8 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
       concept_definitions: state.concepts.map((c) => c.definition),
       watchpoints: state.watchpoints,
       accepted: state.accepted,
+      mode: state.mode,
+      ai_context: state.aiContext,
       layers_complete: doneCount(state),
       status: deriveStatus(state),
     })
@@ -276,6 +288,7 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
         house_id: id,
         text: e.text,
         source: e.source,
+        url: e.url ?? null,
         owner_key: e.owner,
         by_ai: e.byAI,
         position: i,

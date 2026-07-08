@@ -52,14 +52,26 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
                 <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px', display: 'inline-flex' }}>
-                  <input
-                    aria-label="Evidence source"
-                    value={e.source}
-                    placeholder="Add source"
-                    size={Math.max(e.source.length || 10, 8)}
-                    onChange={(ev) => dispatch({ type: 'EDIT_EVIDENCE', id: e.id, field: 'source', value: ev.target.value })}
-                    style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', padding: 0, width: 'auto' }}
-                  />
+                  {e.url ? (
+                    // Cited evidence (Research Mode): the source is a real link, not editable.
+                    <a
+                      href={e.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ font: 'inherit', color: 'inherit', textDecoration: 'underline' }}
+                    >
+                      {e.source || e.url}
+                    </a>
+                  ) : (
+                    <input
+                      aria-label="Evidence source"
+                      value={e.source}
+                      placeholder="Add source"
+                      size={Math.max(e.source.length || 10, 8)}
+                      onChange={(ev) => dispatch({ type: 'EDIT_EVIDENCE', id: e.id, field: 'source', value: ev.target.value })}
+                      style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', padding: 0, width: 'auto' }}
+                    />
+                  )}
                 </span>
                 {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>}
               </div>

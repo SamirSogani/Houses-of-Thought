@@ -21,6 +21,7 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0007_houses_frame_conclusion.sql` | houses | Adds `purpose` / `conclusion` / `reasoning` columns so the builder persists the editable Frame + Conclusion prose (`question` already existed in `0003`) |
 | `0008_house_concept_definitions.sql` | houses | Adds `concept_definitions text[]` (parallel to `concepts`) so each Frame concept can carry a definition |
 | `0009_perspective_detail.sql` | houses | Adds `stance` / `sub_questions` / `supporting_evidence` / `counters` to `house_perspectives` so the drill-in detail is editable and persisted |
+| `0010_ai_columns.sql` | houses | Adds `mode` (learn/decide, default decide) + `ai_context jsonb` to `houses`, and `url` to `house_evidence` — the forward columns the AI phases need (plans/active/ai Phase 2) |
 
 ## Applying to a fresh database
 

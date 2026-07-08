@@ -46,6 +46,9 @@ export interface Evidence {
   source: string
   owner: PersonKey
   byAI: boolean
+  // Real citation link, set by Research Mode (doc 06). Optional so pre-0010
+  // evidence still loads.
+  url?: string
 }
 
 export interface Assumption {
@@ -65,8 +68,21 @@ export interface Implication {
 
 export type RightTab = 'copilot' | 'team'
 
+// How much help the co-pilot gives (decision 007). Learn = Socratic questions
+// only; Decide = concrete suggestions with Add. Persistable; default 'decide'.
+export type AiMode = 'learn' | 'decide'
+
+// Per-house AI context distilled by the interviewer (doc 05). Persistable.
+export interface AiContext {
+  summary: string
+  facts: string[]
+}
+
 export interface State {
   step: number
+  // Co-pilot posture (persistable). aiContext is written by the interviewer.
+  mode: AiMode
+  aiContext: AiContext | null
   title: string
   // Frame layer, user-editable prose (start empty).
   purpose: string
@@ -102,6 +118,8 @@ export type Action =
   | { type: 'SET_CONCLUSION'; value: string }
   | { type: 'SET_REASONING'; value: string }
   | { type: 'SET_TAB'; tab: RightTab }
+  | { type: 'SET_MODE'; mode: AiMode }
+  | { type: 'SET_AI_CONTEXT'; context: AiContext | null }
   | { type: 'ADD_CONCEPT' }
   | { type: 'EDIT_CONCEPT'; idx: number; field: 'term' | 'definition'; value: string }
   | { type: 'REMOVE_CONCEPT'; idx: number }
