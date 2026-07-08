@@ -63,6 +63,9 @@ exists to locate the right file, not to invite broad exploration.
 
 - **Purpose:** Next.js App Router — routes, pages, layouts.
 - **Belongs here:** `page.tsx`/`layout.tsx` per route, route-scoped styles.
+  `app/api/` holds server-only route handlers (`route.ts`) — currently the
+  co-pilot AI routes under `app/api/ai/` (e.g. `ai/suggest`), which take a house
+  payload and return proposals; they never write the DB.
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
 - **Current routes:** `/` (landing page), `/login` (Log in / Sign up tabs,
   wired to Supabase email/password auth), `/welcome` (placeholder
@@ -89,7 +92,10 @@ exists to locate the right file, not to invite broad exploration.
 - **Belongs here:** Client/server helpers, SDK wrappers, shared logic.
 - **Does NOT belong:** React components, pages, or documentation.
 - **Current contents:** `supabase/client.ts` (browser client),
-  `supabase/server.ts` (server client).
+  `supabase/server.ts` (server client). `ai/` holds the co-pilot core:
+  `groq.ts` (server-only Groq client + `completeJSON`), `serialize.ts` (house →
+  prompt text, pure), `prompts.ts` (shared persona + capability blocks),
+  `findings.ts` (client-safe zod schemas / `AiAction` contract).
 
 ## Root files
 

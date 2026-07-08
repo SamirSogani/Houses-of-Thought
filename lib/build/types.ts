@@ -1,5 +1,7 @@
 // State model for the Build a House flow. See handoff 03-STATE-MODEL.md §1.
 
+import type { AiAction } from '@/lib/ai/findings'
+
 export type PersonKey = 'you' | 'maya' | 'devan' | 'ai'
 
 export interface Person {
@@ -133,6 +135,7 @@ export type Action =
   | { type: 'EDIT_WATCHPOINT'; idx: number; value: string }
   | { type: 'REMOVE_WATCHPOINT'; idx: number }
   | { type: 'ACCEPT_SUGGESTION'; step: number; idx: number }
+  | { type: 'APPLY_AI_ACTION'; action: AiAction }
   | { type: 'OPEN_INVITE' }
   | { type: 'CLOSE_INVITE' }
   | { type: 'SET_INVITE_INPUT'; value: string }

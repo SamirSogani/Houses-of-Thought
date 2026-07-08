@@ -28,6 +28,7 @@ const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
   }
 })
 import { suggestions } from './suggestions'
+import { applyAiAction } from './aiActions'
 import { computeStrength } from './strength'
 
 export const initialState: State = {
@@ -352,6 +353,14 @@ export function reducer(state: State, action: Action): State {
       const priorAccepted = state.accepted[action.step] ?? []
       draft.accepted = { ...state.accepted, [action.step]: [...priorAccepted, action.idx] }
       draft.toast = `Added to ${layerKey(action.step)}`
+      return draft
+    }
+
+    case 'APPLY_AI_ACTION': {
+      const draft: State = { ...state }
+      const toast = applyAiAction(draft, action.action)
+      if (toast === null) return state
+      draft.toast = toast
       return draft
     }
 

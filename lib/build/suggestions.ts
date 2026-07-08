@@ -1,3 +1,6 @@
+// DEPRECATED — replaced by the live co-pilot (plans/active/ai). Kept for the
+// ACCEPT_SUGGESTION/accepted plumbing; do not extend.
+//
 // Co-pilot suggestion bank, per layer. Verbatim from handoff 07-COPY-DECK.md §4.
 // Each suggestion's run() mutates a draft State in place (the reducer clones first).
 
