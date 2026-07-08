@@ -38,3 +38,17 @@ After at most 5 questions — fewer if the picture is clear — set done=true, r
 - facts: 3–8 short, concrete, reusable strings ("Deadline: end of term", "Has authority over X, not Y").
 
 While still interviewing, set done=false, put your next question in reply, and leave context null. When done=true, context must be non-null.`
+
+// Derives a web-search query from the house when the person didn't type one.
+// Composed as PERSONA + QUERY_BLOCK.
+export const QUERY_BLOCK = `Task: write ONE concise web-search query (3–10 words) that would surface evidence for this house's question. Use the question, concepts, and any interview context. Return only the query — no operators, no quotes, no commentary.`
+
+// Extracts candidate evidence from Brave results ONLY. Composed as
+// PERSONA + RESEARCH_BLOCK.
+export const RESEARCH_BLOCK = `Task: extract candidate evidence FOR THIS HOUSE from the numbered search results below — and ONLY from them.
+
+Rules:
+- Each claim must be supported by a specific result. Copy that result's URL EXACTLY as given; never alter, guess, or invent a URL.
+- Never invent or embellish beyond what a result's description states. Descriptions are short snippets — keep each claim modest and checkable.
+- Prefer a spread of sources, including ones that disagree, over piling onto one side.
+- Return at most 5 candidates. If nothing in the results genuinely supports the house, return an empty list.`

@@ -1,12 +1,20 @@
 // Layer 3 — Evidence. See handoff 05 §8 / 04 §5.
 
+'use client'
+
+import { useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { Avatar } from '../Avatar'
 import { SearchIcon } from '../buildIcons'
 import { people } from '@/lib/build/people'
 import { InlineText, RemoveButton } from '../Editable'
+import { ResearchResults } from './ResearchResults'
 
 export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
+  const [researchOpen, setResearchOpen] = useState(false)
+  // Research Mode is a Decide-only capability (decision 007 / doc 04).
+  const researchEnabled = state.mode === 'decide'
+
   return (
     <div className="fade-in" style={{ marginTop: 24 }}>
       {/* Toolbar */}
@@ -15,10 +23,11 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
         <span style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
-            // AI feature — inert until the co-pilot is wired to the Groq API.
-            disabled
-            title="Research Mode is coming soon"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink-subtle)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px', cursor: 'not-allowed', opacity: 0.6 }}
+            onClick={() => setResearchOpen((o) => !o)}
+            disabled={!researchEnabled}
+            aria-pressed={researchOpen}
+            title={researchEnabled ? 'Find cited sources with Brave Search' : 'Research runs in Decide mode'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: researchEnabled ? 'var(--ink)' : 'var(--ink-subtle)', background: researchOpen ? 'var(--amber)' : 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px', cursor: researchEnabled ? 'pointer' : 'not-allowed', opacity: researchEnabled ? 1 : 0.6 }}
           >
             <SearchIcon size={13} />
             Research Mode
@@ -34,6 +43,8 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
           </button>
         </span>
       </div>
+
+      {researchOpen && researchEnabled && <ResearchResults state={state} dispatch={dispatch} />}
 
       {/* List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

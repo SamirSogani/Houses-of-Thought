@@ -77,6 +77,7 @@ export function applyAiAction(draft: State, action: AiAction): string | null {
           id: nextId(draft.evidence),
           text: action.text,
           source: action.source,
+          url: action.url,
           owner: 'ai',
           byAI: true,
         },

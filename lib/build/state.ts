@@ -275,22 +275,6 @@ export function reducer(state: State, action: Action): State {
     case 'REMOVE_EVIDENCE':
       return { ...state, evidence: state.evidence.filter((e) => e.id !== action.id) }
 
-    case 'RESEARCH_MODE':
-      return {
-        ...state,
-        evidence: [
-          ...state.evidence,
-          {
-            id: nextId(state.evidence),
-            text: 'Districts using supervised AI tutoring reported a 12% average gain in formative scores.',
-            source: 'EdWeek Research Center (2025)',
-            owner: 'ai',
-            byAI: true,
-          },
-        ],
-        toast: 'Research Mode found a cited source',
-      }
-
     case 'ADD_ASSUMPTION':
       return {
         ...state,

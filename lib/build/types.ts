@@ -141,7 +141,6 @@ export type Action =
   | { type: 'ADD_EVIDENCE' }
   | { type: 'EDIT_EVIDENCE'; id: number; field: 'text' | 'source'; value: string }
   | { type: 'REMOVE_EVIDENCE'; id: number }
-  | { type: 'RESEARCH_MODE' }
   | { type: 'ADD_ASSUMPTION' }
   | { type: 'EDIT_ASSUMPTION'; id: number; value: string }
   | { type: 'REMOVE_ASSUMPTION'; id: number }
