@@ -7,6 +7,10 @@ must be applied to the live Supabase DB (paste into the SQL editor): `0010_ai_co
 (before `/build/[id]` persists `mode`/`ai_context`/evidence `url`) and
 `0011_ai_usage.sql` (before rate limits actually enforce — until then the limiter
 fails open, i.e. no cap).
+> Complete, but kept in `plans/active/` on purpose: ~8 shipped source files and
+> several decision docs point to `plans/active/ai/*.md` in their comments. Moving
+> this directory would break those pointers — do not relocate it.
+
 **Implements:** [decisions/006](../../../decisions/006-groq-model-choice.md) (GPT-OSS on Groq),
 [decisions/007](../../../decisions/007-ai-roles-and-audience.md) (roles, Learn/Decide),
 [decisions/008](../../../decisions/008-ai-wiring-architecture.md) (wiring architecture).
