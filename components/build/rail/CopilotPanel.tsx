@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Action, AiMode, State } from '@/lib/build/types'
 import type { Finding, FindingKind } from '@/lib/ai/findings'
+import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
 import { serializeContent } from '@/lib/build/persistence'
 import { PlusIcon, SparkIcon } from '../buildIcons'
@@ -163,14 +164,20 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
 
       {fetchState.status === 'error' && (
         <div style={{ textAlign: 'center', padding: '18px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>Couldn&apos;t reach the co-pilot.</div>
-          <button
-            type="button"
-            onClick={() => runFetch(step)}
-            style={{ marginTop: 10, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 6, padding: '5px 13px', cursor: 'pointer' }}
-          >
-            Retry
-          </button>
+          {fetchState.code === RATE_LIMITED_CODE ? (
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{RATE_LIMITED_COPY}</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>Couldn&apos;t reach the co-pilot.</div>
+              <button
+                type="button"
+                onClick={() => runFetch(step)}
+                style={{ marginTop: 10, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 6, padding: '5px 13px', cursor: 'pointer' }}
+              >
+                Retry
+              </button>
+            </>
+          )}
         </div>
       )}
 

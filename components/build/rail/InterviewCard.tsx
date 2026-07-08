@@ -9,6 +9,7 @@
 import { useRef, useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { serializeContent } from '@/lib/build/persistence'
+import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 
 type Turn = { role: 'user' | 'assistant'; content: string }
 
@@ -20,14 +21,14 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
   const [transcript, setTranscript] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const [inFlight, setInFlight] = useState(false)
-  const [error, setError] = useState(false)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const userTurns = transcript.filter((t) => t.role === 'user').length
 
   async function runInterview(sendTranscript: Turn[], forceSummary: boolean) {
     setInFlight(true)
-    setError(false)
+    setErrorCode(null)
     try {
       const res = await fetch('/api/ai/interview', {
         method: 'POST',
@@ -39,7 +40,8 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
         }),
       })
       if (!res.ok) {
-        setError(true)
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setErrorCode(body.error ?? 'generic')
         return
       }
       const data = (await res.json()) as {
@@ -57,7 +59,7 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
         requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }))
       }
     } catch {
-      setError(true)
+      setErrorCode('generic')
     } finally {
       setInFlight(false)
     }
@@ -66,7 +68,7 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
   function start() {
     setActive(true)
     setTranscript([])
-    setError(false)
+    setErrorCode(null)
     runInterview([], false)
   }
 
@@ -120,12 +122,14 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
           )}
         </div>
 
-        {error && (
+        {errorCode === RATE_LIMITED_CODE ? (
+          <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 8, lineHeight: 1.45 }}>{RATE_LIMITED_COPY}</div>
+        ) : errorCode ? (
           <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 8 }}>
             Couldn&apos;t reach the co-pilot.{' '}
             <button type="button" onClick={retry} style={linkBtn}>Retry</button>
           </div>
-        )}
+        ) : null}
 
         <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           <input

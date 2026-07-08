@@ -9,6 +9,8 @@
 import { useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { serializeContent } from '@/lib/build/persistence'
+import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
+import { safeHttpUrl } from '@/lib/safeUrl'
 import { SearchIcon } from '../buildIcons'
 
 interface Candidate {
@@ -21,7 +23,7 @@ interface Candidate {
 type Phase =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; code: string }
   | { status: 'done'; candidates: Candidate[]; query: string }
 
 function domainOf(url: string): string {
@@ -50,13 +52,14 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
         }),
       })
       if (!res.ok) {
-        setPhase({ status: 'error' })
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setPhase({ status: 'error', code: body.error ?? 'generic' })
         return
       }
       const data = (await res.json()) as { candidates: Candidate[]; query: string }
       setPhase({ status: 'done', candidates: data.candidates, query: data.query })
     } catch {
-      setPhase({ status: 'error' })
+      setPhase({ status: 'error', code: 'generic' })
     }
   }
 
@@ -98,12 +101,16 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
       )}
 
       {phase.status === 'error' && (
-        <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)' }}>
-          Couldn&apos;t run the search.{' '}
-          <button type="button" onClick={search} style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}>
-            Retry
-          </button>
-        </div>
+        phase.code === RATE_LIMITED_CODE ? (
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{RATE_LIMITED_COPY}</div>
+        ) : (
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)' }}>
+            Couldn&apos;t run the search.{' '}
+            <button type="button" onClick={search} style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}>
+              Retry
+            </button>
+          </div>
+        )
       )}
 
       {phase.status === 'done' && (
@@ -119,14 +126,19 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {phase.candidates.map((c, i) =>
-                consumed.has(i) ? null : (
+              {phase.candidates.map((c, i) => {
+                // The route already validates URLs against Brave's results; this is
+                // defense-in-depth — a candidate without a safe http(s) URL is unusable
+                // as a citation, so drop it rather than render a bad href / Add it.
+                const href = safeHttpUrl(c.url)
+                if (consumed.has(i) || !href) return null
+                return (
                   <div key={i} className="pop" style={{ border: '1px solid var(--rule)', borderRadius: 9, padding: 12, background: 'var(--white)' }}>
                     <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{c.claim}</div>
                     <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{c.quoteOrParaphrase}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 }}>
                       <a
-                        href={c.url}
+                        href={href}
                         target="_blank"
                         rel="noreferrer"
                         className="mono"
@@ -150,7 +162,7 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
                     </div>
                   </div>
                 )
-              )}
+              })}
             </div>
           )}
         </div>

@@ -10,6 +10,7 @@ import { useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { layers } from '@/lib/build/content'
 import { serializeContent } from '@/lib/build/persistence'
+import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { SparkIcon } from '../buildIcons'
 
 type Grade = 'strong' | 'mixed' | 'weak'
@@ -23,7 +24,7 @@ interface Critique {
 type Phase =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; code: string }
   | { status: 'done'; critique: Critique; hash: string }
 
 const GRADE_STYLE: Record<Grade, { color: string; bg: string }> = {
@@ -61,13 +62,14 @@ export function CritiqueSection({ state, dispatch }: { state: State; dispatch: R
         body: JSON.stringify({ house: JSON.parse(content) }),
       })
       if (!res.ok) {
-        setPhase({ status: 'error' })
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setPhase({ status: 'error', code: body.error ?? 'generic' })
         return
       }
       const critique = (await res.json()) as Critique
       setPhase({ status: 'done', critique, hash: hashString(content) })
     } catch {
-      setPhase({ status: 'error' })
+      setPhase({ status: 'error', code: 'generic' })
     }
   }
 
@@ -114,12 +116,16 @@ export function CritiqueSection({ state, dispatch }: { state: State; dispatch: R
         )}
 
         {phase.status === 'error' && (
-          <div style={{ marginTop: 16, fontSize: 13, color: 'var(--ink)' }}>
-            Couldn&apos;t reach the co-pilot.{' '}
-            <button type="button" onClick={inspect} style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}>
-              Retry
-            </button>
-          </div>
+          phase.code === RATE_LIMITED_CODE ? (
+            <div style={{ marginTop: 16, fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{RATE_LIMITED_COPY}</div>
+          ) : (
+            <div style={{ marginTop: 16, fontSize: 13, color: 'var(--ink)' }}>
+              Couldn&apos;t reach the co-pilot.{' '}
+              <button type="button" onClick={inspect} style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}>
+                Retry
+              </button>
+            </div>
+          )
         )}
 
         {phase.status === 'done' && (

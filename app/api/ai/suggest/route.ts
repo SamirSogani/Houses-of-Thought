@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/groq'
+import { enforceAiLimit } from '@/lib/ai/limits'
 import { PERSONA, SUGGEST_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
 import { FindingsResponseSchema } from '@/lib/ai/findings'
@@ -31,6 +32,14 @@ const RequestSchema = z.object({
 })
 
 export async function POST(req: Request): Promise<Response> {
+  // Rate-limit gate first (pooled across all AI routes).
+  try {
+    await enforceAiLimit(req)
+  } catch (err) {
+    if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
+
   // Guard body size before parsing (protects tokens and memory).
   const raw = await req.text()
   if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/groq'
+import { enforceAiLimit } from '@/lib/ai/limits'
 import { PERSONA, INTERVIEW_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
 
@@ -36,6 +37,13 @@ const InterviewResponseSchema = z.object({
 })
 
 export async function POST(req: Request): Promise<Response> {
+  try {
+    await enforceAiLimit(req)
+  } catch (err) {
+    if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
+
   const raw = await req.text()
   if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
     return NextResponse.json({ error: 'payload-too-large' }, { status: 413 })

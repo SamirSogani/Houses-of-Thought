@@ -9,6 +9,7 @@ import { SearchIcon } from '../buildIcons'
 import { people } from '@/lib/build/people'
 import { InlineText, RemoveButton } from '../Editable'
 import { ResearchResults } from './ResearchResults'
+import { safeHttpUrl } from '@/lib/safeUrl'
 
 export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   const [researchOpen, setResearchOpen] = useState(false)
@@ -63,10 +64,11 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
                 <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px', display: 'inline-flex' }}>
-                  {e.url ? (
+                  {safeHttpUrl(e.url) ? (
                     // Cited evidence (Research Mode): the source is a real link, not editable.
+                    // Gated on safeHttpUrl so a non-http(s) URL can never render as an href.
                     <a
-                      href={e.url}
+                      href={safeHttpUrl(e.url)!}
                       target="_blank"
                       rel="noreferrer"
                       style={{ font: 'inherit', color: 'inherit', textDecoration: 'underline' }}

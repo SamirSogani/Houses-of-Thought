@@ -1,10 +1,12 @@
 # Plan — Wire the AI into the builder (Groq + Brave)
 
-**Status:** Phases 1–5 ✅ (co-pilot suggestions + Learn/Decide mode & provenance +
-interviewer → per-house AI context + Research Mode with Brave-cited evidence +
-Socratic critic on Review). Phase 6 pending. ⚠️ Migration `0010_ai_columns.sql`
-must be applied to the live Supabase DB (paste into the SQL editor) before
-`/build/[id]` persists `mode`/`ai_context`/evidence `url`.
+**Status:** All phases ✅ 1–6 (co-pilot suggestions · Learn/Decide mode &
+provenance · interviewer → per-house AI context · Research Mode with Brave-cited
+evidence · Socratic critic on Review · usage caps + hardening). ⚠️ Two migrations
+must be applied to the live Supabase DB (paste into the SQL editor): `0010_ai_columns.sql`
+(before `/build/[id]` persists `mode`/`ai_context`/evidence `url`) and
+`0011_ai_usage.sql` (before rate limits actually enforce — until then the limiter
+fails open, i.e. no cap).
 **Implements:** [decisions/006](../../../decisions/006-groq-model-choice.md) (GPT-OSS on Groq),
 [decisions/007](../../../decisions/007-ai-roles-and-audience.md) (roles, Learn/Decide),
 [decisions/008](../../../decisions/008-ai-wiring-architecture.md) (wiring architecture).
@@ -38,7 +40,7 @@ the only source of evidence** (never model memory). Both builder routes get it:
 | 3 ✅ | [05](05-interviewer.md) | Interviewer → per-house AI context |
 | 4 ✅ | [06](06-research-mode.md) | Research Mode (Brave-cited evidence) |
 | 5 ✅ | [07](07-critic.md) | Socratic critic on the Review layer |
-| 6 | [08](08-limits-and-safety.md) | Usage caps, auth posture, hardening |
+| 6 ✅ | [08](08-limits-and-safety.md) | Usage caps, auth posture, hardening |
 
 ## Execution protocol (for a fresh session)
 
@@ -65,5 +67,6 @@ user's explicit OK per CLAUDE.md).
 
 ## Risk note
 
-Until Phase 6 lands there are no usage caps — routes are deployed open with
-small `max_tokens`. Do not publicize `/house` before Phase 6 is done.
+Phase 6 landed the usage caps, but they only bite once `0011_ai_usage.sql` is
+applied to the live DB — until then the limiter **fails open** (no cap). Apply
+`0010` and `0011` before publicizing `/house`.

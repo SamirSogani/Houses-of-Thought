@@ -1,7 +1,10 @@
 # Decision 008 — AI wiring architecture
 
 **Date:** 2026-07-07
-**Status:** Decided — execution plan in [plans/active/ai/](../plans/active/ai/README.md)
+**Status:** Implemented — all six phases shipped and tested end-to-end
+(2026-07-08). Execution + phase docs: [plans/active/ai/](../plans/active/ai/README.md).
+Findings and deviations discovered during build/test: see
+[009-ai-implementation-findings.md](009-ai-implementation-findings.md).
 
 ## Context
 

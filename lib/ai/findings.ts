@@ -9,6 +9,13 @@
 
 import { z } from 'zod'
 
+// Shown by every AI surface when a route returns 429 (rate-limited). The routes
+// respond `{ error: 'rate-limited' }`; the client matches that code. No Retry
+// button on 429 — retrying won't help until the daily cap resets.
+export const RATE_LIMITED_CODE = 'rate-limited'
+export const RATE_LIMITED_COPY =
+  'The co-pilot is resting — daily limit reached. It resets tomorrow.'
+
 // What a finding can be about. The render label is derived client-side.
 export const FINDING_KINDS = [
   'framing', //                 question too broad/compound/vague
