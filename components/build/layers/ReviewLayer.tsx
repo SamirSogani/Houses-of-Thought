@@ -5,6 +5,7 @@ import type { Strength } from '@/lib/build/strength'
 import { strengthColor, axisLabel, overallLabel, overallSummary } from '@/lib/build/strength'
 import { axisMeasures } from '@/lib/build/content'
 import { ChevronRight, UploadIcon } from '../buildIcons'
+import { CritiqueSection } from './CritiqueSection'
 
 const monoLabel = (extra?: React.CSSProperties): React.CSSProperties => ({
   fontFamily: 'var(--font-mono)',
@@ -112,6 +113,9 @@ export function ReviewLayer({
           </button>
         ))}
       </div>
+
+      {/* Co-pilot critique — commentary beside the score, never an input to it. */}
+      <CritiqueSection state={state} dispatch={dispatch} />
 
       {/* Publish panel */}
       <div style={{ marginTop: 24, background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 14, padding: '22px 24px' }}>

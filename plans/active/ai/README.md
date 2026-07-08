@@ -1,10 +1,10 @@
 # Plan — Wire the AI into the builder (Groq + Brave)
 
-**Status:** Phases 1–4 ✅ (co-pilot suggestions + Learn/Decide mode & provenance +
-interviewer → per-house AI context + Research Mode with Brave-cited evidence).
-Phases 5–6 pending. ⚠️ Migration `0010_ai_columns.sql` must be applied to the live
-Supabase DB (paste into the SQL editor) before `/build/[id]` persists
-`mode`/`ai_context`/evidence `url`.
+**Status:** Phases 1–5 ✅ (co-pilot suggestions + Learn/Decide mode & provenance +
+interviewer → per-house AI context + Research Mode with Brave-cited evidence +
+Socratic critic on Review). Phase 6 pending. ⚠️ Migration `0010_ai_columns.sql`
+must be applied to the live Supabase DB (paste into the SQL editor) before
+`/build/[id]` persists `mode`/`ai_context`/evidence `url`.
 **Implements:** [decisions/006](../../../decisions/006-groq-model-choice.md) (GPT-OSS on Groq),
 [decisions/007](../../../decisions/007-ai-roles-and-audience.md) (roles, Learn/Decide),
 [decisions/008](../../../decisions/008-ai-wiring-architecture.md) (wiring architecture).
@@ -37,7 +37,7 @@ the only source of evidence** (never model memory). Both builder routes get it:
 | 2 ✅ | [04](04-mode-and-provenance.md) | Learn/Decide mode, provenance, migration 0010 |
 | 3 ✅ | [05](05-interviewer.md) | Interviewer → per-house AI context |
 | 4 ✅ | [06](06-research-mode.md) | Research Mode (Brave-cited evidence) |
-| 5 | [07](07-critic.md) | Socratic critic on the Review layer |
+| 5 ✅ | [07](07-critic.md) | Socratic critic on the Review layer |
 | 6 | [08](08-limits-and-safety.md) | Usage caps, auth posture, hardening |
 
 ## Execution protocol (for a fresh session)

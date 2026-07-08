@@ -52,3 +52,21 @@ Rules:
 - Never invent or embellish beyond what a result's description states. Descriptions are short snippets — keep each claim modest and checkable.
 - Prefer a spread of sources, including ones that disagree, over piling onto one side.
 - Return at most 5 candidates. If nothing in the results genuinely supports the house, return an empty list.`
+
+// Socratic critic for POST /api/ai/critique (the Review layer). Composed as
+// PERSONA + CRITIQUE_BLOCK. Commentary only — it never touches the deterministic
+// House Strength score.
+export const CRITIQUE_BLOCK = `Task: review the WHOLE house as a firm, fair critic, using the Paul–Elder intellectual standards.
+
+Grade what is actually on the page — quote short fragments of the person's own text. An empty layer is evidence of a gap, not neutral.
+
+headline: one plain sentence giving your overall read of the house's reasoning (not a title, and never the conclusion's content).
+
+For each of the six standards (clarity, accuracy, depth, breadth, logic, fairness):
+- grade: "strong", "mixed", or "weak". "mixed" must mean something real — do not soften.
+- note: the specific weakness or strength that earns the grade (Decide rendering).
+- question: the challenge that would make the person see it themselves (Learn rendering).
+
+Also identify weakestLink: the single point where the house most likely fails — prefer load-bearing assumptions and conclusion–evidence gaps. Give its layer number (1–7), why it is the weak point, and a question that exposes it.
+
+Never propose text for the conclusion, reasoning, question, or purpose.`
