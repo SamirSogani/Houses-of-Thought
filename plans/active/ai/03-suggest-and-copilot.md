@@ -82,4 +82,5 @@ the static bank entirely:
   autosaves and survives reload; Refresh refetches.
 - `curl` the route with a tiny house body → valid `{ findings: [...] }`;
   with an 8-step body → 400; with >100 KB → 413.
-- Kill `GROQ_API_KEY` locally → panel shows the error state, app otherwise fine.
+- Unset all three Groq tier keys locally → panel shows the error state (500
+  `ai-not-configured`), app otherwise fine.

@@ -15,10 +15,17 @@ fails open, i.e. no cap).
 [decisions/007](../../../decisions/007-ai-roles-and-audience.md) (roles, Learn/Decide),
 [decisions/008](../../../decisions/008-ai-wiring-architecture.md) (wiring architecture).
 
+> **Update 2026-07-10:** the single-model default in these docs was replaced by a
+> two-tier 429-failover chain (`qwen/qwen3.6-27b` → `openai/gpt-oss-20b`) — see
+> [decision 012](../../../decisions/012-groq-tiered-failover.md) for the
+> current model/env truth. Where docs below say `openai/gpt-oss-120b` /
+> `GROQ_API_KEY`, read 012.
+
 Mission: replace every inert AI affordance in the Build workspace with real
-capabilities powered by `openai/gpt-oss-120b` on Groq, with **Brave Search as
-the only source of evidence** (never model memory). Both builder routes get it:
-`/build/[id]` (Supabase-authed) and `/house` (localStorage, anonymous).
+capabilities powered by Groq (two-tier failover per decision 012), with
+**Brave Search as the only source of evidence** (never model memory). Both
+builder routes get it: `/build/[id]` (Supabase-authed) and `/house`
+(localStorage, anonymous).
 
 ## Non-negotiable invariants (hold in every phase)
 
@@ -51,12 +58,13 @@ the only source of evidence** (never model memory). Both builder routes get it:
 - Read this README, then only the phase doc(s) for the phase you are executing.
   Each doc lists exactly the files to read and modify — that list is your
   CLAUDE.md scope grant; do not explore beyond it.
-- Env keys already exist in `.env` and Vercel: `GROQ_API_KEY`,
+- Env keys already exist in `.env` and Vercel: the two tier keys
+  (`GROQ_QWEN_3_POINT_6_27B_API_KEY`, `GROQ_OPENAI_GPT_OSS_20B_API_KEY`) and
   `BRAVE_SEARCH_API_KEY`. Never print their values.
 - After each phase: `npx tsc --noEmit` and `npm run build` must pass; run the
   doc's manual checks against `npm run dev`; tick the phase here; commit.
 - Phase 1 also updates `.env.example` and flips decision 006 to Implemented.
-- External docs allowed: Groq API reference (model `openai/gpt-oss-120b`,
+- External docs allowed: Groq API reference (the tier models per decision 012,
   `reasoning_effort`, `response_format`), Brave Search API reference. Verify
   exact parameter names there rather than assuming.
 

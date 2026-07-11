@@ -1,9 +1,13 @@
 # Decision 006 — Groq model: GPT-OSS over Qwen3
 
 **Date:** 2026-07-07
-**Status:** Implemented — co-pilot wired to `openai/gpt-oss-120b` on Groq via
-`lib/ai/` + `POST /api/ai/suggest` (plans/active/ai Phase 1). Research Mode
-(Evidence layer, Brave-cited) is still pending — Phase 4.
+**Status:** Superseded by [decision 012](012-groq-tiered-failover.md)
+(2026-07-10). The single `openai/gpt-oss-120b` default below was replaced by a
+two-tier 429-failover chain (`qwen/qwen3.6-27b` → `openai/gpt-oss-20b`). The
+reasoning here — structured output, safety alignment, and the `reasoning_effort`
+knob — still stands and carries into 012; only the "one model" part changed.
+Originally: co-pilot wired to `openai/gpt-oss-120b` via `lib/ai/` +
+`POST /api/ai/suggest` (Phase 1).
 
 ## Context
 

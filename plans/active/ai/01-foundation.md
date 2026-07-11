@@ -19,25 +19,29 @@ v1 and this keeps one paradigm for a small surface.
 
 ## Env
 
-Append to `.env.example` (placeholders only):
+Append to `.env.example` (placeholders only). **Updated by
+[decision 012](../../../decisions/012-groq-tiered-failover.md):** the single
+`GROQ_API_KEY` became one key per failover tier —
 
 ```
-# Groq — co-pilot inference (server-side only). console.groq.com
-GROQ_API_KEY=your-groq-key
+# Groq — two-tier resilient inference (server-side only). console.groq.com
+GROQ_QWEN_3_POINT_6_27B_API_KEY=your-groq-qwen-key       # Tier 1
+GROQ_OPENAI_GPT_OSS_20B_API_KEY=your-groq-gpt-oss-20b-key # Tier 2
 # Brave Search — evidence research (server-side only). brave.com/search/api
 BRAVE_SEARCH_API_KEY=your-brave-key
 ```
 
-Optional override honored by `groq.ts`: `GROQ_MODEL` (default
-`openai/gpt-oss-120b`).
+Optional overrides honored by `groq.ts`: `GROQ_TIER{1,2}_MODEL`.
 
 ## `lib/ai/groq.ts` — server-only client wrapper
 
 Server-only guard: throw at module load if `typeof window !== 'undefined'`
 (no extra dep needed).
 
+Signature below is current; the single-`AI_MODEL` body was replaced by the tier
+chain in [decision 012](../../../decisions/012-groq-tiered-failover.md).
+
 ```ts
-export const AI_MODEL = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b'
 export class AiError extends Error { constructor(public status: number, msg: string) { super(msg) } }
 
 export async function completeJSON<T>(opts: {
@@ -50,19 +54,21 @@ export async function completeJSON<T>(opts: {
 }): Promise<T>
 ```
 
-Behavior:
-- One `Groq` client instance (`timeout: 25_000`, `maxRetries: 1`).
-- `chat.completions.create({ model: AI_MODEL, reasoning_effort: opts.effort,
-  response_format: { type: 'json_schema', json_schema: { name, schema } },
-  max_completion_tokens, messages })`. Convert the zod schema with zod v4's
-  `z.toJSONSchema()`. **Verify both param names against Groq's docs**; if
-  `json_schema` mode misbehaves with gpt-oss, fall back to
-  `{ type: 'json_object' }` + schema embedded in the system prompt.
-- Parse content with `opts.schema.parse`. On parse failure, retry **once**
-  appending the validation error to the user message; then throw
+Behavior (as revised by decision 012):
+- One `Groq` client **per tier** (each holds its own key; `timeout: 25_000`,
+  `maxRetries: 1`), cached in a `Map`.
+- Route through the tier chain: `effort:'high'` always enters at Tier 1;
+  `effort:'low'` enters at Tier 1 under light traffic, Tier 2 under heavy traffic
+  (an in-memory in-flight gauge). An HTTP 429 from a tier advances to the next.
+  `reasoning_effort` is sent to both tiers (both are reasoning models).
+  `response_format: { type: 'json_schema', json_schema: { name, schema } }`, zod
+  converted with `z.toJSONSchema()`.
+- Parse content with `opts.schema`. On parse failure, retry **once** (re-running
+  the chain) appending the validation error; then throw
   `AiError(502, 'ai-invalid-output')`.
-- Map Groq 429 → `AiError(429, …)`, timeouts/5xx → `AiError(502, …)`.
-- Throw immediately if `!process.env.GROQ_API_KEY` (500, clear message).
+- Map Groq 429 → `AiError(429, …)` (drives failover); other/timeouts/5xx are
+  logged and mapped to `AiError(502, …)`.
+- Throw `AiError(500, 'ai-not-configured')` if a needed tier's key is missing.
 
 ## `lib/ai/serialize.ts` — house → compact prompt text
 
@@ -103,4 +109,5 @@ added by their phase docs and live in this file, composed as
 - Temporary sanity check (then delete): a `scripts/`-free inline check is fine —
   create `app/api/ai/suggest/route.ts` in doc 03 and test through it; this doc
   ships no route.
-- `.env.example` documents both keys; no real key values appear in any diff.
+- `.env.example` documents the two Groq tier keys + Brave key; no real key
+  values appear in any diff.

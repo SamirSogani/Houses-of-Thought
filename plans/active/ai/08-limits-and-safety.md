@@ -78,9 +78,9 @@ for a higher limit.") No Retry button on 429.
   route + status + subject hash + duration.
 - Error responses never echo model raw output or stack traces.
 - PERSONA rules present on every call (single source in `prompts.ts`).
-- Grep the repo: `GROQ_API_KEY` / `BRAVE_SEARCH_API_KEY` appear only in
-  `lib/ai/groq.ts`, `lib/ai/brave.ts`, `lib/ai/limits.ts` (service key),
-  `.env`, `.env.example`.
+- Grep the repo: the Groq tier keys (`GROQ_*_API_KEY`) / `BRAVE_SEARCH_API_KEY`
+  appear only in `lib/ai/groq.ts`, `lib/ai/brave.ts`, `lib/ai/limits.ts`
+  (service key), `.env`, `.env.example`.
 
 ## Explicitly deferred (pre-classroom gate, not now)
 
