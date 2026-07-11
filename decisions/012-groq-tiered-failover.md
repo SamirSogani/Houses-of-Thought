@@ -29,8 +29,21 @@ not real bugs).
 No third fallback: if the entry tier and everything below it 429, the call throws
 429 (the rate-limit UX handles it). Model IDs are env-overridable
 (`GROQ_TIER{1,2}_MODEL`). `completeJSON`'s signature is unchanged, so the five
-routes were untouched. Both remaining models are reasoning models, so
-`reasoning_effort` is always sent.
+routes were untouched.
+
+### Per-model request shape (found via live testing)
+The two models don't share a request vocabulary, and a mismatch is a hard 400 —
+which, because it isn't a 429, does *not* fall through and would surface as an
+error. So two knobs are mapped per model:
+- **`reasoning_effort`**: gpt-oss accepts `low`/`high` (passed straight through);
+  qwen accepts only `none`/`default`, so our `high`→`default`, `low`→`none`.
+- **`response_format`**: gpt-oss supports strict `json_schema`; qwen returns 400
+  for it, so qwen uses `json_object` with the JSON Schema embedded in the system
+  prompt. `completeJSON` already validates with zod and retries once, so the
+  schema is still enforced — just client-side for qwen rather than by the API.
+
+Both are keyed off the model id (`startsWith('qwen')` / `startsWith('openai/gpt-oss')`),
+so an env model override that changes the family is handled.
 
 ### Entry tier = `effort` + a live traffic gauge
 - **High-effort** work (`effort:'high'` — house health, research, context) always

@@ -34,7 +34,7 @@ interface Tier {
 }
 
 // Ordered failover chain. Model IDs are env-overridable so a model swap needs no
-// code change. Both tiers are reasoning models, so reasoning_effort is always sent.
+// code change.
 const TIERS: Tier[] = [
   {
     model: process.env.GROQ_TIER1_MODEL ?? 'qwen/qwen3.6-27b',
@@ -45,6 +45,25 @@ const TIERS: Tier[] = [
     keyEnv: 'GROQ_OPENAI_GPT_OSS_20B_API_KEY',
   },
 ]
+
+// reasoning_effort's vocabulary is per-model, and a mismatch is a hard 400 (not a
+// 429, so it would NOT fall through — it would surface as an error). The gpt-oss
+// family takes low|medium|high; qwen reasoning models take only none|default. Map
+// our two-level effort onto whatever the target model accepts.
+function reasoningEffortFor(
+  model: string,
+  effort: 'low' | 'high'
+): 'none' | 'default' | 'low' | 'high' {
+  if (model.startsWith('qwen')) return effort === 'high' ? 'default' : 'none'
+  return effort // gpt-oss and anything else that accepts low|high directly
+}
+
+// Groq's strict json_schema structured output is only on a subset of models (the
+// gpt-oss family here); qwen3.6-27b returns a 400 for it. Everything else falls
+// back to json_object (schema embedded in the prompt), the widely-supported mode.
+function supportsJsonSchema(model: string): boolean {
+  return model.startsWith('openai/gpt-oss')
+}
 
 // Live concurrency gauge. "<2 people" is light traffic; 2+ concurrent AI calls is
 // heavy, which pushes low-effort (suggestion) work onto the faster Tier 2 to shed
@@ -117,18 +136,25 @@ async function run<T>(opts: Parameters<typeof completeJSON<T>>[0]): Promise<T> {
     for (let i = startTier; i < TIERS.length; i++) {
       const tier = TIERS[i]
       const groq = getClient(tier)
+      // response_format is per-model: gpt-oss enforces the schema natively
+      // (json_schema); qwen only supports json_object, so we embed the schema in
+      // the system prompt and lean on the zod validate + one-shot retry below.
+      const useJsonSchema = supportsJsonSchema(tier.model)
+      const systemContent = useJsonSchema
+        ? opts.system
+        : `${opts.system}\n\nRespond with a single JSON object and nothing else. It must conform to this JSON Schema:\n${JSON.stringify(jsonSchema)}`
+      const responseFormat = useJsonSchema
+        ? { type: 'json_schema' as const, json_schema: { name: opts.schemaName, schema: jsonSchema } }
+        : { type: 'json_object' as const }
       let completion
       try {
         completion = await groq.chat.completions.create({
           model: tier.model,
-          reasoning_effort: opts.effort,
+          reasoning_effort: reasoningEffortFor(tier.model, opts.effort),
           max_completion_tokens: opts.maxTokens,
-          response_format: {
-            type: 'json_schema',
-            json_schema: { name: opts.schemaName, schema: jsonSchema },
-          },
+          response_format: responseFormat,
           messages: [
-            { role: 'system', content: opts.system },
+            { role: 'system', content: systemContent },
             { role: 'user', content: userMessage },
           ],
         })

@@ -60,9 +60,10 @@ Behavior (as revised by decision 012):
 - Route through the tier chain: `effort:'high'` always enters at Tier 1;
   `effort:'low'` enters at Tier 1 under light traffic, Tier 2 under heavy traffic
   (an in-memory in-flight gauge). An HTTP 429 from a tier advances to the next.
-  `reasoning_effort` is sent to both tiers (both are reasoning models).
-  `response_format: { type: 'json_schema', json_schema: { name, schema } }`, zod
-  converted with `z.toJSONSchema()`.
+  `reasoning_effort` and `response_format` are mapped per model (decision 012):
+  gpt-oss uses `low`/`high` + strict `json_schema`; qwen uses `none`/`default` +
+  `json_object` with the schema embedded in the prompt (it 400s on json_schema).
+  zod schema converted with `z.toJSONSchema()`.
 - Parse content with `opts.schema`. On parse failure, retry **once** (re-running
   the chain) appending the validation error; then throw
   `AiError(502, 'ai-invalid-output')`.
