@@ -51,5 +51,12 @@ Standardize on **pnpm**, matching the deployment platform (Vercel).
 - Doc command references that still say `npm install` / `npm run build` (e.g. in
   `plans/active/ai/*`) are historical phase records; the equivalent pnpm command
   applies. Not rewritten here to avoid churn in completed plans.
-- Optional hardening (not done — offer): a `preinstall` "only-allow pnpm" guard to
-  fail fast if someone runs `npm install`.
+- Hardening (done): a `preinstall` guard (`scripts/ensure-pnpm.cjs`) fails fast if
+  the install isn't pnpm — it reads `npm_config_user_agent`, so it is dependency-
+  free and offline-safe (no `npx only-allow` fetch). Verified: `npm`/`yarn` are
+  blocked with a pointer to this doc; `pnpm` passes silently.
+- Known wart (separate from this decision): `pnpm install` exits non-zero with
+  `ERR_PNPM_IGNORED_BUILDS` because pnpm 10+ blocks `sharp`'s native build script
+  by default. The build still compiles. Fix when convenient by allowlisting it —
+  `"pnpm": { "onlyBuiltDependencies": ["sharp"] }` in `package.json`, then
+  `pnpm approve-builds`.
