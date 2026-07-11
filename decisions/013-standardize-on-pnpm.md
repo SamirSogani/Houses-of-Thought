@@ -55,8 +55,9 @@ Standardize on **pnpm**, matching the deployment platform (Vercel).
   the install isn't pnpm — it reads `npm_config_user_agent`, so it is dependency-
   free and offline-safe (no `npx only-allow` fetch). Verified: `npm`/`yarn` are
   blocked with a pointer to this doc; `pnpm` passes silently.
-- Known wart (separate from this decision): `pnpm install` exits non-zero with
-  `ERR_PNPM_IGNORED_BUILDS` because pnpm 10+ blocks `sharp`'s native build script
-  by default. The build still compiles. Fix when convenient by allowlisting it —
-  `"pnpm": { "onlyBuiltDependencies": ["sharp"] }` in `package.json`, then
-  `pnpm approve-builds`.
+- `sharp` build approval: pnpm 10+ blocks `sharp`'s native build script by
+  default, which made `pnpm install` exit non-zero (`ERR_PNPM_IGNORED_BUILDS`).
+  Fixed by allowlisting it in `pnpm-workspace.yaml` (`allowBuilds: { sharp: true }`)
+  — note pnpm 11 no longer reads the `"pnpm"` field in `package.json`, and the
+  setting is `allowBuilds`, not `onlyBuiltDependencies`. `pnpm install` now exits 0
+  and builds sharp.

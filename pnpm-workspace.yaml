@@ -1,0 +1,6 @@
+# pnpm settings (pnpm 10+ reads them here, not from package.json's "pnpm" field).
+# Allow sharp — Next.js's image-optimization native dep — to run its build
+# script; otherwise pnpm blocks it by default and `pnpm install` exits non-zero
+# (ERR_PNPM_IGNORED_BUILDS). See decisions/013-standardize-on-pnpm.md.
+allowBuilds:
+  sharp: true
