@@ -6,6 +6,7 @@
 import Link from 'next/link'
 import { LogoMark } from '@/components/icons'
 import { SparkIcon } from '@/components/build/buildIcons'
+import { AdminNavLink } from '@/components/admin/AdminNavLink'
 
 const monoLink: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
@@ -45,9 +46,15 @@ function SignOutIcon() {
 export function DashboardHeader({
   onSignOut,
   active,
+  showClassroom = false,
+  classroomHref = '/classroom',
 }: {
   onSignOut: () => void
-  active?: 'framework' | 'collab' | 'profile'
+  active?: 'framework' | 'collab' | 'classroom' | 'profile' | 'admin'
+  // Teachers get a Classroom entry point (capabilities.canCreateClasses); students
+  // get their own panel via classroomHref='/classes'.
+  showClassroom?: boolean
+  classroomHref?: string
 }) {
   const hover = (c: string) => (e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.color = c)
   const activeStyle: React.CSSProperties = { color: 'var(--ink)', borderBottom: '2px solid var(--amber)', paddingBottom: 3 }
@@ -81,8 +88,18 @@ export function DashboardHeader({
           Framework
         </Link>
 
-        {/* Right: Collab · Profile · Sign Out */}
+        {/* Right: Classroom · Collab · Profile · Sign Out */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 22, justifySelf: 'end' }}>
+          {showClassroom && (
+            <Link
+              href={classroomHref}
+              style={{ ...monoLink, ...(active === 'classroom' ? activeStyle : {}) }}
+              onMouseEnter={hover('var(--ink)')}
+              onMouseLeave={hover(active === 'classroom' ? 'var(--ink)' : 'var(--ink-subtle)')}
+            >
+              Classroom
+            </Link>
+          )}
           <Link href="/build" style={{ ...monoLink, color: 'var(--ink)', ...(active === 'collab' ? activeStyle : {}) }} onMouseEnter={hover('var(--amber-hover)')} onMouseLeave={hover('var(--ink)')}>
             <SparkIcon size={13} fill="var(--amber-hover)" />
             Collab
@@ -96,6 +113,7 @@ export function DashboardHeader({
             <GearIcon />
             Profile
           </Link>
+          <AdminNavLink active={active === 'admin'} />
           <button type="button" onClick={onSignOut} style={monoLink} onMouseEnter={hover('var(--ink)')} onMouseLeave={hover('var(--ink-subtle)')}>
             <SignOutIcon />
             Sign Out

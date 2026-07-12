@@ -15,6 +15,8 @@ export function ContextBar({
   question,
   strength,
   mode,
+  modeLocked = false,
+  readOnly = false,
   onModeChange,
   onTitleChange,
   onOpenReview,
@@ -27,6 +29,10 @@ export function ContextBar({
   question: string
   strength: Strength
   mode: AiMode
+  // When true (students), the toggle is shown but inert — pinned to Learn.
+  modeLocked?: boolean
+  // When true (teacher read-only view), the title and write buttons are disabled.
+  readOnly?: boolean
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
@@ -55,6 +61,7 @@ export function ContextBar({
           aria-label="House title"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          readOnly={readOnly}
           placeholder={question.trim() || 'Name your house'}
           style={{
             fontFamily: 'var(--font-display)',
@@ -115,8 +122,8 @@ export function ContextBar({
 
       {/* Co-pilot mode: Learn | Decide (decision 007) */}
       <div
-        title="How much help the co-pilot gives."
-        style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)' }}
+        title={modeLocked ? 'Student accounts stay in Learn mode.' : 'How much help the co-pilot gives.'}
+        style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)', opacity: modeLocked ? 0.6 : 1 }}
       >
         {(['learn', 'decide'] as AiMode[]).map((m) => {
           const active = mode === m
@@ -125,6 +132,7 @@ export function ContextBar({
               key={m}
               type="button"
               onClick={() => onModeChange(m)}
+              disabled={modeLocked}
               aria-pressed={active}
               className="mono"
               style={{
@@ -133,7 +141,7 @@ export function ContextBar({
                 textTransform: 'uppercase',
                 padding: '7px 12px',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: modeLocked ? 'not-allowed' : 'pointer',
                 color: active ? 'var(--ink)' : 'var(--ink-subtle)',
                 background: active ? 'var(--amber-tint)' : 'transparent',
                 fontWeight: active ? 700 : 500,
@@ -162,6 +170,7 @@ export function ContextBar({
         <button
           type="button"
           onClick={onInvite}
+          disabled={readOnly}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -174,6 +183,8 @@ export function ContextBar({
             fontSize: 14,
             color: 'var(--ink)',
             background: 'var(--white)',
+            opacity: readOnly ? 0.5 : 1,
+            cursor: readOnly ? 'not-allowed' : 'pointer',
           }}
         >
           <PlusIcon size={14} />
@@ -182,6 +193,7 @@ export function ContextBar({
         <button
           type="button"
           onClick={onPublish}
+          disabled={readOnly}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -193,6 +205,8 @@ export function ContextBar({
             borderRadius: 8,
             fontWeight: 600,
             fontSize: 14,
+            opacity: readOnly ? 0.5 : 1,
+            cursor: readOnly ? 'not-allowed' : 'pointer',
           }}
         >
           <UploadIcon size={14} />

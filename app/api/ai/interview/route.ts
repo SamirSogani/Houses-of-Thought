@@ -88,6 +88,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const result = await completeJSON({
+      role: 'coach',
       system,
       user,
       schema: InterviewResponseSchema,

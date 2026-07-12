@@ -14,12 +14,12 @@ export const accountTypes: AccountTypeMeta[] = [
   {
     key: 'standard',
     name: 'Standard',
-    desc: 'Full access to every feature, including the AI assistant and Draft Full House.',
+    desc: 'Full access to every feature, including the AI co-pilot in both Learn and Decide modes.',
   },
   {
     key: 'student',
     name: 'Student',
-    desc: 'Built for classroom learning. Research Mode, Logic Strength, and Stress Test are available. The AI assistant and Draft Full House are not.',
+    desc: 'Built for classroom learning. The AI co-pilot works in Learn mode only: it coaches with Socratic questions and never writes your house for you.',
   },
   {
     key: 'teacher',

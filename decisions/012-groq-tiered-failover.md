@@ -1,11 +1,11 @@
 # Decision 012 — Two-tier Groq failover (supersedes 006's single-model choice)
 
 **Date:** 2026-07-10
-**Status:** Implemented — `lib/ai/groq.ts` routes every AI call through an ordered
-two-tier chain that falls through on HTTP 429. Supersedes the `openai/gpt-oss-120b`
-single-model default from [decision 006](006-groq-model-choice.md); the 006
-reasoning about *why* reasoning-capable structured-output models (JSON adherence,
-safety, the effort knob) still holds and is unchanged.
+**Status:** SUPERSEDED by [decision 013](013-multi-provider-routing.md), which
+replaces the Groq-only two-tier chain with a multi-provider routing engine
+(`lib/ai/router.ts`). Kept for history. The 006 reasoning about *why*
+reasoning-capable structured-output models (JSON adherence, safety, the effort
+knob) still holds; the tiering below no longer describes the live system.
 
 ## Context
 

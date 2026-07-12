@@ -15,16 +15,35 @@ import { Canvas } from './Canvas'
 import { CopilotPanel } from './rail/CopilotPanel'
 import { InviteModal } from './InviteModal'
 import { WhatsNewDrawer } from './WhatsNewDrawer'
+import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 
 export function BuildHousePage({
   initialState,
   userEmail,
+  houseId,
+  modeLocked = false,
+  readOnly = false,
+  strawman = false,
+  feedback = null,
   onSignOut,
   onSave,
 }: {
   initialState: State
   userEmail: string | null
+  // The house id; needed to load/save teacher feedback. Null for local drafts.
+  houseId?: string
+  // When true (students), the Learn/Decide toggle is disabled and pinned.
+  modeLocked?: boolean
+  // When true (a teacher viewing a student's house), edits don't persist and the
+  // write-affordances are disabled; a banner makes the read-only state explicit.
+  readOnly?: boolean
+  // When true, this is an AI strawman to attack (implies readOnly upstream); the
+  // banner reads differently from the teacher read-only case.
+  strawman?: boolean
+  // Teacher assessment surface: 'edit' (teacher on a student submission),
+  // 'view' (student on their own house), or null (not a graded context).
+  feedback?: 'edit' | 'view' | null
   onSignOut: () => void
   // Persistence adapter, called (debounced) whenever persistable content changes.
   onSave: (state: State) => void
@@ -38,6 +57,11 @@ export function BuildHousePage({
   // Held in a ref so a fresh onSave closure each render never resets the debounce.
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
+  // Latest state + last-saved content key, so a pending edit can be flushed if the
+  // workspace unmounts before the debounce fires (see the flush effect below).
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const savedKeyRef = useRef<string | null>(null)
 
   // Toast auto-dismiss after 2200ms; a new toast resets the timer (04 §13).
   useEffect(() => {
@@ -56,11 +80,14 @@ export function BuildHousePage({
   useEffect(() => {
     if (firstSave.current) {
       firstSave.current = false
+      savedKeyRef.current = contentKey // loaded state already matches the DB
       return
     }
     if (saveTimer.current) clearTimeout(saveTimer.current)
+    const key = contentKey
     saveTimer.current = setTimeout(() => {
-      onSaveRef.current(state)
+      onSaveRef.current(stateRef.current)
+      savedKeyRef.current = key
     }, 800)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -68,6 +95,18 @@ export function BuildHousePage({
     // contentKey is the intended dependency; state/onSave are read via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentKey])
+
+  // Flush a pending edit if the workspace unmounts (route change) inside the
+  // 800ms debounce window, so work isn't lost. onSave is a no-op in read-only
+  // views, so this is harmless there.
+  useEffect(() => {
+    return () => {
+      if (savedKeyRef.current !== null && serializeContent(stateRef.current) !== savedKeyRef.current) {
+        onSaveRef.current(stateRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Every navigation scrolls the canvas to top (02 §10).
   useEffect(() => {
@@ -83,17 +122,50 @@ export function BuildHousePage({
           onOpenNotes={() => dispatch({ type: 'OPEN_NOTES' })}
           onSignOut={onSignOut}
         />
+        {(readOnly || strawman) && (
+          <div
+            className="mono"
+            style={{
+              flex: '0 0 auto',
+              padding: '7px 24px',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: strawman ? 'var(--amber-hover)' : 'var(--blueprint)',
+              background: 'var(--parchment)',
+              borderBottom: `1px dashed ${strawman ? 'var(--amber-hover)' : 'var(--blueprint)'}`,
+            }}
+          >
+            {strawman
+              ? readOnly
+                ? 'AI Strawman · not your work — find the weak links, then open Review to critique it'
+                : 'AI Strawman · students will attack this — review and revise it before releasing'
+              : "Read-only · you're viewing a student's house"}
+          </div>
+        )}
         <ContextBar
           title={state.title}
           question={state.question}
           strength={strength}
           mode={state.mode}
-          onModeChange={(mode) => dispatch({ type: 'SET_MODE', mode })}
+          modeLocked={modeLocked}
+          readOnly={readOnly}
+          onModeChange={(mode) => {
+            if (modeLocked) return
+            dispatch({ type: 'SET_MODE', mode })
+          }}
           onTitleChange={(v) => dispatch({ type: 'SET_TITLE', value: v })}
           onOpenReview={() => dispatch({ type: 'GO_STEP', n: 7 })}
           onInvite={() => dispatch({ type: 'OPEN_INVITE' })}
           onPublish={() => dispatch({ type: 'PUBLISH' })}
         />
+        {houseId && feedback && (
+          <SubmissionFeedback
+            houseId={houseId}
+            mode={feedback}
+            house={feedback === 'edit' ? JSON.parse(contentKey) : undefined}
+          />
+        )}
       </header>
 
       {/* Three-zone row */}

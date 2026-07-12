@@ -74,6 +74,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const critique = await completeJSON({
+      role: 'critic',
       system,
       user,
       schema: CritiqueSchema,

@@ -200,6 +200,47 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
   .house-layer { animation: none; stroke-dashoffset: 0; }
 }
 
+/* Try It — Mini House result grids (components/try/MiniHouseResult.tsx) */
+.mh-cols-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.mh-synth-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.mh-compare {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: clamp(36px, 6vw, 56px);
+}
+@media (min-width: 768px) {
+  .mh-synth-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+  .mh-compare { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 900px) {
+  .mh-cols-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Try It — build-step spinner (components/try/TryItFlow.tsx) */
+.mini-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--rule-soft);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-spinner { animation: none; }
+}
+
 /* Header */
 .site-header {
   position: sticky;

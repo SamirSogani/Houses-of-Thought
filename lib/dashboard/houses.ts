@@ -12,6 +12,8 @@ export interface HouseSummary {
   layersComplete: number // 0..7
   status: HouseStatus
   editedLabel: string
+  assignmentId: string | null // set = this house answers an assignment
+  turnedIn: boolean // student marked the submission as turned in
 }
 
 export const TOTAL_LAYERS = 7
@@ -27,6 +29,8 @@ export const statusMeta: Record<HouseStatus, { label: string; color: string; bg:
 }
 
 // Shape of a public.houses row as selected for the dashboard grid (see 0003).
+// assignment_id/turned_in are optional so rows from selects that omit them (e.g.
+// the roster view) still map cleanly.
 export interface HouseRow {
   id: string
   title: string | null
@@ -34,6 +38,8 @@ export interface HouseRow {
   status: HouseStatus
   layers_complete: number
   updated_at: string
+  assignment_id?: string | null
+  turned_in?: boolean
 }
 
 export function rowToSummary(row: HouseRow): HouseSummary {
@@ -44,6 +50,8 @@ export function rowToSummary(row: HouseRow): HouseSummary {
     layersComplete: row.layers_complete,
     status: row.status,
     editedLabel: editedLabel(row.updated_at),
+    assignmentId: row.assignment_id ?? null,
+    turnedIn: row.turned_in ?? false,
   }
 }
 

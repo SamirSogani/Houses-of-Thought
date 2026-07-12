@@ -69,7 +69,10 @@ export async function POST(req: Request): Promise<Response> {
     // 1. Query: user-typed focus, else derive one from the house.
     let query = parsed.data.query?.trim() ?? ''
     if (!query) {
+      // Not the sidebar suggestor — this internal query-derivation stays on the
+      // Mistral-first real-time lane (coach), so only the sidebar rides Cerebras.
       const derived = await completeJSON({
+        role: 'coach',
         system: `${PERSONA}\n\n${QUERY_BLOCK}`,
         user: houseText,
         schema: QuerySchema,
@@ -90,6 +93,7 @@ export async function POST(req: Request): Promise<Response> {
       .map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.description}`)
       .join('\n\n')
     const { candidates } = await completeJSON({
+      role: 'drafter',
       system: `${PERSONA}\n\n${RESEARCH_BLOCK}`,
       user: `${houseText}\n\n## Search results (query: "${query}")\n${numbered}`,
       schema: CandidatesSchema,

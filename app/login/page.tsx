@@ -1,19 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { LogoMark } from '@/components/icons'
 import { createClient } from '@/lib/supabase/client'
+import { AccountTypeSelector } from '@/components/profile/AccountTypeSelector'
+import type { AccountType } from '@/lib/profile/data'
+
+// Post-auth destination. Honors a ?next= param (e.g. a /join/<code> invite link
+// that bounced through login) but only for internal paths, to avoid an open
+// redirect. Read from window at click time so we don't need a Suspense boundary.
+function nextPath(): string {
+  if (typeof window === 'undefined') return '/dashboard'
+  const p = new URLSearchParams(window.location.search).get('next')
+  return p && p.startsWith('/') && !p.startsWith('//') ? p : '/dashboard'
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [accountType, setAccountType] = useState<AccountType>('standard')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Open on the signup tab when arriving from a conversion CTA (e.g. the /try
+  // "Create free account" button links to /login?mode=signup). Read once on mount
+  // to avoid an SSR/hydration mismatch.
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get('mode')
+    if (m === 'signup') setMode('signup')
+  }, [])
 
   const isLogin = mode === 'login'
 
@@ -23,18 +43,30 @@ export default function LoginPage() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = isLogin
+    // account_type is passed in signup metadata AND (below) written explicitly:
+    // the signup trigger (0013) reads the metadata, but GoTrue's user-creation
+    // timing can leave it at the default, so we set it deterministically from the
+    // client — which now has a session — right after signing up.
+    const result = isLogin
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { account_type: accountType } },
+        })
 
-    setLoading(false)
-
-    if (error) {
-      setError(error.message)
+    if (result.error) {
+      setLoading(false)
+      setError(result.error.message)
       return
     }
 
-    router.push('/dashboard')
+    if (!isLogin && result.data.user) {
+      await supabase.from('profiles').update({ account_type: accountType }).eq('id', result.data.user.id)
+    }
+
+    setLoading(false)
+    router.push(nextPath())
     router.refresh()
   }
 
@@ -199,6 +231,24 @@ export default function LoginPage() {
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--rule)')}
                 />
               </div>
+
+              {!isLogin && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ink-subtle)',
+                    }}
+                  >
+                    Account type
+                  </span>
+                  <AccountTypeSelector value={accountType} onChange={setAccountType} />
+                </div>
+              )}
 
               {isLogin && (
                 <div style={{ textAlign: 'right', marginTop: -4 }}>

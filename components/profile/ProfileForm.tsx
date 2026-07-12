@@ -18,7 +18,7 @@ import { SectionCard, FieldLabel, TextInput, TextArea } from './primitives'
 import { AccountTypeSelector } from './AccountTypeSelector'
 import { DeleteAccountModal } from './DeleteAccountModal'
 
-type SaveState = 'saved' | 'saving'
+type SaveState = 'saved' | 'saving' | 'error'
 
 const twoCol: React.CSSProperties = {
   display: 'grid',
@@ -34,6 +34,11 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
   const [taken, setTaken] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstRender = useRef(true)
+  // Latest form state + the last row we know is persisted — used to flush a
+  // pending change if the form unmounts before the debounce fires (below).
+  const latestRef = useRef(initial)
+  const savedRef = useRef(JSON.stringify(profileToRow(initial)))
+  latestRef.current = profile
 
   const nameError = usernameError(profile.username)
 
@@ -49,18 +54,36 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       const supabase = createClient()
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileToRow(profile))
-        .eq('id', userId)
+      const row = profileToRow(profile)
+      const { error } = await supabase.from('profiles').update(row).eq('id', userId)
       // 23505 = unique_violation: the username is already taken by another user.
       setTaken(error?.code === '23505')
-      setSave('saved')
+      if (error && error.code !== '23505') {
+        // Surface real failures instead of a false "All changes saved" — this is
+        // what hid the missing-GRANT 403 during testing.
+        setSave('error')
+      } else {
+        savedRef.current = JSON.stringify(row)
+        setSave('saved')
+      }
     }, 650)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
   }, [profile, nameError, userId])
+
+  // Flush a still-pending change when the form unmounts (e.g. navigating away
+  // inside the 650ms debounce window), so an edit isn't silently dropped.
+  useEffect(() => {
+    return () => {
+      const p = latestRef.current
+      if (usernameError(p.username)) return
+      const row = profileToRow(p)
+      if (JSON.stringify(row) === savedRef.current) return
+      // Best-effort final write; the component is unmounting so ignore the result.
+      void createClient().from('profiles').update(row).eq('id', userId)
+    }
+  }, [userId])
 
   const set = <K extends keyof ProfileData>(key: K, value: ProfileData[K]) =>
     setProfile((p) => ({ ...p, [key]: value }))
@@ -189,11 +212,12 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
-  const saved = state === 'saved'
+  const color = state === 'error' ? 'var(--warning)' : state === 'saved' ? 'var(--green-strong)' : 'var(--amber)'
+  const label = state === 'error' ? "Couldn't save — try again" : state === 'saved' ? 'All changes saved' : 'Saving…'
   return (
-    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: saved ? 'var(--green-strong)' : 'var(--amber)' }} />
-      {saved ? 'All changes saved' : 'Saving…'}
+    <span className="mono" style={{ fontSize: 10, color: state === 'error' ? 'var(--warning)' : 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
+      {label}
     </span>
   )
 }

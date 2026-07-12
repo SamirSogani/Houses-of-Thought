@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/groq'
 import { enforceAiLimit } from '@/lib/ai/limits'
+import { getCallerCapabilities } from '@/lib/auth/account'
 import { PERSONA, SUGGEST_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
 import { FindingsResponseSchema } from '@/lib/ai/findings'
@@ -59,15 +60,22 @@ export async function POST(req: Request): Promise<Response> {
   }
   const { house, step, mode, aiContext } = parsed.data
 
+  // Authoritative posture gate (plan phase 1): a student is pinned to Learn
+  // regardless of the mode the client sent, so the co-pilot can never be coaxed
+  // into Decide-mode answers. Non-students keep the requested mode.
+  const caps = await getCallerCapabilities()
+  const effectiveMode = caps.forcedMode ?? mode
+
   const houseForPrompt: HouseForPrompt = {
     ...(house as HouseForPrompt),
     aiContext: aiContext ?? (house as HouseForPrompt).aiContext ?? null,
   }
   const system = `${PERSONA}\n\n${SUGGEST_BLOCK}`
-  const user = `Mode: ${mode}\n\n${serializeHouseForPrompt(houseForPrompt, step)}`
+  const user = `Mode: ${effectiveMode}\n\n${serializeHouseForPrompt(houseForPrompt, step)}`
 
   try {
     const { findings } = await completeJSON({
+      role: 'suggestor',
       system,
       user,
       schema: FindingsResponseSchema,
