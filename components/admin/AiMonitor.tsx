@@ -59,6 +59,13 @@ export function ago(ms?: number): string {
   return `${Math.round(s / 3600)}h ago`
 }
 
+// Token count → compact label, e.g. 1_000_000 → "1M", 128_000 → "128k".
+export function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0)}M`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`
+  return String(n)
+}
+
 export const mono: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: 11,
@@ -320,6 +327,7 @@ export function AiMonitor() {
                   <thead>
                     <tr style={{ textAlign: 'left', color: 'var(--ink-subtle)' }}>
                       <th style={th}>Provider / Model</th>
+                      <th style={th}>Context</th>
                       <th style={th}>Key env</th>
                       <th style={th}>Status</th>
                       <th style={th}>OK / Fail</th>
@@ -337,6 +345,7 @@ export function AiMonitor() {
                               {t.provider} · {t.model}
                             </Link>
                           </td>
+                          <td style={{ ...td, color: 'var(--ink-mid)' }}>{fmtTokens(t.contextWindow)}</td>
                           <td style={{ ...td, color: t.configured ? 'var(--ink-mid)' : 'var(--warning)' }}>
                             {t.keyEnv}
                             {!t.configured && ' (missing)'}

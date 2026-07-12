@@ -11,7 +11,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
-import { Card, SectionLabel, Badge, Dot, mono, ago, statusMeta, modelHref } from './AiMonitor'
+import { Card, SectionLabel, Badge, Dot, mono, ago, statusMeta, modelHref, fmtTokens } from './AiMonitor'
 import type { TargetDetail, LanePosition, LogEvent, ProbeResult } from '@/lib/ai/router'
 
 function kindOf(e: LogEvent) {
@@ -214,6 +214,7 @@ export function ModelDetail({ name }: { name: string }) {
                       <div>
                         Key: {h.keyEnv} {h.configured ? '' : '(missing)'}
                       </div>
+                      <div style={{ marginTop: 4 }}>Context window: {fmtTokens(h.contextWindow)} tokens</div>
                       <div style={{ marginTop: 4 }}>
                         OK <span style={{ color: 'var(--green-strong)' }}>{h.okCount}</span> · Fail{' '}
                         <span style={{ color: h.failCount ? 'var(--warning)' : 'var(--ink-subtle)' }}>{h.failCount}</span> ·

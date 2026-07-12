@@ -51,11 +51,25 @@ by explicit per-day markers, not a bare `RESOURCE_EXHAUSTED`) flips the global
 `dailyLimitsExhausted` flag, after which OpenRouter's free model is the terminal
 fallback for the rest of the UTC day.
 
+### Context window (size-aware routing)
+
+Each target declares a context window (tokens); Gemini's ~1M is the deliberate
+large-context escape hatch. We estimate a call's need (input + output + headroom,
+~4 chars/token) and **skip any target too small for it**, so a large request — e.g.
+a long context-intake interview — automatically lands on Gemini instead of 400-ing
+on a 128k model. A genuine overflow error (400/413/422 "context length / too long")
+is also caught and **escalated** to the next larger-window target rather than
+surfaced; if none fits, the call returns 413 `ai-context-overflow`. The fast/cheap
+models stay the default for the common small case, so Gemini's daily budget is
+spent only when the input actually demands it. Windows are env-overridable
+(`MISTRAL_CONTEXT`, `GROQ_CONTEXT`, `GEMINI_CONTEXT`, `CEREBRAS_CONTEXT`,
+`OPENROUTER_CONTEXT`).
+
 ### Cascade discipline
 
-Only HTTP 429 advances to the next target. 401 / 400 / 5xx / network throw
-immediately (`maxRetries: 0`), so a misconfiguration surfaces instead of draining
-the chain. `reasoning_effort` and `response_format` are still mapped per model
+Only HTTP 429 (or a context overflow, per above) advances to the next target.
+401 / 400 / 5xx / network throw immediately (`maxRetries: 0`), so a misconfiguration
+surfaces instead of draining the chain. `reasoning_effort` and `response_format` are still mapped per model
 family (gpt-oss → `low`/`high` + `json_schema`; qwen *reasoning* → `none`/`default`;
 Mistral / Gemini / qwen *coder* → omitted, `json_object`).
 

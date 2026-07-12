@@ -40,9 +40,17 @@
 // the global `dailyLimitsExhausted` flag, after which OpenRouter's free model is
 // the terminal safety net for the rest of the (UTC) day.
 //
-// Cascade discipline: only an HTTP 429 advances to the next provider. Every other
-// error (401 / 400 / 5xx / network) is thrown immediately so a misconfiguration
-// or upstream outage surfaces instead of silently draining the whole chain.
+// Context window: each target declares one. We estimate a call's need (input +
+// output + headroom) and SKIP any target too small for it, so a large request
+// (e.g. a long context-intake interview) automatically lands on Gemini's ~1M
+// window instead of 400-ing on an 8-128k model. A genuine overflow error is also
+// caught and escalated to the next larger-window target rather than surfaced. The
+// fast/cheap models stay the default for the common small case.
+//
+// Cascade discipline: only an HTTP 429 (or a context-overflow, per above) advances
+// to the next target. Every other error (401 / 400 / 5xx / network) is thrown
+// immediately so a misconfiguration or upstream outage surfaces instead of
+// silently draining the whole chain.
 
 import OpenAI from 'openai'
 import { z } from 'zod'
@@ -85,12 +93,25 @@ const BASE_URLS: Record<ProviderId, string> = {
   openrouter: process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
 }
 
-// A concrete place to send a request: which provider, which model, and the env
-// var holding that model's key.
+// A concrete place to send a request: which provider, which model, the env var
+// holding that model's key, and its context window (tokens). The window drives
+// size-aware routing: a request whose estimated input exceeds a target's window
+// skips it, so large context automatically lands on the 1M-token Gemini target.
 interface Target {
   provider: ProviderId
   model: string
   keyEnv: string
+  contextWindow: number
+}
+
+// Env-overridable per-target context windows. Conservative defaults; Gemini is the
+// deliberate large-context escape hatch (~1M tokens).
+const CTX = {
+  mistral8b: Number(process.env.MISTRAL_CONTEXT ?? 128_000),
+  groq: Number(process.env.GROQ_CONTEXT ?? 128_000),
+  gemini: Number(process.env.GEMINI_CONTEXT ?? 1_000_000),
+  cerebras: Number(process.env.CEREBRAS_CONTEXT ?? 128_000),
+  openrouter: Number(process.env.OPENROUTER_CONTEXT ?? 128_000),
 }
 
 const TARGETS = {
@@ -98,26 +119,31 @@ const TARGETS = {
     provider: 'mistral',
     model: process.env.MISTRAL_MODEL ?? 'ministral-8b-latest',
     keyEnv: process.env.MISTRAL_KEY_ENV ?? 'MISTRAL_MINISTRAL_8B_API_KEY',
+    contextWindow: CTX.mistral8b,
   },
   groqQwen: {
     provider: 'groq',
     model: process.env.GROQ_QWEN_MODEL ?? 'qwen/qwen3.6-27b',
     keyEnv: process.env.GROQ_QWEN_KEY_ENV ?? 'GROQ_QWEN_3_POINT_6_27B_API_KEY',
+    contextWindow: CTX.groq,
   },
   groqGptOss20b: {
     provider: 'groq',
     model: process.env.GROQ_GPT_OSS_MODEL ?? 'openai/gpt-oss-20b',
     keyEnv: process.env.GROQ_GPT_OSS_KEY_ENV ?? 'GROQ_OPENAI_GPT_OSS_20B_API_KEY',
+    contextWindow: CTX.groq,
   },
   geminiFlash: {
     provider: 'google',
     model: process.env.GEMINI_FLASH_MODEL ?? 'gemini-2.5-flash',
     keyEnv: process.env.GEMINI_KEY_ENV ?? 'GEMINI_FLASH_2_POINT_5_API_KEY',
+    contextWindow: CTX.gemini,
   },
   cerebrasGptOss120b: {
     provider: 'cerebras',
     model: process.env.CEREBRAS_GPT_OSS_MODEL ?? 'gpt-oss-120b',
     keyEnv: process.env.CEREBRAS_KEY_ENV ?? 'CEREBRAS_GPT_OSS_120B_API_KEY',
+    contextWindow: CTX.cerebras,
   },
   openrouterFree: {
     provider: 'openrouter',
@@ -125,6 +151,7 @@ const TARGETS = {
     // OpenRouter model id (it 400s); the live free coder is 'qwen/qwen3-coder:free'.
     model: process.env.OPENROUTER_FREE_MODEL ?? 'qwen/qwen3-coder:free',
     keyEnv: process.env.OPENROUTER_KEY_ENV ?? 'OPENROUTER_API_KEY',
+    contextWindow: CTX.openrouter,
   },
 } satisfies Record<string, Target>
 
@@ -208,6 +235,7 @@ export interface TargetHealth {
   model: string
   keyEnv: string
   configured: boolean
+  contextWindow: number
   lastStatus: TargetStatus
   lastDetail?: string
   lastAt?: number // epoch ms of the last observation
@@ -243,6 +271,7 @@ function record(
     model: t.model,
     keyEnv: t.keyEnv,
     configured: Boolean(process.env[t.keyEnv]),
+    contextWindow: t.contextWindow,
     lastStatus: 'unknown',
     okCount: 0,
     failCount: 0,
@@ -267,6 +296,7 @@ export interface LaneStep {
   model: string
   keyEnv: string
   configured: boolean
+  contextWindow: number
   note?: string
 }
 function laneStep(label: string, t: Target, note?: string): LaneStep {
@@ -276,6 +306,7 @@ function laneStep(label: string, t: Target, note?: string): LaneStep {
     model: t.model,
     keyEnv: t.keyEnv,
     configured: Boolean(process.env[t.keyEnv]),
+    contextWindow: t.contextWindow,
     note,
   }
 }
@@ -328,6 +359,7 @@ function healthFor(t: Target): TargetHealth {
     model: t.model,
     keyEnv: t.keyEnv,
     configured: Boolean(process.env[t.keyEnv]),
+    contextWindow: t.contextWindow,
     lastStatus: h?.lastStatus ?? 'unknown',
     lastDetail: h?.lastDetail,
     lastAt: h?.lastAt,
@@ -510,6 +542,25 @@ function isDailyQuota(err: unknown): boolean {
   return DAILY_QUOTA_RE.test(errorText(err))
 }
 
+// A context-window overflow (usually a 400) means "this input is too big for this
+// model" — unlike a plain 400, it is NOT a bug we should surface: we escalate to a
+// larger-window target instead. Matches the common phrasings across providers.
+const CONTEXT_OVERFLOW_RE =
+  /(context[\s_]?length|context[\s_]?window|maximum context|too many tokens|reduce the (length|number of tokens)|input (is )?too long|prompt is too long|string too long|exceeds? the (maximum|context)|token limit)/i
+function isContextOverflow(err: unknown): boolean {
+  const s = statusOf(err)
+  if (s !== undefined && s !== 400 && s !== 413 && s !== 422) return false
+  return CONTEXT_OVERFLOW_RE.test(errorText(err))
+}
+
+// Rough token estimate (~4 chars/token) with headroom for message framing and, on
+// reasoning models, the reasoning budget. Deliberately conservative so we escalate
+// a hair early rather than 400.
+const TOKEN_SAFETY_MARGIN = 4_000
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
 // Map a non-429 (or terminal) error onto a status routes can surface.
 function mapUpstream(err: unknown, provider: ProviderId): AiError {
   const status = statusOf(err)
@@ -600,17 +651,30 @@ interface ExecuteOpts {
   schemaName: string
   effort: 'low' | 'high'
   maxTokens: number
+  neededTokens: number // estimated input + output; drives size-aware routing
 }
 
 // Send one prompt down the role's failover chain. Returns raw content from the
-// first provider that answers. Only 429s advance; a daily 429 arms the airbag; a
-// Groq 429 opens the penalty box. Non-429s throw immediately.
+// first provider that answers.
+//   - Size: a target whose context window is smaller than the estimated need is
+//     skipped, so a large request automatically lands on the 1M-token Gemini.
+//   - 429: advances to the next target; a daily 429 arms the airbag, a Groq 429
+//     opens the penalty box.
+//   - Context overflow (400/413/422 "too long"): escalates to the next
+//     larger-window target instead of surfacing as a bug.
+//   - Any other error (401/400/5xx/network): thrown immediately.
 async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
   const attempts = attemptsForRole(role)
   let last429: AiError | null = null
   let anyProviderTried = false
+  let skippedForSize = false
+  let overflowSeen = false
 
   for (const attempt of attempts) {
+    if (opts.neededTokens > attempt.contextWindow) {
+      skippedForSize = true // input too big for this model — try a larger window
+      continue
+    }
     const client = clientFor(attempt)
     if (!client) continue // no key → skip, don't abort
     anyProviderTried = true
@@ -631,6 +695,11 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
         else if (attempt.penaltyOnRateLimit) openGroqPenalty()
         continue // only a 429 cascades
       }
+      if (isContextOverflow(err)) {
+        overflowSeen = true
+        record(attempt, 'error', 'context-overflow', latencyMs)
+        continue // escalate to the next larger-window target
+      }
       record(attempt, 'error', statusOf(err) ? `HTTP ${statusOf(err)}` : 'network', latencyMs)
       throw mapUpstream(err, attempt.provider) // 401 / 400 / 5xx / network
     }
@@ -638,8 +707,8 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
 
   // Terminal airbag: every primary provider is rate-limited AND we are in a
   // verified daily blackout. Only now may OpenRouter (kept isolated otherwise)
-  // catch the request.
-  if (dailyLimitsExhausted()) {
+  // catch the request — and only if the input fits its window.
+  if (dailyLimitsExhausted() && opts.neededTokens <= TARGETS.openrouterFree.contextWindow) {
     const client = clientFor(TARGETS.openrouterFree)
     if (client) {
       try {
@@ -658,6 +727,9 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
     }
   }
 
+  // Nothing succeeded. Prefer the most actionable reason.
+  if (overflowSeen) throw new AiError(413, 'ai-context-overflow')
+  if (!anyProviderTried && skippedForSize) throw new AiError(413, 'ai-context-overflow')
   if (!anyProviderTried) throw new AiError(500, 'ai-not-configured')
   throw last429 ?? new AiError(429, 'ai-rate-limited')
 }
@@ -712,6 +784,13 @@ export async function completeJSON<T>(opts: {
     string,
     unknown
   >
+  // Estimate the window this call needs: input (system + user + embedded schema)
+  // plus the output budget plus headroom. Drives size-aware target selection.
+  const inputTokens = estimateTokens(
+    opts.system + opts.user + JSON.stringify(jsonSchema)
+  )
+  const neededTokens = inputTokens + opts.maxTokens + TOKEN_SAFETY_MARGIN
+
   const base: ExecuteOpts = {
     system: opts.system,
     user: opts.user,
@@ -719,6 +798,7 @@ export async function completeJSON<T>(opts: {
     schemaName: opts.schemaName,
     effort: opts.effort,
     maxTokens: opts.maxTokens,
+    neededTokens,
   }
 
   function tryParse(raw: string): { ok: true; value: T } | { ok: false; error: string } {
