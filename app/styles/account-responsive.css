@@ -78,7 +78,9 @@
 
 /* ── card grids: force a single column on very narrow phones ──────────────────
    The inline grids use minmax(280px..320px, 1fr); below ~420px the min track can
-   exceed the container and cause horizontal overflow. */
+   exceed the container and cause horizontal overflow. minmax(0, 1fr) — a bare
+   1fr means minmax(auto, 1fr), and nowrap card titles blow the auto min past
+   the viewport. */
 @media (max-width: 419px) {
-  .acct-card-grid { grid-template-columns: 1fr !important; }
+  .acct-card-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }

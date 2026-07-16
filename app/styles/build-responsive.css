@@ -99,9 +99,11 @@
 }
 
 @media (max-width: 767px) {
-  /* Implications: the three registers stack. */
+  /* Implications: the three registers stack. minmax(0, 1fr), not bare 1fr,
+     so long unbreakable content can't blow the auto track min past the
+     viewport. */
   .bhp-impl-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
   /* iOS focus-zoom guard: every text input/textarea computes to ≥16px. */
   .bhp-input16 {
