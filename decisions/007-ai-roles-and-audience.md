@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-07
 **Status:** Direction set (no wiring yet — informs how the Groq co-pilot is built)
+**Amended (2026-07-16):** [decision 016](016-draft-mode.md) opens a claim-gated
+Draft flow for full-posture accounts; the conclusion stays human-only in every mode.
 
 ## Context
 

@@ -97,7 +97,9 @@ exists to locate the right file, not to invite broad exploration.
   decisions 013–015), `groq.ts` (thin back-compat re-export of `router.ts`),
   `serialize.ts` (house → prompt text, pure), `prompts.ts` (shared persona +
   capability blocks), `findings.ts` (client-safe zod schemas / `AiAction`
-  contract). `auth/admin.ts` gates the AI monitor (decision 014).
+  contract), `draft.ts` (client-safe Draft Mode contract — stages, claim
+  state, gate helpers; decision 016). `auth/admin.ts` gates the AI monitor
+  (decision 014).
 
 ## Root files
 

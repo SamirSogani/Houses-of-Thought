@@ -42,6 +42,12 @@ builder routes get it: `/build/[id]` (Supabase-authed) and `/house`
 6. **Deterministic House Strength stays.** AI critique is commentary beside the
    score, never an input to `computeStrength`.
 
+> **Amendment (2026-07-16):** in **Draft Mode only**
+> ([decision 016](../../../decisions/016-draft-mode.md)), invariant 2's accept is
+> deferred: drafted items land marked `owner: 'ai'` + unreviewed, and the user
+> claims each layer before strength finalizes or publish unlocks. Invariants 1,
+> 3–6 are untouched; every other surface keeps per-item accept.
+
 ## Phases — execute strictly in order; each is independently shippable
 
 | Phase | Docs | Delivers |

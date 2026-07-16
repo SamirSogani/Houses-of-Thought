@@ -3,6 +3,9 @@
 **Date:** 2026-07-10
 **Status:** Decided & implemented (migrations 0013–0018; pending live apply + E2E test)
 **Migrations:** `0013_signup_role` … `0018_submission_feedback`
+**Amended (2026-07-16):** §1's "Draft Full House is dead for everyone" is superseded
+in part by [decision 016](016-draft-mode.md) (claim-gated Draft Mode for
+standard/teacher accounts; students remain excluded, server-clamped).
 
 ## Context
 
