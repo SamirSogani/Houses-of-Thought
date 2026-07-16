@@ -42,7 +42,17 @@ type FetchState =
   | { status: 'error'; code: string }
   | { status: 'success'; findings: Finding[]; hash: string }
 
-export function CopilotPanel({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
+export function CopilotPanel({
+  state,
+  dispatch,
+  draftCard,
+}: {
+  state: State
+  dispatch: React.Dispatch<Action>
+  // Draft Mode card (decision 016), rendered below the interviewer. Created in
+  // BuildHousePage so its stage loop survives this panel unmounting.
+  draftCard?: React.ReactNode
+}) {
   const kicker = layers[state.step - 1].kicker
   const step = state.step
   // The model fills every rendering, so switching mode only re-renders the
@@ -131,6 +141,7 @@ export function CopilotPanel({ state, dispatch }: { state: State; dispatch: Reac
 
       <div style={{ marginTop: 16 }}>
         <InterviewCard state={state} dispatch={dispatch} />
+        {draftCard}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 0 10px' }}>

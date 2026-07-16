@@ -24,6 +24,16 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0010_ai_columns.sql` | houses | Adds `mode` (learn/decide, default decide) + `ai_context jsonb` to `houses`, and `url` to `house_evidence` — the forward columns the AI phases need (plans/active/ai Phase 2) |
 | `0011_ai_usage.sql` | ai | `ai_usage` daily counters (deny-all RLS) + `increment_ai_usage(text)` SECURITY DEFINER RPC; backs the per-subject AI rate limits (plans/active/ai Phase 6) |
 | `0012_fix_ai_usage_execute_grant.sql` | ai | **Security fix for 0011**: revoke the implicit PUBLIC EXECUTE on `increment_ai_usage` (anon/authenticated inherited it via PUBLIC, so 0011's revoke was ineffective) and grant it only to `service_role` |
+| `0013_signup_role.sql` | profiles | Signup trigger reads `account_type` from signUp metadata (classroom phase 1) |
+| `0014_classes.sql` | classroom | `classes` (teacher-owned, join code) + `class_members` + `join_class` RPC + teacher read-into-student-houses RLS (phase 2) |
+| `0015_assignments.sql` | classroom | `assignments` + `houses.assignment_id`; student houses created lazily via `open_assignment` RPC (phase 3) |
+| `0016_courses.sql` | classroom | `courses` (class-scoped ordered units) + `assignments.course_id`/`position` (phase 4) |
+| `0017_strawman.sql` | classroom | `houses.is_strawman`, assignment strawman params + `ensure_strawman_house` / `can_view_assignment_strawman` (phase 5) |
+| `0018_submission_feedback.sql` | classroom | `submission_feedback` (grade + feedback), separate from `houses` so grading never grants write access (phase 6) |
+| `0019_profiles_grants.sql` | profiles | Base-table GRANT on `profiles` to `authenticated` (RLS still restricts rows) |
+| `0020_fix_houses_select_returning.sql` | houses | Regression fix: restore direct `owner_id` check in `houses_select` so `INSERT ... RETURNING` works (the decision 004 trap, reintroduced by 0014/0017) |
+| `0021_houses_turned_in.sql` | classroom | `houses.turned_in boolean` — student marks an assignment submission turned in |
+| `0022_houses_draft.sql` | houses | Adds `draft jsonb` — Draft Mode stage progress + per-layer claim map (decision 016); null on non-drafted houses |
 
 ## Applying to a fresh database
 

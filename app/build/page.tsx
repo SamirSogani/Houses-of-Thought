@@ -1,14 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { use, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 // The id-less /build route no longer renders a house. It creates a fresh blank
 // house for the signed-in user and redirects into /build/[id], where load +
 // autosave live. This keeps entry points that link to bare /build working.
-export default function BuildPage() {
+// ?draft=1 (Draft Mode, decision 016) is carried through to the workspace.
+export default function BuildPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ draft?: string }>
+}) {
   const router = useRouter()
+  const { draft } = use(searchParams)
+  const draftRequested = draft === '1'
 
   useEffect(() => {
     const supabase = createClient()
@@ -30,12 +37,12 @@ export default function BuildPage() {
         router.replace('/dashboard')
         return
       }
-      router.replace(`/build/${data.id}`)
+      router.replace(`/build/${data.id}${draftRequested ? '?draft=1' : ''}`)
     })()
     return () => {
       active = false
     }
-  }, [router])
+  }, [router, draftRequested])
 
   return (
     <main

@@ -4,6 +4,7 @@ import type { Action, State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor, axisLabel, overallLabel, overallSummary } from '@/lib/build/strength'
 import { axisMeasures } from '@/lib/build/content'
+import { draftGateLocked, unclaimedDraftStages } from '@/lib/ai/draft'
 import { ChevronRight, UploadIcon } from '../buildIcons'
 import { CritiqueSection } from './CritiqueSection'
 
@@ -27,6 +28,11 @@ export function ReviewLayer({
 }) {
   const overallCol = strengthColor(strength.overall)
   const implTotal = state.pos.length + state.neg.length + state.unc.length
+  // Draft gate (016 §2): score stays deterministic (invariant 6); while
+  // AI-drafted layers await their claim it is labeled provisional and
+  // publish/export stay locked (the reducer also blocks them).
+  const draftLocked = draftGateLocked(state.draft)
+  const unclaimedCount = unclaimedDraftStages(state.draft).length
 
   const axes = [
     { name: 'Evidence', score: strength.evidence, measures: axisMeasures.Evidence, driver: `${state.evidence.length} sourced facts` },
@@ -48,10 +54,21 @@ export function ReviewLayer({
           <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>/ 100</span>
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <span className="mono" style={{ fontSize: 10, color: overallCol, border: `1px solid ${overallCol}`, borderRadius: 5, padding: '3px 9px' }}>
-            {overallLabel(strength.overall)}
+          <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+            <span className="mono" style={{ fontSize: 10, color: overallCol, border: `1px solid ${overallCol}`, borderRadius: 5, padding: '3px 9px' }}>
+              {overallLabel(strength.overall)}
+            </span>
+            {draftLocked && (
+              <span className="mono" style={{ fontSize: 10, color: 'var(--amber-hover)', border: '1px dashed var(--amber)', borderRadius: 5, padding: '3px 9px' }}>
+                Provisional · AI draft unclaimed
+              </span>
+            )}
           </span>
-          <div style={{ fontSize: 15, color: 'var(--ink-mid)', marginTop: 11, lineHeight: 1.55 }}>{overallSummary(strength.overall)}</div>
+          <div style={{ fontSize: 15, color: 'var(--ink-mid)', marginTop: 11, lineHeight: 1.55 }}>
+            {draftLocked
+              ? `This score counts AI-drafted material you have not claimed yet. Review and claim ${unclaimedCount === 1 ? 'the remaining layer' : `the ${unclaimedCount} remaining layers`} to make it yours.`
+              : overallSummary(strength.overall)}
+          </div>
         </div>
       </div>
 
@@ -121,16 +138,21 @@ export function ReviewLayer({
       <div style={{ marginTop: 24, background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 14, padding: '22px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
           <div>
-            <div className="mono" style={{ fontSize: 10, color: 'var(--amber)' }}>Ready to publish</div>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--amber)' }}>
+              {draftLocked ? 'Claim the draft to unlock' : 'Ready to publish'}
+            </div>
             <div style={{ fontSize: 14, color: 'var(--rule)', marginTop: 8, maxWidth: '34ch', lineHeight: 1.5 }}>
-              Publishing shares this house with its current strength. You can keep refining after.
+              {draftLocked
+                ? 'Publishing and export unlock once every AI-drafted layer has been reviewed and claimed.'
+                : 'Publishing shares this house with its current strength. You can keep refining after.'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => dispatch({ type: 'PUBLISH' })}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 44, padding: '0 18px', background: 'var(--amber)', color: 'var(--ink)', borderRadius: 8, fontWeight: 600, fontSize: 15 }}
+              title={draftLocked ? 'Claim every AI-drafted layer to unlock publishing.' : undefined}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 44, padding: '0 18px', background: 'var(--amber)', color: 'var(--ink)', borderRadius: 8, fontWeight: 600, fontSize: 15, opacity: draftLocked ? 0.5 : 1 }}
             >
               <UploadIcon size={16} stroke="var(--ink)" />
               Publish house
@@ -138,7 +160,8 @@ export function ReviewLayer({
             <button
               type="button"
               onClick={() => dispatch({ type: 'EXPORT' })}
-              style={{ height: 44, padding: '0 18px', border: '1px solid var(--ink-subtle)', color: 'var(--parchment)', background: 'transparent', borderRadius: 8, fontWeight: 600, fontSize: 15 }}
+              title={draftLocked ? 'Claim every AI-drafted layer to unlock export.' : undefined}
+              style={{ height: 44, padding: '0 18px', border: '1px solid var(--ink-subtle)', color: 'var(--parchment)', background: 'transparent', borderRadius: 8, fontWeight: 600, fontSize: 15, opacity: draftLocked ? 0.5 : 1 }}
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--parchment)')}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--ink-subtle)')}
             >

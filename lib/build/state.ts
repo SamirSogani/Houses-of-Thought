@@ -30,11 +30,19 @@ const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
 import { suggestions } from './suggestions'
 import { applyAiAction } from './aiActions'
 import { computeStrength } from './strength'
+import {
+  DRAFT_STAGE_STEP,
+  draftGateLocked,
+  emptyDraft,
+  nextDraftStage,
+  unclaimedDraftStages,
+} from '@/lib/ai/draft'
 
 export const initialState: State = {
   step: 1,
   mode: 'decide',
   aiContext: null,
+  draft: null,
   title: 'Should AI be used in schools?',
   purpose: framePurpose,
   question: frameQuestion,
@@ -364,6 +372,62 @@ export function reducer(state: State, action: Action): State {
       return draft
     }
 
+    case 'START_DRAFT':
+      // Idempotent: a house that already has a draft record is never re-seeded.
+      if (state.draft) return state
+      return { ...state, draft: emptyDraft() }
+
+    case 'APPLY_DRAFT_STAGE': {
+      // Only the stage the runner is actually on may apply, so a stale or
+      // duplicated response no-ops instead of double-inserting.
+      if (!state.draft || state.draft.stage !== action.stage) return state
+      const next: State = { ...state }
+      let applied = 0
+      for (const a of action.actions) {
+        if (applyAiAction(next, a) !== null) applied += 1
+      }
+      next.draft = {
+        ...state.draft,
+        stage: nextDraftStage(action.stage),
+        drafted: { ...state.draft.drafted, [action.stage]: applied > 0 },
+      }
+      if (applied > 0) {
+        // The canvas follows the build — the point of Draft Mode is watching
+        // the house assemble for real, layer by layer.
+        next.step = DRAFT_STAGE_STEP[action.stage]
+        next.activePerspective = null
+        next.toast = `Drafted ${layerKey(DRAFT_STAGE_STEP[action.stage])}`
+      }
+      return next
+    }
+
+    case 'STOP_DRAFT':
+      if (!state.draft || state.draft.stage === 'done') return state
+      return {
+        ...state,
+        draft: { ...state.draft, stage: 'done' },
+        toast: 'Draft stopped — review what is here',
+      }
+
+    case 'CLAIM_DRAFT_LAYER': {
+      // The deferred accept (decision 016 §2): only drafted, unclaimed layers
+      // can be claimed.
+      if (!state.draft || !state.draft.drafted[action.stage] || state.draft.claimed[action.stage])
+        return state
+      const claimed = {
+        ...state.draft,
+        claimed: { ...state.draft.claimed, [action.stage]: true },
+      }
+      const settled = claimed.stage === 'done' && unclaimedDraftStages(claimed).length === 0
+      return {
+        ...state,
+        draft: claimed,
+        toast: settled
+          ? 'All layers claimed — the conclusion is yours to write'
+          : `${layerKey(DRAFT_STAGE_STEP[action.stage])} claimed`,
+      }
+    }
+
     case 'OPEN_INVITE':
       return { ...state, inviteOpen: true, inviteInput: '', copied: false }
 
@@ -392,9 +456,15 @@ export function reducer(state: State, action: Action): State {
       return { ...state, notesOpen: false }
 
     case 'PUBLISH':
+      // Draft gate (016 §2): the reducer is the last line of defense even if a
+      // disabled button slips through.
+      if (draftGateLocked(state.draft))
+        return { ...state, toast: 'Review and claim the AI-drafted layers before publishing' }
       return { ...state, toast: `House published · strength ${computeStrength(state).overall}` }
 
     case 'EXPORT':
+      if (draftGateLocked(state.draft))
+        return { ...state, toast: 'Review and claim the AI-drafted layers before exporting' }
       return { ...state, toast: 'Exported as PDF' }
 
     case 'SET_TOAST':

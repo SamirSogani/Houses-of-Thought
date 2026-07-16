@@ -22,8 +22,15 @@ const centerNotice: React.CSSProperties = {
   color: 'var(--ink-subtle)',
 }
 
-export default function BuildHouseRoute({ params }: { params: Promise<{ id: string }> }) {
+export default function BuildHouseRoute({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ draft?: string }>
+}) {
   const { id } = use(params)
+  const { draft: draftParam } = use(searchParams)
   const router = useRouter()
   const [loaded, setLoaded] = useState<State | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -34,6 +41,9 @@ export default function BuildHouseRoute({ params }: { params: Promise<{ id: stri
   const [readOnly, setReadOnly] = useState(false)
   // A strawman house holds an AI-written flawed argument to attack, not edit.
   const [strawman, setStrawman] = useState(false)
+  // Draft Mode (decision 016): cosmetic gate; the /api/ai/draft route re-checks
+  // canAuthorDraft server-side.
+  const [draftEligible, setDraftEligible] = useState(false)
 
   // Route protection is handled by middleware.ts; here we load the house. A null
   // result means not-found or not-yours (RLS makes both look empty) → dashboard.
@@ -61,6 +71,7 @@ export default function BuildHouseRoute({ params }: { params: Promise<{ id: stri
       const caps = capabilitiesFor((profile?.account_type as AccountType) ?? 'standard')
       if (caps.forcedMode) state.mode = caps.forcedMode
       setModeLocked(caps.forcedMode !== null)
+      setDraftEligible(caps.canAuthorDraft)
       // Read-only whenever you're not the owner: a teacher viewing a student's
       // house, or a student attacking the teacher's strawman. The teacher owns
       // their strawman, so they can still review/revise it.
@@ -98,6 +109,8 @@ export default function BuildHouseRoute({ params }: { params: Promise<{ id: stri
       // Teacher assessing a student submission → editable feedback; the owner
       // (student) sees it read-only; strawman houses aren't graded.
       feedback={strawman ? null : readOnly ? 'edit' : 'view'}
+      draftEligible={draftEligible}
+      draftEntry={draftParam === '1'}
       onSignOut={handleSignOut}
       // Read-only view: skip persistence so a teacher's stray edit never fails a
       // write it was never allowed to make.

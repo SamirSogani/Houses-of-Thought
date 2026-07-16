@@ -6,11 +6,12 @@
 // Decisions this encodes:
 //  - Students run the co-pilot in Learn/Coach posture only and are pinned to
 //    Learn mode (decision 007). They never get "author" output.
-//  - "Draft Full House" is dead for everyone (decision 001 §3), so canAuthorDraft
-//    is false across the board. The one sanctioned AI-author use — the "attack the
-//    strawman" exercise (phase 5) — is NOT gated here: it's gated per-assignment
-//    (assignments.ai_strawman_enabled) and enforced server-side in
-//    app/api/ai/strawman, since it depends on the assignment, not the account type.
+//  - Draft Mode (decision 016) supersedes 001 §3's "Draft Full House is dead for
+//    everyone": canAuthorDraft is true for full-posture adults (standard, teacher)
+//    and gates POST /api/ai/draft server-side. Students stay false — they never
+//    get author output — and the verdict (conclusion/reasoning) stays human-only
+//    in every mode (016 §1). The teacher strawman remains separately gated
+//    per-assignment (assignments.ai_strawman_enabled) in app/api/ai/strawman.
 //  - Only teachers may create classes / see other users' houses (decision 001 §2:
 //    multi-user lives in classrooms).
 
@@ -30,14 +31,14 @@ export interface Capabilities {
 const CAPABILITIES: Record<AccountType, Capabilities> = {
   standard: {
     aiPosture: 'full',
-    canAuthorDraft: false,
+    canAuthorDraft: true,
     canCreateClasses: false,
     canViewOthersHouses: false,
     forcedMode: null,
   },
   teacher: {
     aiPosture: 'full',
-    canAuthorDraft: false,
+    canAuthorDraft: true,
     canCreateClasses: true,
     canViewOthersHouses: true,
     forcedMode: null,

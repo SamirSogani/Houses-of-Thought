@@ -1,6 +1,7 @@
 // State model for the Build a House flow. See handoff 03-STATE-MODEL.md §1.
 
 import type { AiAction } from '@/lib/ai/findings'
+import type { DraftStage, DraftState } from '@/lib/ai/draft'
 
 export type PersonKey = 'you' | 'maya' | 'devan' | 'ai'
 
@@ -83,6 +84,9 @@ export interface State {
   // Co-pilot posture (persistable). aiContext is written by the interviewer.
   mode: AiMode
   aiContext: AiContext | null
+  // Draft Mode progress + per-layer claim map (decision 016). Persistable;
+  // null on every house the AI did not draft.
+  draft: DraftState | null
   title: string
   // Frame layer, user-editable prose (start empty).
   purpose: string
@@ -153,6 +157,13 @@ export type Action =
   | { type: 'REMOVE_WATCHPOINT'; idx: number }
   | { type: 'ACCEPT_SUGGESTION'; step: number; idx: number }
   | { type: 'APPLY_AI_ACTION'; action: AiAction }
+  // Draft Mode (decision 016). START seeds State.draft; APPLY_DRAFT_STAGE bulk-
+  // applies one stage's AiActions and advances; STOP finalizes early;
+  // CLAIM_DRAFT_LAYER is the deferred per-layer accept.
+  | { type: 'START_DRAFT' }
+  | { type: 'APPLY_DRAFT_STAGE'; stage: DraftStage; actions: AiAction[] }
+  | { type: 'STOP_DRAFT' }
+  | { type: 'CLAIM_DRAFT_LAYER'; stage: DraftStage }
   | { type: 'OPEN_INVITE' }
   | { type: 'CLOSE_INVITE' }
   | { type: 'SET_INVITE_INPUT'; value: string }

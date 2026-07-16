@@ -71,6 +71,26 @@ Also identify weakestLink: the single point where the house most likely fails �
 
 Never propose text for the conclusion, reasoning, question, or purpose.`
 
+// Draft Mode (POST /api/ai/draft; decision 016). Composed as PERSONA +
+// DRAFT_COMMON + DRAFT_STAGE_BLOCKS[stage] — unlike the strawman and mini house,
+// Draft Mode never authors a conclusion, so it composes with PERSONA and its
+// conclusion ban stays fully in force.
+export const DRAFT_COMMON = `Task: draft candidate items for ONE layer of this house — a first pass the person will review, edit, and claim as their own. You scaffold the materials; the thinking that matters stays theirs, and the conclusion is theirs alone.
+
+Rules:
+- Be specific to THIS question and the interview context; no generic filler.
+- Where perspectives or items would honestly disagree, let them disagree.
+- Each item is a sentence or two, under 300 characters.
+- Return ONLY actions of the kinds named for this stage, in the order given.`
+
+export const DRAFT_STAGE_BLOCKS: Record<import('./draft').DraftStage, string> = {
+  concepts: `Stage: Concepts (layer 1). Return 3-5 add_concept actions: the terms someone must pin down before reasoning about this question, each with a working definition written for THIS house, never dictionary boilerplate.`,
+  perspectives: `Stage: Perspectives (layer 2). Return exactly 3 add_perspective actions covering genuinely different angles — the person's own position, the most-affected stakeholders, and a relevant intellectual frame — each with a one-sentence summary and an honest stance. After EACH add_perspective, return 2 add_subquestion actions for it (perspectiveName must exactly match that perspective's name): the questions that perspective most needs answered. Order matters: each perspective before its sub-questions.`,
+  evidence: `Stage: Evidence (layer 3). Return up to 5 add_evidence actions extracted ONLY from the numbered search results below. Copy each result's URL EXACTLY as given — never alter, guess, or invent one; source is the result's title or publisher. Keep every claim modest and checkable against the result's description. Prefer a spread of sources, including ones that disagree. If the results genuinely support nothing for this house, return an empty actions list.`,
+  assumptions: `Stage: Assumptions (layer 4). Return 3-5 add_assumption actions naming beliefs this house is quietly taking as true. Prefer load-bearing assumptions the conclusion would depend on, and include at least one the person seems least aware of.`,
+  implications: `Stage: Implications (layer 6). Return 4-6 add_implication actions spread across ikind values pos, neg, and unc (at least one of each), each naming who bears it and an honest horizon. Then 1-2 add_watchpoint actions: early signals that would show this reasoning going wrong.`,
+}
+
 // Strawman generator for POST /api/ai/strawman (plan phase 5). This is the ONE
 // sanctioned use of the AI as author (decision 007): a deliberately flawed
 // example house a student must attack. It is self-contained — NOT composed with

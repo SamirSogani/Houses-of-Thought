@@ -299,7 +299,16 @@ function DotsIcon() {
   )
 }
 
-export function CreateHouseCard({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+export function CreateHouseCard({
+  onClick,
+  disabled,
+  label = 'Create New House',
+}: {
+  onClick: () => void
+  disabled?: boolean
+  // Overridden by the Draft Mode entry card ("Start with an AI draft").
+  label?: string
+}) {
   return (
     <button
       type="button"
@@ -346,7 +355,7 @@ export function CreateHouseCard({ onClick, disabled }: { onClick: () => void; di
         <PlusIcon size={22} />
       </span>
       <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, color: 'var(--ink)' }}>
-        {disabled ? 'Creating…' : 'Create New House'}
+        {disabled ? 'Creating…' : label}
       </span>
     </button>
   )

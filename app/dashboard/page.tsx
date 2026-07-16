@@ -71,7 +71,9 @@ export default function DashboardPage() {
     loadHouses()
   }, [loadHouses])
 
-  async function handleCreate() {
+  // draft=true routes into Draft Mode (decision 016): same blank house, but the
+  // workspace opens with the AI-draft flow (?draft=1).
+  async function handleCreate(draft = false) {
     if (creating) return
     setCreating(true)
     const supabase = createClient()
@@ -99,7 +101,7 @@ export default function DashboardPage() {
       setCreating(false)
       return
     }
-    router.push(`/build/${data.id}`)
+    router.push(`/build/${data.id}${draft ? '?draft=1' : ''}`)
   }
 
   async function handleRename(id: string, title: string) {
@@ -142,6 +144,9 @@ export default function DashboardPage() {
 
   const isTeacher = capabilitiesFor(accountType).canCreateClasses
   const isStudent = accountType === 'student'
+  // Draft Mode entry (decision 016): standard + teacher only — students never
+  // see it (and the route re-checks server-side).
+  const canDraft = capabilitiesFor(accountType).canAuthorDraft
 
   return (
     <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
@@ -192,7 +197,14 @@ export default function DashboardPage() {
                 onTurnIn={handleTurnIn}
               />
             ))}
-            <CreateHouseCard onClick={handleCreate} disabled={creating} />
+            <CreateHouseCard onClick={() => handleCreate()} disabled={creating} />
+            {canDraft && (
+              <CreateHouseCard
+                onClick={() => handleCreate(true)}
+                disabled={creating}
+                label="Start with an AI draft"
+              />
+            )}
           </div>
         </div>
       </main>

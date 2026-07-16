@@ -6,6 +6,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
+import { draftGateLocked } from '@/lib/ai/draft'
 import { serializeContent } from '@/lib/build/persistence'
 import type { State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
@@ -20,6 +21,8 @@ import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
 import { useIsMobile } from './useIsMobile'
+import { useDraftRunner } from './useDraftRunner'
+import { DraftCard } from './rail/DraftCard'
 
 export function BuildHousePage({
   initialState,
@@ -29,6 +32,8 @@ export function BuildHousePage({
   readOnly = false,
   strawman = false,
   feedback = null,
+  draftEligible = false,
+  draftEntry = false,
   onSignOut,
   onSave,
 }: {
@@ -47,12 +52,24 @@ export function BuildHousePage({
   // Teacher assessment surface: 'edit' (teacher on a student submission),
   // 'view' (student on their own house), or null (not a graded context).
   feedback?: 'edit' | 'view' | null
+  // Draft Mode (decision 016): true only for signed-in accounts with
+  // canAuthorDraft (cosmetic here — the route re-checks server-side).
+  draftEligible?: boolean
+  // True when the user arrived via "Start with an AI draft" (?draft=1).
+  draftEntry?: boolean
   onSignOut: () => void
   // Persistence adapter, called (debounced) whenever persistable content changes.
   onSave: (state: State) => void
 }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const strength = computeStrength(state)
+  // Draft Mode: the stage loop lives here (not in the rail) so tab switches
+  // can't kill a draft in progress. The card is created here and passed down.
+  const canDraft = draftEligible && !readOnly && !strawman
+  const draftRunner = useDraftRunner(state, dispatch, canDraft)
+  const draftCard = canDraft ? (
+    <DraftCard state={state} dispatch={dispatch} runner={draftRunner} />
+  ) : null
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -120,6 +137,12 @@ export function BuildHousePage({
     canvasRef.current?.scrollTo({ top: 0 })
   }, [state.step, state.activePerspective])
 
+  // "Start with an AI draft" arrival: on mobile the rail starts open so the
+  // draft card (which drives the flow) is visible immediately.
+  useEffect(() => {
+    if (draftEntry && canDraft && isMobile) setRailOpen(true)
+  }, [draftEntry, canDraft, isMobile])
+
   return (
     <div className="vh-shell" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--parchment)' }}>
       {/* Header (app bar + context bar) */}
@@ -157,6 +180,7 @@ export function BuildHousePage({
           mode={state.mode}
           modeLocked={modeLocked}
           readOnly={readOnly}
+          draftLocked={draftGateLocked(state.draft)}
           onModeChange={(mode) => {
             if (modeLocked) return
             dispatch({ type: 'SET_MODE', mode })
@@ -181,7 +205,7 @@ export function BuildHousePage({
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
         {!isMobile && <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
         <Canvas ref={canvasRef} state={state} strength={strength} dispatch={dispatch} />
-        {!isMobile && <RightRail state={state} dispatch={dispatch} />}
+        {!isMobile && <RightRail state={state} dispatch={dispatch} draftCard={draftCard} />}
       </div>
 
       {/* Mobile co-pilot: always-visible toggle + slide-over drawer. */}
@@ -212,7 +236,9 @@ export function BuildHousePage({
           Co-pilot
         </button>
       )}
-      {isMobile && railOpen && <MobileRailDrawer state={state} dispatch={dispatch} onClose={() => setRailOpen(false)} />}
+      {isMobile && railOpen && (
+        <MobileRailDrawer state={state} dispatch={dispatch} draftCard={draftCard} onClose={() => setRailOpen(false)} />
+      )}
 
       {/* Overlays */}
       {state.inviteOpen && <InviteModal inviteInput={state.inviteInput} copied={state.copied} dispatch={dispatch} />}

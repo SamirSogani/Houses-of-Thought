@@ -46,6 +46,7 @@ export function blankState(): State {
     step: 1,
     mode: 'decide',
     aiContext: null,
+    draft: null,
     title: '',
     purpose: '',
     question: '',
@@ -117,9 +118,11 @@ export function loadLocalHouse(): State | null {
     // onto a blank house — no row↔state remapping needed (unlike loadHouse).
     const c = JSON.parse(raw) as Partial<State>
     const state = blankState()
-    // Normalize the AI fields so pre-0010 drafts still load.
+    // Normalize the AI fields so pre-0010 drafts still load. Draft Mode is
+    // account-only (016 §3), so local houses normally carry null here.
     state.mode = c.mode === 'learn' ? 'learn' : 'decide'
     state.aiContext = c.aiContext ?? null
+    state.draft = c.draft ?? null
     state.title = c.title ?? ''
     state.purpose = c.purpose ?? ''
     state.question = c.question ?? ''
@@ -146,6 +149,7 @@ export function serializeContent(state: State): string {
   return JSON.stringify({
     mode: state.mode,
     aiContext: state.aiContext,
+    draft: state.draft,
     title: state.title,
     purpose: state.purpose,
     question: state.question,
@@ -169,7 +173,7 @@ export function serializeContent(state: State): string {
 export async function loadHouse(supabase: Supabase, id: string): Promise<State | null> {
   const { data: house, error } = await supabase
     .from('houses')
-    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted, mode, ai_context')
+    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted, mode, ai_context, draft')
     .eq('id', id)
     .maybeSingle()
   if (error || !house) return null
@@ -184,6 +188,7 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
   const state = blankState()
   state.mode = house.mode === 'learn' ? 'learn' : 'decide'
   state.aiContext = (house.ai_context as State['aiContext'] | null) ?? null
+  state.draft = (house.draft as State['draft'] | null) ?? null
   state.title = house.title ?? ''
   state.question = house.question ?? ''
   state.purpose = house.purpose ?? ''
@@ -255,6 +260,7 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
       accepted: state.accepted,
       mode: state.mode,
       ai_context: state.aiContext,
+      draft: state.draft,
       layers_complete: doneCount(state),
       status: deriveStatus(state),
     })

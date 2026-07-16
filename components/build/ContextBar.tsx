@@ -17,6 +17,7 @@ export function ContextBar({
   mode,
   modeLocked = false,
   readOnly = false,
+  draftLocked = false,
   onModeChange,
   onTitleChange,
   onOpenReview,
@@ -33,6 +34,10 @@ export function ContextBar({
   modeLocked?: boolean
   // When true (teacher read-only view), the title and write buttons are disabled.
   readOnly?: boolean
+  // Draft gate (decision 016 §2): AI-drafted layers await their claim, so the
+  // strength renders as provisional and Publish is locked. The score itself is
+  // never altered (invariant 6) — this is presentation only.
+  draftLocked?: boolean
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
@@ -83,20 +88,25 @@ export function ContextBar({
       <button
         type="button"
         onClick={onOpenReview}
-        title="Open Review to see the full breakdown"
+        title={
+          draftLocked
+            ? 'Provisional — claim the AI-drafted layers to make this score yours.'
+            : 'Open Review to see the full breakdown'
+        }
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 12,
           background: 'var(--white)',
-          border: '1px solid var(--rule)',
+          border: draftLocked ? '1px dashed var(--amber)' : '1px solid var(--rule)',
           borderRadius: 10,
           padding: '8px 14px',
+          opacity: draftLocked ? 0.8 : 1,
         }}
       >
         <span style={{ textAlign: 'left' }}>
           <span className="mono" style={{ display: 'block', fontSize: 9, color: 'var(--ink-subtle)' }}>
-            House strength
+            {draftLocked ? 'Strength · provisional' : 'House strength'}
           </span>
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: col }}>
@@ -197,6 +207,7 @@ export function ContextBar({
           type="button"
           onClick={onPublish}
           disabled={readOnly}
+          title={draftLocked ? 'Claim every AI-drafted layer to unlock publishing.' : undefined}
           className="bhp-context-btn"
           style={{
             display: 'inline-flex',
@@ -209,7 +220,7 @@ export function ContextBar({
             borderRadius: 8,
             fontWeight: 600,
             fontSize: 14,
-            opacity: readOnly ? 0.5 : 1,
+            opacity: readOnly || draftLocked ? 0.5 : 1,
             cursor: readOnly ? 'not-allowed' : 'pointer',
           }}
         >

@@ -35,16 +35,37 @@ function RailTabs({ state, dispatch }: { state: State; dispatch: React.Dispatch<
   )
 }
 
-function RailBody({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
-  return state.rightTab === 'copilot' ? <CopilotPanel state={state} dispatch={dispatch} /> : <EmptyTeam />
+function RailBody({
+  state,
+  dispatch,
+  draftCard,
+}: {
+  state: State
+  dispatch: React.Dispatch<Action>
+  draftCard?: React.ReactNode
+}) {
+  return state.rightTab === 'copilot' ? (
+    <CopilotPanel state={state} dispatch={dispatch} draftCard={draftCard} />
+  ) : (
+    <EmptyTeam />
+  )
 }
 
-export function RightRail({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
+export function RightRail({
+  state,
+  dispatch,
+  draftCard,
+}: {
+  state: State
+  dispatch: React.Dispatch<Action>
+  // Draft Mode card, created in BuildHousePage (where its runner lives).
+  draftCard?: React.ReactNode
+}) {
   return (
     <aside className="bhp-right-rail" style={{ flex: '0 0 320px', background: 'var(--white)', borderLeft: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <RailTabs state={state} dispatch={dispatch} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} />
+        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} />
       </div>
     </aside>
   )
@@ -54,10 +75,12 @@ export function RightRail({ state, dispatch }: { state: State; dispatch: React.D
 export function MobileRailDrawer({
   state,
   dispatch,
+  draftCard,
   onClose,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
+  draftCard?: React.ReactNode
   onClose: () => void
 }) {
   useEffect(() => {
@@ -108,7 +131,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} />
+          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} />
         </div>
       </div>
     </div>
