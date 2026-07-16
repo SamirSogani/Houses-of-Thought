@@ -28,7 +28,7 @@ export default function ProblemSection() {
             data-reveal
             style={{
               flex: '1 1 320px',
-              minWidth: 280,
+              minWidth: 'min(280px, 100%)',
               borderRadius: 12,
               background: 'var(--parchment)',
               padding: 28,
@@ -96,7 +96,7 @@ export default function ProblemSection() {
             data-reveal
             style={{
               flex: '1 1 320px',
-              minWidth: 280,
+              minWidth: 'min(280px, 100%)',
               borderRadius: 12,
               background: 'var(--parchment)',
               padding: 28,

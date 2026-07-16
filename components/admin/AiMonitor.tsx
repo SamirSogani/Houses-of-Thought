@@ -228,7 +228,7 @@ export function AiMonitor() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--parchment)' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} active="admin" />
 
       <div className="container" style={{ paddingBlock: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -313,7 +313,7 @@ export function AiMonitor() {
             </div>
 
             {/* lanes */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
               <Lane title="Suggestor lane · sidebar suggestions (Cerebras-first)" steps={snap.lanes.suggestor} probeByName={probeByName} />
               <Lane title="Real-time lane · coach / critic" steps={snap.lanes.realtime} probeByName={probeByName} />
               <Lane title="Drafter lane · on-demand" steps={snap.lanes.drafter} probeByName={probeByName} />

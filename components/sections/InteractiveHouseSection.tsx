@@ -150,11 +150,11 @@ export default function InteractiveHouseSection() {
             marginTop: 44,
           }}
         >
-          <div style={{ flex: '1 1 340px', minWidth: 280 }}>
+          <div style={{ flex: '1 1 340px', minWidth: 'min(280px, 100%)' }}>
             <InteractiveHouseSvg activeLayer={activeLayer} onSelect={setActiveLayer} />
           </div>
 
-          <div style={{ flex: '1 1 300px', minWidth: 280 }}>
+          <div style={{ flex: '1 1 300px', minWidth: 'min(280px, 100%)' }}>
             <div
               style={{
                 background: 'var(--white)',

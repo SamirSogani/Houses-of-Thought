@@ -15,7 +15,7 @@ export default function EducatorHeroSection() {
         className="container"
         style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(40px, 5vw, 72px)', alignItems: 'center' }}
       >
-        <div style={{ flex: '1 1 380px', minWidth: 300 }} data-reveal>
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)' }} data-reveal>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
             <span className="eyebrow">Sheet 03 / For educators</span>
@@ -61,7 +61,7 @@ export default function EducatorHeroSection() {
           </div>
         </div>
 
-        <div style={{ flex: '1 1 380px', minWidth: 300, maxWidth: 480 }} data-reveal>
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)', maxWidth: 480 }} data-reveal>
           <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: 22 }}>
             <div
               style={{

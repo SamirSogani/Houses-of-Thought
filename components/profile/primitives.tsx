@@ -74,6 +74,7 @@ export function TextInput({
   const borderColor = invalid ? 'var(--warning)' : focused ? 'var(--ink)' : 'var(--rule)'
   return (
     <input
+      className="acct-input"
       value={value}
       aria-label={ariaLabel}
       aria-invalid={invalid || undefined}
@@ -102,6 +103,7 @@ export function TextArea({
   const [focused, setFocused] = useState(false)
   return (
     <textarea
+      className="acct-input"
       value={value}
       rows={rows}
       aria-label={ariaLabel}

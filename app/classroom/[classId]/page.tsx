@@ -17,7 +17,7 @@ import { rowToSummary, type HouseRow, type HouseSummary } from '@/lib/dashboard/
 const HOUSE_COLUMNS = 'id, owner_id, title, question, status, layers_complete, updated_at'
 
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100dvh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -111,7 +111,7 @@ export default function ClassRosterPage({ params }: { params: Promise<{ classId:
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} />
 
       <main style={{ flex: '1 1 auto' }}>
@@ -165,7 +165,7 @@ export default function ClassRosterPage({ params }: { params: Promise<{ classId:
                     {houses.length === 0 ? (
                       <p className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>No houses yet</p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                      <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
                         {houses.map((h) => (
                           <HouseCard key={h.id} house={h} href={`/build/${h.id}`} />
                         ))}

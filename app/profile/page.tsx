@@ -58,8 +58,8 @@ export default function ProfilePage() {
   if (initial === null || userId === null) {
     return (
       <main
+        className="acct-vh-min"
         style={{
-          minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -77,7 +77,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} active="profile" />
 
       <main style={{ flex: '1 1 auto' }}>

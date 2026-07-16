@@ -110,6 +110,7 @@ export function StudentClasses() {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
+            className="acct-input"
             aria-label="Class join code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -163,7 +164,7 @@ export function StudentClasses() {
             You haven&apos;t joined any classes yet. Enter a join code above to get started.
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+          <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
             {classes.map((c) => (
               <div key={c.id} style={cardBase}>
                 <h3

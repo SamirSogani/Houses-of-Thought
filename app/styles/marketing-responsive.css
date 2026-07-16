@@ -1,0 +1,55 @@
+/* Responsive styles for marketing/try surfaces (components/sections/**, components/try/**,
+   Header, landing/how-it-works/educators/faq/story/examples/try pages). */
+
+/* ── Header ──────────────────────────────────────────────────────────────
+   At 320–430px the logo + wordmark + "Try it free" + hamburger row overflows.
+   Shrink the wordmark first, then drop it and rely on the logo mark alone. */
+@media (max-width: 479px) {
+  #site-header .container { gap: 12px !important; }
+  .mk-header-brand-text { font-size: 16px !important; }
+}
+@media (max-width: 399px) {
+  .mk-header-brand-text { display: none !important; }
+}
+
+/* Mobile nav sheet: scroll when the viewport is short (landscape phones),
+   and respect the home-bar safe area. The overlay only renders on mobile. */
+.mobile-nav-overlay {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+/* Secondary links (Framework / Our story / Contact) are 11px mono — give
+   them a taller hit area inside the sheet. */
+.mk-mobile-foot-links a { padding-block: 10px; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────
+   15px links in tight columns: widen the tap area on touch layouts without
+   changing the desktop rhythm. */
+@media (max-width: 1023px) {
+  .mk-footer-links a {
+    padding-block: 6px;
+    margin-block: -4px;
+  }
+}
+
+/* ── Landing: example teaser card ────────────────────────────────────────
+   The two panels stack below ~680px; the left panel's divider is a
+   border-right that would double up against the card edge once stacked. */
+@media (max-width: 679px) {
+  .mk-teaser-left {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+  }
+}
+
+/* ── Examples detail (/examples/[slug]) ──────────────────────────────────
+   The jump-link sidebar is position: sticky. Once the flex row wraps to a
+   single column (~<900px) the sticky nav would slide over the article as
+   you scroll — make it a normal block there. */
+@media (max-width: 899px) {
+  .mk-example-aside {
+    position: static !important;
+    max-width: none !important;
+  }
+}

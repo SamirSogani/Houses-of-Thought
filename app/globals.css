@@ -141,6 +141,28 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
 }
 .text-link:hover { color: var(--amber-hover); border-color: var(--amber-hover); }
 
+/* ——— Shared mobile foundation ——— */
+/* Full-height app shells: dynamic viewport height so mobile browser chrome
+   (URL bar) never hides the bottom of the layout. */
+.vh-shell { height: 100vh; }
+@supports (height: 100dvh) { .vh-shell { height: 100dvh; } }
+
+/* Wide content (tables, code) scrolls inside its own container on small screens. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Expands a small control's hit area to 44px without resizing the glyph.
+   Only apply where neighbors are ≥ 24px apart, or the areas overlap. */
+.tap-target { position: relative; }
+.tap-target::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 /* Build a House — mono label helper + entrance animations (handoff 01 §2) */
 .mono {
   font-family: var(--font-mono);

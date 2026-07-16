@@ -14,8 +14,8 @@ import { StudentAssignments } from '@/components/classroom/StudentAssignments'
 // Columns selected for the grid — keep in sync with HouseRow.
 const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at, assignment_id, turned_in'
 
+// Full-height via the dvh-safe .acct-vh-min class (account-responsive.css).
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -137,14 +137,14 @@ export default function DashboardPage() {
   }
 
   if (houses === null) {
-    return <main style={centerNotice}>Loading your houses…</main>
+    return <main className="acct-vh-min" style={centerNotice}>Loading your houses…</main>
   }
 
   const isTeacher = capabilitiesFor(accountType).canCreateClasses
   const isStudent = accountType === 'student'
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader
         onSignOut={handleSignOut}
         showClassroom={isTeacher || isStudent}
@@ -172,8 +172,9 @@ export default function DashboardPage() {
             <StudentAssignments />
           </div>
 
-          {/* Grid */}
+          {/* Grid (single column on very narrow phones via acct-card-grid) */}
           <div
+            className="acct-card-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',

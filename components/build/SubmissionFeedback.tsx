@@ -137,6 +137,7 @@ export function SubmissionFeedback({
             <label className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               GRADE
               <input
+                className="bhp-input16"
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
                 placeholder="e.g. B+ / 8"
@@ -176,6 +177,7 @@ export function SubmissionFeedback({
           )}
 
           <textarea
+            className="bhp-input16"
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="Written feedback for the student…"

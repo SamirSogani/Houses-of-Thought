@@ -74,9 +74,10 @@ export default function LoginPage() {
     <>
       <Header />
 
+      {/* acct-vh-header = dvh-safe `calc(100vh - 73px)` (account-responsive.css). */}
       <main
+        className="acct-vh-header"
         style={{
-          minHeight: 'calc(100vh - 73px)',
           background: 'var(--parchment)',
           display: 'flex',
           alignItems: 'center',

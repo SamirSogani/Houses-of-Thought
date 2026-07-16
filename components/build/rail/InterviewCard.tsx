@@ -133,7 +133,7 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
 
         <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           <input
-            aria-label="Your answer"
+            className="bhp-input16" aria-label="Your answer"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') send() }}

@@ -102,7 +102,7 @@ export default function HeroSection() {
         }}
       >
         {/* Left — Copy */}
-        <div style={{ flex: '1 1 380px', minWidth: 300 }}>
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
             <span className="eyebrow">Sheet 01 / Home</span>
@@ -150,7 +150,7 @@ export default function HeroSection() {
         </div>
 
         {/* Right — HouseDiagram card */}
-        <div style={{ flex: '1 1 380px', minWidth: 300, maxWidth: 440 }}>
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)', maxWidth: 440 }}>
           <div
             style={{
               background: 'var(--white)',

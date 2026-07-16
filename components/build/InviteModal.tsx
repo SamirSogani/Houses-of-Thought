@@ -31,7 +31,7 @@ export function InviteModal({
       style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(20,33,58,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
       <div
-        className="pop"
+        className="pop bhp-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Invite co-builders"
@@ -53,6 +53,7 @@ export function InviteModal({
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <input
             ref={inputRef}
+            className="bhp-input16"
             value={inviteInput}
             onChange={(e) => dispatch({ type: 'SET_INVITE_INPUT', value: e.target.value })}
             placeholder="maya@school.edu"
@@ -74,7 +75,7 @@ export function InviteModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--rule-soft)' }}>
           <LinkChainIcon size={16} />
           <span style={{ flex: 1, fontSize: 13, color: 'var(--ink-mid)' }}>Anyone with the link can request to join</span>
-          <button type="button" onClick={() => dispatch({ type: 'COPY_LINK' })} className="mono" style={{ fontSize: 10, color: 'var(--ink)' }}
+          <button type="button" onClick={() => dispatch({ type: 'COPY_LINK' })} className="mono bhp-pad-tap" style={{ fontSize: 10, color: 'var(--ink)' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--amber-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink)')}
           >

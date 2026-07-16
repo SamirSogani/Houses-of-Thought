@@ -61,8 +61,11 @@ export function DashboardHeader({
 
   return (
     <header style={{ background: 'var(--white)', borderBottom: '1px solid var(--rule)' }}>
+      {/* Below 768px, acct-dash-bar (account-responsive.css) collapses this grid:
+          the brand subtitle and center Framework slot hide, and the nav wraps
+          onto its own row with 44px-tall tappable links. */}
       <div
-        className="container"
+        className="container acct-dash-bar"
         style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', paddingBlock: 14, gap: 20 }}
       >
         {/* Left: brand */}
@@ -72,7 +75,7 @@ export function DashboardHeader({
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
               Houses of Thought
             </span>
-            <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', marginTop: 2 }}>
+            <span className="mono acct-dash-sub" style={{ fontSize: 9, color: 'var(--ink-subtle)', marginTop: 2 }}>
               Intellectual Blueprint · Est. 2026
             </span>
           </span>
@@ -81,6 +84,7 @@ export function DashboardHeader({
         {/* Center: Framework */}
         <Link
           href="/framework"
+          className="acct-dash-center"
           style={{ ...monoLink, justifySelf: 'center', ...(active === 'framework' ? activeStyle : {}) }}
           onMouseEnter={hover('var(--ink)')}
           onMouseLeave={hover(active === 'framework' ? 'var(--ink)' : 'var(--ink-subtle)')}
@@ -89,7 +93,7 @@ export function DashboardHeader({
         </Link>
 
         {/* Right: Classroom · Collab · Profile · Sign Out */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 22, justifySelf: 'end' }}>
+        <nav className="acct-dash-nav" style={{ display: 'flex', alignItems: 'center', gap: 22, justifySelf: 'end' }}>
           {showClassroom && (
             <Link
               href={classroomHref}

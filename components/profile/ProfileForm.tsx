@@ -129,7 +129,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
         </SectionCard>
 
         {/* About / Current Project */}
-        <div style={twoCol}>
+        <div className="acct-card-grid" style={twoCol}>
           <SectionCard>
             <FieldLabel label="About Me" />
             <TextArea value={profile.aboutMe} onChange={(v) => set('aboutMe', v)} placeholder="Tell us about yourself..." ariaLabel="About me" />
@@ -141,7 +141,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
         </div>
 
         {/* Role / Location */}
-        <div style={twoCol}>
+        <div className="acct-card-grid" style={twoCol}>
           <SectionCard>
             <FieldLabel label="Role" />
             <TextInput value={profile.role} onChange={(v) => set('role', v)} placeholder="Student, Researcher, Analyst..." ariaLabel="Role" />
@@ -161,7 +161,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
             Element 4.2 · These perspectives persist across all your houses.
           </p>
         </div>
-        <div style={twoCol}>
+        <div className="acct-card-grid" style={twoCol}>
           {perspectiveFields.map((f) => (
             <SectionCard key={f.key} accent="var(--amber)">
               <FieldLabel label={f.name} helper={f.desc} />

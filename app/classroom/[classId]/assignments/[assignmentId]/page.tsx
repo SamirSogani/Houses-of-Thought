@@ -18,7 +18,7 @@ import { housePercent, statusMeta, rowToSummary, type HouseRow, type HouseSummar
 const HOUSE_COLUMNS = 'id, owner_id, title, question, status, layers_complete, updated_at, turned_in'
 
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100dvh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -117,7 +117,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
   const started = roster.filter((m) => houseByOwner[m.userId]).length
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} />
 
       <main style={{ flex: '1 1 auto' }}>

@@ -8,7 +8,7 @@ export function Toast({ message }: { message: string }) {
     <div
       role="status"
       aria-live="polite"
-      className="pop"
+      className="pop bhp-toast"
       style={{
         position: 'fixed',
         bottom: 24,

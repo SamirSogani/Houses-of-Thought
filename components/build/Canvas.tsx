@@ -31,7 +31,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
         className="build-scroll"
         style={{ flex: '1 1 auto', overflowY: 'auto', minWidth: 0 }}
       >
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '30px 36px 120px' }}>
+        <div className="bhp-canvas-inner" style={{ maxWidth: 760, margin: '0 auto', padding: '30px 36px 120px' }}>
           {showStepHeader && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -39,7 +39,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
                 <span style={{ width: 16, height: 1, background: 'var(--rule)' }} />
                 <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>{layer.kicker}</span>
               </div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '-0.015em', color: 'var(--ink)', marginTop: 12 }}>
+              <h1 className="bhp-canvas-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '-0.015em', color: 'var(--ink)', marginTop: 12 }}>
                 {layer.title}
               </h1>
               <p style={{ fontSize: 16, color: 'var(--ink-mid)', lineHeight: 1.55, marginTop: 10, maxWidth: '60ch' }}>{layer.blurb}</p>
@@ -75,11 +75,12 @@ function Footer({ step, dispatch }: { step: number; dispatch: React.Dispatch<Act
   const nextLabel = isLast ? 'Publish house' : `Next · ${layerKey(step + 1)}`
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 34, paddingTop: 20 }}>
+    <div className="bhp-canvas-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 34, paddingTop: 20 }}>
       <button
         type="button"
         aria-disabled={backDisabled}
         onClick={() => { if (!backDisabled) dispatch({ type: 'GO_STEP', n: step - 1 }) }}
+        className="bhp-footer-back"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14, color: backDisabled ? 'var(--rule)' : 'var(--ink)', cursor: backDisabled ? 'default' : 'pointer', background: 'transparent' }}
       >
         <ChevronLeft size={14} stroke={backDisabled ? 'var(--rule)' : 'var(--ink)'} />

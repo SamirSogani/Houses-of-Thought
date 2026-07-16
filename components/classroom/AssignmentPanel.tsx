@@ -130,7 +130,7 @@ export function AssignmentPanel({ classId }: { classId: string }) {
         {/* New course */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
-            aria-label="Course title"
+            className="acct-input" aria-label="Course title"
             value={courseTitle}
             onChange={(e) => setCourseTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCourse() }}
@@ -146,7 +146,7 @@ export function AssignmentPanel({ classId }: { classId: string }) {
 
         {/* New assignment */}
         <textarea
-          aria-label="Assignment question"
+          className="acct-input" aria-label="Assignment question"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Pose a question — e.g. Should our school ban phones?"
@@ -154,7 +154,7 @@ export function AssignmentPanel({ classId }: { classId: string }) {
           style={{ ...inputStyle, resize: 'vertical', height: 'auto', padding: '10px 12px' }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <select aria-label="Course" value={courseId} onChange={(e) => setCourseId(e.target.value)} style={{ ...inputStyle, width: 'auto', minWidth: 160 }}>
+          <select className="acct-input" aria-label="Course" value={courseId} onChange={(e) => setCourseId(e.target.value)} style={{ ...inputStyle, width: 'auto', minWidth: 160 }}>
             <option value="">No course</option>
             {(courses ?? []).map((c) => (
               <option key={c.id} value={c.id}>{c.title}</option>
@@ -162,7 +162,7 @@ export function AssignmentPanel({ classId }: { classId: string }) {
           </select>
           <label className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             DUE
-            <input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ ...inputStyle, width: 'auto' }} />
+            <input type="date" className="acct-input" value={due} onChange={(e) => setDue(e.target.value)} style={{ ...inputStyle, width: 'auto' }} />
           </label>
           <label className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} title="Give students an AI strawman argument to attack and critique.">
             <input type="checkbox" checked={strawman} onChange={(e) => setStrawman(e.target.checked)} />
@@ -225,9 +225,9 @@ function CourseGroup({
             const dl = dueLabel(a.dueAt)
             return (
               <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 10, padding: '10px 12px' }}>
-                <span style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                  <button type="button" aria-label="Move up" disabled={busy || i === 0} onClick={() => onReorder(a, -1)} style={reorderBtn(busy || i === 0)}>▲</button>
-                  <button type="button" aria-label="Move down" disabled={busy || i === items.length - 1} onClick={() => onReorder(a, 1)} style={reorderBtn(busy || i === items.length - 1)}>▼</button>
+                <span className="acct-reorder-stack" style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                  <button type="button" className="acct-reorder" aria-label="Move up" disabled={busy || i === 0} onClick={() => onReorder(a, -1)} style={reorderBtn(busy || i === 0)}>▲</button>
+                  <button type="button" className="acct-reorder" aria-label="Move down" disabled={busy || i === items.length - 1} onClick={() => onReorder(a, 1)} style={reorderBtn(busy || i === items.length - 1)}>▼</button>
                 </span>
                 <Link href={`/classroom/${classId}/assignments/${a.id}`} style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--ink)' }}>
                   {a.question}

@@ -166,9 +166,11 @@ function Row({
   const due = dueLabel(assignment.dueAt)
   const context = [hideClass ? '' : className, due ?? ''].filter(Boolean).join(' · ')
   const strawmanReady = assignment.aiStrawman && assignment.strawmanHouseId
+  // On phones acct-row-wrap wraps the row and acct-row-main gives the question
+  // its own line so the chips/buttons drop below it instead of crushing it.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="acct-row-wrap" style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px' }}>
+      <div className="acct-row-main" style={{ flex: 1, minWidth: 0 }}>
         {context && (
           <div className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{context}</div>
         )}

@@ -77,7 +77,7 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
                     </a>
                   ) : (
                     <input
-                      aria-label="Evidence source"
+                      className="bhp-input16" aria-label="Evidence source"
                       value={e.source}
                       placeholder="Add source"
                       size={Math.max(e.source.length || 10, 8)}

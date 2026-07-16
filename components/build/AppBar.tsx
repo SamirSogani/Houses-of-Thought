@@ -22,7 +22,7 @@ export function AppBar({
 }) {
   return (
     <div style={{ background: 'var(--white)', borderBottom: '1px solid var(--rule)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '12px 24px' }}>
+      <div className="bhp-appbar" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '12px 24px' }}>
         {/* Logo + wordmark */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <LogoMark />
@@ -31,8 +31,8 @@ export function AppBar({
           </span>
         </div>
 
-        {/* Nav */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 14 }}>
+        {/* Nav (decorative — hidden on mobile) */}
+        <nav className="bhp-appbar-nav" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 14 }}>
           <span style={{ ...monoLabel, color: 'var(--ink-subtle)', padding: '6px 10px' }}>Framework</span>
           <span
             style={{
@@ -68,10 +68,10 @@ export function AppBar({
           >
             What&apos;s new
           </button>
-          <span style={{ ...monoLabel, color: 'var(--ink-subtle)' }} title={userEmail ?? undefined}>
+          <span className="bhp-appbar-email" style={{ ...monoLabel, color: 'var(--ink-subtle)' }} title={userEmail ?? undefined}>
             {userEmail ? shortenEmail(userEmail) : 'Profile'}
           </span>
-          <button type="button" onClick={onSignOut} style={{ ...monoLabel, color: 'var(--ink-subtle)' }}>
+          <button type="button" onClick={onSignOut} className="bhp-pad-tap" style={{ ...monoLabel, color: 'var(--ink-subtle)' }}>
             Sign out
           </button>
         </div>

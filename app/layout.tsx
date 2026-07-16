@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Fraunces, Inter_Tight, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import './styles/build-responsive.css'
+import './styles/marketing-responsive.css'
+import './styles/account-responsive.css'
 
 const fraunces = Fraunces({
   subsets: ['latin'],

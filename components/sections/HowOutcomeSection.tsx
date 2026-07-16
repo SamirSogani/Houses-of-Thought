@@ -68,7 +68,7 @@ export default function HowOutcomeSection() {
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 22 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 22 }}>
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',

@@ -173,7 +173,7 @@ export function PerspectiveDetail({
             <div style={{ marginTop: 7 }}>
               <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px', display: 'inline-flex' }}>
                 <input
-                  aria-label="Evidence source"
+                  className="bhp-input16" aria-label="Evidence source"
                   value={e.source}
                   placeholder="Add source"
                   size={Math.max(e.source.length || 10, 8)}

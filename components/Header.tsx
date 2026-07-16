@@ -54,6 +54,7 @@ export default function Header() {
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <LogoMark />
             <span
+              className="mk-header-brand-text"
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 600,
@@ -147,6 +148,7 @@ export default function Header() {
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
+              className="tap-target"
               style={{
                 width: 42,
                 height: 42,
@@ -194,6 +196,7 @@ export default function Header() {
             <button
               onClick={closeMobile}
               aria-label="Close menu"
+              className="tap-target"
               style={{
                 width: 42,
                 height: 42,
@@ -266,10 +269,11 @@ export default function Header() {
               Log in
             </Link>
             <div
+              className="mk-mobile-foot-links"
               style={{
                 display: 'flex',
+                alignItems: 'center',
                 gap: 20,
-                marginTop: 8,
                 fontFamily: 'var(--font-mono)',
                 fontSize: 11,
                 textTransform: 'uppercase',

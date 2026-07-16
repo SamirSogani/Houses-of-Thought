@@ -37,14 +37,14 @@ export function WhatsNewDrawer({ dispatch }: { dispatch: React.Dispatch<Action> 
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 26px 40px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '22px 26px calc(40px + env(safe-area-inset-bottom))' }}>
           {changeCards.map((c, i) => (
             <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 18px' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--amber-hover)' }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--ink)' }}>{c.title}</span>
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <div className="bhp-oldnew" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <div style={{ flex: 1, background: 'var(--parchment)', borderRadius: 8, padding: 10 }}>
                   <div className="mono" style={{ fontSize: 8, color: 'var(--warning)' }}>Old</div>
                   <div style={{ fontSize: 12, color: 'var(--ink-mid)', marginTop: 4, lineHeight: 1.45 }}>{c.old}</div>

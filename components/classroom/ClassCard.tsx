@@ -127,7 +127,7 @@ export function CreateClassCard({
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17 }}>New class</span>
       </span>
       <input
-        aria-label="Class name"
+        className="acct-input" aria-label="Class name"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {

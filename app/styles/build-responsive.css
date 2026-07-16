@@ -1,0 +1,135 @@
+/* Responsive styles for the Build workspace (components/build/**, app/build, app/house).
+   Owned by the build-area work; marketing and account styles live in sibling files.
+
+   Every rule is scoped to max-width media queries so desktop (≥1024px) renders
+   exactly as before. `!important` is required where an inline style must lose.
+   Class prefix: bhp- (Build House Page). */
+
+@media (max-width: 1023px) {
+  /* — Shell: the fixed side rails give way to the step strip + co-pilot drawer.
+       Belt-and-suspenders with the useIsMobile() conditional mount, so the
+       server-rendered desktop layout never squeezes the canvas pre-hydration. */
+  .bhp-left-rail,
+  .bhp-right-rail {
+    display: none !important;
+  }
+
+  /* — App bar: condense, drop the decorative Framework/Collab chrome. */
+  .bhp-appbar {
+    padding: 10px 16px !important;
+    gap: 12px !important;
+    flex-wrap: wrap;
+  }
+  .bhp-appbar-nav {
+    display: none !important;
+  }
+
+  /* — Context bar: title takes its own full row; presence stack hides;
+       primary actions grow to comfortable touch sizes. */
+  .bhp-contextbar {
+    padding: 10px 16px 12px !important;
+    gap: 12px !important;
+    row-gap: 10px !important;
+  }
+  .bhp-title-block {
+    flex: 1 1 100%;
+  }
+  .bhp-title-input {
+    width: 100% !important;
+    font-size: 20px !important;
+  }
+  .bhp-presence {
+    display: none !important;
+  }
+  .bhp-context-actions {
+    margin-left: 0 !important;
+    gap: 10px !important;
+  }
+  .bhp-context-btn {
+    height: 44px !important;
+  }
+  /* Learn/Decide segments: ≥32px tall on touch. */
+  .bhp-mode-seg {
+    padding: 11px 14px !important;
+  }
+  .bhp-readonly-banner {
+    padding: 7px 16px !important;
+  }
+  .bhp-feedback-strip {
+    padding: 10px 16px !important;
+  }
+
+  /* — Canvas */
+  .bhp-canvas-inner {
+    padding: 20px 16px 120px !important;
+  }
+  .bhp-canvas-title {
+    font-size: 26px !important;
+  }
+  .bhp-canvas-footer {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .bhp-footer-back {
+    min-height: 44px;
+  }
+
+  /* — Small glyph controls: grow the hit area without moving the glyph.
+       .bhp-remove resizes the × buttons (20px / 16px variants) to ≥24px;
+       .bhp-pad-tap pads a tiny text control and cancels the padding with a
+       negative margin so surrounding layout doesn't shift. */
+  .bhp-remove {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .bhp-pad-tap {
+    padding: 8px !important;
+    margin: -8px !important;
+  }
+
+  /* — Overlays */
+  .bhp-modal {
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+  .bhp-toast {
+    max-width: calc(100vw - 24px);
+    bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Implications: the three registers stack. */
+  .bhp-impl-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* iOS focus-zoom guard: every text input/textarea computes to ≥16px. */
+  .bhp-input16 {
+    font-size: 16px !important;
+  }
+  .bhp-appbar-email {
+    display: none !important;
+  }
+}
+
+@media (max-width: 479px) {
+  /* What's-new cards: Old/New comparison stacks on very narrow screens. */
+  .bhp-oldnew {
+    flex-direction: column;
+  }
+}
+
+/* — Mobile step strip (only mounted <1024px, so no media query needed).
+     Hidden scrollbar; momentum scrolling on iOS. */
+.bhp-step-strip {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bhp-step-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* — Co-pilot drawer body: keep its scroll from chaining to the page. */
+.bhp-drawer-body {
+  overscroll-behavior: contain;
+}

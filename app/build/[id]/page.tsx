@@ -10,7 +10,7 @@ import type { AccountType } from '@/lib/profile/data'
 import type { State } from '@/lib/build/types'
 
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100dvh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

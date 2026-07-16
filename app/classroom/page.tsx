@@ -16,8 +16,8 @@ import { rowToClass, type ClassRow, type ClassSummary } from '@/lib/classroom/cl
 
 const CLASS_COLUMNS = 'id, name, join_code, created_at'
 
+// Full-height via the dvh-safe .acct-vh-min class (account-responsive.css).
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -118,11 +118,11 @@ export default function ClassroomPage() {
   }
 
   if (classes === null) {
-    return <main style={centerNotice}>Loading your classroom…</main>
+    return <main className="acct-vh-min" style={centerNotice}>Loading your classroom…</main>
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} />
 
       <main style={{ flex: '1 1 auto' }}>
@@ -141,6 +141,7 @@ export default function ClassroomPage() {
           )}
 
           <div
+            className="acct-card-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',

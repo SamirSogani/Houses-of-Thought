@@ -164,7 +164,7 @@ export function ModelDetail({ name }: { name: string }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--parchment)' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} active="admin" />
 
       <div className="container" style={{ paddingBlock: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -244,7 +244,7 @@ export function ModelDetail({ name }: { name: string }) {
 
             {/* failover position */}
             {detail.positions.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+              <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                 {detail.positions.map((p) => (
                   <Position key={p.lane} name={name} pos={p} />
                 ))}

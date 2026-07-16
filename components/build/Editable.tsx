@@ -45,6 +45,8 @@ export function InlineText({
     el.style.height = `${el.scrollHeight}px`
   }, [value, multiline])
 
+  // bhp-input16: below 768px every field computes to ≥16px so iOS never
+  // focus-zooms (app/styles/build-responsive.css).
   if (multiline) {
     return (
       <textarea
@@ -55,6 +57,7 @@ export function InlineText({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         onClick={onClick}
+        className="bhp-input16"
         style={{ ...base, resize: 'none', overflow: 'hidden', lineHeight: 'inherit', ...style }}
       />
     )
@@ -66,6 +69,7 @@ export function InlineText({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onClick={onClick}
+      className="bhp-input16"
       style={{ ...base, ...style }}
     />
   )
@@ -86,6 +90,8 @@ export function RemoveButton({
       title={title}
       aria-label={title}
       onClick={onClick}
+      // bhp-remove: ≥24px touch size below 1024px, same glyph (build-responsive.css).
+      className="bhp-remove"
       style={{
         flex: '0 0 auto',
         width: 20,

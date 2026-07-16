@@ -1,0 +1,84 @@
+/* Responsive styles for authenticated non-build pages (dashboard, login, welcome, profile,
+   classes, classroom, join, admin) and their components.
+
+   Styling in those pages is inline (style={{}}), so these rules use `!important`
+   where they must beat an inline declaration. Everything is scoped to `acct-`
+   classes and (except the dvh helpers) to mobile widths, so desktop is untouched. */
+
+/* ── dvh-safe full-height helpers ─────────────────────────────────────────────
+   Replacements for inline `minHeight: '100vh'` / `calc(100vh - 73px)`. On desktop
+   dvh === vh, so appearance is unchanged; on mobile the browser chrome no longer
+   pushes content below the visible viewport. */
+.acct-vh-min { min-height: 100vh; }
+@supports (min-height: 100dvh) {
+  .acct-vh-min { min-height: 100dvh; }
+}
+/* 73px = marketing Header height (login / welcome). */
+.acct-vh-header { min-height: calc(100vh - 73px); }
+@supports (min-height: 100dvh) {
+  .acct-vh-header { min-height: calc(100dvh - 73px); }
+}
+
+/* ── modal fit (DeleteAccountModal) ───────────────────────────────────────────
+   Keeps the dialog inside short viewports and lets its content scroll. */
+.acct-modal { max-height: calc(100vh - 48px); overflow-y: auto; }
+@supports (max-height: 100dvh) {
+  .acct-modal { max-height: calc(100dvh - 48px); }
+}
+
+@media (max-width: 767px) {
+  /* ── text controls: ≥16px computed font so iOS doesn't zoom on focus ──────── */
+  .acct-input { font-size: 16px !important; }
+
+  /* ── DashboardHeader collapse ─────────────────────────────────────────────
+     Desktop is a '1fr auto 1fr' grid (brand · Framework · nav) that overflows
+     badly at phone widths. Below 768px: flex-wrap, hide the brand subtitle and
+     the center Framework slot, and let the nav wrap onto its own row(s) with
+     44px-tall tappable links. */
+  .acct-dash-bar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0 16px !important;
+  }
+  .acct-dash-sub { display: none !important; }
+  .acct-dash-center { display: none !important; }
+  .acct-dash-nav {
+    flex: 1 1 100%;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0 20px !important;
+  }
+  .acct-dash-nav a,
+  .acct-dash-nav button {
+    min-height: 44px;
+  }
+
+  /* ── metadata rows (assignments, submissions) ─────────────────────────────
+     Wide single-line flex rows wrap; the main text block takes its own line so
+     chips/buttons drop below it instead of crushing it. */
+  .acct-row-wrap {
+    flex-wrap: wrap !important;
+    row-gap: 10px;
+  }
+  .acct-row-main {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* ── small chip-sized buttons (copy invite link etc.) → ≥24px hit height ── */
+  .acct-chip-btn { padding: 8px 10px !important; }
+
+  /* ── AssignmentPanel ▲/▼ reorder buttons: readable size + spaced hit areas ─ */
+  .acct-reorder {
+    font-size: 11px !important;
+    padding: 6px 9px !important;
+  }
+  .acct-reorder-stack { gap: 4px; }
+}
+
+/* ── card grids: force a single column on very narrow phones ──────────────────
+   The inline grids use minmax(280px..320px, 1fr); below ~420px the min track can
+   exceed the container and cause horizontal overflow. */
+@media (max-width: 419px) {
+  .acct-card-grid { grid-template-columns: 1fr !important; }
+}

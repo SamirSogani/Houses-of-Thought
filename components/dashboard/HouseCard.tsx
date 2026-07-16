@@ -176,9 +176,11 @@ export function HouseCard({
       {/* Kebab menu */}
       {hasMenu && (
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 6 }}>
+          {/* tap-target extends the 28px button to a 44×44 touch hit-area. */}
           <button
             type="button"
             aria-label="House options"
+            className="tap-target"
             onClick={(e) => {
               stop(e)
               setMenuOpen((o) => !o)

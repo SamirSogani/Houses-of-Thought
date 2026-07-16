@@ -41,6 +41,7 @@ export default function ExampleTeaserSection() {
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
             {/* Left panel */}
             <div
+              className="mk-teaser-left"
               style={{
                 flex: '1 1 360px',
                 padding: 'clamp(24px, 3vw, 36px)',

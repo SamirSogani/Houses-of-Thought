@@ -42,6 +42,7 @@ export function ContextBar({
   const col = strengthColor(strength.overall)
   return (
     <div
+      className="bhp-contextbar"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -53,11 +54,12 @@ export function ContextBar({
       }}
     >
       {/* Title block */}
-      <div style={{ minWidth: 0 }}>
+      <div className="bhp-title-block" style={{ minWidth: 0 }}>
         <div className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 3 }}>
           House · Draft · autosaved
         </div>
         <input
+          className="bhp-title-input"
           aria-label="House title"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
@@ -134,7 +136,7 @@ export function ContextBar({
               onClick={() => onModeChange(m)}
               disabled={modeLocked}
               aria-pressed={active}
-              className="mono"
+              className="mono bhp-mode-seg"
               style={{
                 fontSize: 10,
                 letterSpacing: '0.02em',
@@ -154,8 +156,8 @@ export function ContextBar({
       </div>
 
       {/* Right cluster */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+      <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
+        <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
           {presenceOrder.map((k) => (
             <Avatar
               key={k}
@@ -171,6 +173,7 @@ export function ContextBar({
           type="button"
           onClick={onInvite}
           disabled={readOnly}
+          className="bhp-context-btn"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -194,6 +197,7 @@ export function ContextBar({
           type="button"
           onClick={onPublish}
           disabled={readOnly}
+          className="bhp-context-btn"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

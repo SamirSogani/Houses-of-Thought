@@ -13,7 +13,7 @@ import { blankState, loadLocalHouse, saveLocalHouse } from '@/lib/build/persiste
 import type { State } from '@/lib/build/types'
 
 const centerNotice: React.CSSProperties = {
-  minHeight: '100vh',
+  minHeight: '100dvh',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

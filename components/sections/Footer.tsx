@@ -98,7 +98,7 @@ export default function Footer() {
           </div>
 
           {/* Link columns */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 48 }}>
+          <div className="mk-footer-links" style={{ display: 'flex', flexWrap: 'wrap', gap: 48 }}>
             {linkGroups.map((g) => (
               <div key={g.heading}>
                 <p style={colHeadStyle}>{g.heading}</p>

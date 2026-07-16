@@ -109,8 +109,10 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, alignItems: 'flex-start', marginTop: 32 }}>
-              {/* Sticky jump-link sidebar (wraps above the content on narrow) */}
-              <aside style={{ flex: '1 1 190px', maxWidth: 220, position: 'sticky', top: 84 }}>
+              {/* Sticky jump-link sidebar (wraps above the content on narrow,
+                  where .mk-example-aside makes it static so it can't slide
+                  over the article) */}
+              <aside className="mk-example-aside" style={{ flex: '1 1 190px', maxWidth: 220, position: 'sticky', top: 84 }}>
                 <p style={monoLabel}>On this house</p>
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
                   {jumpLinks.map((l) => (

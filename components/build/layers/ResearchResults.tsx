@@ -70,7 +70,7 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
     >
       <div style={{ display: 'flex', gap: 6 }}>
         <input
-          aria-label="Research focus"
+          className="bhp-input16" aria-label="Research focus"
           value={focus}
           onChange={(e) => setFocus(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') search() }}

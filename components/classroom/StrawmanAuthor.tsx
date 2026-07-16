@@ -176,9 +176,9 @@ function Field({
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: area ? 12 : 0 }}>
       <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</span>
       {area ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={{ ...common, resize: 'vertical' }} />
+        <textarea className="acct-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={{ ...common, resize: 'vertical' }} />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ ...common, height: 40 }} />
+        <input className="acct-input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ ...common, height: 40 }} />
       )}
     </label>
   )

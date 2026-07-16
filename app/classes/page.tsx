@@ -49,8 +49,8 @@ export default function StudentClassroomPage() {
   if (!ready) {
     return (
       <main
+        className="acct-vh-min"
         style={{
-          minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -68,7 +68,7 @@ export default function StudentClassroomPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
+    <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={handleSignOut} showClassroom classroomHref="/classes" active="classroom" />
 
       <main style={{ flex: '1 1 auto' }}>

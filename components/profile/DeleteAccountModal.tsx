@@ -25,10 +25,12 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(20,33,58,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
+      {/* acct-modal caps the dialog to the visible viewport and lets it scroll. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Delete account"
+        className="acct-modal"
         onClick={(e) => e.stopPropagation()}
         style={{ width: 440, maxWidth: '100%', background: 'var(--white)', borderRadius: 16, padding: 26, boxShadow: '0 24px 60px rgba(20,33,58,0.28)' }}
       >
@@ -52,6 +54,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
               Type DELETE to confirm
             </label>
             <input
+              className="acct-input"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="DELETE"

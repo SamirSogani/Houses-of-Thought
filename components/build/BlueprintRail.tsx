@@ -34,7 +34,7 @@ export function BlueprintRail({
 
   return (
     <aside
-      className="build-scroll"
+      className="build-scroll bhp-left-rail"
       style={{
         flex: '0 0 264px',
         background: 'var(--white)',
@@ -131,7 +131,8 @@ export function BlueprintRail({
   )
 }
 
-function Badge({ step, active, done }: { step: number; active: boolean; done: boolean }) {
+// Shared with MobileStepStrip, which shows the same steps as a horizontal strip.
+export function Badge({ step, active, done }: { step: number; active: boolean; done: boolean }) {
   // Active always wins over done (02 §2).
   const base: React.CSSProperties = {
     display: 'inline-flex',

@@ -35,7 +35,7 @@ export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch:
       </div>
 
       {/* Columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      <div className="bhp-impl-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         {columns.map(({ kind, label, accent }) => {
           const items = state[kind] as Implication[]
           return (
@@ -79,7 +79,7 @@ export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch:
                       </button>
                       <span style={{ ...metaChip, display: 'inline-flex' }}>
                         <input
-                          aria-label="Who it lands on"
+                          className="bhp-input16" aria-label="Who it lands on"
                           value={it.who}
                           placeholder="Who"
                           size={Math.max(it.who.length || 5, 3)}
