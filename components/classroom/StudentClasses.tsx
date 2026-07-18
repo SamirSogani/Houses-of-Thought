@@ -82,6 +82,33 @@ export function StudentClasses() {
     load()
   }, [load])
 
+  // Leave a class (bl-H4): the self-delete policy on class_members has existed
+  // since 0014, but no UI ever used it — a student who left a school (or a
+  // standard account done with a class) stayed on the roster forever, with the
+  // teacher keeping visibility into every future house they build.
+  async function handleLeave(classId: string, className: string) {
+    const ok = window.confirm(
+      `Leave ${className}? Your work stays yours, but your teacher will no longer see your houses, and assignments from this class disappear from your dashboard.`
+    )
+    if (!ok) return
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase
+      .from('class_members')
+      .delete()
+      .eq('class_id', classId)
+      .eq('user_id', user.id)
+    if (error) {
+      setJoinError('Could not leave the class — please try again.')
+      return
+    }
+    setJoinError(null)
+    load()
+  }
+
   async function handleJoin() {
     const trimmed = code.trim()
     if (!trimmed || joining) return
@@ -201,6 +228,14 @@ export function StudentClasses() {
                     </div>
                   </div>
                 )}
+                <button
+                  type="button"
+                  onClick={() => handleLeave(c.id, c.name)}
+                  className="mono"
+                  style={{ alignSelf: 'flex-start', marginTop: c.total > 0 ? 10 : 'auto', paddingTop: c.total > 0 ? 0 : 18, fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                >
+                  Leave class
+                </button>
               </div>
             ))}
           </div>

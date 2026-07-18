@@ -27,7 +27,6 @@ const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
     counters: d.counters,
   }
 })
-import { suggestions } from './suggestions'
 import { applyAiAction } from './aiActions'
 import { computeStrength } from './strength'
 import {
@@ -98,7 +97,6 @@ export const initialState: State = {
     'Early evidence that heavy AI reliance dampens independent problem-solving.',
   ],
 
-  accepted: {},
   activePerspective: null,
 }
 
@@ -352,25 +350,18 @@ export function reducer(state: State, action: Action): State {
     case 'REMOVE_WATCHPOINT':
       return { ...state, watchpoints: state.watchpoints.filter((_, i) => i !== action.idx) }
 
-    case 'ACCEPT_SUGGESTION': {
-      const bank = suggestions[action.step] ?? []
-      const suggestion = bank[action.idx]
-      if (!suggestion) return state
-      const draft: State = { ...state }
-      suggestion.run(draft)
-      const priorAccepted = state.accepted[action.step] ?? []
-      draft.accepted = { ...state.accepted, [action.step]: [...priorAccepted, action.idx] }
-      draft.toast = `Added to ${layerKey(action.step)}`
-      return draft
+    case 'APPLY_AI_ACTION': {
+      const next: State = { ...state }
+      const toast = applyAiAction(next, action.action)
+      if (toast === null) return state
+      next.toast = toast
+      return next
     }
 
-    case 'APPLY_AI_ACTION': {
-      const draft: State = { ...state }
-      const toast = applyAiAction(draft, action.action)
-      if (toast === null) return state
-      draft.toast = toast
-      return draft
-    }
+    case 'RESTORE_CONTENT':
+      // Undo (bounded history in BuildHousePage): replace only the persistable
+      // content; view state (step, tabs, overlays) stays where the user is.
+      return { ...state, ...action.content, toast: 'Restored' }
 
     case 'START_DRAFT':
       // Idempotent: a house that already has a draft record is never re-seeded.
@@ -383,7 +374,14 @@ export function reducer(state: State, action: Action): State {
       if (!state.draft || state.draft.stage !== action.stage) return state
       const next: State = { ...state }
       let applied = 0
-      for (const a of action.actions) {
+      // Perspectives land before their sub-questions: the model may emit an
+      // add_subquestion ahead of the add_perspective it targets, which would
+      // silently no-op (bl-L5). Stable sort, so order is otherwise preserved.
+      const ordered = [...action.actions].sort(
+        (a, b) =>
+          Number(a.kind !== 'add_perspective') - Number(b.kind !== 'add_perspective')
+      )
+      for (const a of ordered) {
         if (applyAiAction(next, a) !== null) applied += 1
       }
       next.draft = {

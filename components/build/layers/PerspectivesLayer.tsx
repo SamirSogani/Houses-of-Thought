@@ -2,7 +2,6 @@
 // See handoff 05 §7 (Grid) / 04 §4.
 
 import type { Action, State } from '@/lib/build/types'
-import { color } from '@/lib/build/strength'
 import { Avatar } from '../Avatar'
 import { ChevronRight } from '../buildIcons'
 import { InlineText, RemoveButton } from '../Editable'
@@ -33,7 +32,6 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
         {state.perspectives.map((p) => {
-          const strengthCol = color(p.strength)
           return (
             <div
               key={p.id}
@@ -97,14 +95,12 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
                   onChange={(value) => dispatch({ type: 'EDIT_PERSPECTIVE', id: p.id, field: 'summary', value })}
                 />
               </div>
+              {/* Real counts only — the old per-perspective strength bar rendered
+                  Perspective.strength, which no code path ever computed (every
+                  real perspective showed a permanent 0). */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{p.subQuestions.length} questions</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 52, height: 5, background: 'var(--rule)', borderRadius: 3, overflow: 'hidden' }}>
-                    <span className="build-bar-fill" style={{ display: 'block', height: '100%', width: `${p.strength}%`, background: strengthCol, transition: 'width 0.4s cubic-bezier(0.2,0.7,0.2,1)' }} />
-                  </span>
-                  <span className="mono" style={{ fontSize: 10, color: strengthCol }}>{p.strength}</span>
-                </span>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{p.counters.length} counters</span>
               </div>
             </div>
           )

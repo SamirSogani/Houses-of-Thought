@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { PERSONA, CRITIQUE_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
@@ -27,6 +27,10 @@ const RequestSchema = z.object({
 
 const CritiqueSchema = z.object({
   headline: z.string(),
+  // Tolerates a near-miss count: models running json_object (no constrained
+  // decoding) drop or duplicate a standard often enough that a strict .length(6)
+  // costs a full-price chain retry and then a 502. normalizeStandards() below
+  // restores the canonical exactly-6 shape the client renders.
   standards: z
     .array(
       z.object({
@@ -36,13 +40,33 @@ const CritiqueSchema = z.object({
         question: z.string(),
       })
     )
-    .length(6),
+    .min(5)
+    .max(7),
   weakestLink: z.object({
     layer: z.number().int().min(1).max(7),
     why: z.string(),
     question: z.string(),
   }),
 })
+
+type Critique = z.infer<typeof CritiqueSchema>
+
+// Exactly one entry per standard, in canonical order: first returned entry per
+// standard wins; an absent standard gets an honest placeholder, never a grade
+// the model didn't give.
+function normalizeStandards(returned: Critique['standards']): Critique['standards'] {
+  return STANDARDS.map((standard) => {
+    const found = returned.find((s) => s.standard === standard)
+    return (
+      found ?? {
+        standard,
+        grade: 'mixed' as const,
+        note: 'The critic did not return this standard — treat it as unexamined.',
+        question: `How does the house hold up on ${standard}?`,
+      }
+    )
+  })
+}
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -85,7 +109,7 @@ export async function POST(req: Request): Promise<Response> {
       // budget generously or Groq returns json_validate_failed with empty output.
       maxTokens: 6000,
     })
-    return NextResponse.json(critique)
+    return NextResponse.json({ ...critique, standards: normalizeStandards(critique.standards) })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json({ error: err.message }, { status: err.status })

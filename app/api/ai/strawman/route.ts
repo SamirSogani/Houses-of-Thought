@@ -11,7 +11,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { createClient } from '@/lib/supabase/server'
 import { STRAWMAN_SYSTEM } from '@/lib/ai/prompts'

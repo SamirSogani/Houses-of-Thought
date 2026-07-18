@@ -52,7 +52,10 @@ export const MiniEvidenceSchema = z.object({
 
 export const MiniSynthesisSchema = z.object({
   final_take: z.string(),
-  key_tradeoffs: z.array(z.string()).length(3),
+  // Spec says exactly 3; relaxed so a near-miss (2 or 4 from a json_object model
+  // with no constrained decoding) doesn't cost a full-price retry and a 502 —
+  // the route trims extras back to 3 before responding.
+  key_tradeoffs: z.array(z.string()).min(2).max(4),
   strongest_tension: z.string(),
   reflective_question: z.string(),
 })

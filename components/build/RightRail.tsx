@@ -9,7 +9,8 @@
 import { useEffect } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { XIcon } from '@/components/icons'
-import { CopilotPanel } from './rail/CopilotPanel'
+import { CopilotPanel, type SuggestCache } from './rail/CopilotPanel'
+import type { InterviewSession } from './rail/InterviewCard'
 
 function RailTabs({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   const tabs: { key: 'copilot' | 'team'; label: string }[] = [
@@ -39,13 +40,17 @@ function RailBody({
   state,
   dispatch,
   draftCard,
+  suggestCache,
+  interview,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   draftCard?: React.ReactNode
+  suggestCache?: React.RefObject<SuggestCache>
+  interview?: InterviewSession
 }) {
   return state.rightTab === 'copilot' ? (
-    <CopilotPanel state={state} dispatch={dispatch} draftCard={draftCard} />
+    <CopilotPanel state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} />
   ) : (
     <EmptyTeam />
   )
@@ -55,17 +60,23 @@ export function RightRail({
   state,
   dispatch,
   draftCard,
+  suggestCache,
+  interview,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   // Draft Mode card, created in BuildHousePage (where its runner lives).
   draftCard?: React.ReactNode
+  // Suggestion cache + interview session, also owned by BuildHousePage so they
+  // survive this shell unmounting (tab switch / mobile drawer).
+  suggestCache?: React.RefObject<SuggestCache>
+  interview?: InterviewSession
 }) {
   return (
     <aside className="bhp-right-rail" style={{ flex: '0 0 320px', background: 'var(--white)', borderLeft: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <RailTabs state={state} dispatch={dispatch} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} />
+        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} />
       </div>
     </aside>
   )
@@ -76,11 +87,15 @@ export function MobileRailDrawer({
   state,
   dispatch,
   draftCard,
+  suggestCache,
+  interview,
   onClose,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   draftCard?: React.ReactNode
+  suggestCache?: React.RefObject<SuggestCache>
+  interview?: InterviewSession
   onClose: () => void
 }) {
   useEffect(() => {
@@ -131,7 +146,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} />
+          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} />
         </div>
       </div>
     </div>

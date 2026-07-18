@@ -108,7 +108,6 @@ export interface State {
   neg: Implication[]
   unc: Implication[]
   watchpoints: string[]
-  accepted: Record<number, number[]>
   activePerspective: number | null
 }
 
@@ -155,8 +154,11 @@ export type Action =
   | { type: 'ADD_WATCHPOINT' }
   | { type: 'EDIT_WATCHPOINT'; idx: number; value: string }
   | { type: 'REMOVE_WATCHPOINT'; idx: number }
-  | { type: 'ACCEPT_SUGGESTION'; step: number; idx: number }
   | { type: 'APPLY_AI_ACTION'; action: AiAction }
+  // Undo: replace the persistable content subset wholesale from a snapshot
+  // (BuildHousePage keeps a bounded history of serializeContent strings).
+  // View state (step, tabs, toast) is deliberately untouched.
+  | { type: 'RESTORE_CONTENT'; content: import('./persistence').PersistedContent }
   // Draft Mode (decision 016). START seeds State.draft; APPLY_DRAFT_STAGE bulk-
   // applies one stage's AiActions and advances; STOP finalizes early;
   // CLAIM_DRAFT_LAYER is the deferred per-layer accept.

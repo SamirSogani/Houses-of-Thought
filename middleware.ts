@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_PREFIXES = ['/dashboard', '/build', '/profile', '/classroom', '/join']
+// /classes included (bl-L6): signed-out visitors used to get a client-side
+// bounce with no ?next= return path, unlike every sibling authed route.
+const PROTECTED_PREFIXES = ['/dashboard', '/build', '/profile', '/classroom', '/classes', '/join']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })

@@ -129,7 +129,15 @@ export function DraftCard({
 
         {runner.errorCode && (
           <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 10, lineHeight: 1.45 }}>
-            {runner.errorCode === RATE_LIMITED_CODE ? RATE_LIMITED_COPY : 'Could not reach the co-pilot.'}
+            {runner.errorCode === RATE_LIMITED_CODE
+              ? RATE_LIMITED_COPY
+              : runner.errorCode === 'unauthenticated'
+                ? 'Signed out — log in again to keep drafting.'
+                : runner.errorCode === 'draft-not-available'
+                  ? 'Draft Mode isn’t available on this account. Stop the draft to keep building by hand.'
+                  : runner.errorCode === 'ai-network-error'
+                    ? 'Network hiccup — check your connection and retry.'
+                    : 'Could not reach the co-pilot.'}
           </div>
         )}
 
@@ -179,6 +187,19 @@ export function DraftCard({
               </div>
             )
           })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Stopped before anything landed: no drafted layers, nothing to claim —
+  // "Draft claimed ✓" here would congratulate an untouched house (bl-L4).
+  if (!DRAFT_STAGES.some((s) => draft.drafted[s])) {
+    return (
+      <div style={cardStyle} className="fade-in">
+        <span style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--ink)' }}>Draft stopped</span>
+        <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
+          Nothing was drafted — build the house by hand, layer by layer.
         </div>
       </div>
     )

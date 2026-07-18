@@ -1,16 +1,18 @@
 'use client'
 
 // Root of the Build a House workspace: three-zone shell + right-rail tabs + overlays
-// + toast. Owns the reducer. See handoff 02 §3 / 05 §1.
+// + toast. Owns the reducer, the save controller (status machine + single-flight
+// queue + flush), the undo history, and the cross-tab writer lock. See handoff
+// 02 §3 / 05 §1 and analysis/frontend-architecture-plan.md Phase 0.
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
 import { draftGateLocked } from '@/lib/ai/draft'
-import { serializeContent } from '@/lib/build/persistence'
-import type { State } from '@/lib/build/types'
+import { serializeContent, type PersistedContent } from '@/lib/build/persistence'
+import type { Action, State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
-import { ContextBar } from './ContextBar'
+import { ContextBar, type SaveStatus } from './ContextBar'
 import { BlueprintRail } from './BlueprintRail'
 import { MobileStepStrip } from './MobileStepStrip'
 import { Canvas } from './Canvas'
@@ -22,7 +24,13 @@ import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
 import { useIsMobile } from './useIsMobile'
 import { useDraftRunner } from './useDraftRunner'
+import { useHouseTabLock } from './useHouseTabLock'
 import { DraftCard } from './rail/DraftCard'
+import type { SuggestCache } from './rail/CopilotPanel'
+import { useInterviewSession } from './rail/InterviewCard'
+
+const UNDO_CAP = 30
+const UNDO_CHIP_MS = 6_000
 
 export function BuildHousePage({
   initialState,
@@ -31,6 +39,7 @@ export function BuildHousePage({
   modeLocked = false,
   readOnly = false,
   strawman = false,
+  turnedIn = false,
   feedback = null,
   draftEligible = false,
   draftEntry = false,
@@ -49,6 +58,9 @@ export function BuildHousePage({
   // When true, this is an AI strawman to attack (implies readOnly upstream); the
   // banner reads differently from the teacher read-only case.
   strawman?: boolean
+  // Owner's own turned-in submission (implies readOnly upstream); the banner
+  // points at the dashboard's undo-turn-in instead of "a student's house".
+  turnedIn?: boolean
   // Teacher assessment surface: 'edit' (teacher on a student submission),
   // 'view' (student on their own house), or null (not a graded context).
   feedback?: 'edit' | 'view' | null
@@ -58,18 +70,23 @@ export function BuildHousePage({
   // True when the user arrived via "Start with an AI draft" (?draft=1).
   draftEntry?: boolean
   onSignOut: () => void
-  // Persistence adapter, called (debounced) whenever persistable content changes.
-  onSave: (state: State) => void
+  // Persistence adapter. Must REJECT on failure — a SaveError-shaped `code`
+  // ('save-failed' | 'stale-write' | 'signed-out') drives the status machine.
+  onSave: (state: State) => void | Promise<void>
 }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const strength = computeStrength(state)
   // Draft Mode: the stage loop lives here (not in the rail) so tab switches
   // can't kill a draft in progress. The card is created here and passed down.
   const canDraft = draftEligible && !readOnly && !strawman
-  const draftRunner = useDraftRunner(state, dispatch, canDraft)
-  const draftCard = canDraft ? (
-    <DraftCard state={state} dispatch={dispatch} runner={draftRunner} />
-  ) : null
+  const draftRunner = useDraftRunner(state, dispatch, canDraft, houseId)
+  // Suggestion cache + interview session live here (like the draft runner) so
+  // tab switches and the mobile drawer can't destroy them — a discarded cache
+  // refires a paid suggest call; a discarded transcript loses the interview.
+  const suggestCacheRef = useRef<SuggestCache>(new Map())
+  const interview = useInterviewSession()
+  // Same-browser second tab: passive until Take over (frontend plan Phase 0 §6).
+  const { lockedByOtherTab, takeOver } = useHouseTabLock(houseId)
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -77,15 +94,78 @@ export function BuildHousePage({
   const canvasRef = useRef<HTMLElement>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstSave = useRef(true)
-  // Held in a ref so a fresh onSave closure each render never resets the debounce.
+  // Held in refs so fresh closures each render never reset the debounce.
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
-  // Latest state + last-saved content key, so a pending edit can be flushed if the
-  // workspace unmounts before the debounce fires (see the flush effect below).
   const stateRef = useRef(state)
   stateRef.current = state
   const savedKeyRef = useRef<string | null>(null)
+  const lockedRef = useRef(lockedByOtherTab)
+  lockedRef.current = lockedByOtherTab
+
+  // ── Save controller ────────────────────────────────────────────────────────
+  // idle-shaped machine: saved → dirty → saving → saved | failed(retry w/
+  // backoff) | conflict(stop — reload) | signed-out(stop — re-auth). At most one
+  // save in flight; edits during a save queue exactly one trailing save that
+  // runs with the LATEST state, so two saves can never interleave their
+  // delete/insert sequences (fe-C2).
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
+  const inFlightRef = useRef<Promise<void> | null>(null)
+  const pendingRef = useRef(false)
+  const attemptRef = useRef(0)
+  const blockedRef = useRef(false) // stale-write: stop saving until reload
+
+  const runSave = useCallback(() => {
+    if (blockedRef.current || lockedRef.current) return
+    if (inFlightRef.current) {
+      pendingRef.current = true
+      return
+    }
+    setSaveStatus('saving')
+    inFlightRef.current = (async () => {
+      try {
+        await onSaveRef.current(stateRef.current)
+        savedKeyRef.current = serializeContent(stateRef.current)
+        attemptRef.current = 0
+        inFlightRef.current = null
+        if (pendingRef.current) {
+          pendingRef.current = false
+          runSave()
+        } else {
+          setSaveStatus('saved')
+        }
+      } catch (err) {
+        inFlightRef.current = null
+        pendingRef.current = false
+        const code = (err as { code?: string } | null)?.code
+        if (code === 'stale-write') {
+          blockedRef.current = true
+          setSaveStatus('conflict')
+          return
+        }
+        if (code === 'signed-out') {
+          setSaveStatus('signed-out')
+          return
+        }
+        // Transient: retry with backoff, never silently clear the state.
+        setSaveStatus('failed')
+        attemptRef.current += 1
+        const delay = Math.min(30_000, 2_000 * 2 ** Math.min(attemptRef.current - 1, 4))
+        if (retryTimer.current) clearTimeout(retryTimer.current)
+        retryTimer.current = setTimeout(runSave, delay)
+      }
+    })()
+  }, [])
+
+  // Flush a pending edit immediately (hidden tab, unmount, sign-out).
+  const flushIfDirty = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    if (savedKeyRef.current !== null && serializeContent(stateRef.current) !== savedKeyRef.current) {
+      runSave()
+    }
+  }, [runSave])
 
   // Toast auto-dismiss after 2200ms; a new toast resets the timer (04 §13).
   useEffect(() => {
@@ -100,19 +180,17 @@ export function BuildHousePage({
   // Debounced autosave. Keyed on the persistable content only (contentKey), so
   // ephemeral changes (step, tabs, toast, invite) never trigger a write. Skips
   // the first render after load — that state matches the DB already.
-  const contentKey = serializeContent(state)
+  const contentKey = useMemo(() => serializeContent(state), [state])
   useEffect(() => {
     if (firstSave.current) {
       firstSave.current = false
       savedKeyRef.current = contentKey // loaded state already matches the DB
       return
     }
+    if (blockedRef.current || lockedRef.current) return
+    setSaveStatus((s) => (s === 'saving' ? s : 'dirty'))
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    const key = contentKey
-    saveTimer.current = setTimeout(() => {
-      onSaveRef.current(stateRef.current)
-      savedKeyRef.current = key
-    }, 800)
+    saveTimer.current = setTimeout(runSave, 800)
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
@@ -120,17 +198,103 @@ export function BuildHousePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentKey])
 
-  // Flush a pending edit if the workspace unmounts (route change) inside the
-  // 800ms debounce window, so work isn't lost. onSave is a no-op in read-only
-  // views, so this is harmless there.
+  // Flush on hide/close — the debounce window plus in-flight seconds used to be
+  // lost work on tab close or laptop sleep (fe-H1); and on unmount (route change).
   useEffect(() => {
-    return () => {
-      if (savedKeyRef.current !== null && serializeContent(stateRef.current) !== savedKeyRef.current) {
-        onSaveRef.current(stateRef.current)
-      }
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flushIfDirty()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.addEventListener('pagehide', flushIfDirty)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.removeEventListener('pagehide', flushIfDirty)
+      document.removeEventListener('visibilitychange', onHidden)
+      flushIfDirty()
+      if (retryTimer.current) clearTimeout(retryTimer.current)
+    }
+  }, [flushIfDirty])
+
+  // Sign-out must flush FIRST — after signOut() the session is gone and RLS
+  // rejects the write (the old order silently lost the last edit).
+  const handleSignOut = useCallback(async () => {
+    flushIfDirty()
+    try {
+      await inFlightRef.current
+    } catch {
+      // Exiting anyway — the failure already surfaced via saveStatus.
+    }
+    onSignOut()
+  }, [flushIfDirty, onSignOut])
+
+  // ── Undo (bounded content-snapshot history; frontend plan Phase 2 §3) ──────
+  const historyRef = useRef<string[]>([])
+  const [undoAvailable, setUndoAvailable] = useState(false)
+  const undoChipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const undo = useCallback(() => {
+    const snap = historyRef.current.pop()
+    if (!snap) return
+    dispatch({ type: 'RESTORE_CONTENT', content: JSON.parse(snap) as PersistedContent })
+    setUndoAvailable(false)
   }, [])
+
+  // Read-only is enforced at this ONE seam (bl-C2): every content-mutating
+  // action is dropped with an honest toast, instead of trusting dozens of
+  // controls to individually disable themselves. The old behavior let a student
+  // "edit" a strawman (or a teacher a student's house) with working controls,
+  // live toasts, and zero persistence — the illusion of saved work.
+  const effReadOnlyRef = useRef(false)
+  effReadOnlyRef.current = readOnly || lockedByOtherTab
+  const readOnlyToastRef = useRef(
+    strawman
+      ? "Read-only · notes here aren't saved — bring your findings to class"
+      : turnedIn
+        ? 'Turned in · undo turn-in from your dashboard to edit'
+        : "Read-only · changes here don't save"
+  )
+  const VIEW_ACTIONS = useRef(
+    new Set<Action['type']>([
+      'GO_STEP',
+      'SET_TAB',
+      'OPEN_PERSPECTIVE',
+      'CLOSE_PERSPECTIVE',
+      'OPEN_NOTES',
+      'CLOSE_NOTES',
+      'CLOSE_INVITE',
+      'SET_TOAST',
+    ])
+  )
+
+  // Every destructive REMOVE_* snapshots the content first and offers Undo —
+  // one slipped tap used to permanently destroy a subtree within 800ms (fe-M2).
+  const guardedDispatch = useCallback((action: Action) => {
+    if (effReadOnlyRef.current && !VIEW_ACTIONS.current.has(action.type)) {
+      dispatch({ type: 'SET_TOAST', value: readOnlyToastRef.current })
+      return
+    }
+    if (action.type.startsWith('REMOVE_')) {
+      historyRef.current.push(serializeContent(stateRef.current))
+      if (historyRef.current.length > UNDO_CAP) historyRef.current.shift()
+      setUndoAvailable(true)
+      if (undoChipTimer.current) clearTimeout(undoChipTimer.current)
+      undoChipTimer.current = setTimeout(() => setUndoAvailable(false), UNDO_CHIP_MS)
+    }
+    dispatch(action)
+  }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
+      const t = e.target as HTMLElement | null
+      // Native undo owns text fields; ours covers structural removes.
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (historyRef.current.length === 0) return
+      e.preventDefault()
+      undo()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [undo])
 
   // Every navigation scrolls the canvas to top (02 §10).
   useEffect(() => {
@@ -143,6 +307,11 @@ export function BuildHousePage({
     if (draftEntry && canDraft && isMobile) setRailOpen(true)
   }, [draftEntry, canDraft, isMobile])
 
+  const feedbackHouse = useMemo(
+    () => (feedback === 'edit' ? (JSON.parse(contentKey) as Record<string, unknown>) : undefined),
+    [feedback, contentKey]
+  )
+
   return (
     <div className="vh-shell" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--parchment)' }}>
       {/* Header (app bar + context bar) */}
@@ -150,7 +319,7 @@ export function BuildHousePage({
         <AppBar
           userEmail={userEmail}
           onOpenNotes={() => dispatch({ type: 'OPEN_NOTES' })}
-          onSignOut={onSignOut}
+          onSignOut={() => void handleSignOut()}
         />
         {(readOnly || strawman) && (
           <div
@@ -168,9 +337,58 @@ export function BuildHousePage({
           >
             {strawman
               ? readOnly
-                ? 'AI Strawman · not your work — find the weak links, then open Review to critique it'
-                : 'AI Strawman · students will attack this — review and revise it before releasing'
-              : "Read-only · you're viewing a student's house"}
+                ? "AI Strawman · find the weak links, then open Review to critique it — notes here aren't saved"
+                : 'AI Strawman · students will attack this — review and revise it, then release it from the assignment page'
+              : turnedIn
+                ? 'Turned in · read-only — undo turn-in from your dashboard to keep editing'
+                : "Read-only · you're viewing a student's house"}
+          </div>
+        )}
+        {lockedByOtherTab && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '8px 24px',
+              fontSize: 13,
+              color: 'var(--ink)',
+              background: 'var(--amber-tint)',
+              borderBottom: '1px solid var(--amber)',
+            }}
+          >
+            This house is open in another tab — edits here won&apos;t save.
+            <button
+              type="button"
+              onClick={takeOver}
+              style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 6, padding: '4px 11px', cursor: 'pointer' }}
+            >
+              Take over
+            </button>
+          </div>
+        )}
+        {saveStatus === 'conflict' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '8px 24px',
+              fontSize: 13,
+              color: 'var(--ink)',
+              background: 'var(--amber-tint)',
+              borderBottom: '1px solid var(--amber)',
+            }}
+          >
+            This house changed elsewhere. Reload to continue — saving is paused so the newer
+            version isn&apos;t overwritten.
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 6, padding: '4px 11px', cursor: 'pointer' }}
+            >
+              Reload
+            </button>
           </div>
         )}
         <ContextBar
@@ -179,23 +397,20 @@ export function BuildHousePage({
           strength={strength}
           mode={state.mode}
           modeLocked={modeLocked}
-          readOnly={readOnly}
+          readOnly={readOnly || lockedByOtherTab}
           draftLocked={draftGateLocked(state.draft)}
+          saveStatus={readOnly || lockedByOtherTab ? null : saveStatus}
           onModeChange={(mode) => {
             if (modeLocked) return
-            dispatch({ type: 'SET_MODE', mode })
+            guardedDispatch({ type: 'SET_MODE', mode })
           }}
-          onTitleChange={(v) => dispatch({ type: 'SET_TITLE', value: v })}
-          onOpenReview={() => dispatch({ type: 'GO_STEP', n: 7 })}
-          onInvite={() => dispatch({ type: 'OPEN_INVITE' })}
-          onPublish={() => dispatch({ type: 'PUBLISH' })}
+          onTitleChange={(v) => guardedDispatch({ type: 'SET_TITLE', value: v })}
+          onOpenReview={() => guardedDispatch({ type: 'GO_STEP', n: 7 })}
+          onInvite={() => guardedDispatch({ type: 'OPEN_INVITE' })}
+          onPublish={() => guardedDispatch({ type: 'PUBLISH' })}
         />
         {houseId && feedback && (
-          <SubmissionFeedback
-            houseId={houseId}
-            mode={feedback}
-            house={feedback === 'edit' ? JSON.parse(contentKey) : undefined}
-          />
+          <SubmissionFeedback houseId={houseId} mode={feedback} house={feedbackHouse} />
         )}
         {/* Mobile step navigator — replaces the BlueprintRail column. */}
         {isMobile && <MobileStepStrip state={state} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
@@ -204,8 +419,16 @@ export function BuildHousePage({
       {/* Three-zone row (desktop) / canvas only (mobile) */}
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
         {!isMobile && <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
-        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={dispatch} />
-        {!isMobile && <RightRail state={state} dispatch={dispatch} draftCard={draftCard} />}
+        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} />
+        {!isMobile && (
+          <RightRail
+            state={state}
+            dispatch={guardedDispatch}
+            draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
+            suggestCache={suggestCacheRef}
+            interview={interview}
+          />
+        )}
       </div>
 
       {/* Mobile co-pilot: always-visible toggle + slide-over drawer. */}
@@ -237,7 +460,40 @@ export function BuildHousePage({
         </button>
       )}
       {isMobile && railOpen && (
-        <MobileRailDrawer state={state} dispatch={dispatch} draftCard={draftCard} onClose={() => setRailOpen(false)} />
+        <MobileRailDrawer
+          state={state}
+          dispatch={guardedDispatch}
+          draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
+          suggestCache={suggestCacheRef}
+          interview={interview}
+          onClose={() => setRailOpen(false)}
+        />
+      )}
+
+      {/* Undo chip: appears beside the toast after a destructive remove. */}
+      {undoAvailable && (
+        <button
+          type="button"
+          onClick={undo}
+          style={{
+            position: 'fixed',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: 'calc(64px + env(safe-area-inset-bottom))',
+            zIndex: 60,
+            fontWeight: 600,
+            fontSize: 12,
+            color: 'var(--parchment)',
+            background: 'var(--ink)',
+            border: 'none',
+            borderRadius: 999,
+            padding: '7px 16px',
+            cursor: 'pointer',
+            boxShadow: '0 8px 24px rgba(20,33,58,0.28)',
+          }}
+        >
+          Undo remove (⌘Z)
+        </button>
       )}
 
       {/* Overlays */}

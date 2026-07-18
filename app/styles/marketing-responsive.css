@@ -1,5 +1,10 @@
 /* Responsive styles for marketing/try surfaces (components/sections/**, components/try/**,
-   Header, landing/how-it-works/educators/faq/story/examples/try pages). */
+   Header, landing/how-it-works/educators/faq/story/examples/try pages).
+
+   CONTAINMENT NOTE (fe-M5): every element styled here has a second truth as an
+   inline style in its TSX, coupled only by class name — changing one silently
+   diverges the other. Do not extend this pattern; when touching a component,
+   fold its inline literals into the stylesheet instead. */
 
 /* ── Header ──────────────────────────────────────────────────────────────
    At 320–430px the logo + wordmark + "Try it free" + hamburger row overflows.

@@ -10,9 +10,10 @@ import type { Action, AiMode, State } from '@/lib/build/types'
 import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
+import { aiActionApplicable } from '@/lib/build/aiActions'
 import { serializeContent } from '@/lib/build/persistence'
 import { PlusIcon, SparkIcon } from '../buildIcons'
-import { InterviewCard } from './InterviewCard'
+import { InterviewCard, type InterviewSession } from './InterviewCard'
 
 // snake_case finding kind → the mono tag shown on each card.
 const KIND_LABEL: Record<FindingKind, string> = {
@@ -42,16 +43,32 @@ type FetchState =
   | { status: 'error'; code: string }
   | { status: 'success'; findings: Finding[]; hash: string }
 
+// Suggestion cache, keyed by step. Owned by BuildHousePage (like the draft
+// runner) so tab switches and the mobile drawer don't discard it — every
+// discard used to refetch on remount, and suggest is the biggest per-student
+// cost driver (~15–30 calls per assignment walk before this). `consumed` (the
+// indexes the user Added) lives in the entry so a step revisit doesn't re-offer
+// already-added cards for a second, duplicate Add (bl-M1).
+export type SuggestCache = Map<number, { findings: Finding[]; hash: string; consumed: number[] }>
+
 export function CopilotPanel({
   state,
   dispatch,
   draftCard,
+  suggestCache,
+  interview,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   // Draft Mode card (decision 016), rendered below the interviewer. Created in
   // BuildHousePage so its stage loop survives this panel unmounting.
   draftCard?: React.ReactNode
+  // Hoisted cache (see SuggestCache above). Optional so the panel still works
+  // standalone; without it the cache dies with the panel.
+  suggestCache?: React.RefObject<SuggestCache>
+  // Hoisted interview session — same rationale: the transcript must survive
+  // this panel unmounting (mobile drawer close, tab switch).
+  interview?: InterviewSession
 }) {
   const kicker = layers[state.step - 1].kicker
   const step = state.step
@@ -59,10 +76,11 @@ export function CopilotPanel({
   // cached findings — no refetch (deps below are step-only).
   const mode = state.mode
 
-  // Cache keyed step → { findings, hash }, so moving between layers (or back)
-  // doesn't refetch. Lives across step changes but resets when the panel unmounts
-  // (tab switch) — deliberate: no fetching while the tab is hidden.
-  const cacheRef = useRef<Map<number, { findings: Finding[]; hash: string }>>(new Map())
+  // Cache keyed step → { findings, hash }, so moving between layers (or back),
+  // switching tabs, or closing the mobile drawer doesn't refetch (the ref lives
+  // in BuildHousePage when provided). Refresh is the explicit refetch path.
+  const localCacheRef = useRef<SuggestCache>(new Map())
+  const cacheRef = suggestCache ?? localCacheRef
   const abortRef = useRef<AbortController | null>(null)
 
   const [fetchState, setFetchState] = useState<FetchState>({ status: 'idle' })
@@ -98,7 +116,7 @@ export function CopilotPanel({
           return
         }
         const { findings } = (await res.json()) as { findings: Finding[] }
-        cacheRef.current.set(targetStep, { findings, hash })
+        cacheRef.current.set(targetStep, { findings, hash, consumed: [] })
         setFetchState({ status: 'success', findings, hash })
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
@@ -113,7 +131,8 @@ export function CopilotPanel({
     const cached = cacheRef.current.get(step)
     if (cached) {
       setFetchState({ status: 'success', findings: cached.findings, hash: cached.hash })
-      setConsumed(new Set())
+      // Restore what was already Added — a revisit must not re-offer it (bl-M1).
+      setConsumed(new Set(cached.consumed))
       return
     }
     runFetch(step)
@@ -140,7 +159,7 @@ export function CopilotPanel({
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <InterviewCard state={state} dispatch={dispatch} />
+        <InterviewCard state={state} dispatch={dispatch} session={interview} />
         {draftCard}
       </div>
 
@@ -198,8 +217,17 @@ export function CopilotPanel({
           consumed={consumed}
           mode={mode}
           onAdd={(finding, idx) => {
+            // A stale card (its target deleted/renamed since the fetch, or the
+            // item already added) used to vanish silently while adding nothing
+            // (bl-M2). Say so and KEEP the card unconsumed.
+            if (finding.action && !aiActionApplicable(state, finding.action)) {
+              dispatch({ type: 'SET_TOAST', value: 'That suggestion no longer applies here.' })
+              return
+            }
             if (finding.action) dispatch({ type: 'APPLY_AI_ACTION', action: finding.action })
             setConsumed((prev) => new Set(prev).add(idx))
+            const entry = cacheRef.current.get(step)
+            if (entry && !entry.consumed.includes(idx)) entry.consumed.push(idx)
           }}
         />
       )}

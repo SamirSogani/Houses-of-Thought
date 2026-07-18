@@ -16,12 +16,16 @@ import { PlusIcon } from '@/components/build/buildIcons'
 export function HouseCard({
   house,
   href,
+  graded = false,
   onRename,
   onDelete,
   onTurnIn,
 }: {
   house: HouseSummary
   href: string
+  // Teacher feedback exists: undo-turn-in is hidden (the dashboard blocks it
+  // server-side too — bl-H2) and a "Graded" chip renders.
+  graded?: boolean
   onRename?: (id: string, title: string) => void
   onDelete?: (id: string) => void
   onTurnIn?: (id: string, turnedIn: boolean) => void
@@ -29,7 +33,9 @@ export function HouseCard({
   const percent = housePercent(house)
   const meta = statusMeta[house.status]
   const hasMenu = !!(onRename || onDelete || onTurnIn)
-  const isSubmission = house.assignmentId !== null
+  // Turn-in applies to assignment submissions — and to a still-turned-in house
+  // whose assignment was deleted (bl-L7: the chip must stay clearable).
+  const isSubmission = house.assignmentId !== null || house.turnedIn
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -166,7 +172,7 @@ export function HouseCard({
           </span>
           {house.turnedIn && (
             <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px' }}>
-              Turned in
+              {graded ? 'Turned in · Graded' : 'Turned in'}
             </span>
           )}
           <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{house.editedLabel}</span>
@@ -213,7 +219,7 @@ export function HouseCard({
               >
                 {onRename && <MenuItem onClick={startRename}>Rename</MenuItem>}
                 <MenuItem onClick={share}>{copied ? 'Link copied' : 'Share (copy link)'}</MenuItem>
-                {isSubmission && onTurnIn && (
+                {isSubmission && onTurnIn && !(house.turnedIn && graded) && (
                   <MenuItem onClick={turnIn}>{house.turnedIn ? 'Undo turn in' : 'Turn in'}</MenuItem>
                 )}
                 {onDelete &&

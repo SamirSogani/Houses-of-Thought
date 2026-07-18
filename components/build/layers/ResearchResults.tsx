@@ -103,6 +103,15 @@ export function ResearchResults({ state, dispatch }: { state: State; dispatch: R
       {phase.status === 'error' && (
         phase.code === RATE_LIMITED_CODE ? (
           <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{RATE_LIMITED_COPY}</div>
+        ) : phase.code === 'search-rate-limited' ? (
+          // Brave's per-second limit, unlike the daily co-pilot cap — retrying
+          // genuinely helps, so say so instead of the generic failure copy.
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)' }}>
+            Search is busy right now — it clears within a minute.{' '}
+            <button type="button" onClick={search} style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}>
+              Retry
+            </button>
+          </div>
         ) : (
           <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink)' }}>
             Couldn&apos;t run the search.{' '}

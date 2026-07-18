@@ -67,6 +67,42 @@ export function DraftClaimBanner({
     )
   }
 
+  // Mid-run: the draft is still generating (or wedged — the runner's card lives
+  // in the rail and can be unavailable, e.g. after losing draft eligibility or a
+  // daily cap mid-run). This Stop is the gate's escape hatch: STOP_DRAFT settles
+  // the stage machine so claiming — and eventually publish — can proceed.
+  if (draft.stage !== 'done') {
+    return (
+      <div
+        className="fade-in mono"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginTop: 18,
+          padding: '9px 14px',
+          fontSize: 10,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-subtle)',
+          border: '1px dashed var(--rule)',
+          borderRadius: 9,
+        }}
+      >
+        <span>AI draft in progress · drafted layers arrive on their steps</span>
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'STOP_DRAFT' })}
+          style={{ font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+        >
+          Stop the draft here
+        </button>
+      </div>
+    )
+  }
+
   // Conclusion step: the layer the AI never drafts (016 §1).
   if (state.step === 5) {
     const locked = draftGateLocked(draft)

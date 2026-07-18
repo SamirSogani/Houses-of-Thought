@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { rowToAssignment, dueLabel, ASSIGNMENT_COLUMNS, type AssignmentRow, type AssignmentSummary } from '@/lib/classroom/assignments'
+import { rowToAssignment, dueLabel, isOverdue, ASSIGNMENT_COLUMNS, type AssignmentRow, type AssignmentSummary } from '@/lib/classroom/assignments'
 import { rowToCourse, byPosition, type CourseRow, type CourseSummary } from '@/lib/classroom/courses'
 import type { HouseStatus } from '@/lib/dashboard/houses'
 import { statusMeta } from '@/lib/dashboard/houses'
@@ -40,7 +40,8 @@ export function StudentAssignments() {
     }
 
     const [{ data: a }, { data: c }, { data: courseRows }, { data: houses }] = await Promise.all([
-      supabase.from('assignments').select(ASSIGNMENT_COLUMNS).in('class_id', classIds),
+      // created_at breaks position ties deterministically (bl-L1).
+      supabase.from('assignments').select(ASSIGNMENT_COLUMNS).in('class_id', classIds).order('position').order('created_at'),
       supabase.from('classes').select('id, name').in('id', classIds),
       supabase.from('courses').select('id, class_id, title, description, position, created_at').in('class_id', classIds),
       // is_strawman = false: only real submissions count toward status; the
@@ -163,9 +164,13 @@ function Row({
   hideClass?: boolean
 }) {
   const meta = status ? statusMeta[status] : null
-  const due = dueLabel(assignment.dueAt)
+  const rawDue = dueLabel(assignment.dueAt)
+  const due = rawDue && isOverdue(assignment.dueAt) && status !== 'complete' ? `${rawDue} · past due` : rawDue
   const context = [hideClass ? '' : className, due ?? ''].filter(Boolean).join(' · ')
-  const strawmanReady = assignment.aiStrawman && assignment.strawmanHouseId
+  // Release gate (bl-H1 / migration 0024): the strawman is visible only after
+  // the teacher reviewed and released it — never mid-generation or unreviewed.
+  const strawmanReady =
+    assignment.aiStrawman && assignment.strawmanHouseId && assignment.strawmanReleased
   // On phones acct-row-wrap wraps the row and acct-row-main gives the question
   // its own line so the chips/buttons drop below it instead of crushing it.
   return (

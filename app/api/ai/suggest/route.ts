@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { getCallerCapabilities } from '@/lib/auth/account'
 import { PERSONA, SUGGEST_BLOCK } from '@/lib/ai/prompts'

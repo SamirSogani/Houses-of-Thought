@@ -4,8 +4,9 @@
 //   1 Frame · 2 Perspectives · 3 Evidence · 4 Assumptions · 5 Conclusion
 //   6 Implications · 7 Review.
 //
-// Pure function, no server imports — it is also exercised by tests. Type-only
-// imports from lib/build/types are client-safe.
+// Pure function, no server imports. Type-only imports from lib/build/types are
+// client-safe. (No direct tests yet; the router/persistence suites cover its
+// callers — see lib/ai/router.test.ts and lib/build/persistence.test.ts.)
 
 import type {
   Concept,

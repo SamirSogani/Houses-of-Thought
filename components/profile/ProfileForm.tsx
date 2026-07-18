@@ -7,8 +7,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
+  autosaveRow,
   perspectiveFields,
-  profileToRow,
   usernameError,
   type AccountType,
   type PerspectiveKey,
@@ -31,38 +31,49 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
   const [save, setSave] = useState<SaveState>('saved')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [tourNote, setTourNote] = useState(false)
-  const [taken, setTaken] = useState(false)
+  // The specific username the DB rejected as taken (23505); autosaveRow excludes
+  // it so every OTHER field keeps saving while the inline error stands.
+  const [taken, setTaken] = useState<string | null>(null)
+  const takenRef = useRef<string | null>(null)
+  takenRef.current = taken
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstRender = useRef(true)
   // Latest form state + the last row we know is persisted — used to flush a
   // pending change if the form unmounts before the debounce fires (below).
   const latestRef = useRef(initial)
-  const savedRef = useRef(JSON.stringify(profileToRow(initial)))
+  const savedRef = useRef(JSON.stringify(autosaveRow(initial, null)))
   latestRef.current = profile
 
   const nameError = usernameError(profile.username)
 
   // Debounced auto-save to public.profiles. Skips the first render (the loaded
-  // state) and never writes while the username is locally invalid.
+  // state). An invalid or known-taken username is simply EXCLUDED from the
+  // payload (autosaveRow) instead of blocking the whole save — a seeded-invalid
+  // username used to freeze every field while showing "All changes saved"
+  // (bl-H3). account_type is not in this payload; see changeAccountType.
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
       return
     }
-    if (nameError) return
     setSave('saving')
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       const supabase = createClient()
-      const row = profileToRow(profile)
+      const row = autosaveRow(profile, takenRef.current)
       const { error } = await supabase.from('profiles').update(row).eq('id', userId)
-      // 23505 = unique_violation: the username is already taken by another user.
-      setTaken(error?.code === '23505')
-      if (error && error.code !== '23505') {
+      if (error?.code === '23505') {
+        // unique_violation: the username is taken — the WHOLE row was rejected,
+        // so this is an error state, not "saved". Remember the rejected name;
+        // the next save excludes it and the other fields go through.
+        setTaken(profile.username)
+        setSave('error')
+      } else if (error) {
         // Surface real failures instead of a false "All changes saved" — this is
         // what hid the missing-GRANT 403 during testing.
         setSave('error')
       } else {
+        if ('username' in row) setTaken(null)
         savedRef.current = JSON.stringify(row)
         setSave('saved')
       }
@@ -70,15 +81,13 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [profile, nameError, userId])
+  }, [profile, userId])
 
   // Flush a still-pending change when the form unmounts (e.g. navigating away
   // inside the 650ms debounce window), so an edit isn't silently dropped.
   useEffect(() => {
     return () => {
-      const p = latestRef.current
-      if (usernameError(p.username)) return
-      const row = profileToRow(p)
+      const row = autosaveRow(latestRef.current, takenRef.current)
       if (JSON.stringify(row) === savedRef.current) return
       // Best-effort final write; the component is unmounting so ignore the result.
       void createClient().from('profiles').update(row).eq('id', userId)
@@ -87,6 +96,33 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
 
   const set = <K extends keyof ProfileData>(key: K, value: ProfileData[K]) =>
     setProfile((p) => ({ ...p, [key]: value }))
+
+  // account_type changes are explicit and immediate — never part of the
+  // autosave, so a stale tab can't silently revert a switch (bl-H3), and
+  // leaving Teacher with live classes requires a confirmation (bl-H4).
+  async function changeAccountType(t: AccountType) {
+    if (t === profile.accountType) return
+    const supabase = createClient()
+    if (profile.accountType === 'teacher' && t !== 'teacher') {
+      const { count } = await supabase
+        .from('classes')
+        .select('id', { count: 'exact', head: true })
+        .eq('teacher_id', userId)
+      if ((count ?? 0) > 0) {
+        const ok = window.confirm(
+          `You have ${count} class${count === 1 ? '' : 'es'}. They stay as they are, but you won't be able to open rosters, assignments, or grading until you switch back to Teacher. Switch anyway?`
+        )
+        if (!ok) return
+      }
+    }
+    const previous = profile.accountType
+    set('accountType', t)
+    const { error } = await supabase.from('profiles').update({ account_type: t }).eq('id', userId)
+    if (error) {
+      set('accountType', previous) // revert the optimistic switch
+      setSave('error')
+    }
+  }
   const setPerspective = (key: PerspectiveKey, value: string) =>
     setProfile((p) => ({ ...p, perspectives: { ...p.perspectives, [key]: value } }))
 
@@ -117,15 +153,19 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
         {/* Username */}
         <SectionCard>
           <FieldLabel label="Username" helper="How teachers and classmates see you in classrooms. 3-30 characters: letters, numbers, underscore, dot, or dash." />
-          <TextInput value={profile.username} onChange={(v) => set('username', v)} ariaLabel="Username" invalid={!!nameError || taken} />
+          <TextInput value={profile.username} onChange={(v) => set('username', v)} ariaLabel="Username" invalid={!!nameError || profile.username === taken} />
           {nameError && <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>{nameError}</p>}
-          {!nameError && taken && <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>That username is taken.</p>}
+          {!nameError && profile.username === taken && (
+            <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>
+              That username is taken — your other changes still save.
+            </p>
+          )}
         </SectionCard>
 
         {/* Account Type */}
         <SectionCard>
           <FieldLabel label="Account Type" helper="Choose the experience that matches you. You can change this anytime." />
-          <AccountTypeSelector value={profile.accountType} onChange={(t: AccountType) => set('accountType', t)} />
+          <AccountTypeSelector value={profile.accountType} onChange={(t: AccountType) => void changeAccountType(t)} />
         </SectionCard>
 
         {/* About / Current Project */}

@@ -7,10 +7,19 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useSignOut } from '@/components/useAuthedPage'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import type { RouterSnapshot, LaneStep, ProbeResult, TargetStatus } from '@/lib/ai/router'
+// Type-only imports — these modules are server-only at runtime.
+import type { AiUsageSummary } from '@/lib/ai/limits'
+
+interface StatusPayload {
+  snapshot: RouterSnapshot
+  usage: AiUsageSummary | null
+  routeCounts: { route: string; count: number }[]
+  brave: { queries: number; since: number }
+  probe?: ProbeResult[]
+}
 
 export function modelHref(provider: string, model: string): string {
   return `/admin/model?name=${encodeURIComponent(`${provider}/${model}`)}`
@@ -165,8 +174,10 @@ function Lane({ title, steps, probeByName }: { title: string; steps: LaneStep[];
 
 // ── main ──────────────────────────────────────────────────────────────────────
 export function AiMonitor() {
-  const router = useRouter()
   const [snap, setSnap] = useState<RouterSnapshot | null>(null)
+  const [usage, setUsage] = useState<AiUsageSummary | null>(null)
+  const [routeCounts, setRouteCounts] = useState<{ route: string; count: number }[]>([])
+  const [brave, setBrave] = useState<{ queries: number; since: number } | null>(null)
   const [probe, setProbe] = useState<ProbeResult[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
@@ -177,8 +188,11 @@ export function AiMonitor() {
     try {
       const r = await fetch('/api/admin/ai-status', { cache: 'no-store' })
       if (!r.ok) throw new Error(`status ${r.status}`)
-      const d = await r.json()
+      const d = (await r.json()) as StatusPayload
       setSnap(d.snapshot)
+      setUsage(d.usage)
+      setRouteCounts(d.routeCounts ?? [])
+      setBrave(d.brave ?? null)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -192,9 +206,12 @@ export function AiMonitor() {
     try {
       const r = await fetch('/api/admin/ai-status', { method: 'POST', cache: 'no-store' })
       if (!r.ok) throw new Error(`status ${r.status}`)
-      const d = await r.json()
+      const d = (await r.json()) as StatusPayload
       setSnap(d.snapshot)
-      setProbe(d.probe)
+      setUsage(d.usage)
+      setRouteCounts(d.routeCounts ?? [])
+      setBrave(d.brave ?? null)
+      setProbe(d.probe ?? null)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -206,12 +223,7 @@ export function AiMonitor() {
     load()
   }, [load])
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
+  const signOut = useSignOut()
 
   const probeByName = new Map((probe ?? []).map((p) => [p.name, p]))
 
@@ -229,7 +241,7 @@ export function AiMonitor() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} active="admin" />
+      <DashboardHeader onSignOut={() => void signOut()} active="admin" />
 
       <div className="container" style={{ paddingBlock: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* title + actions */}
@@ -271,16 +283,36 @@ export function AiMonitor() {
             {/* global state */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <Card>
-                <SectionLabel>Daily airbag</SectionLabel>
+                <SectionLabel>Daily quotas · this instance</SectionLabel>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Dot color={snap.dailyLimitsExhausted ? DOWN : OK} />
+                  <Dot color={snap.dailyLimitsExhausted ? WARN : OK} />
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
-                    {snap.dailyLimitsExhausted ? 'ARMED — routing to OpenRouter' : 'Clear'}
+                    {snap.dailyLimitsExhausted
+                      ? `Exhausted: ${snap.dailyExhaustedProviders.join(', ')}`
+                      : 'Clear'}
                   </span>
                 </div>
                 <div style={{ ...mono, color: 'var(--ink-subtle)', marginTop: 8 }}>
-                  OpenRouter stays isolated until a verified daily blackout.
+                  OpenRouter fires only when a whole lane is daily-exhausted.
                 </div>
+              </Card>
+
+              <Card>
+                <SectionLabel>Usage today · all instances</SectionLabel>
+                {usage ? (
+                  <>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 600, color: 'var(--ink)' }}>
+                      {usage.userCalls + usage.anonCalls}
+                      <span style={{ ...mono, color: 'var(--ink-subtle)', fontWeight: 400 }}> calls</span>
+                    </div>
+                    <div style={{ ...mono, color: 'var(--ink-subtle)', marginTop: 8 }}>
+                      {usage.userCalls} user · {usage.anonCalls} anon · {usage.subjects} subjects
+                      {brave ? ` · Brave ${brave.queries} (this instance)` : ''}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ ...mono, color: 'var(--ink-subtle)' }}>usage read unavailable</div>
+                )}
               </Card>
 
               <Card>
@@ -377,6 +409,53 @@ export function AiMonitor() {
                 </table>
               </div>
             </Card>
+
+            {/* consumption detail: durable per-subject counts + this-instance route activity */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+              <Card>
+                <SectionLabel>Top subjects today · all instances</SectionLabel>
+                {usage && usage.topSubjects.length > 0 ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 12 }}>
+                    <tbody>
+                      {usage.topSubjects.map((s) => (
+                        <tr key={s.subject} style={{ borderTop: '1px solid var(--rule-soft)' }}>
+                          <td style={{ ...td, color: 'var(--ink-mid)', wordBreak: 'break-all' }}>{s.subject}</td>
+                          <td style={{ ...td, textAlign: 'right', color: 'var(--ink)' }}>{s.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ ...mono, color: 'var(--ink-subtle)' }}>no usage recorded today</div>
+                )}
+                <div style={{ ...mono, color: 'var(--ink-subtle)', marginTop: 8 }}>
+                  ip:* rows are the layered anonymous ceiling — they re-count anon traffic.
+                </div>
+              </Card>
+
+              <Card>
+                <SectionLabel>Route activity · this instance</SectionLabel>
+                {routeCounts.length > 0 ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 12 }}>
+                    <tbody>
+                      {routeCounts.map((r) => (
+                        <tr key={r.route} style={{ borderTop: '1px solid var(--rule-soft)' }}>
+                          <td style={{ ...td, color: 'var(--ink-mid)' }}>{r.route}</td>
+                          <td style={{ ...td, textAlign: 'right', color: 'var(--ink)' }}>{r.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ ...mono, color: 'var(--ink-subtle)' }}>
+                    no calls served by this instance yet
+                  </div>
+                )}
+                <div style={{ ...mono, color: 'var(--ink-subtle)', marginTop: 8 }}>
+                  Serverless: each instance counts only its own traffic since cold start.
+                </div>
+              </Card>
+            </div>
 
             <div style={{ ...mono, color: 'var(--ink-subtle)', textAlign: 'right' }}>
               Snapshot at {new Date(snap.now).toLocaleTimeString()}. “Run live check” pings every provider (spends a sliver of quota).

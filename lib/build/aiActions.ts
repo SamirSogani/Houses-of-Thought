@@ -17,7 +17,40 @@ function nextId(items: { id: number }[]): number {
   return items.reduce((max, i) => Math.max(max, i.id), 0) + 1
 }
 
+const norm = (s: string) => s.trim().toLowerCase()
+
+// Whether an action would actually change the house: the target still exists
+// (add_subquestion names a live perspective) and the item isn't already there
+// (same-text dedupe — a cached suggestion clicked twice, or a re-served card
+// after a step revisit, must not double-insert; bl-M1/M2). applyAiAction calls
+// this internally; the co-pilot panel calls it BEFORE consuming a card so an
+// inapplicable Add can say so instead of vanishing silently.
+export function aiActionApplicable(state: State, action: AiAction): boolean {
+  switch (action.kind) {
+    case 'add_concept':
+      return !state.concepts.some((c) => norm(c.term) === norm(action.term))
+    case 'add_perspective':
+      return !state.perspectives.some((p) => norm(p.name) === norm(action.name))
+    case 'add_subquestion': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!target) return false
+      return !target.subQuestions.some((sq) => norm(sq.q) === norm(action.q))
+    }
+    case 'add_assumption':
+      return !state.assumptions.some((a) => norm(a.text) === norm(action.text))
+    case 'add_implication':
+      return !state[action.ikind].some((it) => norm(it.text) === norm(action.text))
+    case 'add_watchpoint':
+      return !state.watchpoints.some((w) => norm(w) === norm(action.text))
+    case 'add_evidence':
+      return !state.evidence.some((e) => norm(e.text) === norm(action.text))
+    default:
+      return false
+  }
+}
+
 export function applyAiAction(draft: State, action: AiAction): string | null {
+  if (!aiActionApplicable(draft, action)) return null
   switch (action.kind) {
     case 'add_concept':
       draft.concepts = [...draft.concepts, { term: action.term, definition: action.definition }]
@@ -41,8 +74,8 @@ export function applyAiAction(draft: State, action: AiAction): string | null {
       return 'Perspective added'
 
     case 'add_subquestion': {
-      const target = action.perspectiveName.trim().toLowerCase()
-      const match = draft.perspectives.find((p) => p.name.trim().toLowerCase() === target)
+      // aiActionApplicable already verified the target exists.
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
       if (!match) return null
       draft.perspectives = draft.perspectives.map((p) =>
         p.id === match.id ? { ...p, subQuestions: [...p.subQuestions, { q: action.q, note: '' }] } : p

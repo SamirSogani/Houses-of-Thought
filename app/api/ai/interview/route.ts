@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { PERSONA, INTERVIEW_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
@@ -44,21 +44,30 @@ const RequestSchema = z.object({
   transcript: z.array(
     z.object({
       role: z.enum(['user', 'assistant']),
-      content: z.string(),
+      // Bounds one pasted turn: without this, a single turn under the 512 KB
+      // body cap could push ~125k input tokens onto the large-window lane.
+      content: z.string().max(4000),
     })
   ),
   forceSummary: z.boolean().optional(),
 })
 
-// context is non-null iff done (enforced by the prompt; client only acts on a
-// non-null context).
-const InterviewResponseSchema = z.object({
-  reply: z.string(),
-  done: z.boolean(),
-  context: z
-    .object({ summary: z.string(), facts: z.array(z.string()) })
-    .nullable(),
-})
+// context is non-null iff done — enforced by the refine, not just the prompt:
+// a done+null reply fails the parse and rides completeJSON's self-correction
+// retry instead of reaching the client, which would treat it as "another turn"
+// and loop paid wrap-up calls. (The refine is parse-only; z.toJSONSchema skips
+// it, so the schema sent to providers is unchanged.)
+const InterviewResponseSchema = z
+  .object({
+    reply: z.string(),
+    done: z.boolean(),
+    context: z
+      .object({ summary: z.string(), facts: z.array(z.string()) })
+      .nullable(),
+  })
+  .refine((r) => !r.done || r.context !== null, {
+    message: 'context must be non-null when done is true',
+  })
 
 export async function POST(req: Request): Promise<Response> {
   try {

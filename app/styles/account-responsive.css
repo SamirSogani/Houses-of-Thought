@@ -3,7 +3,12 @@
 
    Styling in those pages is inline (style={{}}), so these rules use `!important`
    where they must beat an inline declaration. Everything is scoped to `acct-`
-   classes and (except the dvh helpers) to mobile widths, so desktop is untouched. */
+   classes and (except the dvh helpers) to mobile widths, so desktop is untouched.
+
+   CONTAINMENT NOTE (fe-M5): every element styled here has a second truth as an
+   inline style in its TSX, coupled only by class name — changing one silently
+   diverges the other. Do not extend this pattern; when touching a component,
+   fold its inline literals into the stylesheet instead. */
 
 /* ── dvh-safe full-height helpers ─────────────────────────────────────────────
    Replacements for inline `minHeight: '100vh'` / `calc(100vh - 73px)`. On desktop

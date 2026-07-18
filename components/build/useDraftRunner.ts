@@ -27,7 +27,10 @@ export interface DraftRunner {
 export function useDraftRunner(
   state: State,
   dispatch: React.Dispatch<Action>,
-  enabled: boolean
+  enabled: boolean,
+  // Sent with every stage call so the route can refuse Draft Mode on assignment
+  // submissions server-side (bl-H5) — the client gate alone is cosmetic.
+  houseId?: string
 ): DraftRunner {
   const [running, setRunning] = useState(false)
   const [errorCode, setErrorCode] = useState<string | null>(null)
@@ -58,6 +61,7 @@ export function useDraftRunner(
             house: JSON.parse(serializeContent(s)),
             stage,
             aiContext: s.aiContext,
+            houseId: houseId ?? null,
           }),
           signal: controller.signal,
         })
@@ -82,7 +86,7 @@ export function useDraftRunner(
       controller.abort()
     }
     // stage advancing is what drives the loop from one call to the next.
-  }, [enabled, running, stage, dispatch])
+  }, [enabled, running, stage, dispatch, houseId])
 
   function start() {
     setErrorCode(null)

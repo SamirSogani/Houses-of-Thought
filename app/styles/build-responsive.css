@@ -3,7 +3,12 @@
 
    Every rule is scoped to max-width media queries so desktop (≥1024px) renders
    exactly as before. `!important` is required where an inline style must lose.
-   Class prefix: bhp- (Build House Page). */
+   Class prefix: bhp- (Build House Page).
+
+   CONTAINMENT NOTE (fe-M5): every element styled here has a second truth as an
+   inline style in its TSX, coupled only by class name — changing one silently
+   diverges the other. Do not extend this pattern; when touching a component,
+   fold its inline literals into the stylesheet instead. */
 
 @media (max-width: 1023px) {
   /* — Shell: the fixed side rails give way to the step strip + co-pilot drawer.

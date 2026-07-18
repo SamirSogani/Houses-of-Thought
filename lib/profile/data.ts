@@ -129,6 +129,27 @@ export function profileToRow(p: ProfileData): ProfileRow {
   }
 }
 
+// The AUTOSAVE payload (bl-H3). Deliberately narrower than profileToRow:
+//   - no account_type — it's written only by the selector's explicit change, so
+//     a stale tab's autosave can never silently revert a switch made elsewhere;
+//   - username only when locally valid AND not a name the DB already rejected
+//     as taken — otherwise one bad username froze (or 23505-rejected) every
+//     other field's save while the header claimed "All changes saved".
+export function autosaveRow(
+  p: ProfileData,
+  knownTaken: string | null
+): Partial<ProfileRow> {
+  const row: Partial<ProfileRow> = {
+    about_me: p.aboutMe,
+    current_project: p.currentProject,
+    role: p.role,
+    location: p.location,
+    perspectives: p.perspectives,
+  }
+  if (!usernameError(p.username) && p.username !== knownTaken) row.username = p.username
+  return row
+}
+
 // Username rule from the reference: 3-30 chars; letters, numbers, underscore, dot, dash.
 const USERNAME_RE = /^[A-Za-z0-9_.-]{3,30}$/
 

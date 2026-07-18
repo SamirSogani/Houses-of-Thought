@@ -32,9 +32,11 @@ export function AssignmentPanel({ classId }: { classId: string }) {
 
   const load = useCallback(async () => {
     const supabase = createClient()
+    // created_at breaks position ties deterministically — a reorder racing a
+    // create used to flip order between loads (bl-L1).
     const [{ data: c, error: ce }, { data: a, error: ae }] = await Promise.all([
-      supabase.from('courses').select(COURSE_COLUMNS).eq('class_id', classId),
-      supabase.from('assignments').select(ASSIGNMENT_COLUMNS).eq('class_id', classId),
+      supabase.from('courses').select(COURSE_COLUMNS).eq('class_id', classId).order('position').order('created_at'),
+      supabase.from('assignments').select(ASSIGNMENT_COLUMNS).eq('class_id', classId).order('position').order('created_at'),
     ])
     if (ce || ae) {
       setError('Could not load coursework.')
@@ -82,7 +84,11 @@ export function AssignmentPanel({ classId }: { classId: string }) {
     const { error } = await supabase.from('assignments').insert({
       class_id: classId,
       question: q,
-      due_at: due ? new Date(due).toISOString() : null,
+      // Parse the <input type="date"> value as LOCAL end-of-day. A bare
+      // "YYYY-MM-DD" parses as UTC midnight (ECMA-262), which rendered one day
+      // early for every viewer west of UTC (bl-C1) — and "due Jul 16" should
+      // mean the end of Jul 16 where the teacher lives, not its first second.
+      due_at: due ? new Date(`${due}T23:59:59`).toISOString() : null,
       course_id: cid,
       position: nextPos,
       ai_strawman_enabled: strawman,

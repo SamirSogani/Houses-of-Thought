@@ -3,7 +3,7 @@
 // (invariant 3: evidence cites only Brave results from the same request). Never
 // model memory. See plans/active/ai/06-research-mode.md.
 
-import { AiError } from './groq'
+import { AiError } from './router'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/brave.ts is server-only and must not run in the browser')
@@ -17,9 +17,19 @@ export interface BraveResult {
 
 const ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
 
+// Per-instance query counter for the admin monitor (same per-instance caveat as
+// the router's health maps). Brave's free tier is 2,000 queries/month at 1 rps —
+// this is the cheap "is something burning that quota right now?" signal.
+let braveQueries = 0
+const braveCountedSince = Date.now()
+export function getBraveCounter(): { queries: number; since: number } {
+  return { queries: braveQueries, since: braveCountedSince }
+}
+
 export async function braveSearch(query: string, count = 6): Promise<BraveResult[]> {
   const key = process.env.BRAVE_SEARCH_API_KEY
   if (!key) throw new AiError(500, 'search-not-configured')
+  braveQueries += 1
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10_000)

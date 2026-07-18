@@ -15,6 +15,7 @@ interface Data {
   question: string
   enabled: boolean
   houseId: string | null
+  released: boolean
   gradeLevel: string
   age: string
   topics: string
@@ -30,7 +31,7 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
     const supabase = createClient()
     const { data } = await supabase
       .from('assignments')
-      .select('question, ai_strawman_enabled, strawman_house_id, strawman_grade_level, strawman_age, strawman_topics, strawman_criteria')
+      .select('question, ai_strawman_enabled, strawman_house_id, strawman_released, strawman_grade_level, strawman_age, strawman_topics, strawman_criteria')
       .eq('id', assignmentId)
       .single()
     if (!data) return
@@ -38,6 +39,7 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
       question: data.question as string,
       enabled: data.ai_strawman_enabled as boolean,
       houseId: (data.strawman_house_id as string | null) ?? null,
+      released: (data.strawman_released as boolean) ?? false,
       gradeLevel: (data.strawman_grade_level as string) ?? '',
       age: (data.strawman_age as string) ?? '',
       topics: (data.strawman_topics as string) ?? '',
@@ -51,6 +53,23 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
 
   function set<K extends keyof Data>(key: K, value: Data[K]) {
     setD((prev) => (prev ? { ...prev, [key]: value } : prev))
+  }
+
+  // The release gate (bl-H1 / migration 0024): students see nothing until the
+  // teacher has reviewed the generated argument and flipped this on.
+  async function setReleased(released: boolean) {
+    if (!d || busy) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('assignments')
+      .update({ strawman_released: released })
+      .eq('id', assignmentId)
+    if (error) {
+      setError(released ? 'Could not release the strawman.' : 'Could not unrelease the strawman.')
+      return
+    }
+    setError(null)
+    set('released', released)
   }
 
   async function toggleEnabled(enabled: boolean) {
@@ -67,16 +86,26 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
     setError(null)
     const supabase = createClient()
 
-    // 1. Save params (the route reads them from the DB, not the request).
-    await supabase
+    // 1. Save params (the route reads them from the DB, not the request) and
+    //    UN-RELEASE: regenerating over a released strawman would swap the house
+    //    under students mid-attack (bl-H1) — they lose access until the teacher
+    //    reviews the new version and releases again.
+    const { error: paramsErr } = await supabase
       .from('assignments')
       .update({
         strawman_grade_level: d.gradeLevel,
         strawman_age: d.age,
         strawman_topics: d.topics,
         strawman_criteria: d.criteria,
+        strawman_released: false,
       })
       .eq('id', assignmentId)
+    if (paramsErr) {
+      setBusy(false)
+      setError('Could not save the strawman settings.')
+      return
+    }
+    set('released', false)
 
     // 2. Ensure the teacher-owned strawman house exists.
     const { data: hid, error: rpcErr } = await supabase.rpc('ensure_strawman_house', { aid: assignmentId })
@@ -138,7 +167,27 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
                 <Link href={`/build/${d.houseId}`} className="mono" style={{ fontSize: 11, color: 'var(--ink)', border: '1px solid var(--ink)', borderRadius: 8, padding: '9px 14px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Review / revise →
                 </Link>
-                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>Students attack this once you&apos;ve reviewed it.</span>
+                {d.released ? (
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--green-strong)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                    Released — students can attack it
+                    <button type="button" onClick={() => setReleased(false)} disabled={busy} style={{ font: 'inherit', color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                      Unrelease
+                    </button>
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setReleased(true)}
+                      disabled={busy}
+                      className="mono"
+                      style={{ fontSize: 11, color: 'var(--parchment)', background: 'var(--ink)', border: '1px solid var(--ink)', borderRadius: 8, padding: '9px 14px', textTransform: 'uppercase', letterSpacing: '0.06em', cursor: busy ? 'default' : 'pointer' }}
+                    >
+                      Release to students
+                    </button>
+                    <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>Hidden from students until you release it.</span>
+                  </>
+                )}
               </>
             )}
           </div>

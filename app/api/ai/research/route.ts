@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { braveSearch } from '@/lib/ai/brave'
 import { PERSONA, QUERY_BLOCK, RESEARCH_BLOCK } from '@/lib/ai/prompts'

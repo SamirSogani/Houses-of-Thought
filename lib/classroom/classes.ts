@@ -29,11 +29,13 @@ export function inviteUrl(joinCode: string): string {
 }
 
 // ── Roster ──────────────────────────────────────────────────────────────────
-// Shape returned by the get_class_roster(cid) RPC (see 0014).
+// Shape returned by the get_class_roster(cid) RPC (0014, extended by 0024).
 export interface RosterMemberRow {
   user_id: string
   username: string | null
   email: string | null
+  // Absent until migration 0024 is applied — map tolerantly.
+  account_type?: string | null
   joined_at: string
 }
 
@@ -42,6 +44,10 @@ export interface RosterMember {
   // Best available display name: username, else the email local-part, else a
   // short id fallback so the row is never blank.
   label: string
+  // The member's self-selected account type (bl-H5): the student AI clamp binds
+  // to it, so a teacher needs to SEE the one 'standard' member whose co-pilot
+  // is not clamped and ask them to switch. Null before 0024.
+  accountType: string | null
 }
 
 export function rowToRosterMember(row: RosterMemberRow): RosterMember {
@@ -49,5 +55,5 @@ export function rowToRosterMember(row: RosterMemberRow): RosterMember {
     row.username?.trim() ||
     row.email?.split('@')[0] ||
     `Student ${row.user_id.slice(0, 6)}`
-  return { userId: row.user_id, label }
+  return { userId: row.user_id, label, accountType: row.account_type ?? null }
 }

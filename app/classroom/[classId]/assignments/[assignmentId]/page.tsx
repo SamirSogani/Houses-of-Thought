@@ -14,21 +14,9 @@ import Footer from '@/components/sections/Footer'
 import { dueLabel } from '@/lib/classroom/assignments'
 import { rowToRosterMember, type RosterMember, type RosterMemberRow } from '@/lib/classroom/classes'
 import { housePercent, statusMeta, rowToSummary, type HouseRow, type HouseSummary } from '@/lib/dashboard/houses'
+import { CenterNotice, useSignOut } from '@/components/useAuthedPage'
 
-const HOUSE_COLUMNS = 'id, owner_id, title, question, status, layers_complete, updated_at, turned_in'
-
-const centerNotice: React.CSSProperties = {
-  minHeight: '100dvh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--parchment)',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 11,
-  letterSpacing: '0.11em',
-  textTransform: 'uppercase',
-  color: 'var(--ink-subtle)',
-}
+const HOUSE_COLUMNS = 'id, owner_id, title, question, status, layers_complete, updated_at, turned_in, turned_in_at'
 
 interface Head {
   question: string
@@ -102,15 +90,10 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
     load()
   }, [load])
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
+  const signOut = useSignOut()
 
   if (head === null || roster === null) {
-    return <main style={centerNotice}>Loading assignment…</main>
+    return <CenterNotice>Loading assignment…</CenterNotice>
   }
 
   const due = dueLabel(head.dueAt)
@@ -118,7 +101,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} />
+      <DashboardHeader onSignOut={() => void signOut()} />
 
       <main style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>
@@ -162,6 +145,13 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
                     style={{ display: 'flex', alignItems: 'center', gap: 16, background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 10, padding: '14px 16px' }}
                   >
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--ink)', minWidth: 140 }}>{m.label}</span>
+                    {/* A non-student member's co-pilot is NOT clamped (bl-H5) —
+                        make that visible so the teacher can ask them to switch. */}
+                    {m.accountType && m.accountType !== 'student' && (
+                      <span className="mono" title="This account type is not pinned to Learn mode — the AI can draft and suggest answers for them." style={{ fontSize: 8, color: 'var(--amber-hover)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        {m.accountType} · AI unclamped
+                      </span>
+                    )}
 
                     {house ? (
                       <>
@@ -183,6 +173,14 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
                             Turned in
                           </span>
                         )}
+                        {house.turnedIn &&
+                          house.turnedInAt &&
+                          head.dueAt &&
+                          new Date(house.turnedInAt) > new Date(head.dueAt) && (
+                            <span className="mono" style={{ fontSize: 9, color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                              Late
+                            </span>
+                          )}
                         {gradeByHouse[house.id] && (
                           <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                             Graded: {gradeByHouse[house.id]}

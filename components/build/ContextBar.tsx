@@ -10,6 +10,20 @@ import { PlusIcon, UploadIcon } from './buildIcons'
 
 const presenceOrder: PersonKey[] = ['you', 'maya', 'devan', 'ai']
 
+// Live save state, driven by BuildHousePage's save controller. The eyebrow used
+// to claim "autosaved" statically (ux-review 6.4) — now it only says what the
+// controller has actually observed.
+export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'failed' | 'conflict' | 'signed-out'
+
+const SAVE_STATUS_TEXT: Record<SaveStatus, { text: string; alert: boolean }> = {
+  saved: { text: 'Saved', alert: false },
+  dirty: { text: 'Edited', alert: false },
+  saving: { text: 'Saving…', alert: false },
+  failed: { text: 'Save failed — retrying', alert: true },
+  conflict: { text: 'Changed elsewhere — reload', alert: true },
+  'signed-out': { text: 'Signed out — log in to save', alert: true },
+}
+
 export function ContextBar({
   title,
   question,
@@ -18,6 +32,7 @@ export function ContextBar({
   modeLocked = false,
   readOnly = false,
   draftLocked = false,
+  saveStatus = null,
   onModeChange,
   onTitleChange,
   onOpenReview,
@@ -38,6 +53,8 @@ export function ContextBar({
   // strength renders as provisional and Publish is locked. The score itself is
   // never altered (invariant 6) — this is presentation only.
   draftLocked?: boolean
+  // null hides the indicator (read-only views, tab-locked views).
+  saveStatus?: SaveStatus | null
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
@@ -45,6 +62,7 @@ export function ContextBar({
   onPublish: () => void
 }) {
   const col = strengthColor(strength.overall)
+  const save = saveStatus ? SAVE_STATUS_TEXT[saveStatus] : null
   return (
     <div
       className="bhp-contextbar"
@@ -60,8 +78,12 @@ export function ContextBar({
     >
       {/* Title block */}
       <div className="bhp-title-block" style={{ minWidth: 0 }}>
-        <div className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', marginBottom: 3 }}>
-          House · Draft · autosaved
+        <div
+          className="mono"
+          role={save?.alert ? 'status' : undefined}
+          style={{ fontSize: 10, color: save?.alert ? 'var(--warning)' : 'var(--ink-subtle)', marginBottom: 3 }}
+        >
+          {readOnly ? 'House · Read-only' : save ? `House · ${save.text}` : 'House'}
         </div>
         <input
           className="bhp-title-input"

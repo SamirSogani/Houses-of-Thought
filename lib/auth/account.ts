@@ -20,15 +20,28 @@ export async function getCallerAccountType(): Promise<AccountType> {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return 'standard'
-    const { data } = await supabase
+    if (!user) return 'standard' // anonymous keeps full posture by design (007)
+    const { data, error } = await supabase
       .from('profiles')
       .select('account_type')
       .eq('id', user.id)
       .single()
-    return (data?.account_type as AccountType) ?? 'standard'
+    if (error || !data?.account_type) {
+      // Fail CLOSED for signed-in callers: 'standard' is MORE permissive than
+      // 'student' (Decide mode, Draft Mode), so a transient profile-read hiccup
+      // must not un-pin a student (bl-M5; capabilities.ts's own contract says a
+      // bad DB row can never widen access).
+      console.error(
+        '[auth/account] profile lookup failed — failing closed to student posture:',
+        error?.message ?? 'no row'
+      )
+      return 'student'
+    }
+    return data.account_type as AccountType
   } catch {
-    // Any lookup failure resolves to the safe default rather than blocking.
+    // Auth itself unreachable: cannot distinguish signed-in from anonymous, and
+    // clamping every anonymous /house visitor would break that surface — keep
+    // the anonymous default here.
     return 'standard'
   }
 }

@@ -2,8 +2,10 @@
 
 // Context-intake interviewer, mounted at the top of the co-pilot tab. Asks a few
 // questions, then distills the answers into aiContext (summary + facts) that every
-// other AI call reads. The transcript is deliberately ephemeral local state — only
-// the distilled context is dispatched (SET_AI_CONTEXT) and persisted.
+// other AI call reads. The transcript is never persisted — only the distilled
+// context is dispatched (SET_AI_CONTEXT). Its in-memory home is BuildHousePage
+// (useInterviewSession) so closing the mobile drawer or switching rail tabs —
+// which unmount this card — no longer destroys a half-finished interview.
 // See plans/active/ai/05-interviewer.md.
 
 import { useRef, useState } from 'react'
@@ -11,14 +13,39 @@ import type { Action, State } from '@/lib/build/types'
 import { serializeContent } from '@/lib/build/persistence'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 
-type Turn = { role: 'user' | 'assistant'; content: string }
+export type InterviewTurn = { role: 'user' | 'assistant'; content: string }
+type Turn = InterviewTurn
+
+// The hoistable session state: create it in BuildHousePage and pass it down so
+// the transcript survives this card unmounting.
+export interface InterviewSession {
+  active: boolean
+  setActive: React.Dispatch<React.SetStateAction<boolean>>
+  transcript: InterviewTurn[]
+  setTranscript: React.Dispatch<React.SetStateAction<InterviewTurn[]>>
+}
+
+export function useInterviewSession(): InterviewSession {
+  const [active, setActive] = useState(false)
+  const [transcript, setTranscript] = useState<InterviewTurn[]>([])
+  return { active, setActive, transcript, setTranscript }
+}
 
 // After this many user answers the client stops asking and forces a summary.
 const HARD_STOP_TURNS = 6
 
-export function InterviewCard({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
-  const [active, setActive] = useState(false)
-  const [transcript, setTranscript] = useState<Turn[]>([])
+export function InterviewCard({
+  state,
+  dispatch,
+  session,
+}: {
+  state: State
+  dispatch: React.Dispatch<Action>
+  session?: InterviewSession
+}) {
+  // Hooks always run; the hoisted session (when provided) is the source of truth.
+  const local = useInterviewSession()
+  const { active, setActive, transcript, setTranscript } = session ?? local
   const [input, setInput] = useState('')
   const [inFlight, setInFlight] = useState(false)
   const [errorCode, setErrorCode] = useState<string | null>(null)
@@ -53,6 +80,11 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
         dispatch({ type: 'SET_AI_CONTEXT', context: data.context })
         setActive(false)
         setTranscript([])
+      } else if (forceSummary) {
+        // We told the server to wrap up and it still didn't produce a usable
+        // context. Stop here instead of appending another question — otherwise a
+        // wrap-up-refusing model loops paid turns forever. Retry re-forces.
+        setErrorCode('summary-failed')
       } else {
         setTranscript([...sendTranscript, { role: 'assistant', content: data.reply }])
         // Scroll the newest bubble into view next paint.
@@ -124,6 +156,11 @@ export function InterviewCard({ state, dispatch }: { state: State; dispatch: Rea
 
         {errorCode === RATE_LIMITED_CODE ? (
           <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 8, lineHeight: 1.45 }}>{RATE_LIMITED_COPY}</div>
+        ) : errorCode === 'summary-failed' ? (
+          <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 8 }}>
+            Couldn&apos;t wrap up the interview.{' '}
+            <button type="button" onClick={() => runInterview(transcript, true)} style={linkBtn}>Try finishing again</button>
+          </div>
         ) : errorCode ? (
           <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 8 }}>
             Couldn&apos;t reach the co-pilot.{' '}

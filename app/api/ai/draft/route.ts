@@ -16,7 +16,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { braveSearch } from '@/lib/ai/brave'
 import { createClient } from '@/lib/supabase/server'
@@ -44,6 +44,8 @@ const RequestSchema = z.object({
   house: z.record(z.string(), z.unknown()),
   stage: z.enum(DRAFT_STAGES),
   aiContext: AiContextSchema.nullish(),
+  // The DB row id, so the assignment-submission clamp below can check linkage.
+  houseId: z.string().uuid().nullish(),
 })
 
 const QuerySchema = z.object({ query: z.string() })
@@ -73,7 +75,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
   }
-  const { house, stage, aiContext } = parsed.data
+  const { house, stage, aiContext, houseId } = parsed.data
 
   // Authoritative gates. The signed-in check must come before capabilities —
   // see the header comment on why anonymous would otherwise slip through.
@@ -86,6 +88,22 @@ export async function POST(req: Request): Promise<Response> {
   const caps = await getCallerCapabilities()
   if (!caps.canAuthorDraft || caps.forcedMode === 'learn') {
     return NextResponse.json({ error: 'draft-not-available' }, { status: 403 })
+  }
+
+  // Assignment submissions are student work regardless of the owner's
+  // self-selected account type (bl-H5): no Draft Mode on them. Strawmen also
+  // carry assignment_id but are the teacher's artifact, and the client never
+  // drafts them anyway. The client always sends houseId; the account-type gate
+  // above remains the primary control.
+  if (houseId) {
+    const { data: houseRow } = await supabase
+      .from('houses')
+      .select('assignment_id, is_strawman')
+      .eq('id', houseId)
+      .maybeSingle()
+    if (houseRow?.assignment_id && !houseRow.is_strawman) {
+      return NextResponse.json({ error: 'draft-not-available' }, { status: 403 })
+    }
   }
 
   const houseForPrompt: HouseForPrompt = {
@@ -112,7 +130,18 @@ export async function POST(req: Request): Promise<Response> {
         maxTokens: 200,
       })
       const query = derived.query.trim()
-      const results = query ? await braveSearch(query, 6) : []
+      // A search failure (Brave 429/outage) degrades to an empty stage — same
+      // posture as mini-house — instead of halting the whole draft run mid-build.
+      // Grounding stays intact either way: no results, no evidence.
+      let results: Awaited<ReturnType<typeof braveSearch>> = []
+      try {
+        results = query ? await braveSearch(query, 6) : []
+      } catch (err) {
+        console.error(
+          '[ai/draft] search failed, returning empty evidence stage:',
+          (err as Error)?.message
+        )
+      }
       // No usable results: return an empty stage rather than inviting invention.
       if (results.length === 0) return NextResponse.json({ stage, actions: [] })
       allowed = new Set(results.map((r) => r.url))

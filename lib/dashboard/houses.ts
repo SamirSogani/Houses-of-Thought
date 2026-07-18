@@ -3,6 +3,8 @@
 // grid renders. Progress is measured against the 7 layers of the Build a House flow
 // (see lib/build), so the dashboard and the workspace stay coherent.
 
+import { draftGateLocked, type DraftState } from '@/lib/ai/draft'
+
 export type HouseStatus = 'empty' | 'in-progress' | 'complete'
 
 export interface HouseSummary {
@@ -14,6 +16,10 @@ export interface HouseSummary {
   editedLabel: string
   assignmentId: string | null // set = this house answers an assignment
   turnedIn: boolean // student marked the submission as turned in
+  turnedInAt: string | null // when (0024) — drives the teacher's "late" marker
+  // Draft gate (016 §2): AI-drafted layers await their claim — turn-in is
+  // blocked from the dashboard too, not just publish/export in the workspace.
+  draftLocked: boolean
 }
 
 export const TOTAL_LAYERS = 7
@@ -40,6 +46,8 @@ export interface HouseRow {
   updated_at: string
   assignment_id?: string | null
   turned_in?: boolean
+  turned_in_at?: string | null // when it was turned in (0024)
+  draft?: unknown // houses.draft jsonb (0022); omitted by selects that don't need it
 }
 
 export function rowToSummary(row: HouseRow): HouseSummary {
@@ -52,6 +60,8 @@ export function rowToSummary(row: HouseRow): HouseSummary {
     editedLabel: editedLabel(row.updated_at),
     assignmentId: row.assignment_id ?? null,
     turnedIn: row.turned_in ?? false,
+    turnedInAt: row.turned_in_at ?? null,
+    draftLocked: draftGateLocked((row.draft as DraftState | null | undefined) ?? null),
   }
 }
 

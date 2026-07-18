@@ -7,30 +7,24 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { HouseCard, CreateHouseCard } from '@/components/dashboard/HouseCard'
 import Footer from '@/components/sections/Footer'
 import { rowToSummary, type HouseRow, type HouseSummary } from '@/lib/dashboard/houses'
-import { capabilitiesFor } from '@/lib/auth/capabilities'
-import type { AccountType } from '@/lib/profile/data'
+import { useAuthedPage, CenterNotice } from '@/components/useAuthedPage'
 import { StudentAssignments } from '@/components/classroom/StudentAssignments'
 
 // Columns selected for the grid — keep in sync with HouseRow.
-const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at, assignment_id, turned_in'
-
-// Full-height via the dvh-safe .acct-vh-min class (account-responsive.css).
-const centerNotice: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--parchment)',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 11,
-  letterSpacing: '0.11em',
-  textTransform: 'uppercase',
-  color: 'var(--ink-subtle)',
-}
+const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at, assignment_id, turned_in, draft'
 
 export default function DashboardPage() {
   const router = useRouter()
+  // Shared authed scaffold: user + account type + capabilities + signOut.
+  const { accountType, caps, signOut } = useAuthedPage()
   const [houses, setHouses] = useState<HouseSummary[] | null>(null)
-  const [accountType, setAccountType] = useState<AccountType>('standard')
+  // Turned-in houses that already carry teacher feedback: undo-turn-in is
+  // blocked for these (bl-H2 — un-submitting after grading silently detached
+  // the grade from the work the teacher actually saw).
+  const [gradedIds, setGradedIds] = useState<Set<string>>(new Set())
+  // Standard accounts with a class membership still need the Classroom nav
+  // entry (bl-L8 — /classes was reachable only by typed URL for them).
+  const [hasMemberships, setHasMemberships] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,17 +32,6 @@ export default function DashboardPage() {
   // the user is authenticated; here we only load their houses.
   const loadHouses = useCallback(async () => {
     const supabase = createClient()
-
-    // Teachers get a Classroom entry point in the header; students get their own
-    // /classes panel (capabilities.ts drives the teacher gate).
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await supabase.from('profiles').select('account_type').eq('id', user.id).single()
-      setAccountType((profile?.account_type as AccountType) ?? 'standard')
-    }
-
     const { data, error } = await supabase
       .from('houses')
       .select(HOUSE_COLUMNS)
@@ -64,8 +47,30 @@ export default function DashboardPage() {
       return
     }
     setError(null)
-    setHouses((data as HouseRow[]).map(rowToSummary))
+    const rows = data as HouseRow[]
+    setHouses(rows.map(rowToSummary))
+
+    const turnedInIds = rows.filter((r) => r.turned_in).map((r) => r.id)
+    if (turnedInIds.length > 0) {
+      const { data: fb } = await supabase
+        .from('submission_feedback')
+        .select('house_id')
+        .in('house_id', turnedInIds)
+      setGradedIds(new Set(((fb as { house_id: string }[]) ?? []).map((f) => f.house_id)))
+    } else {
+      setGradedIds(new Set())
+    }
   }, [])
+
+  useEffect(() => {
+    if (accountType !== 'standard') return
+    ;(async () => {
+      const { count } = await createClient()
+        .from('class_members')
+        .select('class_id', { count: 'exact', head: true })
+      setHasMemberships((count ?? 0) > 0)
+    })()
+  }, [accountType])
 
   useEffect(() => {
     loadHouses()
@@ -124,35 +129,51 @@ export default function DashboardPage() {
   }
 
   async function handleTurnIn(id: string, turnedIn: boolean) {
+    // Draft gate (016 §2): turn-in is the one REAL submission action, so it
+    // honors the same claim gate the workspace applies to publish/export.
+    const house = (houses ?? []).find((h) => h.id === id)
+    if (turnedIn && house?.draftLocked) {
+      setError('Review and claim the AI-drafted layers before turning this house in.')
+      return
+    }
+    // Graded submissions stay submitted (bl-H2): un-submitting would let the
+    // work change under a grade the teacher already recorded.
+    if (!turnedIn && gradedIds.has(id)) {
+      setError('This submission has been graded — ask your teacher if it needs to be reopened.')
+      return
+    }
     const supabase = createClient()
-    const { error } = await supabase.from('houses').update({ turned_in: turnedIn }).eq('id', id)
+    const { error } = await supabase
+      .from('houses')
+      .update({ turned_in: turnedIn, turned_in_at: turnedIn ? new Date().toISOString() : null })
+      .eq('id', id)
     if (!error) {
+      setError(null)
       setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, turnedIn } : h)))
+    } else {
+      setError(
+        turnedIn
+          ? 'Could not turn the house in — please try again.'
+          : 'Could not undo the turn-in — please try again.'
+      )
     }
   }
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
-
   if (houses === null) {
-    return <main className="acct-vh-min" style={centerNotice}>Loading your houses…</main>
+    return <CenterNotice>Loading your houses…</CenterNotice>
   }
 
-  const isTeacher = capabilitiesFor(accountType).canCreateClasses
+  const isTeacher = caps.canCreateClasses
   const isStudent = accountType === 'student'
   // Draft Mode entry (decision 016): standard + teacher only — students never
   // see it (and the route re-checks server-side).
-  const canDraft = capabilitiesFor(accountType).canAuthorDraft
+  const canDraft = caps.canAuthorDraft
 
   return (
     <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader
-        onSignOut={handleSignOut}
-        showClassroom={isTeacher || isStudent}
+        onSignOut={() => void signOut()}
+        showClassroom={isTeacher || isStudent || hasMemberships}
         classroomHref={isTeacher ? '/classroom' : '/classes'}
       />
 
@@ -192,6 +213,7 @@ export default function DashboardPage() {
                 key={h.id}
                 house={h}
                 href={`/build/${h.id}`}
+                graded={gradedIds.has(h.id)}
                 onRename={handleRename}
                 onDelete={handleDelete}
                 onTurnIn={handleTurnIn}

@@ -17,7 +17,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { completeJSON, AiError } from '@/lib/ai/groq'
+import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
 import { braveSearch } from '@/lib/ai/brave'
 import { MINI_HOUSE_SYSTEM } from '@/lib/ai/prompts'
@@ -97,8 +97,15 @@ export async function POST(req: Request): Promise<Response> {
     // 3. Hard validation: keep only evidence whose URL is one Brave returned.
     const evidence = miniHouse.evidence.filter((e) => allowed.has(e.url))
 
+    // The schema tolerates 2–4 tradeoffs (see MiniSynthesisSchema); restore the
+    // spec's canonical 3 by trimming extras. A 2-item list renders fine as-is.
+    const synthesis = {
+      ...miniHouse.synthesis,
+      key_tradeoffs: miniHouse.synthesis.key_tradeoffs.slice(0, 3),
+    }
+
     // Response shape mirrors the spec: { question, mini_house }.
-    return NextResponse.json({ question, mini_house: { ...miniHouse, evidence } })
+    return NextResponse.json({ question, mini_house: { ...miniHouse, evidence, synthesis } })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json({ error: friendlyMessage(err) }, { status: err.status })

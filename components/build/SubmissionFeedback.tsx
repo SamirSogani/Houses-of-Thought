@@ -35,17 +35,29 @@ export function SubmissionFeedback({
   const [critiquing, setCritiquing] = useState(false)
   const [open, setOpen] = useState(mode === 'edit')
 
+  const [gradedOn, setGradedOn] = useState<string | null>(null)
+  const [byAnotherTeacher, setByAnotherTeacher] = useState(false)
+
   const load = useCallback(async () => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('submission_feedback')
-      .select('feedback, grade')
-      .eq('house_id', houseId)
-      .maybeSingle()
+    const [{ data }, { data: auth }] = await Promise.all([
+      supabase
+        .from('submission_feedback')
+        .select('feedback, grade, teacher_id, updated_at')
+        .eq('house_id', houseId)
+        .maybeSingle(),
+      supabase.auth.getUser(),
+    ])
     if (data) {
       setFeedback((data.feedback as string) ?? '')
       setGrade((data.grade as string) ?? '')
       setExists(true)
+      // Attribution (bl-M4): feedback is keyed by house alone, so for a student
+      // in two classes one teacher's save replaces the other's — at minimum,
+      // date the grade and warn a teacher who is about to overwrite a peer's.
+      const at = data.updated_at as string | null
+      setGradedOn(at ? new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null)
+      setByAnotherTeacher(auth.user != null && data.teacher_id !== auth.user.id)
     }
     setLoaded(true)
   }, [houseId])
@@ -79,6 +91,8 @@ export function SubmissionFeedback({
     }
     setSaveError(false)
     setExists(true)
+    setByAnotherTeacher(false) // it's this teacher's feedback now
+    setGradedOn(new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
     setSavedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
   }
 
@@ -112,7 +126,7 @@ export function SubmissionFeedback({
     return (
       <div style={strip}>
         <div className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-          Teacher feedback{grade ? ` · Grade: ${grade}` : ''}
+          Teacher feedback{grade ? ` · Grade: ${grade}` : ''}{gradedOn ? ` · ${gradedOn}` : ''}
         </div>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink)', margin: 0, whiteSpace: 'pre-wrap' }}>{feedback || '—'}</p>
       </div>
@@ -128,8 +142,14 @@ export function SubmissionFeedback({
         className="mono"
         style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
       >
-        {open ? '▾' : '▸'} Assess this submission{grade ? ` · Grade: ${grade}` : ''}
+        {open ? '▾' : '▸'} Assess this submission{grade ? ` · Grade: ${grade}` : ''}{gradedOn ? ` · ${gradedOn}` : ''}
       </button>
+
+      {exists && byAnotherTeacher && open && (
+        <p className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)', margin: '6px 0 0' }}>
+          Graded by another teacher{gradedOn ? ` on ${gradedOn}` : ''} — saving replaces their feedback.
+        </p>
+      )}
 
       {open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>

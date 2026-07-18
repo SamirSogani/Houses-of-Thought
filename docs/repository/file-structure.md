@@ -67,10 +67,12 @@ exists to locate the right file, not to invite broad exploration.
   co-pilot AI routes under `app/api/ai/` (e.g. `ai/suggest`), which take a house
   payload and return proposals; they never write the DB.
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
-- **Current routes:** `/` (landing page), `/login` (Log in / Sign up tabs,
-  wired to Supabase email/password auth), `/welcome` (placeholder
-  post-auth landing screen), `/how-it-works`, `/educators`, `/story`,
-  `/faq` (pre-login marketing pages).
+- **Current routes:** marketing — `/`, `/how-it-works`, `/educators`, `/story`,
+  `/faq`, `/examples` (+ `/examples/[slug]`), `/try`; auth — `/login`,
+  `/welcome` (placeholder post-auth screen); app — `/dashboard`, `/build`
+  (+ `/build/[id]`), `/house` (orphaned no-login builder), `/profile`,
+  `/classes`, `/classroom` (+ `[classId]`, `[classId]/assignments/[assignmentId]`),
+  `/join/[code]`, `/admin` (+ `/admin/model`).
 
 ## `components/`
 

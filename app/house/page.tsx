@@ -1,9 +1,11 @@
 'use client'
 
-// No-login builder (/house) — the first version of the planned /try surface.
-// Reuses the real Build workspace (BuildHousePage) in local mode: work persists
-// to localStorage, and the share/publish/sign-out chrome is swapped for a
-// Save → Create account CTA. No Supabase, no auth, no RLS.
+// No-login builder (/house) — currently ORPHANED: nothing links here (the /try
+// funnel uses the Mini House instead). Reuses the real Build workspace
+// (BuildHousePage) in local mode: work persists to localStorage with the
+// standard chrome (the swap to a Save → Create account CTA was reverted —
+// decision 005 §1). No Supabase, no auth, no RLS. Product call pending
+// (frontend plan D4): promote as the "try the full builder" surface or delete.
 // See plans/active/pre-login-ux/page-try-and-auth.md.
 
 import { useEffect, useState } from 'react'

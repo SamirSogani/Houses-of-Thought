@@ -34,6 +34,8 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0020_fix_houses_select_returning.sql` | houses | Regression fix: restore direct `owner_id` check in `houses_select` so `INSERT ... RETURNING` works (the decision 004 trap, reintroduced by 0014/0017) |
 | `0021_houses_turned_in.sql` | classroom | `houses.turned_in boolean` — student marks an assignment submission turned in |
 | `0022_houses_draft.sql` | houses | Adds `draft jsonb` — Draft Mode stage progress + per-layer claim map (decision 016); null on non-drafted houses |
+| `0023_ai_usage_retention.sql` | ai | Weekly pg_cron prune of `ai_usage` rows older than 90 days (rows are only read for "today"; the IP ceiling doubles anonymous row writes) |
+| `0024_classroom_integrity.sql` | classroom | `houses.turned_in_at`, `assignments.strawman_released` (+ release gate in `can_view_assignment_strawman`, grandfathering live strawmen), roster returns `account_type`. ⚠ Apply BEFORE deploying the matching client code |
 
 ## Applying to a fresh database
 

@@ -3,9 +3,41 @@
 // layer). The reducer and lib/build/types.ts are deliberately untouched — all
 // row↔state mapping lives here. See plans/active/persistence/phase-3-builder.md
 // and decisions/002-house-schema.md.
+//
+// Save protocol: every Supabase error is checked and thrown as a SaveError, the
+// parent UPDATE is guarded by an optimistic-concurrency token (updated_at, the
+// 0003 trigger bumps it), and loadHouse fails whole rather than treating a
+// failed child select as an empty layer. The caller (BuildHousePage's save
+// controller) owns retry/backoff, single-flighting, and the status UI. The
+// replace itself is still not one transaction — the server half (a save_house
+// RPC) is the DB plan's Phase-0 §3.
 
 import type { Concept, Perspective, State } from './types'
 import { doneCount } from './strength'
+
+// A failed save, classified for the UI:
+//   save-failed — transient (network/API) failure; safe to retry with backoff.
+//   stale-write — the row changed since we loaded it (another tab/device); do
+//                 NOT retry, the user must reload.
+//   signed-out  — the session is gone; retrying can't succeed until re-auth.
+export type SaveErrorCode = 'save-failed' | 'stale-write' | 'signed-out'
+
+export class SaveError extends Error {
+  constructor(
+    public code: SaveErrorCode,
+    detail?: string
+  ) {
+    super(detail ? `${code}: ${detail}` : code)
+    this.name = 'SaveError'
+  }
+}
+
+// Supabase doesn't type auth failures on data calls distinctly; recognize the
+// common JWT-expiry shapes so the UI can say "sign in again" instead of retrying.
+function classifyDbError(message: string | undefined): SaveErrorCode {
+  if (message && /jwt|token.*expired|not.*authenticated|401/i.test(message)) return 'signed-out'
+  return 'save-failed'
+}
 
 // Normalize stored concepts into { term, definition } objects. Tolerates the
 // pre-definitions shape (a bare string[]) so older saved houses still load.
@@ -66,12 +98,14 @@ export function blankState(): State {
     neg: [],
     unc: [],
     watchpoints: [],
-    accepted: {},
     activePerspective: null,
   }
 }
 
 // empty → no content at all; complete → all 7 layers done; else in-progress.
+// Prose fields count as content: a house whose owner wrote only a conclusion is
+// work in progress, not "Empty" (bl-M3 — the old list-only check showed teachers
+// an "Empty" chip beside "1/7 layers").
 export function deriveStatus(state: State): HouseStatus {
   if (doneCount(state) === 7) return 'complete'
   const hasContent =
@@ -82,15 +116,17 @@ export function deriveStatus(state: State): HouseStatus {
     state.pos.length > 0 ||
     state.neg.length > 0 ||
     state.unc.length > 0 ||
-    state.watchpoints.length > 0
-  if (hasContent || state.title.trim().length > 0) return 'in-progress'
-  return 'empty'
+    state.watchpoints.length > 0 ||
+    [state.title, state.question, state.purpose, state.conclusion, state.reasoning].some(
+      (t) => t.trim().length > 0
+    )
+  return hasContent ? 'in-progress' : 'empty'
 }
 
-// Local (no-login) persistence, backing the /house builder and the planned /try
-// surface. Stores only the persistable subset (serializeContent's shape) in
-// localStorage under one generic key, so any no-login builder shares the adapter.
-// Deliberately no Supabase / auth / RLS — the counterpart to save/loadHouse below.
+// Local (no-login) persistence, backing the /house builder. Stores only the
+// persistable subset (serializeContent's shape) in localStorage under one
+// generic key, so any no-login builder shares the adapter. Deliberately no
+// Supabase / auth / RLS — the counterpart to save/loadHouse below.
 export const LOCAL_HOUSE_KEY = 'hot:house:draft'
 
 export function saveLocalHouse(state: State): void {
@@ -136,44 +172,60 @@ export function loadLocalHouse(): State | null {
     state.neg = c.neg ?? []
     state.unc = c.unc ?? []
     state.watchpoints = c.watchpoints ?? []
-    state.accepted = c.accepted ?? {}
     return state
   } catch {
     return null
   }
 }
 
+// THE single list of persisted State fields. serializeContent derives from it,
+// so adding a content field to State means adding it here (and wiring the DB
+// column in load/saveHouse) — the round-trip test fails until all agree.
+export const PERSISTED_KEYS = [
+  'mode',
+  'aiContext',
+  'draft',
+  'title',
+  'purpose',
+  'question',
+  'conclusion',
+  'reasoning',
+  'concepts',
+  'perspectives',
+  'evidence',
+  'assumptions',
+  'pos',
+  'neg',
+  'unc',
+  'watchpoints',
+] as const
+
+export type PersistedContent = Pick<State, (typeof PERSISTED_KEYS)[number]>
+
 // JSON of just the persistable subset — used as the autosave effect's dependency
 // so ephemeral changes (step, tabs, toast, invite) never trigger a save.
 export function serializeContent(state: State): string {
-  return JSON.stringify({
-    mode: state.mode,
-    aiContext: state.aiContext,
-    draft: state.draft,
-    title: state.title,
-    purpose: state.purpose,
-    question: state.question,
-    conclusion: state.conclusion,
-    reasoning: state.reasoning,
-    concepts: state.concepts,
-    perspectives: state.perspectives,
-    evidence: state.evidence,
-    assumptions: state.assumptions,
-    pos: state.pos,
-    neg: state.neg,
-    unc: state.unc,
-    watchpoints: state.watchpoints,
-    accepted: state.accepted,
-  })
+  return JSON.stringify(
+    Object.fromEntries(PERSISTED_KEYS.map((k) => [k, state[k]])) as PersistedContent
+  )
 }
 
-// Load a specific house into a reducer State, or null when the row does not exist
-// or is not the caller's (RLS makes both look empty). Integer ids are re-assigned
-// sequentially per list by DB position, so nextId() keeps working for later adds.
-export async function loadHouse(supabase: Supabase, id: string): Promise<State | null> {
+// A loaded house plus its concurrency token (the parent row's updated_at at
+// load time). Every save must present the token; see saveHouse.
+export interface LoadedHouse {
+  state: State
+  rev: string
+}
+
+// Load a specific house into a reducer State, or null when the row does not
+// exist, is not the caller's (RLS makes both look empty), or ANY select failed —
+// a failed child select must not masquerade as an empty layer, because the next
+// autosave would persist that emptiness over real rows. Integer ids are
+// re-assigned sequentially per list by DB position, so nextId() keeps working.
+export async function loadHouse(supabase: Supabase, id: string): Promise<LoadedHouse | null> {
   const { data: house, error } = await supabase
     .from('houses')
-    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, accepted, mode, ai_context, draft')
+    .select('title, question, purpose, conclusion, reasoning, concepts, concept_definitions, watchpoints, mode, ai_context, draft, updated_at')
     .eq('id', id)
     .maybeSingle()
   if (error || !house) return null
@@ -184,6 +236,7 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
     supabase.from('house_assumptions').select('*').eq('house_id', id).order('position'),
     supabase.from('house_implications').select('*').eq('house_id', id).order('position'),
   ])
+  if (persp.error || evid.error || assum.error || implic.error) return null
 
   const state = blankState()
   state.mode = house.mode === 'learn' ? 'learn' : 'decide'
@@ -198,7 +251,6 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
   const conceptDefs = (house.concept_definitions as string[] | null) ?? []
   state.concepts = conceptTerms.map((term, i) => ({ term, definition: conceptDefs[i] ?? '' }))
   state.watchpoints = house.watchpoints ?? []
-  state.accepted = (house.accepted as Record<number, number[]>) ?? {}
 
   state.perspectives = (persp.data ?? []).map((r, i) => ({
     id: i + 1,
@@ -236,17 +288,26 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<State |
   state.neg = byKind('neg')
   state.unc = byKind('unc')
 
-  return state
+  return { state, rev: house.updated_at as string }
 }
 
 // Whole-house replace: update the parent scalar/array columns, then for each
 // child table delete the house's rows and bulk-insert the current arrays with
-// position = index. Simplest correct v1. NOT atomic — a failed insert after a
-// delete could drop a layer; acceptable for single-user/single-tab. Hardening
-// (a transactional RPC) is out of scope for Phase 3.
-export async function saveHouse(supabase: Supabase, id: string, state: State): Promise<void> {
-  // Parent. updated_at is bumped by the 0003 trigger on this update.
-  await supabase
+// position = index. Returns the NEW rev (the trigger-bumped updated_at) the
+// caller must present on its next save.
+//
+// When expectedRev is given, the parent UPDATE is conditioned on it: zero rows
+// updated means the row changed since load (another tab or device) and the save
+// aborts with 'stale-write' BEFORE any child delete — the stale writer never
+// destroys the fresher content. Not one transaction yet (DB plan Phase-0 §3);
+// the guard + error checks close the everyday loss modes.
+export async function saveHouse(
+  supabase: Supabase,
+  id: string,
+  state: State,
+  expectedRev?: string
+): Promise<string> {
+  let update = supabase
     .from('houses')
     .update({
       title: state.title || null,
@@ -257,19 +318,27 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
       concepts: state.concepts.map((c) => c.term),
       concept_definitions: state.concepts.map((c) => c.definition),
       watchpoints: state.watchpoints,
-      accepted: state.accepted,
       mode: state.mode,
       ai_context: state.aiContext,
       draft: state.draft,
       layers_complete: doneCount(state),
       status: deriveStatus(state),
+      // Bump explicitly as well as via the 0003 trigger, so the token advances
+      // even if a future schema drops the trigger.
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id)
+  if (expectedRev) update = update.eq('updated_at', expectedRev)
+  const parent = await update.select('updated_at')
+  if (parent.error) throw new SaveError(classifyDbError(parent.error.message), parent.error.message)
+  const newRev = (parent.data?.[0] as { updated_at: string } | undefined)?.updated_at
+  if (!newRev) throw new SaveError(expectedRev ? 'stale-write' : 'save-failed', 'no row updated')
 
   // Perspectives.
-  await supabase.from('house_perspectives').delete().eq('house_id', id)
+  const delPersp = await supabase.from('house_perspectives').delete().eq('house_id', id)
+  if (delPersp.error) throw new SaveError(classifyDbError(delPersp.error.message), delPersp.error.message)
   if (state.perspectives.length > 0) {
-    await supabase.from('house_perspectives').insert(
+    const ins = await supabase.from('house_perspectives').insert(
       state.perspectives.map((p, i) => ({
         house_id: id,
         name: p.name,
@@ -284,12 +353,14 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
         position: i,
       }))
     )
+    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
   }
 
   // Evidence.
-  await supabase.from('house_evidence').delete().eq('house_id', id)
+  const delEvid = await supabase.from('house_evidence').delete().eq('house_id', id)
+  if (delEvid.error) throw new SaveError(classifyDbError(delEvid.error.message), delEvid.error.message)
   if (state.evidence.length > 0) {
-    await supabase.from('house_evidence').insert(
+    const ins = await supabase.from('house_evidence').insert(
       state.evidence.map((e, i) => ({
         house_id: id,
         text: e.text,
@@ -300,12 +371,14 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
         position: i,
       }))
     )
+    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
   }
 
   // Assumptions.
-  await supabase.from('house_assumptions').delete().eq('house_id', id)
+  const delAssum = await supabase.from('house_assumptions').delete().eq('house_id', id)
+  if (delAssum.error) throw new SaveError(classifyDbError(delAssum.error.message), delAssum.error.message)
   if (state.assumptions.length > 0) {
-    await supabase.from('house_assumptions').insert(
+    const ins = await supabase.from('house_assumptions').insert(
       state.assumptions.map((a, i) => ({
         house_id: id,
         text: a.text,
@@ -313,19 +386,24 @@ export async function saveHouse(supabase: Supabase, id: string, state: State): P
         position: i,
       }))
     )
+    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
   }
 
   // Implications: three reducer lists collapse into one table via `kind`,
   // positioned per kind so each list round-trips in order.
-  await supabase.from('house_implications').delete().eq('house_id', id)
+  const delImplic = await supabase.from('house_implications').delete().eq('house_id', id)
+  if (delImplic.error) throw new SaveError(classifyDbError(delImplic.error.message), delImplic.error.message)
   const implications = [
     ...state.pos.map((x, i) => ({ kind: 'pos', text: x.text, horizon: x.horizon, who: x.who, position: i })),
     ...state.neg.map((x, i) => ({ kind: 'neg', text: x.text, horizon: x.horizon, who: x.who, position: i })),
     ...state.unc.map((x, i) => ({ kind: 'unc', text: x.text, horizon: x.horizon, who: x.who, position: i })),
   ]
   if (implications.length > 0) {
-    await supabase
+    const ins = await supabase
       .from('house_implications')
       .insert(implications.map((r) => ({ house_id: id, ...r })))
+    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
   }
+
+  return newRev
 }

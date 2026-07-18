@@ -3,7 +3,6 @@
 // See handoff 05 §7 (Detail) / 07 §3.
 
 import type { Action, Perspective } from '@/lib/build/types'
-import { color } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
 import { Avatar } from '../Avatar'
 import { WarningIcon, ChevronLeft } from '../buildIcons'
@@ -44,7 +43,6 @@ export function PerspectiveDetail({
 }) {
   const p = perspective
   const owner = people[p.owner]
-  const strengthCol = color(p.strength)
 
   return (
     <div className="fade-in" style={{ marginTop: 8 }}>
@@ -84,13 +82,13 @@ export function PerspectiveDetail({
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{owner.name}</span>
             </div>
           </div>
+          {/* The old Strength readout rendered Perspective.strength, which no
+              code path ever computed — every real perspective showed 0. Show
+              real detail counts instead. */}
           <div>
-            <div style={monoLabel({ fontSize: 9 })}>Strength</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <span style={{ width: 60, height: 6, background: 'var(--rule)', borderRadius: 3, overflow: 'hidden' }}>
-                <span className="build-bar-fill" style={{ display: 'block', height: '100%', width: `${p.strength}%`, background: strengthCol, transition: 'width 0.4s cubic-bezier(0.2,0.7,0.2,1)' }} />
-              </span>
-              <span className="mono" style={{ fontSize: 12, color: strengthCol }}>{p.strength}</span>
+            <div style={monoLabel({ fontSize: 9 })}>Detail</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)', marginTop: 9 }}>
+              {p.subQuestions.length} questions · {p.supportingEvidence.length} evidence · {p.counters.length} counters
             </div>
           </div>
         </div>

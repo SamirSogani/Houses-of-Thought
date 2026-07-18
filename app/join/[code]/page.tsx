@@ -41,7 +41,16 @@ export default function JoinClassPage({ params }: { params: Promise<{ code: stri
         router.replace(`/login?next=/join/${code}`)
         return
       }
-      const { error } = await supabase.rpc('join_class', { code })
+      // Normalize the URL segment (bl-L6): a code copied out of a chat app
+      // often arrives with an encoded trailing space ("%20") — the RPC only
+      // uppercases, so the raw segment failed with the generic error.
+      let cleaned = code
+      try {
+        cleaned = decodeURIComponent(code).trim()
+      } catch {
+        // Malformed percent-encoding: fall through with the raw segment.
+      }
+      const { error } = await supabase.rpc('join_class', { code: cleaned })
       if (error) {
         setError('That join code is not valid. Check it with your teacher and try again.')
         return
