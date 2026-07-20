@@ -86,7 +86,7 @@ export function EvidenceLayer({ state, dispatch }: { state: State; dispatch: Rea
                     />
                   )}
                 </span>
-                {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>}
+                {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-text)' }}>via Research Mode</span>}
               </div>
             </div>
             <RemoveButton title="Remove evidence" onClick={() => dispatch({ type: 'REMOVE_EVIDENCE', id: e.id })} />

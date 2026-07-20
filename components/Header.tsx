@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LogoMark } from './icons'
+import { useFocusTrap } from './useFocusTrap'
 
 const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
@@ -14,6 +15,10 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  // The mobile sheet is a modal surface: trap Tab inside it and hand focus
+  // back to the hamburger on close (a11y C2). It previously had no dialog
+  // semantics and left focus behind the overlay entirely.
+  const sheetRef = useFocusTrap<HTMLDivElement>(mobileOpen)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -75,6 +80,7 @@ export default function Header() {
                 <Link
                   key={l.href}
                   href={l.href}
+                  aria-current={active ? 'page' : undefined}
                   style={{
                     fontFamily: 'var(--font-body)',
                     fontWeight: 500,
@@ -148,6 +154,8 @@ export default function Header() {
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
+              aria-expanded={mobileOpen}
+              aria-haspopup="dialog"
               className="tap-target"
               style={{
                 width: 42,
@@ -180,7 +188,13 @@ export default function Header() {
 
       {/* Mobile nav sheet */}
       {mobileOpen && (
-        <div className="mobile-nav-overlay">
+        <div
+          ref={sheetRef}
+          className="mobile-nav-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span
               style={{

@@ -18,7 +18,7 @@ export default function TryPage() {
     <>
       <Header />
       <SheetStrip sheet="Sheet 00 / Try it" />
-      <main>
+      <main id="main">
         <TryItFlow />
       </main>
       <Footer />

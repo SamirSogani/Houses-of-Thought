@@ -39,7 +39,7 @@ export default function HousePage() {
   }, [])
 
   if (initial === null) {
-    return <main style={centerNotice}>Loading your house…</main>
+    return <main id="main" style={centerNotice}>Loading your house…</main>
   }
 
   return (

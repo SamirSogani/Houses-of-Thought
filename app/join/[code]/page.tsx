@@ -60,7 +60,7 @@ export default function JoinClassPage({ params }: { params: Promise<{ code: stri
   }, [code, router])
 
   return (
-    <main style={centerNotice}>
+    <main id="main" style={centerNotice}>
       {error ? (
         <>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--ink)', maxWidth: 420 }}>{error}</p>

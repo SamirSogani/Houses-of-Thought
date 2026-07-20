@@ -58,6 +58,7 @@ export default function ProfilePage() {
   if (initial === null || userId === null) {
     return (
       <main
+        id="main"
         className="acct-vh-min"
         style={{
           display: 'flex',

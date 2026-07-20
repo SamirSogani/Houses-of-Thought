@@ -107,7 +107,7 @@ export default function ClassRosterPage({ params }: { params: Promise<{ classId:
   }
 
   if (head === null || roster === null) {
-    return <main style={centerNotice}>Loading roster…</main>
+    return <main id="main" style={centerNotice}>Loading roster…</main>
   }
 
   return (

@@ -14,6 +14,16 @@
   --warning: #C2682B;
   --blueprint: #3E5C8A;
 
+  /* Text-safe variants (a11y audit C3). --amber, --warning and --green-strong
+     are TINTS AND GRAPHICS colors: as text they measure 1.76-3.97:1, failing
+     WCAG 1.4.3 almost everywhere they were used. These pass AA on both
+     backgrounds we put text on (measured against parchment/white/amber-tint:
+     5.07/5.49/4.86, 5.07/5.49/4.86, 5.31/5.74/5.09). Use these whenever the
+     color is carrying words; keep the originals for fills, bars, and borders. */
+  --amber-text: #8A6200;
+  --warning-text: #A8501B;
+  --green-text: #2E7347;
+
   --font-display: var(--font-fraunces), serif;
   --font-body: var(--font-inter-tight), sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
@@ -41,6 +51,60 @@ body {
 a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; border: none; background: none; }
 
+/* Focus visibility (a11y audit C1) — WCAG 2.4.7.
+   There was previously not a single :focus rule in the codebase, while ~19
+   components set `outline: none`, so keyboard users had no focus indicator at
+   all across most of the product. This one rule restores it everywhere.
+   `!important` is load-bearing: nearly all styling here is inline `style={{}}`,
+   which otherwise wins over any stylesheet declaration. :focus-visible means
+   mouse clicks still don't draw a ring. */
+:focus-visible {
+  outline: 2px solid var(--blueprint) !important;
+  outline-offset: 2px !important;
+  border-radius: 3px;
+}
+/* On the dark ink surfaces the blueprint blue is too low-contrast; amber reads
+   clearly on both (3:1+ against #14213A as a non-text indicator). */
+.ink-surface :focus-visible,
+[data-surface='ink'] :focus-visible {
+  outline-color: var(--amber) !important;
+}
+
+/* Skip link (a11y audit M1) — WCAG 2.4.1. Visually hidden until focused, then
+   pinned to the top-left so keyboard users can jump the repeated header. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--parchment);
+  border-radius: var(--radius-btn);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Screen-reader-only text: available to assistive tech, invisible on screen.
+   Used where information was previously conveyed by a `title` tooltip alone
+   (a11y audit S7). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .container {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -56,12 +120,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
   color: var(--ink-subtle);
 }
 
+/* Amber eyebrow. Defaults to the text-safe amber so it is legible on the
+   parchment/white surfaces (a11y C3: raw --amber measures 1.76:1 there).
+   On the ink sections raw --amber is 8.41:1 and reads as intended, so those
+   opt back in with .eyebrow-amber-on-ink. */
 .eyebrow-amber {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--amber-text);
+}
+.eyebrow-amber-on-ink {
   color: var(--amber);
 }
 
@@ -139,7 +210,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
   padding-bottom: 3px;
   transition: color 0.2s, border-color 0.2s;
 }
-.text-link:hover { color: var(--amber-hover); border-color: var(--amber-hover); }
+/* --amber-hover as text is 2.28:1 on parchment (a11y C3); the text-safe amber
+   still reads as a distinct hover state while passing AA. */
+.text-link:hover,
+.text-link:focus-visible { color: var(--amber-text); border-color: var(--amber-text); }
 
 /* ——— Shared mobile foundation ——— */
 /* Full-height app shells: dynamic viewport height so mobile browser chrome

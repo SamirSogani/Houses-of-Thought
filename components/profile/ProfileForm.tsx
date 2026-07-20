@@ -131,9 +131,9 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
         <SectionCard>
           <FieldLabel label="Username" helper="How teachers and classmates see you in classrooms. 3-30 characters: letters, numbers, underscore, dot, or dash." />
           <TextInput value={profile.username} onChange={(v) => set('username', v)} ariaLabel="Username" invalid={!!nameError || profile.username === taken} />
-          {nameError && <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>{nameError}</p>}
+          {nameError && <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 7 }}>{nameError}</p>}
           {!nameError && profile.username === taken && (
-            <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 7 }}>
+            <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 7 }}>
               That username is taken — your other changes still save.
             </p>
           )}
@@ -174,7 +174,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(22px, 3vw, 28px)', letterSpacing: '-0.01em', color: 'var(--ink)' }}>
             Personal Foundational Point of View
           </h2>
-          <p className="mono" style={{ fontSize: 10, color: 'var(--amber-hover)', marginTop: 8 }}>
+          <p className="mono" style={{ fontSize: 10, color: 'var(--amber-text)', marginTop: 8 }}>
             Element 4.2 · These perspectives persist across all your houses.
           </p>
         </div>
@@ -229,11 +229,17 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
-  const color = state === 'error' ? 'var(--warning)' : state === 'saved' ? 'var(--green-strong)' : 'var(--amber)'
+  const color = state === 'error' ? 'var(--warning-text)' : state === 'saved' ? 'var(--green-text)' : 'var(--amber)'
   const label = state === 'error' ? "Couldn't save — try again" : state === 'saved' ? 'All changes saved' : 'Saving…'
   return (
-    <span className="mono" style={{ fontSize: 10, color: state === 'error' ? 'var(--warning)' : 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
+    // role="status" — a failed autosave was previously invisible to screen
+    // readers, which is the one state the user must not miss (a11y S2).
+    <span
+      role="status"
+      className="mono"
+      style={{ fontSize: 10, color: state === 'error' ? 'var(--warning-text)' : 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 7 }}
+    >
+      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
       {label}
     </span>
   )

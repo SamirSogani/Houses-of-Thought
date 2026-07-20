@@ -190,7 +190,7 @@ export function ModelDetail({ name }: { name: string }) {
 
         {err && (
           <Card>
-            <span style={{ ...mono, color: 'var(--warning)' }}>Failed to load: {err}</span>
+            <span style={{ ...mono, color: 'var(--warning-text)' }}>Failed to load: {err}</span>
           </Card>
         )}
 
@@ -216,8 +216,8 @@ export function ModelDetail({ name }: { name: string }) {
                       </div>
                       <div style={{ marginTop: 4 }}>Context window: {fmtTokens(h.contextWindow)} tokens</div>
                       <div style={{ marginTop: 4 }}>
-                        OK <span style={{ color: 'var(--green-strong)' }}>{h.okCount}</span> · Fail{' '}
-                        <span style={{ color: h.failCount ? 'var(--warning)' : 'var(--ink-subtle)' }}>{h.failCount}</span> ·
+                        OK <span style={{ color: 'var(--green-text)' }}>{h.okCount}</span> · Fail{' '}
+                        <span style={{ color: h.failCount ? 'var(--warning-text)' : 'var(--ink-subtle)' }}>{h.failCount}</span> ·
                         last {ago(h.lastAt)}
                       </div>
                     </div>

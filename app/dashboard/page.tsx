@@ -187,7 +187,7 @@ export default function DashboardPage() {
         classroomHref={isTeacher ? '/classroom' : '/classes'}
       />
 
-      <main style={{ flex: '1 1 auto' }}>
+      <main id="main" style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>
           {/* Heading */}
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(30px, 4vw, 40px)', letterSpacing: '-0.015em', color: 'var(--ink)' }}>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
           </p>
 
           {error && (
-            <p className="mono" style={{ fontSize: 11, color: 'var(--warning)', marginTop: 16 }}>
+            <p className="mono" style={{ fontSize: 11, color: 'var(--warning-text)', marginTop: 16 }}>
               {error}
             </p>
           )}

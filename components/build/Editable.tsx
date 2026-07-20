@@ -90,12 +90,13 @@ export function RemoveButton({
       title={title}
       aria-label={title}
       onClick={onClick}
-      // bhp-remove: ≥24px touch size below 1024px, same glyph (build-responsive.css).
+      // 24x24 is the WCAG 2.5.8 minimum and applies at every viewport, not just
+      // on touch (a11y S6) — bhp-remove bumps it further to 28px below 1024px.
       className="bhp-remove"
       style={{
         flex: '0 0 auto',
-        width: 20,
-        height: 20,
+        width: 24,
+        height: 24,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -106,7 +107,7 @@ export function RemoveButton({
         lineHeight: 1,
         ...style,
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--warning)')}
+      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--warning-text)')}
       onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-subtle)')}
     >
       ×

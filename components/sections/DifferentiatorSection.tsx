@@ -38,7 +38,7 @@ export default function DifferentiatorSection() {
   return (
     <section style={{ background: 'var(--ink)', paddingBlock: 'var(--section-py)' }}>
       <div className="container">
-        <p className="eyebrow-amber">Section 05 — The difference</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 05 — The difference</p>
         <h2
           className="h2"
           style={{ color: 'var(--parchment)', marginTop: 16 }}

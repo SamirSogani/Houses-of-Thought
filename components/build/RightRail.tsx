@@ -10,6 +10,7 @@
 import { useEffect } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { XIcon } from '@/components/icons'
+import { useFocusTrap } from '@/components/useFocusTrap'
 import { CopilotPanel, type SuggestCache } from './rail/CopilotPanel'
 import type { InterviewSession } from './rail/InterviewCard'
 
@@ -71,6 +72,10 @@ export function MobileRailDrawer({
   interview?: InterviewSession
   onClose: () => void
 }) {
+  // Focus moves into the drawer on open and returns to the Co-pilot button on
+  // close; Tab stays inside while it's open (a11y C2).
+  const drawerRef = useFocusTrap<HTMLDivElement>()
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -85,6 +90,7 @@ export function MobileRailDrawer({
       style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20,33,58,0.42)' }}
     >
       <div
+        ref={drawerRef}
         className="fade-in"
         role="dialog"
         aria-modal="true"

@@ -36,7 +36,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
           {showStepHeader && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--amber-hover)' }}>Layer {step} / 7</span>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--amber-text)' }}>Layer {step} / 7</span>
                 <span style={{ width: 16, height: 1, background: 'var(--rule)' }} />
                 <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>{layer.kicker}</span>
               </div>

@@ -33,7 +33,7 @@ export default function HowAiRoleSection() {
                 fontSize: 11,
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                color: 'var(--green-strong)',
+                color: 'var(--green-text)',
                 marginBottom: 16,
               }}
             >
@@ -58,7 +58,7 @@ export default function HowAiRoleSection() {
                 fontSize: 11,
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                color: 'var(--warning)',
+                color: 'var(--warning-text)',
                 marginBottom: 16,
               }}
             >

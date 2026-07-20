@@ -53,23 +53,35 @@ function InteractiveHouseSvg({
   const noFill = 'transparent'
   const fill = (k: LayerKey) => (activeLayer === k ? amberFill : noFill)
 
-  const layerProps = (k: LayerKey) => ({
-    role: 'button' as const,
-    tabIndex: 0,
-    style: { cursor: 'pointer' as const, outline: 'none' as const },
-    onClick: () => onSelect(k),
-    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(k) } },
-    onMouseEnter: () => onSelect(k),
-  })
+  // Each clickable layer is a toggle button in a group (a11y C4):
+  //   - aria-pressed exposes the selected layer, which was previously conveyed
+  //     by fill colour alone (WCAG 1.4.1 / 4.1.2);
+  //   - an explicit aria-label replaces the accessible name computed from child
+  //     <text> ("SELF GROUP IDEAS" for Perspectives);
+  //   - the outline is no longer suppressed, so the global :focus-visible ring
+  //     from globals.css applies.
+  const layerProps = (k: LayerKey) => {
+    const def = layerDefs[k]
+    return {
+      role: 'button' as const,
+      tabIndex: 0,
+      'aria-pressed': activeLayer === k,
+      'aria-label': `${def.name}, layer ${Number(def.num)} of 7`,
+      style: { cursor: 'pointer' as const },
+      onClick: () => onSelect(k),
+      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(k) } },
+      onMouseEnter: () => onSelect(k),
+    }
+  }
 
   return (
-    <svg viewBox="0 0 360 452" style={{ width: '100%', maxWidth: 420 }}>
+    <svg viewBox="0 0 360 452" style={{ width: '100%', maxWidth: 420 }} role="group" aria-label="The seven layers of a house — select one to read its definition">
       <defs>
         <pattern id="bpgrid2" width="20" height="20" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="#AEB8C7" opacity="0.5" />
         </pattern>
       </defs>
-      <rect width="360" height="452" fill="url(#bpgrid2)" />
+      <rect width="360" height="452" fill="url(#bpgrid2)" aria-hidden="true" />
 
       {/* Foundation slab (not interactive) */}
       <path d="M44 414 H316 V432 H44 Z" stroke="#14213A" strokeWidth="1.6" fill="none" />
@@ -153,7 +165,10 @@ export default function InteractiveHouseSection() {
           </div>
 
           <div style={{ flex: '1 1 300px', minWidth: 'min(280px, 100%)' }}>
+            {/* aria-live: selecting a layer swaps this panel's contents, which
+                was previously a silent change for screen-reader users (a11y C4). */}
             <div
+              aria-live="polite"
               style={{
                 background: 'var(--white)',
                 border: '1px solid var(--rule)',

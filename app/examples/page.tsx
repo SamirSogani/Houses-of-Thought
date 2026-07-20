@@ -27,7 +27,7 @@ export default function ExamplesPage() {
     <>
       <Header />
       <SheetStrip sheet="Sheet 07 / Examples" />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(40px, 6vw, 72px)' }}>
           <div className="container">
             {/* Header */}

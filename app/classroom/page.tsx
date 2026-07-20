@@ -118,7 +118,7 @@ export default function ClassroomPage() {
   }
 
   if (classes === null) {
-    return <main className="acct-vh-min" style={centerNotice}>Loading your classroom…</main>
+    return <main id="main" className="acct-vh-min" style={centerNotice}>Loading your classroom…</main>
   }
 
   return (
@@ -135,7 +135,7 @@ export default function ClassroomPage() {
           </p>
 
           {error && (
-            <p className="mono" style={{ fontSize: 11, color: 'var(--warning)', marginTop: 16 }}>
+            <p className="mono" style={{ fontSize: 11, color: 'var(--warning-text)', marginTop: 16 }}>
               {error}
             </p>
           )}

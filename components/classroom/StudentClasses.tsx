@@ -176,7 +176,7 @@ export function StudentClasses() {
           </button>
         </div>
         {joinError && (
-          <p className="mono" style={{ fontSize: 11, color: 'var(--warning)' }}>{joinError}</p>
+          <p className="mono" style={{ fontSize: 11, color: 'var(--warning-text)' }}>{joinError}</p>
         )}
       </div>
 

@@ -50,7 +50,7 @@ export default function HowItWorksSection() {
                   fontFamily: 'var(--font-mono)',
                   fontSize: 13,
                   letterSpacing: '0.08em',
-                  color: 'var(--amber-hover)',
+                  color: 'var(--amber-text)',
                 }}
               >
                 {s.num}

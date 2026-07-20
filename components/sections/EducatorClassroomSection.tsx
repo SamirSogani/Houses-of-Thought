@@ -39,7 +39,7 @@ export default function EducatorClassroomSection() {
                 padding: 28,
               }}
             >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-hover)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-text)' }}>
                 {s.num}
               </span>
               <h3

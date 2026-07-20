@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { ArrowIcon } from '@/components/icons'
 
 const roster: { name: string; topic: string; score: number | null; color: string }[] = [
-  { name: 'A. Rivera', topic: 'Should AI be used in schools?', score: 82, color: 'var(--green-strong)' },
+  { name: 'A. Rivera', topic: 'Should AI be used in schools?', score: 82, color: 'var(--green-text)' },
   { name: 'J. Okafor', topic: 'Should AI be used in schools?', score: 61, color: 'var(--green-mid)' },
   { name: 'M. Chen', topic: 'In progress · 4 / 7 layers', score: null, color: 'var(--ink-subtle)' },
-  { name: 'S. Patel', topic: 'Is a hot dog a sandwich?', score: 77, color: 'var(--green-strong)' },
+  { name: 'S. Patel', topic: 'Is a hot dog a sandwich?', score: 77, color: 'var(--green-text)' },
 ]
 
 export default function EducatorHeroSection() {

@@ -101,6 +101,11 @@ export default function RootLayout({
       className={`${fraunces.variable} ${interTight.variable} ${geistMono.variable}`}
     >
       <body>
+        {/* Bypass the repeated sticky header + sheet strip (a11y M1, WCAG 2.4.1).
+            Every page renders exactly one <main id="main">, which this targets. */}
+        <a href="#main" className="skip-link">
+          Skip to main content
+        </a>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}

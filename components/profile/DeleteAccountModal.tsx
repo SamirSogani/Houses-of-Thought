@@ -6,11 +6,15 @@
 
 import { useEffect, useState } from 'react'
 import { XIcon } from '@/components/icons'
+import { useFocusTrap } from '@/components/useFocusTrap'
 
 export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
   const [confirmText, setConfirmText] = useState('')
   const [done, setDone] = useState(false)
   const armed = confirmText.trim().toUpperCase() === 'DELETE'
+  // Traps Tab inside the dialog and restores focus to the opener on close
+  // (a11y C2). The input's autoFocus still wins for initial placement.
+  const dialogRef = useFocusTrap<HTMLDivElement>()
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -27,6 +31,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
     >
       {/* acct-modal caps the dialog to the visible viewport and lets it scroll. */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Delete account"
@@ -35,7 +40,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
         style={{ width: 440, maxWidth: '100%', background: 'var(--white)', borderRadius: 16, padding: 26, boxShadow: '0 24px 60px rgba(20,33,58,0.28)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 22, color: 'var(--warning)' }}>Delete account</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 22, color: 'var(--warning-text)' }}>Delete account</span>
           <button type="button" aria-label="Close" onClick={onClose} style={{ width: 32, height: 32, border: '1px solid var(--rule)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <XIcon size={16} />
           </button>
@@ -50,10 +55,11 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
             <p style={{ fontSize: 14, color: 'var(--ink-mid)', marginTop: 12, lineHeight: 1.55 }}>
               This permanently deletes your account and all associated data, including every house you have built. This action cannot be undone.
             </p>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.11em', color: 'var(--ink-subtle)', marginTop: 20, marginBottom: 8 }}>
+            <label htmlFor="delete-confirm" style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.11em', color: 'var(--ink-subtle)', marginTop: 20, marginBottom: 8 }}>
               Type DELETE to confirm
             </label>
             <input
+              id="delete-confirm"
               className="acct-input"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}

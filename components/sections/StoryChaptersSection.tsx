@@ -3,7 +3,7 @@ const chapterLabelStyle: React.CSSProperties = {
   fontSize: 12,
   letterSpacing: '0.14em',
   textTransform: 'uppercase',
-  color: 'var(--amber-hover)',
+  color: 'var(--amber-text)',
 }
 
 const chapterHeadingStyle: React.CSSProperties = {

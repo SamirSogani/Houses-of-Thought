@@ -26,7 +26,7 @@ export default function CTASection({
         className="container"
         style={{ maxWidth: '62ch', margin: '0 auto', textAlign: 'center' }}
       >
-        <p className="eyebrow-amber">{eyebrow}</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">{eyebrow}</p>
 
         <h2
           style={{

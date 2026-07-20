@@ -43,7 +43,7 @@ export default function ContactPage() {
     <>
       <Header />
       <SheetStrip sheet="Sheet 10 / Contact" />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(40px, 6vw, 80px)' }}>
           <div className="container">
             <p className="eyebrow">Contact</p>

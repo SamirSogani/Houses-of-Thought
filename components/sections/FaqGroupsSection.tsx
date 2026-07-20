@@ -100,7 +100,7 @@ export default function FaqGroupsSection() {
                 fontWeight: 500,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                color: 'var(--amber-hover)',
+                color: 'var(--amber-text)',
                 marginBottom: 8,
               }}
             >

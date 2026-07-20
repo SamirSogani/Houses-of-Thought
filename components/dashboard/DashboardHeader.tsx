@@ -104,7 +104,7 @@ export function DashboardHeader({
               Classroom
             </Link>
           )}
-          <Link href="/build" style={{ ...monoLink, color: 'var(--ink)', ...(active === 'collab' ? activeStyle : {}) }} onMouseEnter={hover('var(--amber-hover)')} onMouseLeave={hover('var(--ink)')}>
+          <Link href="/build" style={{ ...monoLink, color: 'var(--ink)', ...(active === 'collab' ? activeStyle : {}) }} onMouseEnter={hover('var(--amber-text)')} onMouseLeave={hover('var(--ink)')}>
             <SparkIcon size={13} fill="var(--amber-hover)" />
             New house
           </Link>

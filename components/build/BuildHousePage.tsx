@@ -322,7 +322,7 @@ export function BuildHousePage({
               fontSize: 10,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: strawman ? 'var(--amber-hover)' : 'var(--blueprint)',
+              color: strawman ? 'var(--amber-text)' : 'var(--blueprint)',
               background: 'var(--parchment)',
               borderBottom: `1px dashed ${strawman ? 'var(--amber-hover)' : 'var(--blueprint)'}`,
             }}

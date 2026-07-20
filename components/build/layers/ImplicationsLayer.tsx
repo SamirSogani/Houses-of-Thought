@@ -5,8 +5,8 @@ import { EyeIcon } from '../buildIcons'
 import { InlineText, RemoveButton } from '../Editable'
 
 const columns: { kind: ImplicationKind; label: string; accent: string }[] = [
-  { kind: 'pos', label: 'Positive', accent: 'var(--green-strong)' },
-  { kind: 'neg', label: 'Negative', accent: 'var(--warning)' },
+  { kind: 'pos', label: 'Positive', accent: 'var(--green-text)' },
+  { kind: 'neg', label: 'Negative', accent: 'var(--warning-text)' },
   { kind: 'unc', label: 'Uncertain', accent: 'var(--green-mid)' },
 ]
 
@@ -105,7 +105,7 @@ export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch:
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           {state.watchpoints.map((w, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5 }}>
-              <span style={{ color: 'var(--warning)', flex: '0 0 auto' }}>→</span>
+              <span style={{ color: 'var(--warning-text)', flex: '0 0 auto' }}>→</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <InlineText
                   ariaLabel="Signal to watch"

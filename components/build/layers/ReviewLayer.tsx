@@ -61,7 +61,7 @@ export function ReviewLayer({
               {overallLabel(strength.overall)}
             </span>
             {draftLocked && (
-              <span className="mono" style={{ fontSize: 10, color: 'var(--amber-hover)', border: '1px dashed var(--amber)', borderRadius: 5, padding: '3px 9px' }}>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--amber-text)', border: '1px dashed var(--amber)', borderRadius: 5, padding: '3px 9px' }}>
                 Provisional · AI draft unclaimed
               </span>
             )}
@@ -110,7 +110,7 @@ export function ReviewLayer({
       </div>
 
       {/* To strengthen this house */}
-      <div style={monoLabel({ margin: '24px 0 12px', color: 'var(--amber-hover)' })}>To strengthen this house</div>
+      <div style={monoLabel({ margin: '24px 0 12px', color: 'var(--amber-text)' })}>To strengthen this house</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {strengthenList.map((item, i) => (
           <button
@@ -126,7 +126,7 @@ export function ReviewLayer({
               <span style={{ fontSize: 14, color: 'var(--ink)', textAlign: 'left' }}>{item.text}</span>
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)' }}>{item.delta}</span>
+              <span className="mono" style={{ fontSize: 9, color: 'var(--green-text)' }}>{item.delta}</span>
               <ChevronRight size={14} stroke="var(--ink-subtle)" />
             </span>
           </button>

@@ -116,7 +116,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(28px, 4vw, 48px)' }}>
           <div className="container">
             <Link
@@ -263,7 +263,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                         {h.watchpoints.map((w, i) => (
                           <div key={i} style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5 }}>
-                            <span style={{ color: 'var(--warning)', marginRight: 8 }}>→</span>
+                            <span style={{ color: 'var(--warning-text)', marginRight: 8 }}>→</span>
                             {w}
                           </div>
                         ))}
@@ -324,7 +324,7 @@ function LayerSection({ id, step, children }: { id: string; step: number; childr
   return (
     <section id={id} style={{ scrollMarginTop: 84 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="mono" style={{ fontSize: 11, color: 'var(--amber-hover)' }}>Layer {step} / 7</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--amber-text)' }}>Layer {step} / 7</span>
         <span style={{ width: 16, height: 1, background: 'var(--rule)' }} />
         <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>{layer.kicker}</span>
       </div>
@@ -401,7 +401,7 @@ function PerspectiveBlock({ p, detail }: { p: Perspective; detail?: PerspectiveD
 
       {detail && detail.counters.length > 0 && (
         <>
-          <div style={{ ...monoLabel, margin: '18px 0 10px', color: 'var(--warning)' }}>Counterarguments</div>
+          <div style={{ ...monoLabel, margin: '18px 0 10px', color: 'var(--warning-text)' }}>Counterarguments</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {detail.counters.map((c, i) => (
               <div key={i} style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderLeft: '3px solid var(--warning)', borderRadius: 10, padding: '12px 14px', fontSize: 14, color: 'var(--ink-mid)', lineHeight: 1.5 }}>
@@ -430,7 +430,7 @@ function EvidenceRow({ e }: { e: Evidence }) {
           ) : (
             <span style={sourceChip}>{e.source}</span>
           )}
-          {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>}
+          {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-text)' }}>via Research Mode</span>}
         </div>
       </div>
     </div>

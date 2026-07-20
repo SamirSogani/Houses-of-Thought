@@ -46,6 +46,7 @@ export default function BuildPage({
 
   return (
     <main
+      id="main"
       style={{
         minHeight: '100dvh',
         display: 'flex',

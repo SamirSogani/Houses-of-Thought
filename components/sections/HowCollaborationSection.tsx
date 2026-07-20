@@ -108,7 +108,7 @@ export default function HowCollaborationSection() {
                     <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px' }}>
                       UNESCO global survey (2023)
                     </span>
-                    <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>
+                    <span className="mono" style={{ fontSize: 9, color: 'var(--amber-text)' }}>via Research Mode</span>
                   </div>
                 </div>
               </div>

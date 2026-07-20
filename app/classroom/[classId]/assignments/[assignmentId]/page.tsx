@@ -103,7 +103,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
       <DashboardHeader onSignOut={() => void signOut()} />
 
-      <main style={{ flex: '1 1 auto' }}>
+      <main id="main" style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>
           <button
             type="button"
@@ -148,7 +148,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
                     {/* A non-student member's co-pilot is NOT clamped (bl-H5) —
                         make that visible so the teacher can ask them to switch. */}
                     {m.accountType && m.accountType !== 'student' && (
-                      <span className="mono" title="This account type is not pinned to Learn mode — the AI can draft and suggest answers for them." style={{ fontSize: 8, color: 'var(--amber-hover)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      <span className="mono" title="This account type is not pinned to Learn mode — the AI can draft and suggest answers for them." style={{ fontSize: 8, color: 'var(--amber-text)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                         {m.accountType} · AI unclamped
                       </span>
                     )}
@@ -169,7 +169,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
                           </span>
                         )}
                         {house.turnedIn && (
-                          <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                          <span className="mono" style={{ fontSize: 9, color: 'var(--green-text)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                             Turned in
                           </span>
                         )}
@@ -177,12 +177,12 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
                           house.turnedInAt &&
                           head.dueAt &&
                           new Date(house.turnedInAt) > new Date(head.dueAt) && (
-                            <span className="mono" style={{ fontSize: 9, color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                            <span className="mono" style={{ fontSize: 9, color: 'var(--warning-text)', border: '1px solid var(--warning)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                               Late
                             </span>
                           )}
                         {gradeByHouse[house.id] && (
-                          <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                          <span className="mono" style={{ fontSize: 9, color: 'var(--green-text)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                             Graded: {gradeByHouse[house.id]}
                           </span>
                         )}

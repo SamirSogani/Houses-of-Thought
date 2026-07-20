@@ -62,7 +62,7 @@ export function PerspectiveDetail({
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 12, gap: 18, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={monoLabel({ color: 'var(--amber-hover)' })}>Perspective</div>
+          <div style={monoLabel({ color: 'var(--amber-text)' })}>Perspective</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 30, color: 'var(--ink)', marginTop: 4 }}>
             <InlineText
               ariaLabel="Perspective name"
@@ -130,10 +130,10 @@ export function PerspectiveDetail({
                   onChange={(value) => dispatch({ type: 'EDIT_SUBQUESTION', pid: p.id, idx: i, field: 'q', value })}
                 />
               </span>
-              <RemoveButton title="Remove sub-question" onClick={() => dispatch({ type: 'REMOVE_SUBQUESTION', pid: p.id, idx: i })} style={{ width: 16, height: 16, fontSize: 13 }} />
+              <RemoveButton title="Remove sub-question" onClick={() => dispatch({ type: 'REMOVE_SUBQUESTION', pid: p.id, idx: i })} style={{ fontSize: 13 }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
-              <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)', paddingTop: 3 }}>Working</span>
+              <span className="mono" style={{ fontSize: 9, color: 'var(--amber-text)', paddingTop: 3 }}>Working</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.55 }}>
                 <InlineText
                   ariaLabel="Sub-question note"
@@ -164,7 +164,7 @@ export function PerspectiveDetail({
                   onChange={(value) => dispatch({ type: 'EDIT_PERSPECTIVE_EVIDENCE', pid: p.id, idx: i, field: 'text', value })}
                 />
               </span>
-              <RemoveButton title="Remove evidence" onClick={() => dispatch({ type: 'REMOVE_PERSPECTIVE_EVIDENCE', pid: p.id, idx: i })} style={{ width: 16, height: 16, fontSize: 13 }} />
+              <RemoveButton title="Remove evidence" onClick={() => dispatch({ type: 'REMOVE_PERSPECTIVE_EVIDENCE', pid: p.id, idx: i })} style={{ fontSize: 13 }} />
             </div>
             <div style={{ marginTop: 7 }}>
               <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px', display: 'inline-flex' }}>
@@ -184,7 +184,7 @@ export function PerspectiveDetail({
       </div>
 
       {/* Counterarguments */}
-      <div style={monoLabel({ margin: '24px 0 12px', color: 'var(--warning)' })}>Counterarguments</div>
+      <div style={monoLabel({ margin: '24px 0 12px', color: 'var(--warning-text)' })}>Counterarguments</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {p.counters.map((c, i) => (
           <div
@@ -201,7 +201,7 @@ export function PerspectiveDetail({
                 onChange={(value) => dispatch({ type: 'EDIT_COUNTER', pid: p.id, idx: i, value })}
               />
             </span>
-            <RemoveButton title="Remove counterargument" onClick={() => dispatch({ type: 'REMOVE_COUNTER', pid: p.id, idx: i })} style={{ width: 16, height: 16, fontSize: 13 }} />
+            <RemoveButton title="Remove counterargument" onClick={() => dispatch({ type: 'REMOVE_COUNTER', pid: p.id, idx: i })} style={{ fontSize: 13 }} />
           </div>
         ))}
         <AddRow label="+ Add counterargument" onClick={() => dispatch({ type: 'ADD_COUNTER', pid: p.id })} />

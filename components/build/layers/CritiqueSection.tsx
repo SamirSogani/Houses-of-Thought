@@ -28,9 +28,9 @@ type Phase =
   | { status: 'done'; critique: Critique; hash: string }
 
 const GRADE_STYLE: Record<Grade, { color: string; bg: string }> = {
-  strong: { color: 'var(--green-strong)', bg: 'rgba(63,143,91,0.12)' },
-  mixed: { color: 'var(--amber-hover)', bg: 'var(--amber-tint)' },
-  weak: { color: 'var(--warning)', bg: 'rgba(194,104,43,0.12)' },
+  strong: { color: 'var(--green-text)', bg: 'rgba(63,143,91,0.12)' },
+  mixed: { color: 'var(--amber-text)', bg: 'var(--amber-tint)' },
+  weak: { color: 'var(--warning-text)', bg: 'rgba(194,104,43,0.12)' },
 }
 
 function hashString(s: string): string {
@@ -161,7 +161,7 @@ export function CritiqueSection({ state, dispatch }: { state: State; dispatch: R
             {/* Weakest link — the single point where the house most likely fails. */}
             <div style={{ marginTop: 18, border: '1.5px solid var(--ink)', borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                <span className="mono" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--warning)' }}>
+                <span className="mono" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--warning-text)' }}>
                   Weakest link · {layers[phase.critique.weakestLink.layer - 1]?.key ?? `Layer ${phase.critique.weakestLink.layer}`}
                 </span>
                 <button

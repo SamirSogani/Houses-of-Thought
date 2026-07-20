@@ -180,7 +180,7 @@ export function AssignmentPanel({ classId }: { classId: string }) {
         </div>
       </div>
 
-      {error && <p className="mono" style={{ fontSize: 11, color: 'var(--warning)', marginTop: 12 }}>{error}</p>}
+      {error && <p className="mono" style={{ fontSize: 11, color: 'var(--warning-text)', marginTop: 12 }}>{error}</p>}
 
       {/* Grouped list */}
       {loading ? (
@@ -286,11 +286,17 @@ function secondaryBtn(disabled: boolean): React.CSSProperties {
 function reorderBtn(disabled: boolean): React.CSSProperties {
   return {
     fontSize: 8,
-    lineHeight: 1.1,
+    lineHeight: 1,
     color: disabled ? 'var(--rule)' : 'var(--ink-subtle)',
     background: 'transparent',
     border: 'none',
     cursor: disabled ? 'default' : 'pointer',
-    padding: '1px 4px',
+    // The glyph stays 8px; the BOX is what has to clear 24x24 (WCAG 2.5.8 —
+    // these were ~14x12px, a11y S6).
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
   }
 }

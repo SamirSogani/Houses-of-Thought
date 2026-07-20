@@ -23,15 +23,24 @@ export function computeStrength(s: State): Strength {
 }
 
 // Three distinct threshold helpers. Do NOT merge them (03 §4).
+//
+// These values are used for BOTH bar fills and the score numerals beside them.
+// The originals (#3F8F5B / #C2682B) measure 3.67-3.97:1 as text and failed WCAG
+// 1.4.3 on the small numerals (a11y audit C3), so they were darkened to the
+// text-safe variants: 5.31 / 5.06 / 5.07 on parchment. They still read as
+// green / ochre / rust on a bar, so one value serves both uses.
+const STRONG = '#2E7347'
+const MIDDLING = '#7A6A2E'
+const THIN = '#A8501B'
 
 // Perspective bars and evidence numerals.
 export function color(v: number): string {
-  return v >= 75 ? '#3F8F5B' : v >= 55 ? '#8A7A3F' : '#C2682B'
+  return v >= 75 ? STRONG : v >= 55 ? MIDDLING : THIN
 }
 
 // Overall strength + the three axis scores.
 export function strengthColor(v: number): string {
-  return v >= 70 ? '#3F8F5B' : v >= 50 ? '#8A7A3F' : '#C2682B'
+  return v >= 70 ? STRONG : v >= 50 ? MIDDLING : THIN
 }
 
 // Per-axis text label.

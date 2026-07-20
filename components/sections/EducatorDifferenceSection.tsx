@@ -20,7 +20,7 @@ export default function EducatorDifferenceSection() {
       style={{ background: 'var(--white)', borderTop: '1px solid var(--rule)', paddingBlock: 'var(--section-py)' }}
     >
       <div className="container" data-reveal>
-        <p className="eyebrow" style={{ color: 'var(--amber-hover)' }}>
+        <p className="eyebrow" style={{ color: 'var(--amber-text)' }}>
           The key difference
         </p>
         <h2 className="h2" style={{ marginTop: 16, fontSize: 'clamp(28px, 3.6vw, 44px)', maxWidth: '20ch' }}>
@@ -94,7 +94,7 @@ export default function EducatorDifferenceSection() {
                   border: '1px solid var(--green-strong)',
                   borderRadius: 5,
                   padding: '4px 8px',
-                  color: 'var(--green-strong)',
+                  color: 'var(--green-text)',
                 }}
               >
                 Full access

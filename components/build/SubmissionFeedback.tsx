@@ -158,7 +158,7 @@ export function SubmissionFeedback({
       </button>
 
       {exists && byAnotherTeacher && open && (
-        <p className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)', margin: '6px 0 0' }}>
+        <p className="mono" style={{ fontSize: 9, color: 'var(--amber-text)', margin: '6px 0 0' }}>
           Graded by another teacher{gradedOn ? ` on ${gradedOn}` : ''} — saving replaces their feedback.
         </p>
       )}
@@ -183,13 +183,13 @@ export function SubmissionFeedback({
               {saving ? 'Saving…' : 'Save feedback'}
             </button>
             {loadError ? (
-              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning)' }}>
+              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning-text)' }}>
                 Couldn&apos;t load existing feedback — reload before saving
               </span>
             ) : saveError ? (
-              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning)' }}>Couldn&apos;t save — try again</span>
+              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning-text)' }}>Couldn&apos;t save — try again</span>
             ) : savedAt ? (
-              <span role="status" className="mono" style={{ fontSize: 9, color: 'var(--green-strong)' }}>Saved {savedAt}</span>
+              <span role="status" className="mono" style={{ fontSize: 9, color: 'var(--green-text)' }}>Saved {savedAt}</span>
             ) : null}
           </div>
 

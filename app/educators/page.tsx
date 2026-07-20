@@ -26,7 +26,7 @@ export default function EducatorsPage() {
       <ScrollRevealInit />
       <Header />
       <SheetStrip sheet="Sheet 03 / For educators" />
-      <main>
+      <main id="main">
         <EducatorHeroSection />
         <EducatorProblemSection />
         <EducatorClassroomSection />

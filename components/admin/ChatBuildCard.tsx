@@ -78,8 +78,8 @@ export interface BuildSettle {
 }
 
 const IMPLICATION_GLYPH: Record<ConclusionCandidate['implications'][number]['ikind'], { glyph: string; color: string }> = {
-  pos: { glyph: '+', color: 'var(--green-strong)' },
-  neg: { glyph: '−', color: 'var(--warning)' },
+  pos: { glyph: '+', color: 'var(--green-text)' },
+  neg: { glyph: '−', color: 'var(--warning-text)' },
   unc: { glyph: '?', color: 'var(--ink-subtle)' },
 }
 
@@ -284,11 +284,11 @@ export function ChatBuildCard({
     ) : saveCode === 'saved' ? (
       <span style={{ ...mono, color: 'var(--ink-subtle)' }}>Saved</span>
     ) : saveCode === 'stale-write' ? (
-      <span style={{ ...mono, color: 'var(--warning)' }}>Edited elsewhere — open the builder for the latest</span>
+      <span style={{ ...mono, color: 'var(--warning-text)' }}>Edited elsewhere — open the builder for the latest</span>
     ) : saveCode === 'signed-out' ? (
-      <span style={{ ...mono, color: 'var(--warning)' }}>Signed out — log in again to save</span>
+      <span style={{ ...mono, color: 'var(--warning-text)' }}>Signed out — log in again to save</span>
     ) : (
-      <span style={{ ...mono, color: 'var(--warning)' }}>
+      <span style={{ ...mono, color: 'var(--warning-text)' }}>
         Save failed ·{' '}
         <button
           type="button"
@@ -410,7 +410,7 @@ export function ChatBuildCard({
           <CheckIcon size={14} /> House built
         </span>
         {unclaimed.length > 0 && (
-          <span style={{ ...mono, color: 'var(--amber-hover)', textTransform: 'uppercase' }}>
+          <span style={{ ...mono, color: 'var(--amber-text)', textTransform: 'uppercase' }}>
             {unclaimed.length} {unclaimed.length === 1 ? 'layer' : 'layers'} to claim
           </span>
         )}

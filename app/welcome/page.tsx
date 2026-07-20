@@ -61,6 +61,7 @@ export default function WelcomePage() {
 
       {/* acct-vh-header = dvh-safe `calc(100vh - 73px)` (account-responsive.css). */}
       <main
+        id="main"
         className="acct-vh-header"
         style={{
           background: 'var(--parchment)',

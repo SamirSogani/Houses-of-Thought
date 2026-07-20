@@ -83,7 +83,7 @@ export function AccountTypeSelector({
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
               </span>
               {active && (
-                <span className="mono" style={{ fontSize: 8, color: 'var(--amber-hover)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px' }}>
+                <span className="mono" style={{ fontSize: 8, color: 'var(--amber-text)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px' }}>
                   {readOnly ? 'Your account' : 'Active'}
                 </span>
               )}

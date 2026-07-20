@@ -24,7 +24,7 @@ export default function PrivacyPage() {
     <>
       <Header />
       <SheetStrip sheet="Sheet 99 / Privacy" />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(36px, 5vw, 64px)' }}>
           <div className="container">
             <DraftNotice />

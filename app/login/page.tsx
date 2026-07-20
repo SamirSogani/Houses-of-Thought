@@ -143,6 +143,10 @@ export default function LoginPage() {
         {(['login', 'signup'] as const).map((m) => (
           <button
             key={m}
+            type="button"
+            // Selected tab was background/color only, with no state exposed to
+            // assistive tech (a11y S4).
+            aria-pressed={mode === m}
             onClick={() => {
               setMode(m)
               setError(null)
@@ -267,7 +271,7 @@ export default function LoginPage() {
             transition: 'color 0.15s, border-color 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'var(--amber-hover)'
+            e.currentTarget.style.color = 'var(--amber-text)'
             e.currentTarget.style.borderColor = 'var(--amber-hover)'
           }}
           onMouseLeave={(e) => {

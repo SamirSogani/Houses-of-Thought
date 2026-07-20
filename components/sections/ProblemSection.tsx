@@ -79,7 +79,7 @@ export default function ProblemSection() {
                 fontSize: 10,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: 'var(--warning)',
+                color: 'var(--warning-text)',
               }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">

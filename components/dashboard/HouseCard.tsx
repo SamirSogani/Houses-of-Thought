@@ -7,7 +7,7 @@
 // submissions. The menu only renders when its callbacks are supplied (i.e. on the
 // owner's dashboard) — read-only usages like the teacher roster pass none.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { HouseSummary } from '@/lib/dashboard/houses'
 import { housePercent, statusMeta } from '@/lib/dashboard/houses'
@@ -42,10 +42,40 @@ export function HouseCard({
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(house.title ?? '')
 
+  const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
   function closeMenu() {
     setMenuOpen(false)
     setConfirmDelete(false)
   }
+
+  // The menu was mouse-only: no Escape, and its close affordance was a
+  // click-only backdrop, so keyboard users had to Tab away leaving it open over
+  // the card (a11y S3). Escape closes and returns focus to the trigger; moving
+  // focus out of the menu closes it too.
+  useEffect(() => {
+    if (!menuOpen) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setMenuOpen(false)
+      setConfirmDelete(false)
+      triggerRef.current?.focus()
+    }
+    function onFocusIn(e: FocusEvent) {
+      const target = e.target as Node
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      setMenuOpen(false)
+      setConfirmDelete(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('focusin', onFocusIn)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('focusin', onFocusIn)
+    }
+  }, [menuOpen])
   const stop = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -161,7 +191,7 @@ export function HouseCard({
             {meta.label}
           </span>
           {house.turnedIn && (
-            <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px' }}>
+            <span className="mono" style={{ fontSize: 9, color: 'var(--green-text)', border: '1px solid var(--green-strong)', borderRadius: 5, padding: '2px 8px' }}>
               {graded ? 'Turned in · Graded' : 'Turned in'}
             </span>
           )}
@@ -175,7 +205,10 @@ export function HouseCard({
           {/* tap-target extends the 28px button to a 44×44 touch hit-area. */}
           <button
             type="button"
+            ref={triggerRef}
             aria-label="House options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             className="tap-target"
             onClick={(e) => {
               stop(e)
@@ -194,6 +227,8 @@ export function HouseCard({
               {/* Backdrop closes the menu on any outside click. */}
               <div onClick={(e) => { stop(e); closeMenu() }} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
               <div
+                ref={menuRef}
+                role="menu"
                 style={{
                   position: 'absolute',
                   top: 32,
@@ -248,6 +283,7 @@ export function HouseCard({
               if (e.key === 'Enter') submitRename()
               if (e.key === 'Escape') setRenaming(false)
             }}
+            aria-label="House title"
             placeholder="House title"
             style={{ height: 42, padding: '0 12px', fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--ink)', background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 8, outline: 'none' }}
           />
@@ -265,6 +301,7 @@ function MenuItem({ children, onClick, danger }: { children: React.ReactNode; on
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       style={{
         display: 'block',
@@ -273,7 +310,7 @@ function MenuItem({ children, onClick, danger }: { children: React.ReactNode; on
         padding: '10px 14px',
         fontFamily: 'var(--font-body)',
         fontSize: 14,
-        color: danger ? 'var(--warning)' : 'var(--ink)',
+        color: danger ? 'var(--warning-text)' : 'var(--ink)',
         background: 'transparent',
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--parchment)')}

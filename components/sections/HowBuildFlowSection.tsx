@@ -229,7 +229,7 @@ export default function HowBuildFlowSection() {
                   transition: 'border-left-color 0.3s',
                 }}
               >
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-hover)' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-text)' }}>
                   {s.num}
                 </span>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, color: 'var(--ink)', marginTop: 12 }}>

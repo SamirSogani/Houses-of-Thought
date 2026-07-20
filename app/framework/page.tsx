@@ -165,7 +165,7 @@ export default function FrameworkPage() {
       <Header />
       <SheetStrip sheet="Sheet 05 / Framework" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(40px, 6vw, 80px)' }}>
           <div className="container">
             <p className="eyebrow">The Framework</p>
@@ -228,7 +228,7 @@ export default function FrameworkPage() {
 
                 {elements.map((e) => (
                   <section key={e.id} id={e.id} style={{ marginTop: 40 }}>
-                    <p className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.11em', color: 'var(--amber-hover)' }}>
+                    <p className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.11em', color: 'var(--amber-text)' }}>
                       {e.layer}
                     </p>
                     <h2 style={{ ...blockTitle, marginTop: 8 }}>{e.name}</h2>

@@ -8,7 +8,7 @@ import Fade from './Fade'
 // Accent + icon per fixed perspective position (Practical/Logical, Emotional/
 // Personal, Long-Term/Strategic) — one of the brand's secondary hues each, used
 // only as a thin top rule + label color (amber stays the action color elsewhere).
-const POV_ACCENT = ['var(--green-strong)', 'var(--warning)', 'var(--amber-hover)']
+const POV_ACCENT = ['var(--green-text)', 'var(--warning-text)', 'var(--amber-text)']
 const POV_ICON = [CompassIcon, HeartIcon, TrendingUpIcon]
 
 const READING_MAX = 980
@@ -182,7 +182,7 @@ export default function MiniHouseResult({
                       borderTop: i === 0 ? 'none' : '1px solid var(--rule-soft)',
                     }}
                   >
-                    <span className="mono" style={{ fontSize: 12, color: 'var(--amber-hover)', flexShrink: 0, paddingTop: 2 }}>
+                    <span className="mono" style={{ fontSize: 12, color: 'var(--amber-text)', flexShrink: 0, paddingTop: 2 }}>
                       E.{String(i + 1).padStart(2, '0')}
                     </span>
                     <div>
@@ -243,7 +243,7 @@ export default function MiniHouseResult({
                           position: 'relative',
                         }}
                       >
-                        <span style={{ position: 'absolute', left: 0, color: 'var(--amber-hover)' }}>—</span>
+                        <span style={{ position: 'absolute', left: 0, color: 'var(--amber-text)' }}>—</span>
                         {t}
                       </li>
                     ))}
@@ -342,7 +342,7 @@ function ConversionBlock({ originalQuestion, onTryAnother }: { originalQuestion:
 
         {/* With a free account */}
         <div style={{ border: '1px solid var(--amber)', borderRadius: 'var(--radius-card)', background: 'var(--white)', padding: 'clamp(22px, 3vw, 30px)', boxShadow: '0 8px 24px rgba(20,33,58,.08)' }}>
-          <p className="mono" style={{ fontSize: 11, color: 'var(--amber-hover)' }}>
+          <p className="mono" style={{ fontSize: 11, color: 'var(--amber-text)' }}>
             With a free account
           </p>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, color: 'var(--ink)', margin: '8px 0 18px' }}>

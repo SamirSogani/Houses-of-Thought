@@ -25,7 +25,7 @@ export default function Home() {
       <ScrollRevealInit />
       <Header />
       <SheetStrip />
-      <main>
+      <main id="main">
         <HeroSection />
         <ProblemSection />
         <InteractiveHouseSection />

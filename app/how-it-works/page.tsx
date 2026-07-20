@@ -24,7 +24,7 @@ export default function HowItWorksPage() {
       <ScrollRevealInit />
       <Header />
       <SheetStrip sheet="Sheet 02 / How it works" />
-      <main>
+      <main id="main">
         <HowIntroSection />
         <HowBuildFlowSection />
         <HowAiRoleSection />

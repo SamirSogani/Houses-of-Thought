@@ -10,7 +10,7 @@ export default function NotFound() {
   return (
     <>
       <Header />
-      <main>
+      <main id="main">
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(72px, 12vw, 140px)' }}>
           <div className="container" style={{ maxWidth: '62ch', textAlign: 'center' }}>
             <p className="mono" style={{ fontSize: 12, letterSpacing: '0.14em', color: 'var(--ink-subtle)', textTransform: 'uppercase' }}>

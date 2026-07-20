@@ -49,6 +49,7 @@ export default function StudentClassroomPage() {
   if (!ready) {
     return (
       <main
+        id="main"
         className="acct-vh-min"
         style={{
           display: 'flex',

@@ -49,7 +49,7 @@ export default function FaqPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <main>
+      <main id="main">
         <FaqIntroSection />
         <FaqGroupsSection />
         <CTASection

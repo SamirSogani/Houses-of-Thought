@@ -36,9 +36,9 @@ const modelLinkStyle: React.CSSProperties = {
 }
 
 // ── status → colour/label ─────────────────────────────────────────────────────
-const OK = 'var(--green-strong)'
-const DOWN = 'var(--warning)'
-const WARN = 'var(--amber-hover)'
+const OK = 'var(--green-text)'
+const DOWN = 'var(--warning-text)'
+const WARN = 'var(--amber-text)'
 const MUTE = 'var(--ink-subtle)'
 
 export function statusMeta(s: TargetStatus | ProbeResult['status']): { color: string; label: string } {
@@ -276,7 +276,7 @@ export function AiMonitor() {
 
         {err && (
           <Card>
-            <span style={{ ...mono, color: 'var(--warning)' }}>Failed to load: {err}</span>
+            <span style={{ ...mono, color: 'var(--warning-text)' }}>Failed to load: {err}</span>
           </Card>
         )}
 
@@ -384,7 +384,7 @@ export function AiMonitor() {
                             </Link>
                           </td>
                           <td style={{ ...td, color: 'var(--ink-mid)' }}>{fmtTokens(t.contextWindow)}</td>
-                          <td style={{ ...td, color: t.configured ? 'var(--ink-mid)' : 'var(--warning)' }}>
+                          <td style={{ ...td, color: t.configured ? 'var(--ink-mid)' : 'var(--warning-text)' }}>
                             {t.keyEnv}
                             {!t.configured && ' (missing)'}
                           </td>
@@ -393,9 +393,9 @@ export function AiMonitor() {
                             {t.lastDetail ? <span style={{ color: 'var(--ink-subtle)' }}> · {t.lastDetail}</span> : null}
                           </td>
                           <td style={td}>
-                            <span style={{ color: 'var(--green-strong)' }}>{t.okCount}</span>
+                            <span style={{ color: 'var(--green-text)' }}>{t.okCount}</span>
                             {' / '}
-                            <span style={{ color: t.failCount ? 'var(--warning)' : 'var(--ink-subtle)' }}>{t.failCount}</span>
+                            <span style={{ color: t.failCount ? 'var(--warning-text)' : 'var(--ink-subtle)' }}>{t.failCount}</span>
                           </td>
                           <td style={{ ...td, color: 'var(--ink-subtle)' }}>{ago(t.lastAt)}</td>
                           <td style={td}>

@@ -1,6 +1,6 @@
 const bars = [
-  { label: 'Evidence', value: 85, color: 'var(--green-strong)' },
-  { label: 'Logic', value: 80, color: 'var(--green-strong)' },
+  { label: 'Evidence', value: 85, color: 'var(--green-text)' },
+  { label: 'Logic', value: 80, color: 'var(--green-text)' },
   { label: 'Coverage', value: 72, color: 'var(--green-mid)' },
 ]
 

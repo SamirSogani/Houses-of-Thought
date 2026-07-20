@@ -8,7 +8,7 @@ export default function FinalCtaSection() {
         className="container"
         style={{ maxWidth: '62ch', margin: '0 auto', textAlign: 'center' }}
       >
-        <p className="eyebrow-amber">Section 09 — Start</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 09 — Start</p>
 
         <h2
           style={{

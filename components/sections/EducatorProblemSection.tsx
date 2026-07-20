@@ -30,7 +30,7 @@ export default function EducatorProblemSection() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginTop: 44 }}>
           {columns.map((c) => (
             <div key={c.letter} style={{ flex: '1 1 260px', borderTop: '2px solid var(--ink)', paddingTop: 20 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-hover)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--amber-text)' }}>
                 {c.letter}
               </span>
               <h3

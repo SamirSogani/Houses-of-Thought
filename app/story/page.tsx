@@ -23,7 +23,7 @@ export default function StoryPage() {
       <ScrollRevealInit />
       <Header />
       <SheetStrip sheet="Sheet 07 / Our story" />
-      <main>
+      <main id="main">
         <StoryIntroSection />
         <StoryChaptersSection />
         <CTASection

@@ -34,7 +34,7 @@ export default function EducatorCollabSection() {
               border: '1px dashed var(--warning)',
               borderRadius: 5,
               padding: '5px 10px',
-              color: 'var(--warning)',
+              color: 'var(--warning-text)',
             }}
           >
             Group peer-review workflows · Roadmap

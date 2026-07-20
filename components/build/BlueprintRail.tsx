@@ -89,6 +89,8 @@ export function BlueprintRail({
                 key={step}
                 type="button"
                 onClick={() => onGo(step)}
+                // Active step was conveyed by amber tint alone (a11y S4/1.4.1).
+                aria-current={active ? 'step' : undefined}
                 style={{
                   width: '100%',
                   display: 'flex',

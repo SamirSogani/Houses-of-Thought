@@ -78,7 +78,7 @@ export function ContextBar({
         <div
           className="mono"
           role={save?.alert ? 'status' : undefined}
-          style={{ fontSize: 10, color: save?.alert ? 'var(--warning)' : 'var(--ink-subtle)', marginBottom: 3 }}
+          style={{ fontSize: 10, color: save?.alert ? 'var(--warning-text)' : 'var(--ink-subtle)', marginBottom: 3 }}
         >
           {readOnly ? 'House · Read-only' : save ? `House · ${save.text}` : 'House'}
         </div>
@@ -153,6 +153,12 @@ export function ContextBar({
 
       {/* Co-pilot mode: Learn | Decide (decision 007) */}
       <div
+        role="group"
+        aria-label={
+          modeLocked
+            ? 'Co-pilot mode: Learn (student accounts stay in Learn mode)'
+            : 'Co-pilot mode: how much help the co-pilot gives'
+        }
         title={modeLocked ? 'Student accounts stay in Learn mode.' : 'How much help the co-pilot gives.'}
         style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)', opacity: modeLocked ? 0.6 : 1 }}
       >
@@ -197,6 +203,12 @@ export function ContextBar({
               style={{ marginLeft: -7 }}
             />
           ))}
+          {/* The avatars carry their identity only in a `title` tooltip, which
+              keyboard and touch users never see (a11y S7). State it in text for
+              assistive tech instead. */}
+          <span className="sr-only">
+            In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
+          </span>
         </div>
       </div>
     </div>

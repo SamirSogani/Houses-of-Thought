@@ -156,7 +156,7 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
           <Field label="Extra topics to cover" value={d.topics} placeholder="Comma-separated topics to weave in" onChange={(v) => set('topics', v)} area />
           <Field label="Criteria for the AI (optional)" value={d.criteria} placeholder="Any extra guidance for the flawed argument" onChange={(v) => set('criteria', v)} area />
 
-          {error && <p className="mono" style={{ fontSize: 11, color: 'var(--warning)', marginTop: 10 }}>{error}</p>}
+          {error && <p className="mono" style={{ fontSize: 11, color: 'var(--warning-text)', marginTop: 10 }}>{error}</p>}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
             <button type="button" onClick={generate} disabled={busy} className="btn-primary" style={{ justifyContent: 'center', opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
@@ -168,7 +168,7 @@ export function StrawmanAuthor({ assignmentId }: { assignmentId: string }) {
                   Review / revise →
                 </Link>
                 {d.released ? (
-                  <span className="mono" style={{ fontSize: 10, color: 'var(--green-strong)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--green-text)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                     Released — students can attack it
                     <button type="button" onClick={() => setReleased(false)} disabled={busy} style={{ font: 'inherit', color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                       Unrelease

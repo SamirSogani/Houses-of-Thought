@@ -161,7 +161,11 @@ export function AuthDivider() {
 }
 
 export function AuthError({ children }: { children: ReactNode }) {
+  // role="alert" so a failed sign-in is announced rather than appearing
+  // silently for screen-reader users (a11y S2).
   return (
-    <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--warning)' }}>{children}</p>
+    <p role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--warning-text)' }}>
+      {children}
+    </p>
   )
 }
