@@ -68,18 +68,11 @@ describe('draft stage machine', () => {
     expect(out.toast).toContain('yours to write') // settled — all drafted layers claimed
   })
 
-  it('draftGateLocked truth table; PUBLISH/EXPORT return only a toast while locked', () => {
+  it('draftGateLocked truth table', () => {
     expect(draftGateLocked(null)).toBe(false)
     expect(draftGateLocked(withDraft('evidence').draft)).toBe(true) // mid-run
     expect(draftGateLocked(withDraft('done', ['concepts']).draft)).toBe(true) // unclaimed
     expect(draftGateLocked(withDraft('done', ['concepts'], ['concepts']).draft)).toBe(false)
-
-    const locked = withDraft('done', ['concepts'])
-    for (const type of ['PUBLISH', 'EXPORT'] as const) {
-      const out = reducer(locked, { type })
-      expect(out.toast).toMatch(/claim/i)
-      expect({ ...out, toast: '' }).toEqual({ ...locked, toast: '' }) // nothing else changed
-    }
   })
 
   it('STOP_DRAFT settles the stage machine; START_DRAFT never re-seeds', () => {
@@ -106,7 +99,6 @@ describe('reducer purity', () => {
       { type: 'REMOVE_PERSPECTIVE', id: 1 },
       { type: 'ADD_SUBQUESTION', pid: 1 },
       { type: 'EDIT_SUBQUESTION', pid: 1, idx: 0, field: 'q', value: 'x' },
-      { type: 'CYCLE_OWNER', id: 1 },
       { type: 'ADD_EVIDENCE' },
       { type: 'REMOVE_EVIDENCE', id: 1 },
       { type: 'ADD_ASSUMPTION' },
@@ -118,8 +110,6 @@ describe('reducer purity', () => {
       { type: 'APPLY_AI_ACTION', action: { kind: 'add_concept', term: 't', definition: 'd' } },
       { type: 'RESTORE_CONTENT', content: restore },
       { type: 'START_DRAFT' },
-      { type: 'PUBLISH' },
-      { type: 'EXPORT' },
       { type: 'SET_TOAST', value: 'x' },
     ]
     for (const action of actions) {

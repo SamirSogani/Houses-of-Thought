@@ -277,32 +277,3 @@ export const emptyEvidenceLine =
   'No evidence linked yet. Add it in the Evidence layer or with Research Mode.'
 export const emptyCountersLine =
   'No counterarguments captured yet. Strong houses name the best objection to each perspective.'
-
-// 07 §5. What's-new drawer change cards.
-export const changeCards: { title: string; old: string; next: string }[] = [
-  {
-    title: 'A guided build sequence, not a finished scroll',
-    old: 'You landed in a fully-populated house and scrolled one long document. No sense of where to start or what was done.',
-    next: 'Seven ordered layers, foundation to roof, in a blueprint rail. Each is a focused step with a clear state: done, active, or ahead.',
-  },
-  {
-    title: 'Real human co-builders',
-    old: 'Collaboration was you and the AI in one chat. No way to bring people in, divide work, or see who did what.',
-    next: 'Invite co-builders, assign perspectives, see live presence, and attribute every item to the person or co-pilot who added it.',
-  },
-  {
-    title: 'A contextual co-pilot, not a firehose chat',
-    old: 'One linear chat carried everything, untethered from the part of the house you were working on.',
-    next: 'The AI is one teammate on the right rail, suggesting only for the active layer. You accept items into the house on your terms.',
-  },
-  {
-    title: 'House Strength gets its own section',
-    old: 'Strength was a static 72 pinned to the bottom of the page, tucked under implications.',
-    next: 'A dedicated Review layer explains each score, what is driving it, and what to do next. Evidence, logic, and coverage recompute live as you build.',
-  },
-  {
-    title: 'The house metaphor made literal',
-    old: 'The "house" was rendered as a scrolling text document.',
-    next: 'The left rail is the house itself, built layer by layer with a roof and foundation, doubling as navigation and progress.',
-  },
-]

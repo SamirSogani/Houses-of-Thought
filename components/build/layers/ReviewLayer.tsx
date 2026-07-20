@@ -1,11 +1,13 @@
-// Layer 7 — Review (House Strength detail + strengthen list + publish). See 05 §11 / 07 §6.4.
+// Layer 7 — Review (House Strength detail + strengthen list). See 05 §11 / 07 §6.4.
+// The old Publish/Export buttons were success-toast theater over no-ops and were
+// removed until those features exist — audit 2026-07-19, ai-slop §3.
 
 import type { Action, State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor, axisLabel, overallLabel, overallSummary } from '@/lib/build/strength'
 import { axisMeasures } from '@/lib/build/content'
 import { draftGateLocked, unclaimedDraftStages } from '@/lib/ai/draft'
-import { ChevronRight, UploadIcon } from '../buildIcons'
+import { ChevronRight } from '../buildIcons'
 import { CritiqueSection } from './CritiqueSection'
 
 const monoLabel = (extra?: React.CSSProperties): React.CSSProperties => ({
@@ -134,40 +136,16 @@ export function ReviewLayer({
       {/* Co-pilot critique — commentary beside the score, never an input to it. */}
       <CritiqueSection state={state} dispatch={dispatch} />
 
-      {/* Publish panel */}
+      {/* Closing panel — honest about what exists today. Sharing and PDF
+          export ship later; a success toast for a no-op is worse than nothing. */}
       <div style={{ marginTop: 24, background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 14, padding: '22px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-          <div>
-            <div className="mono" style={{ fontSize: 10, color: 'var(--amber)' }}>
-              {draftLocked ? 'Claim the draft to unlock' : 'Ready to publish'}
-            </div>
-            <div style={{ fontSize: 14, color: 'var(--rule)', marginTop: 8, maxWidth: '34ch', lineHeight: 1.5 }}>
-              {draftLocked
-                ? 'Publishing and export unlock once every AI-drafted layer has been reviewed and claimed.'
-                : 'Publishing shares this house with its current strength. You can keep refining after.'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'PUBLISH' })}
-              title={draftLocked ? 'Claim every AI-drafted layer to unlock publishing.' : undefined}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 44, padding: '0 18px', background: 'var(--amber)', color: 'var(--ink)', borderRadius: 8, fontWeight: 600, fontSize: 15, opacity: draftLocked ? 0.5 : 1 }}
-            >
-              <UploadIcon size={16} stroke="var(--ink)" />
-              Publish house
-            </button>
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'EXPORT' })}
-              title={draftLocked ? 'Claim every AI-drafted layer to unlock export.' : undefined}
-              style={{ height: 44, padding: '0 18px', border: '1px solid var(--ink-subtle)', color: 'var(--parchment)', background: 'transparent', borderRadius: 8, fontWeight: 600, fontSize: 15, opacity: draftLocked ? 0.5 : 1 }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--parchment)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--ink-subtle)')}
-            >
-              Export
-            </button>
-          </div>
+        <div className="mono" style={{ fontSize: 10, color: 'var(--amber)' }}>
+          {draftLocked ? 'Claim the draft to finish' : 'Your house is saved'}
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--rule)', marginTop: 8, maxWidth: '52ch', lineHeight: 1.5 }}>
+          {draftLocked
+            ? 'Review and claim every AI-drafted layer above — the strength score stays provisional until the reasoning is yours.'
+            : 'Every change autosaves to your dashboard. Sharing and PDF export are on the roadmap; for classwork, turn the house in from your dashboard.'}
         </div>
       </div>
     </div>

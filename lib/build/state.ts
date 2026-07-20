@@ -2,7 +2,6 @@
 // Toast auto-dismiss timing lives in the view; the reducer only sets the string.
 
 import type { Action, ImplicationKind, PersonKey, Perspective, State } from './types'
-import { people, ownerCycle } from './people'
 import { layerKey, framePurpose, frameQuestion, conclusionBullets, reasoningSummary, perspectiveDetails } from './content'
 
 // Seed the demo house's perspectives with their rich detail (stance, sub-questions,
@@ -28,10 +27,8 @@ const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
   }
 })
 import { applyAiAction } from './aiActions'
-import { computeStrength } from './strength'
 import {
   DRAFT_STAGE_STEP,
-  draftGateLocked,
   emptyDraft,
   nextDraftStage,
   unclaimedDraftStages,
@@ -47,11 +44,6 @@ export const initialState: State = {
   question: frameQuestion,
   conclusion: conclusionBullets.join('\n\n'),
   reasoning: reasoningSummary,
-  rightTab: 'copilot',
-  inviteOpen: false,
-  inviteInput: '',
-  copied: false,
-  notesOpen: false,
   toast: '',
 
   concepts: [
@@ -135,9 +127,6 @@ export function reducer(state: State, action: Action): State {
 
     case 'SET_REASONING':
       return { ...state, reasoning: action.value }
-
-    case 'SET_TAB':
-      return { ...state, rightTab: action.tab }
 
     case 'SET_MODE':
       if (action.mode === state.mode) return state
@@ -240,19 +229,6 @@ export function reducer(state: State, action: Action): State {
 
     case 'CLOSE_PERSPECTIVE':
       return { ...state, activePerspective: null }
-
-    case 'CYCLE_OWNER': {
-      let name = ''
-      const perspectives = state.perspectives.map((p) => {
-        if (p.id !== action.id) return p
-        const idx = ownerCycle.indexOf(p.owner)
-        const owner = ownerCycle[(idx + 1) % ownerCycle.length]
-        name = people[owner].name
-        return { ...p, owner }
-      })
-      const p = state.perspectives.find((x) => x.id === action.id)
-      return { ...state, perspectives, toast: `${name} now owns ${p?.name ?? ''}` }
-    }
 
     case 'ADD_EVIDENCE':
       return {
@@ -425,45 +401,6 @@ export function reducer(state: State, action: Action): State {
           : `${layerKey(DRAFT_STAGE_STEP[action.stage])} claimed`,
       }
     }
-
-    case 'OPEN_INVITE':
-      return { ...state, inviteOpen: true, inviteInput: '', copied: false }
-
-    case 'CLOSE_INVITE':
-      return { ...state, inviteOpen: false }
-
-    case 'SET_INVITE_INPUT':
-      return { ...state, inviteInput: action.value }
-
-    case 'SEND_INVITE': {
-      const name = state.inviteInput.trim()
-      return {
-        ...state,
-        inviteOpen: false,
-        toast: name ? `Invite sent to ${name}` : 'Invite sent',
-      }
-    }
-
-    case 'COPY_LINK':
-      return { ...state, copied: true, toast: 'Invite link copied' }
-
-    case 'OPEN_NOTES':
-      return { ...state, notesOpen: true }
-
-    case 'CLOSE_NOTES':
-      return { ...state, notesOpen: false }
-
-    case 'PUBLISH':
-      // Draft gate (016 §2): the reducer is the last line of defense even if a
-      // disabled button slips through.
-      if (draftGateLocked(state.draft))
-        return { ...state, toast: 'Review and claim the AI-drafted layers before publishing' }
-      return { ...state, toast: `House published · strength ${computeStrength(state).overall}` }
-
-    case 'EXPORT':
-      if (draftGateLocked(state.draft))
-        return { ...state, toast: 'Review and claim the AI-drafted layers before exporting' }
-      return { ...state, toast: 'Exported as PDF' }
 
     case 'SET_TOAST':
       return { ...state, toast: action.value }

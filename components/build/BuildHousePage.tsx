@@ -17,8 +17,6 @@ import { BlueprintRail } from './BlueprintRail'
 import { MobileStepStrip } from './MobileStepStrip'
 import { Canvas } from './Canvas'
 import { RightRail, MobileRailDrawer } from './RightRail'
-import { InviteModal } from './InviteModal'
-import { WhatsNewDrawer } from './WhatsNewDrawer'
 import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
@@ -180,7 +178,7 @@ export function BuildHousePage({
   }, [state.toast])
 
   // Debounced autosave. Keyed on the persistable content only (contentKey), so
-  // ephemeral changes (step, tabs, toast, invite) never trigger a write. Skips
+  // ephemeral changes (step, toast, open perspective) never trigger a write. Skips
   // the first render after load — that state matches the DB already.
   const contentKey = useMemo(() => serializeContent(state), [state])
   useEffect(() => {
@@ -257,12 +255,8 @@ export function BuildHousePage({
   const VIEW_ACTIONS = useRef(
     new Set<Action['type']>([
       'GO_STEP',
-      'SET_TAB',
       'OPEN_PERSPECTIVE',
       'CLOSE_PERSPECTIVE',
-      'OPEN_NOTES',
-      'CLOSE_NOTES',
-      'CLOSE_INVITE',
       'SET_TOAST',
     ])
   )
@@ -318,11 +312,7 @@ export function BuildHousePage({
     <div className="vh-shell" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--parchment)' }}>
       {/* Header (app bar + context bar) */}
       <header style={{ flex: '0 0 auto' }}>
-        <AppBar
-          userEmail={userEmail}
-          onOpenNotes={() => dispatch({ type: 'OPEN_NOTES' })}
-          onSignOut={() => void handleSignOut()}
-        />
+        <AppBar userEmail={userEmail} onSignOut={() => void handleSignOut()} />
         {(readOnly || strawman) && (
           <div
             className="mono bhp-readonly-banner"
@@ -408,8 +398,6 @@ export function BuildHousePage({
           }}
           onTitleChange={(v) => guardedDispatch({ type: 'SET_TITLE', value: v })}
           onOpenReview={() => guardedDispatch({ type: 'GO_STEP', n: 7 })}
-          onInvite={() => guardedDispatch({ type: 'OPEN_INVITE' })}
-          onPublish={() => guardedDispatch({ type: 'PUBLISH' })}
         />
         {houseId && feedback && (
           <SubmissionFeedback houseId={houseId} mode={feedback} house={feedbackHouse} />
@@ -498,9 +486,6 @@ export function BuildHousePage({
         </button>
       )}
 
-      {/* Overlays */}
-      {state.inviteOpen && <InviteModal inviteInput={state.inviteInput} copied={state.copied} dispatch={dispatch} />}
-      {state.notesOpen && <WhatsNewDrawer dispatch={dispatch} />}
       <Toast message={state.toast} />
     </div>
   )

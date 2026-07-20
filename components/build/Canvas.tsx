@@ -5,7 +5,6 @@ import { forwardRef } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { layers, layerKey } from '@/lib/build/content'
-import { draftGateLocked } from '@/lib/ai/draft'
 import { ChevronLeft, LongArrow } from './buildIcons'
 import { DraftClaimBanner } from './DraftClaimBanner'
 import { FrameLayer } from './layers/FrameLayer'
@@ -66,7 +65,7 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
           {step === 7 && <ReviewLayer state={state} strength={strength} dispatch={dispatch} />}
 
           {/* Footer */}
-          <Footer step={step} publishLocked={draftGateLocked(state.draft)} dispatch={dispatch} />
+          <Footer step={step} dispatch={dispatch} />
         </div>
       </main>
     )
@@ -75,26 +74,20 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
 
 function Footer({
   step,
-  publishLocked,
   dispatch,
 }: {
   step: number
-  // Draft gate (016 §2): the reducer blocks PUBLISH anyway; this only dims the
-  // affordance and explains why.
-  publishLocked: boolean
   dispatch: React.Dispatch<Action>
 }) {
   const backDisabled = step === 1
   const backLabel = backDisabled ? 'Back' : layerKey(step - 1)
   const isLast = step === 7
-  const nextLabel = isLast ? 'Publish house' : `Next · ${layerKey(step + 1)}`
-  const dimPublish = isLast && publishLocked
 
   return (
     <div className="bhp-canvas-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 34, paddingTop: 20 }}>
       <button
         type="button"
-        aria-disabled={backDisabled}
+        disabled={backDisabled}
         onClick={() => { if (!backDisabled) dispatch({ type: 'GO_STEP', n: step - 1 }) }}
         className="bhp-footer-back"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14, color: backDisabled ? 'var(--rule)' : 'var(--ink)', cursor: backDisabled ? 'default' : 'pointer', background: 'transparent' }}
@@ -102,17 +95,20 @@ function Footer({
         <ChevronLeft size={14} stroke={backDisabled ? 'var(--rule)' : 'var(--ink)'} />
         {backLabel}
       </button>
-      <button
-        type="button"
-        title={dimPublish ? 'Claim every AI-drafted layer to unlock publishing.' : undefined}
-        onClick={() => (isLast ? dispatch({ type: 'PUBLISH' }) : dispatch({ type: 'GO_STEP', n: step + 1 }))}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 20px', background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 8, fontWeight: 600, fontSize: 14, opacity: dimPublish ? 0.5 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--ink-mid)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--ink)')}
-      >
-        {nextLabel}
-        <LongArrow size={16} stroke="var(--parchment)" />
-      </button>
+      {/* Review is the terminal layer — its "To strengthen this house" list is
+          the next action, so there is no forward button on the last step. */}
+      {!isLast && (
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'GO_STEP', n: step + 1 })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 20px', background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 8, fontWeight: 600, fontSize: 14 }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--ink-mid)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--ink)')}
+        >
+          Next · {layerKey(step + 1)}
+          <LongArrow size={16} stroke="var(--parchment)" />
+        </button>
+      )}
     </div>
   )
 }

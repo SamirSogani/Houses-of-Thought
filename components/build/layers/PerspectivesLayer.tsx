@@ -2,6 +2,7 @@
 // See handoff 05 §7 (Grid) / 04 §4.
 
 import type { Action, State } from '@/lib/build/types'
+import { people } from '@/lib/build/people'
 import { Avatar } from '../Avatar'
 import { ChevronRight } from '../buildIcons'
 import { InlineText, RemoveButton } from '../Editable'
@@ -70,17 +71,7 @@ export function PerspectivesLayer({ state, dispatch }: { state: State; dispatch:
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <RemoveButton title="Remove perspective" onClick={(e) => { stop(e); dispatch({ type: 'REMOVE_PERSPECTIVE', id: p.id }) }} />
-                  <button
-                    type="button"
-                    title="Reassign owner"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      dispatch({ type: 'CYCLE_OWNER', id: p.id })
-                    }}
-                    style={{ padding: 0, lineHeight: 0, borderRadius: '50%' }}
-                  >
-                    <Avatar who={p.owner} size={26} title="Reassign owner" />
-                  </button>
+                  <Avatar who={p.owner} size={26} title={people[p.owner].name} />
                   <span style={{ color: 'var(--ink-subtle)', display: 'inline-flex' }}>
                     <ChevronRight size={14} stroke="var(--ink-subtle)" />
                   </span>

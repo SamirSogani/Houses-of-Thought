@@ -1,14 +1,15 @@
-// Context bar: editable title, live strength pill, presence stack, Invite, Publish.
-// See handoff 02 §5 / 05 §3.
+// Context bar: editable title, live strength pill, mode toggle, presence.
+// The presence stack shows only who is actually here: you and the co-pilot.
+// (Fake collaborators and the inert Invite/Publish buttons were removed —
+// audit 2026-07-19, ai-slop §2-3.)
 
 import type { AiMode, PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
 import { Avatar } from './Avatar'
-import { PlusIcon, UploadIcon } from './buildIcons'
 
-const presenceOrder: PersonKey[] = ['you', 'maya', 'devan', 'ai']
+const presenceOrder: PersonKey[] = ['you', 'ai']
 
 // Live save state, driven by BuildHousePage's save controller. The eyebrow used
 // to claim "autosaved" statically (ux-review 6.4) — now it only says what the
@@ -36,8 +37,6 @@ export function ContextBar({
   onModeChange,
   onTitleChange,
   onOpenReview,
-  onInvite,
-  onPublish,
 }: {
   title: string
   // The overarching question — used as the title placeholder so an unnamed
@@ -58,8 +57,6 @@ export function ContextBar({
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
-  onInvite: () => void
-  onPublish: () => void
 }) {
   const col = strengthColor(strength.overall)
   const save = saveStatus ? SAVE_STATUS_TEXT[saveStatus] : null
@@ -187,7 +184,7 @@ export function ContextBar({
         })}
       </div>
 
-      {/* Right cluster */}
+      {/* Right cluster: who is actually in the house — you and the co-pilot. */}
       <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
         <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
           {presenceOrder.map((k) => (
@@ -201,54 +198,6 @@ export function ContextBar({
             />
           ))}
         </div>
-        <button
-          type="button"
-          onClick={onInvite}
-          disabled={readOnly}
-          className="bhp-context-btn"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            height: 38,
-            padding: '0 15px',
-            border: '1px solid var(--ink)',
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: 14,
-            color: 'var(--ink)',
-            background: 'var(--white)',
-            opacity: readOnly ? 0.5 : 1,
-            cursor: readOnly ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <PlusIcon size={14} />
-          Invite
-        </button>
-        <button
-          type="button"
-          onClick={onPublish}
-          disabled={readOnly}
-          title={draftLocked ? 'Claim every AI-drafted layer to unlock publishing.' : undefined}
-          className="bhp-context-btn"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            height: 38,
-            padding: '0 17px',
-            background: 'var(--amber)',
-            color: 'var(--ink)',
-            borderRadius: 8,
-            fontWeight: 600,
-            fontSize: 14,
-            opacity: readOnly || draftLocked ? 0.5 : 1,
-            cursor: readOnly ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <UploadIcon size={14} />
-          Publish
-        </button>
       </div>
     </div>
   )

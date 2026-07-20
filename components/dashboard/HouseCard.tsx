@@ -41,7 +41,6 @@ export function HouseCard({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(house.title ?? '')
-  const [copied, setCopied] = useState(false)
 
   function closeMenu() {
     setMenuOpen(false)
@@ -52,18 +51,9 @@ export function HouseCard({
     e.stopPropagation()
   }
 
-  async function share(e: React.MouseEvent) {
-    stop(e)
-    try {
-      await navigator.clipboard.writeText(window.location.origin + href)
-      // Keep the menu open so the "Link copied" confirmation is visible; it
-      // resets after a moment and an outside click dismisses the menu.
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      closeMenu()
-    }
-  }
+  // "Share (copy link)" was removed: it copied a /build/<id> URL that RLS
+  // bounces for anyone but the owner (or their teacher), so recipients silently
+  // dead-ended (audit 2026-07-19, ux H5). Restore once a shared view exists.
   function startRename(e: React.MouseEvent) {
     stop(e)
     setRenameValue(house.title ?? '')
@@ -218,7 +208,6 @@ export function HouseCard({
                 }}
               >
                 {onRename && <MenuItem onClick={startRename}>Rename</MenuItem>}
-                <MenuItem onClick={share}>{copied ? 'Link copied' : 'Share (copy link)'}</MenuItem>
                 {isSubmission && onTurnIn && !(house.turnedIn && graded) && (
                   <MenuItem onClick={turnIn}>{house.turnedIn ? 'Undo turn in' : 'Turn in'}</MenuItem>
                 )}

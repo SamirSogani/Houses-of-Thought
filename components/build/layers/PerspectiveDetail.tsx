@@ -76,9 +76,7 @@ export function PerspectiveDetail({
           <div>
             <div style={monoLabel({ fontSize: 9 })}>Owner</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <button type="button" title="Reassign owner" onClick={() => dispatch({ type: 'CYCLE_OWNER', id: p.id })} style={{ padding: 0, lineHeight: 0, borderRadius: '50%' }}>
-                <Avatar who={p.owner} size={24} title="Reassign owner" />
-              </button>
+              <Avatar who={p.owner} size={24} title={owner.name} />
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{owner.name}</span>
             </div>
           </div>

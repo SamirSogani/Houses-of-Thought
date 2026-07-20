@@ -1,8 +1,10 @@
-// Top app bar: logo/wordmark, Framework/Collab nav, What's new, Profile, Sign out.
-// See handoff 02 §4 / 05 §2. Profile shows the real signed-in email; Sign out is wired.
+// Top app bar: logo/wordmark (links back to the dashboard), profile link, sign
+// out. The old decorative Framework/Collab spans and the "What's new" drawer
+// button were removed — they were inert chrome and an internal handoff artifact
+// (audit 2026-07-19, ai-slop §7/§10).
 
+import Link from 'next/link'
 import { LogoMark } from '@/components/icons'
-import { SparkIcon } from './buildIcons'
 
 const monoLabel: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
@@ -13,64 +15,36 @@ const monoLabel: React.CSSProperties = {
 
 export function AppBar({
   userEmail,
-  onOpenNotes,
   onSignOut,
 }: {
   userEmail: string | null
-  onOpenNotes: () => void
   onSignOut: () => void
 }) {
   return (
     <div style={{ background: 'var(--white)', borderBottom: '1px solid var(--rule)' }}>
       <div className="bhp-appbar" style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '12px 24px' }}>
-        {/* Logo + wordmark */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Logo + wordmark → back to the dashboard */}
+        <Link
+          href="/dashboard"
+          title="Back to your dashboard"
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
+        >
           <LogoMark />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>
             Houses of Thought
           </span>
-        </div>
-
-        {/* Nav (decorative — hidden on mobile) */}
-        <nav className="bhp-appbar-nav" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 14 }}>
-          <span style={{ ...monoLabel, color: 'var(--ink-subtle)', padding: '6px 10px' }}>Framework</span>
-          <span
-            style={{
-              ...monoLabel,
-              color: 'var(--ink)',
-              background: 'var(--parchment)',
-              border: '1px solid var(--rule)',
-              borderRadius: 6,
-              padding: '6px 10px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <SparkIcon size={12} fill="var(--amber-hover)" />
-            Collab
-          </span>
-        </nav>
+        </Link>
 
         {/* Right cluster */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: 'auto' }}>
-          <button
-            type="button"
-            onClick={onOpenNotes}
-            title="What changed vs the old flow"
-            style={{
-              ...monoLabel,
-              color: 'var(--blueprint)',
-              border: '1px dashed var(--blueprint)',
-              borderRadius: 6,
-              padding: '6px 11px',
-            }}
+          <Link
+            href="/profile"
+            className="bhp-appbar-email"
+            style={{ ...monoLabel, color: 'var(--ink-subtle)', textDecoration: 'none' }}
+            title={userEmail ? `Profile · ${userEmail}` : 'Profile'}
           >
-            What&apos;s new
-          </button>
-          <span className="bhp-appbar-email" style={{ ...monoLabel, color: 'var(--ink-subtle)' }} title={userEmail ?? undefined}>
             {userEmail ? shortenEmail(userEmail) : 'Profile'}
-          </span>
+          </Link>
           <button type="button" onClick={onSignOut} className="bhp-pad-tap" style={{ ...monoLabel, color: 'var(--ink-subtle)' }}>
             Sign out
           </button>

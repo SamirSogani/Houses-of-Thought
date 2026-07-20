@@ -67,7 +67,6 @@ export interface Implication {
   who: string
 }
 
-export type RightTab = 'copilot' | 'team'
 
 // How much help the co-pilot gives (decision 007). Learn = Socratic questions
 // only; Decide = concrete suggestions with Add. Persistable; default 'decide'.
@@ -94,11 +93,6 @@ export interface State {
   // Conclusion layer, user-editable prose (start empty).
   conclusion: string
   reasoning: string
-  rightTab: RightTab
-  inviteOpen: boolean
-  inviteInput: string
-  copied: boolean
-  notesOpen: boolean
   toast: string
   concepts: Concept[]
   perspectives: Perspective[]
@@ -120,7 +114,6 @@ export type Action =
   | { type: 'SET_QUESTION'; value: string }
   | { type: 'SET_CONCLUSION'; value: string }
   | { type: 'SET_REASONING'; value: string }
-  | { type: 'SET_TAB'; tab: RightTab }
   | { type: 'SET_MODE'; mode: AiMode }
   | { type: 'SET_AI_CONTEXT'; context: AiContext | null }
   | { type: 'ADD_CONCEPT' }
@@ -140,7 +133,6 @@ export type Action =
   | { type: 'REMOVE_COUNTER'; pid: number; idx: number }
   | { type: 'OPEN_PERSPECTIVE'; id: number }
   | { type: 'CLOSE_PERSPECTIVE' }
-  | { type: 'CYCLE_OWNER'; id: number }
   | { type: 'ADD_EVIDENCE' }
   | { type: 'EDIT_EVIDENCE'; id: number; field: 'text' | 'source'; value: string }
   | { type: 'REMOVE_EVIDENCE'; id: number }
@@ -166,13 +158,4 @@ export type Action =
   | { type: 'APPLY_DRAFT_STAGE'; stage: DraftStage; actions: AiAction[] }
   | { type: 'STOP_DRAFT' }
   | { type: 'CLAIM_DRAFT_LAYER'; stage: DraftStage }
-  | { type: 'OPEN_INVITE' }
-  | { type: 'CLOSE_INVITE' }
-  | { type: 'SET_INVITE_INPUT'; value: string }
-  | { type: 'SEND_INVITE' }
-  | { type: 'COPY_LINK' }
-  | { type: 'OPEN_NOTES' }
-  | { type: 'CLOSE_NOTES' }
-  | { type: 'PUBLISH' }
-  | { type: 'EXPORT' }
   | { type: 'SET_TOAST'; value: string }
