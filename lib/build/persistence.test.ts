@@ -12,12 +12,15 @@ import {
   saveHouse,
   saveLocalHouse,
   serializeContent,
+  toSavePayload,
+  type SaveHousePayload,
 } from './persistence'
 import type { State } from './types'
 
 // ── Recording fake Supabase client ───────────────────────────────────────────
-// Chainable + thenable like the real builder. Results are scripted per
-// `${table}.${op}`; every operation is recorded with payload and filters.
+// Chainable + thenable like the real builder, plus rpc() for save_house.
+// Results are scripted per `${table}.${op}` (or 'rpc.<name>'); every call is
+// recorded with its payload and filters.
 
 interface Result {
   data?: unknown
@@ -25,7 +28,7 @@ interface Result {
 }
 interface Op {
   table: string
-  op: 'select' | 'update' | 'insert' | 'delete'
+  op: 'select' | 'update' | 'insert' | 'delete' | 'rpc'
   payload?: unknown
   filters: [string, unknown][]
 }
@@ -77,7 +80,75 @@ function fakeDb(results: Record<string, Result> = {}) {
     }
     return b
   }
-  return { client: { from } as any, ops }
+
+  const rpc = (name: string, args: unknown) => {
+    ops.push({ table: name, op: 'rpc', payload: args, filters: [] })
+    return Promise.resolve(resultFor(`rpc.${name}`))
+  }
+
+  return { client: { from, rpc } as any, ops }
+}
+
+// The SQL half of the round trip, expressed in TS: mirrors exactly what
+// save_house (migration 0027) inserts into each child table from the payload.
+// Keeping it here means the round-trip test still fails if toSavePayload and
+// loadHouse drift apart — and it documents the RPC's mapping next to the code
+// that has to agree with it.
+function childRowsFor(p: SaveHousePayload) {
+  return {
+    house_perspectives: p.perspectives.map((x, i) => ({
+      name: x.name,
+      summary: x.summary,
+      questions: x.subQuestions.length,
+      stance: x.stance,
+      sub_questions: x.subQuestions,
+      supporting_evidence: x.supportingEvidence,
+      counters: x.counters,
+      strength: x.strength,
+      owner_key: x.owner,
+      position: i,
+    })),
+    house_evidence: p.evidence.map((x, i) => ({
+      text: x.text,
+      source: x.source,
+      url: x.url,
+      owner_key: x.owner,
+      by_ai: x.byAI,
+      position: i,
+    })),
+    house_assumptions: p.assumptions.map((x, i) => ({
+      text: x.text,
+      owner_key: x.owner,
+      position: i,
+    })),
+    house_implications: (['pos', 'neg', 'unc'] as const).flatMap((kind) =>
+      p[kind].map((x, i) => ({
+        kind,
+        text: x.text,
+        horizon: x.horizon || null,
+        who: x.who,
+        position: i,
+      }))
+    ),
+  }
+}
+
+// The parent-row half: the columns save_house writes, as loadHouse reads them.
+function parentRowFor(p: SaveHousePayload, rev: string) {
+  return {
+    title: p.title || null,
+    question: p.question || null,
+    purpose: p.purpose || null,
+    conclusion: p.conclusion || null,
+    reasoning: p.reasoning || null,
+    concepts: p.concepts,
+    concept_definitions: p.conceptDefinitions,
+    watchpoints: p.watchpoints,
+    mode: p.mode,
+    ai_context: p.aiContext,
+    draft: p.draft,
+    updated_at: rev,
+  }
 }
 
 // A house with content in every layer, ids sequential per list (as loadHouse
@@ -121,7 +192,7 @@ function richState(): State {
 }
 
 const okSave = (rev = '2026-07-16T01:00:00Z'): Record<string, Result> => ({
-  'houses.update': { data: [{ updated_at: rev }], error: null },
+  'rpc.save_house': { data: rev, error: null },
 })
 
 afterEach(() => {
@@ -150,20 +221,18 @@ describe('save/load round-trip', () => {
     const rev = await saveHouse(writer, 'h1', original, 'r0')
     expect(rev).toBe('2026-07-16T01:00:00Z')
 
-    const parent = ops.find((o) => o.table === 'houses' && o.op === 'update')!
-      .payload as Record<string, unknown>
-    const rows = (table: string) =>
-      (ops.find((o) => o.table === table && o.op === 'insert')?.payload as Record<
-        string,
-        unknown
-      >[]) ?? []
+    // Replay the payload through the RPC's documented row mapping, then read it
+    // back: toSavePayload → (SQL) → loadHouse must reproduce the same content.
+    const sent = (ops.find((o) => o.op === 'rpc')!.payload as { p_content: SaveHousePayload })
+      .p_content
+    const rows = childRowsFor(sent)
 
     const { client: reader } = fakeDb({
-      'houses.select': { data: { ...parent, updated_at: rev }, error: null },
-      'house_perspectives.select': { data: rows('house_perspectives'), error: null },
-      'house_evidence.select': { data: rows('house_evidence'), error: null },
-      'house_assumptions.select': { data: rows('house_assumptions'), error: null },
-      'house_implications.select': { data: rows('house_implications'), error: null },
+      'houses.select': { data: parentRowFor(sent, rev), error: null },
+      'house_perspectives.select': { data: rows.house_perspectives, error: null },
+      'house_evidence.select': { data: rows.house_evidence, error: null },
+      'house_assumptions.select': { data: rows.house_assumptions, error: null },
+      'house_implications.select': { data: rows.house_implications, error: null },
     })
     const loaded = await loadHouse(reader, 'h1')
     expect(loaded).not.toBeNull()
@@ -173,48 +242,64 @@ describe('save/load round-trip', () => {
     )
   })
 
-  it('writes the expected shape: 1 guarded update, 4 deletes, positional inserts, aligned concept arrays', async () => {
+  it('saves in ONE transactional rpc call carrying the rev guard (perf H3)', async () => {
     const { client, ops } = fakeDb(okSave())
     await saveHouse(client, 'h1', richState(), 'r0')
 
-    expect(ops.filter((o) => o.op === 'update')).toHaveLength(1)
-    expect(ops.filter((o) => o.op === 'delete')).toHaveLength(4)
-    const update = ops[0]
-    expect(update.filters).toContainEqual(['id', 'h1'])
-    expect(update.filters).toContainEqual(['updated_at', 'r0']) // the rev guard
-    const payload = update.payload as { concepts: string[]; concept_definitions: string[] }
-    expect(payload.concepts).toEqual(['a', 'b'])
-    expect(payload.concept_definitions).toEqual(['da', '']) // index-aligned (DB M2)
+    // The whole point of 0027: no client-side delete/insert fan-out remains.
+    expect(ops).toHaveLength(1)
+    expect(ops[0]).toMatchObject({ table: 'save_house', op: 'rpc' })
+    const args = ops[0].payload as { p_id: string; p_expected_rev: string | null; p_content: SaveHousePayload }
+    expect(args.p_id).toBe('h1')
+    expect(args.p_expected_rev).toBe('r0')
+    expect(args.p_content.concepts).toEqual(['a', 'b'])
+    expect(args.p_content.conceptDefinitions).toEqual(['da', '']) // index-aligned (DB M2)
+  })
 
-    const evidence = ops.find((o) => o.table === 'house_evidence' && o.op === 'insert')!
-      .payload as { position: number }[]
-    evidence.forEach((row, i) => expect(row.position).toBe(i))
+  it('omits the rev guard on a first save', async () => {
+    const { client, ops } = fakeDb(okSave())
+    await saveHouse(client, 'h1', richState())
+    expect((ops[0].payload as { p_expected_rev: string | null }).p_expected_rev).toBeNull()
+  })
+
+  it('toSavePayload carries no reducer ids — position comes from array order', () => {
+    const p = toSavePayload(richState())
+    for (const row of [...p.perspectives, ...p.evidence, ...p.assumptions, ...p.pos]) {
+      expect(row).not.toHaveProperty('id')
+    }
   })
 })
 
 describe('saveHouse failure classification', () => {
-  it('zero rows updated under a rev guard is a stale-write, before any child delete', async () => {
-    const { client, ops } = fakeDb({ 'houses.update': { data: [], error: null } })
+  it('the RPC stale-write raise maps to the stale-write code', async () => {
+    const { client } = fakeDb({
+      'rpc.save_house': { data: null, error: { message: 'stale-write' } },
+    })
     await expect(saveHouse(client, 'h1', richState(), 'r-stale')).rejects.toMatchObject({
       code: 'stale-write',
     })
-    expect(ops.filter((o) => o.op === 'delete')).toHaveLength(0) // fresher data intact
+  })
+
+  it('the RPC save-failed raise maps to the save-failed code', async () => {
+    const { client } = fakeDb({
+      'rpc.save_house': { data: null, error: { message: 'save-failed' } },
+    })
+    await expect(saveHouse(client, 'h1', richState())).rejects.toMatchObject({
+      code: 'save-failed',
+    })
   })
 
   it('a JWT-expired error classifies as signed-out', async () => {
     const { client } = fakeDb({
-      'houses.update': { data: null, error: { message: 'JWT expired' } },
+      'rpc.save_house': { data: null, error: { message: 'JWT expired' } },
     })
     await expect(saveHouse(client, 'h1', richState())).rejects.toMatchObject({
       code: 'signed-out',
     })
   })
 
-  it('a failed child insert throws save-failed instead of resolving silently (B1)', async () => {
-    const { client } = fakeDb({
-      ...okSave(),
-      'house_evidence.insert': { data: null, error: { message: 'network' } },
-    })
+  it('a missing rev in the response is a failure, never a silent success', async () => {
+    const { client } = fakeDb({ 'rpc.save_house': { data: null, error: null } })
     const err = await saveHouse(client, 'h1', richState(), 'r0').catch((e) => e)
     expect(err).toBeInstanceOf(SaveError)
     expect((err as SaveError).code).toBe('save-failed')

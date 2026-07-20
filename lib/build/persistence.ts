@@ -286,119 +286,121 @@ export async function loadHouse(supabase: Supabase, id: string): Promise<LoadedH
   return { state, rev: house.updated_at as string }
 }
 
-// Whole-house replace: update the parent scalar/array columns, then for each
-// child table delete the house's rows and bulk-insert the current arrays with
-// position = index. Returns the NEW rev (the trigger-bumped updated_at) the
+// The save_house(jsonb) payload. Deliberately its own shape rather than State:
+// it is the wire contract with the RPC (migration 0027), which reads these exact
+// keys. Exported so the round-trip test can assert on it without a DB.
+export interface SaveHousePayload {
+  title: string
+  question: string
+  purpose: string
+  conclusion: string
+  reasoning: string
+  concepts: string[]
+  conceptDefinitions: string[]
+  watchpoints: string[]
+  mode: State['mode']
+  aiContext: State['aiContext']
+  draft: State['draft']
+  layersComplete: number
+  status: HouseStatus
+  perspectives: {
+    name: string
+    summary: string
+    stance: string
+    subQuestions: Perspective['subQuestions']
+    supportingEvidence: Perspective['supportingEvidence']
+    counters: string[]
+    strength: number
+    owner: string
+  }[]
+  evidence: { text: string; source: string; url: string | null; owner: string; byAI: boolean }[]
+  assumptions: { text: string; owner: string }[]
+  pos: { text: string; horizon: string; who: string }[]
+  neg: { text: string; horizon: string; who: string }[]
+  unc: { text: string; horizon: string; who: string }[]
+}
+
+// Flatten a reducer State into the RPC payload. Pure — no DB, no ids: the RPC
+// assigns `position` from array order, exactly as the old per-table inserts did.
+export function toSavePayload(state: State): SaveHousePayload {
+  const implications = (list: State['pos']) =>
+    list.map((x) => ({ text: x.text, horizon: x.horizon, who: x.who }))
+  return {
+    title: state.title,
+    question: state.question,
+    purpose: state.purpose,
+    conclusion: state.conclusion,
+    reasoning: state.reasoning,
+    concepts: state.concepts.map((c) => c.term),
+    conceptDefinitions: state.concepts.map((c) => c.definition),
+    watchpoints: state.watchpoints,
+    mode: state.mode,
+    aiContext: state.aiContext,
+    draft: state.draft,
+    layersComplete: doneCount(state),
+    status: deriveStatus(state),
+    perspectives: state.perspectives.map((p) => ({
+      name: p.name,
+      summary: p.summary,
+      stance: p.stance,
+      subQuestions: p.subQuestions,
+      supportingEvidence: p.supportingEvidence,
+      counters: p.counters,
+      strength: p.strength,
+      owner: p.owner,
+    })),
+    evidence: state.evidence.map((e) => ({
+      text: e.text,
+      source: e.source,
+      url: e.url ?? null,
+      owner: e.owner,
+      byAI: e.byAI,
+    })),
+    assumptions: state.assumptions.map((a) => ({ text: a.text, owner: a.owner })),
+    pos: implications(state.pos),
+    neg: implications(state.neg),
+    unc: implications(state.unc),
+  }
+}
+
+// Whole-house replace in ONE transactional round trip via the save_house RPC
+// (migration 0027). Returns the NEW rev (the trigger-bumped updated_at) the
 // caller must present on its next save.
 //
-// When expectedRev is given, the parent UPDATE is conditioned on it: zero rows
-// updated means the row changed since load (another tab or device) and the save
-// aborts with 'stale-write' BEFORE any child delete — the stale writer never
-// destroys the fresher content. Not one transaction yet (DB plan Phase-0 §3);
-// the guard + error checks close the everyday loss modes.
+// The RPC replaces what used to be up to nine sequential statements from the
+// client. They were individually error-checked, but not atomic: a failure after
+// a child DELETE and before its INSERT permanently emptied that layer, and two
+// concurrent writers could interleave their delete/insert pairs (perf audit H3).
+// Now the whole replace commits or rolls back as a unit.
+//
+// When expectedRev is given the parent UPDATE is conditioned on it, so a stale
+// writer aborts before anything is deleted; the RPC raises 'stale-write', which
+// maps to the SaveError code the save controller already knows how to handle.
 export async function saveHouse(
   supabase: Supabase,
   id: string,
   state: State,
   expectedRev?: string
 ): Promise<string> {
-  let update = supabase
-    .from('houses')
-    .update({
-      title: state.title || null,
-      question: state.question || null,
-      purpose: state.purpose || null,
-      conclusion: state.conclusion || null,
-      reasoning: state.reasoning || null,
-      concepts: state.concepts.map((c) => c.term),
-      concept_definitions: state.concepts.map((c) => c.definition),
-      watchpoints: state.watchpoints,
-      mode: state.mode,
-      ai_context: state.aiContext,
-      draft: state.draft,
-      layers_complete: doneCount(state),
-      status: deriveStatus(state),
-      // Bump explicitly as well as via the 0003 trigger, so the token advances
-      // even if a future schema drops the trigger.
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-  if (expectedRev) update = update.eq('updated_at', expectedRev)
-  const parent = await update.select('updated_at')
-  if (parent.error) throw new SaveError(classifyDbError(parent.error.message), parent.error.message)
-  const newRev = (parent.data?.[0] as { updated_at: string } | undefined)?.updated_at
-  if (!newRev) throw new SaveError(expectedRev ? 'stale-write' : 'save-failed', 'no row updated')
+  const { data, error } = await supabase.rpc('save_house', {
+    p_id: id,
+    p_expected_rev: expectedRev ?? null,
+    p_content: toSavePayload(state),
+  })
 
-  // Perspectives.
-  const delPersp = await supabase.from('house_perspectives').delete().eq('house_id', id)
-  if (delPersp.error) throw new SaveError(classifyDbError(delPersp.error.message), delPersp.error.message)
-  if (state.perspectives.length > 0) {
-    const ins = await supabase.from('house_perspectives').insert(
-      state.perspectives.map((p, i) => ({
-        house_id: id,
-        name: p.name,
-        summary: p.summary,
-        questions: p.subQuestions.length,
-        stance: p.stance,
-        sub_questions: p.subQuestions,
-        supporting_evidence: p.supportingEvidence,
-        counters: p.counters,
-        strength: p.strength,
-        owner_key: p.owner,
-        position: i,
-      }))
-    )
-    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
+  if (error) {
+    // The RPC raises the SaveErrorCode itself, so a recognized code passes
+    // through verbatim; anything else is classified from the message.
+    const message = error.message ?? ''
+    const code: SaveErrorCode = message.includes('stale-write')
+      ? 'stale-write'
+      : message.includes('save-failed')
+        ? 'save-failed'
+        : classifyDbError(message)
+    throw new SaveError(code, message)
   }
-
-  // Evidence.
-  const delEvid = await supabase.from('house_evidence').delete().eq('house_id', id)
-  if (delEvid.error) throw new SaveError(classifyDbError(delEvid.error.message), delEvid.error.message)
-  if (state.evidence.length > 0) {
-    const ins = await supabase.from('house_evidence').insert(
-      state.evidence.map((e, i) => ({
-        house_id: id,
-        text: e.text,
-        source: e.source,
-        url: e.url ?? null,
-        owner_key: e.owner,
-        by_ai: e.byAI,
-        position: i,
-      }))
-    )
-    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
+  if (typeof data !== 'string' || !data) {
+    throw new SaveError('save-failed', 'save_house returned no rev')
   }
-
-  // Assumptions.
-  const delAssum = await supabase.from('house_assumptions').delete().eq('house_id', id)
-  if (delAssum.error) throw new SaveError(classifyDbError(delAssum.error.message), delAssum.error.message)
-  if (state.assumptions.length > 0) {
-    const ins = await supabase.from('house_assumptions').insert(
-      state.assumptions.map((a, i) => ({
-        house_id: id,
-        text: a.text,
-        owner_key: a.owner,
-        position: i,
-      }))
-    )
-    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
-  }
-
-  // Implications: three reducer lists collapse into one table via `kind`,
-  // positioned per kind so each list round-trips in order.
-  const delImplic = await supabase.from('house_implications').delete().eq('house_id', id)
-  if (delImplic.error) throw new SaveError(classifyDbError(delImplic.error.message), delImplic.error.message)
-  const implications = [
-    ...state.pos.map((x, i) => ({ kind: 'pos', text: x.text, horizon: x.horizon, who: x.who, position: i })),
-    ...state.neg.map((x, i) => ({ kind: 'neg', text: x.text, horizon: x.horizon, who: x.who, position: i })),
-    ...state.unc.map((x, i) => ({ kind: 'unc', text: x.text, horizon: x.horizon, who: x.who, position: i })),
-  ]
-  if (implications.length > 0) {
-    const ins = await supabase
-      .from('house_implications')
-      .insert(implications.map((r) => ({ house_id: id, ...r })))
-    if (ins.error) throw new SaveError(classifyDbError(ins.error.message), ins.error.message)
-  }
-
-  return newRev
+  return data
 }

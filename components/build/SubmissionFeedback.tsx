@@ -28,6 +28,9 @@ export function SubmissionFeedback({
   const [grade, setGrade] = useState('')
   const [exists, setExists] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  // The initial read failed — saving is blocked so blanks can't overwrite
+  // feedback that exists but couldn't be fetched (audit B9).
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [saveError, setSaveError] = useState(false)
@@ -40,7 +43,7 @@ export function SubmissionFeedback({
 
   const load = useCallback(async () => {
     const supabase = createClient()
-    const [{ data }, { data: auth }] = await Promise.all([
+    const [{ data, error }, { data: auth }] = await Promise.all([
       supabase
         .from('submission_feedback')
         .select('feedback, grade, teacher_id, updated_at')
@@ -48,6 +51,15 @@ export function SubmissionFeedback({
         .maybeSingle(),
       supabase.auth.getUser(),
     ])
+    // A failed read used to look exactly like "no feedback yet": the teacher got
+    // an empty form and the next save upserted blanks over the existing row
+    // (audit B9). Track the failure and block saving until a read succeeds.
+    if (error) {
+      setLoadError(true)
+      setLoaded(true)
+      return
+    }
+    setLoadError(false)
     if (data) {
       setFeedback((data.feedback as string) ?? '')
       setGrade((data.grade as string) ?? '')
@@ -67,7 +79,7 @@ export function SubmissionFeedback({
   }, [load])
 
   async function save() {
-    if (saving) return
+    if (saving || loadError) return
     setSaving(true)
     const supabase = createClient()
     const {
@@ -167,13 +179,17 @@ export function SubmissionFeedback({
             <button type="button" onClick={runCritic} disabled={critiquing || !house} className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ink)', border: '1px solid var(--ink)', borderRadius: 8, padding: '8px 12px', background: 'var(--white)', cursor: critiquing || !house ? 'default' : 'pointer', opacity: critiquing ? 0.6 : 1 }}>
               {critiquing ? 'Running critic…' : 'Critic summary'}
             </button>
-            <button type="button" onClick={save} disabled={saving} className="btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
+            <button type="button" onClick={save} disabled={saving || loadError} className="btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center', opacity: saving || loadError ? 0.6 : 1 }}>
               {saving ? 'Saving…' : 'Save feedback'}
             </button>
-            {saveError ? (
-              <span className="mono" style={{ fontSize: 9, color: 'var(--warning)' }}>Couldn&apos;t save — try again</span>
+            {loadError ? (
+              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning)' }}>
+                Couldn&apos;t load existing feedback — reload before saving
+              </span>
+            ) : saveError ? (
+              <span role="alert" className="mono" style={{ fontSize: 9, color: 'var(--warning)' }}>Couldn&apos;t save — try again</span>
             ) : savedAt ? (
-              <span className="mono" style={{ fontSize: 9, color: 'var(--green-strong)' }}>Saved {savedAt}</span>
+              <span role="status" className="mono" style={{ fontSize: 9, color: 'var(--green-strong)' }}>Saved {savedAt}</span>
             ) : null}
           </div>
 
