@@ -117,7 +117,9 @@ export function BuildHousePage({
   const attemptRef = useRef(0)
   const blockedRef = useRef(false) // stale-write: stop saving until reload
 
-  const runSave = useCallback(() => {
+  // Named function expression: the trailing-save recursion and the retry timer
+  // resolve to the function itself, not the outer const (TDZ-safe under lint).
+  const runSave = useCallback(function runSave() {
     if (blockedRef.current || lockedRef.current) return
     if (inFlightRef.current) {
       pendingRef.current = true

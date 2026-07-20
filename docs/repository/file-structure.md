@@ -67,7 +67,8 @@ exists to locate the right file, not to invite broad exploration.
   routes under `app/api/ai/` (e.g. `ai/suggest`), which take a house payload
   and return proposals and never write the DB, plus the admin-gated routes
   under `app/api/admin/` (monitor endpoints, plus House Chat's `chat-intake`
-  and `chat-conclusions`; decisions 017–018).
+  and `chat-conclusions`; decisions 017–018), and the public `app/api/health/`
+  uptime probe (DB reachability + configured AI-lane count).
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
 - **Current routes:** marketing — `/`, `/how-it-works`, `/educators`, `/story`,
   `/faq`, `/examples` (+ `/examples/[slug]`), `/try`; auth — `/login`,
@@ -106,12 +107,17 @@ exists to locate the right file, not to invite broad exploration.
   contract), `draft.ts` (client-safe Draft Mode contract — stages, claim
   state, gate helpers; decision 016), `chat.ts` (client-safe House Chat intake
   contract + verbatim-span clamps; decision 017). `auth/admin.ts` gates the AI
-  monitor and House Chat (decisions 014, 017).
+  monitor and House Chat (decisions 014, 017). `log.ts` is the server-side
+  structured logger (single-line JSON for Vercel log search).
 
 ## Root files
 
 - `middleware.ts` — Next.js middleware; refreshes Supabase auth sessions on
   every request.
+- `eslint.config.mjs` — flat ESLint config (`pnpm lint`); two react-hooks v7
+  rules are downgraded to warnings as tracked debt (see the file's comment).
+- `.github/workflows/` — `ci.yml` (typecheck / lint / test / build gate) and
+  `backup.yml` (nightly encrypted pg_dump; no-ops until repo secrets are set).
 
 ---
 

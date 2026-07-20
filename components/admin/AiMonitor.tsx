@@ -286,7 +286,7 @@ export function AiMonitor() {
           </Card>
         ) : snap ? (
           <>
-            {/* global state */}
+            {/* Router-wide state (lowercase "global" would read as an ESLint globals directive) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <Card>
                 <SectionLabel>Daily quotas · this instance</SectionLabel>

@@ -42,8 +42,6 @@ const layerDefs: Record<LayerKey, { num: string; name: string; definition: strin
   },
 }
 
-const layerOrder: LayerKey[] = ['concepts', 'question', 'perspectives', 'evidence', 'assumptions', 'conclusion', 'implications']
-
 function InteractiveHouseSvg({
   activeLayer,
   onSelect,

@@ -4,3 +4,6 @@
 # (ERR_PNPM_IGNORED_BUILDS). See decisions/013-standardize-on-pnpm.md.
 allowBuilds:
   sharp: true
+  # eslint-import-resolver-typescript's native resolver — its WASM fallback is
+  # fine (lint passes without the build), so keep postinstall scripts blocked.
+  unrs-resolver: false

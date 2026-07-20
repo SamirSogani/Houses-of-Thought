@@ -27,7 +27,6 @@ export interface AuthedPage {
 }
 
 export function useAuthedPage(): AuthedPage {
-  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [accountType, setAccountType] = useState<AccountType>('standard')
   const [resolved, setResolved] = useState(false)

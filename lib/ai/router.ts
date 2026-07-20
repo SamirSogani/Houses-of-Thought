@@ -76,7 +76,7 @@ import {
   TOKEN_SAFETY_MARGIN,
   type AiRole,
 } from './router-shared'
-import { clientFor, TARGETS, __resetClients, __setClientFactory, type Target } from './router-config'
+import { clientFor, TARGETS, __resetClients, type Target } from './router-config'
 import {
   clearGroqRecovering,
   currentGroqTarget,

@@ -6,6 +6,17 @@ real classroom onboards (one deliberate $25/mo decision at that point).
 
 Effort: **S** ≤ 1 hour · **M** = half a day · **L** = 1–2 days.
 
+> **Status 2026-07-19** — done in-repo: 1 (scripts + eslint), 2 (was already
+> clean), 5 (partial: `.gitignore` pattern + launch.json; prune your local
+> `.env` yourself), 6, 7 (ci.yml), 10 (`/api/health`), 11 (backup.yml —
+> **no-ops until you add the `SUPABASE_DB_URL` secret and `AGE_PUBLIC_KEY`
+> var**), 12 (migrations README rules), 14 (test suite exists + wired into CI),
+> 15 (`lib/log.ts`), 18 (health route reports configured-lane count).
+> Still yours (need accounts/dashboards): 3 (manual pg_dump TODAY), 4
+> (UptimeRobot), 8 (branch protection — decide if you want PR flow), 9
+> (Sentry), 13 (Supabase CLI link), 16 (restore drill), 17 (staging project),
+> 19 ($25/mo trigger decision).
+
 ---
 
 ## Day one (the quick wins — ~2 hours total)

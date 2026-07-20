@@ -1,0 +1,43 @@
+# Nightly encrypted pg_dump of production (analysis/operations-and-delivery-plan.md
+# item 11). No-ops with a notice until the repo is configured — it needs:
+#
+#   Settings → Secrets → Actions:  SUPABASE_DB_URL   (session-pooler connection
+#     string, Supabase dashboard → Settings → Database)
+#   Settings → Variables → Actions:  AGE_PUBLIC_KEY  (from `age-keygen`; keep the
+#     PRIVATE key in a password manager, never in the repo or GitHub)
+#
+# Restore: age -d dump.pgc.age | pg_restore -d <scratch-db-url> --no-owner
+name: nightly-backup
+
+on:
+  schedule:
+    - cron: "17 9 * * *" # 09:17 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump and encrypt
+        id: dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          AGE_PUBLIC_KEY: ${{ vars.AGE_PUBLIC_KEY }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$AGE_PUBLIC_KEY" ]; then
+            echo "::notice::SUPABASE_DB_URL / AGE_PUBLIC_KEY not configured — skipping backup (see header of this workflow)"
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sudo apt-get -qq update && sudo apt-get -y -qq install postgresql-client age
+          pg_dump "$SUPABASE_DB_URL" --no-owner --format=custom -f dump.pgc
+          age -r "$AGE_PUBLIC_KEY" -o dump.pgc.age dump.pgc
+          rm dump.pgc
+          echo "ran=true" >> "$GITHUB_OUTPUT"
+      - name: Upload encrypted dump (90-day retention)
+        if: steps.dump.outputs.ran == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-${{ github.run_id }}
+          path: dump.pgc.age
+          retention-days: 90

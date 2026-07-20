@@ -3,7 +3,7 @@
 
 import type { State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
-import { layers, layerKey } from '@/lib/build/content'
+import { layerKey } from '@/lib/build/content'
 import { layerDone, doneCount } from '@/lib/build/strength'
 import { ChevronRight } from './buildIcons'
 
@@ -82,7 +82,6 @@ export function BlueprintRail({
         {/* Layer list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {order.map((step) => {
-            const layer = layers[step - 1]
             const active = state.step === step
             const isDone = layerDone(step, state)
             return (
