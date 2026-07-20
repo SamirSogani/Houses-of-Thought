@@ -8,6 +8,7 @@
 // docs/operations/model-sunset-runbook.md is the playbook).
 
 import OpenAI from 'openai'
+import { log } from '@/lib/log'
 
 // Fail loudly if this module is ever pulled into a client bundle — the API keys
 // must never ship to the browser.
@@ -122,9 +123,11 @@ export function clientFor(target: Target): OpenAI | null {
       })
     : null
   if (!client) {
-    console.error(
-      `[ai] no API key at ${target.keyEnv} for ${target.provider}/${target.model} — skipping`
-    )
+    log.error('ai', 'no API key for target — skipping', {
+      keyEnv: target.keyEnv,
+      provider: target.provider,
+      model: target.model,
+    })
   }
   clients.set(target.keyEnv, client)
   return client

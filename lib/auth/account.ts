@@ -7,6 +7,7 @@
 // signed-in student profile.
 
 import { createClient } from '@/lib/supabase/server'
+import { log } from '@/lib/log'
 import type { AccountType } from '@/lib/profile/data'
 import { capabilitiesFor, type Capabilities } from './capabilities'
 
@@ -31,10 +32,9 @@ export async function getCallerAccountType(): Promise<AccountType> {
       // 'student' (Decide mode, Draft Mode), so a transient profile-read hiccup
       // must not un-pin a student (bl-M5; capabilities.ts's own contract says a
       // bad DB row can never widen access).
-      console.error(
-        '[auth/account] profile lookup failed — failing closed to student posture:',
-        error?.message ?? 'no row'
-      )
+      log.error('auth/account', 'profile lookup failed — failing closed to student posture', {
+        error: error?.message ?? 'no row',
+      })
       return 'student'
     }
     return data.account_type as AccountType

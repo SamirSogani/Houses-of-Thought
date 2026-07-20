@@ -10,6 +10,7 @@
 // signal is ever required.
 
 import { TARGETS, targetName, type ProviderId, type Target } from './router-config'
+import { log } from '@/lib/log'
 
 // ── Groq penalty box ──────────────────────────────────────────────────────────
 // A Groq 429 is read as an *org-wide* block: real-time traffic skips Groq for
@@ -61,7 +62,7 @@ export function dailyExhaustedProviders(): string[] {
 }
 export function markDailyExhausted(p: ProviderId): void {
   dailyExhausted.set(p, todayUTC())
-  console.error(`[ai] ${p} daily quota exhausted — skipping it until UTC midnight`)
+  log.error('ai', 'daily quota exhausted — skipping until UTC midnight', { provider: p })
 }
 
 // ── Passive health / event log (feeds the admin monitor) ──────────────────────

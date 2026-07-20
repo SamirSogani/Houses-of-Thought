@@ -1,7 +1,10 @@
 // Shared vocabulary of the routing engine: the AiError contract, role type,
 // upstream-error classification, model-capability quirks, and token estimation.
 // Split from router.ts (which exceeded the repo's 600-LOC rule); imported by the
-// engine (router.ts) and the monitor (router-monitor.ts). No internal deps.
+// engine (router.ts) and the monitor (router-monitor.ts). Only internal dep is
+// the leaf logging helper (lib/log).
+
+import { log } from '@/lib/log'
 
 // Carries an HTTP status so routes can echo it straight back to the client.
 export class AiError extends Error {
@@ -58,7 +61,11 @@ export function isContextOverflow(err: unknown): boolean {
 // Map a non-transient (or terminal) error onto a status routes can surface.
 export function mapUpstream(err: unknown, provider: string): AiError {
   const status = statusOf(err)
-  console.error(`[ai] ${provider} error (status ${status ?? 'unknown'})`, err)
+  log.error('ai', 'upstream error', {
+    provider,
+    status: status ?? 'unknown',
+    detail: errorText(err),
+  })
   if (status === 401 || status === 403) return new AiError(status, 'ai-unauthorized')
   if (status === 400) return new AiError(400, 'ai-bad-request')
   return new AiError(502, 'ai-upstream-error')

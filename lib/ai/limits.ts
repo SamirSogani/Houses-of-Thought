@@ -28,6 +28,7 @@ import { createHash, randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
 import { createClient as createServiceClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createClient as createUserClient } from '@/lib/supabase/server'
+import { log } from '@/lib/log'
 import { AiError } from './router'
 
 if (typeof window !== 'undefined') {
@@ -133,7 +134,7 @@ export async function enforceAiLimit(req: Request): Promise<void> {
   try {
     const { data, error } = await serviceClient().rpc('increment_ai_usage', { sub: subject })
     if (error) {
-      console.error('[ai/limits] increment failed, failing open:', error.message)
+      log.error('ai/limits', 'increment failed, failing open', { error: error.message })
       return
     }
     if (typeof data === 'number' && data > cap) {
@@ -150,7 +151,7 @@ export async function enforceAiLimit(req: Request): Promise<void> {
           { sub: ipSub }
         )
         if (ipError) {
-          console.error('[ai/limits] ip ceiling failed, failing open:', ipError.message)
+          log.error('ai/limits', 'ip ceiling failed, failing open', { error: ipError.message })
         } else if (typeof ipCount === 'number' && ipCount > ANON_IP_DAILY_CAP) {
           throw new AiError(429, 'rate-limited')
         }
@@ -158,7 +159,7 @@ export async function enforceAiLimit(req: Request): Promise<void> {
     }
   } catch (err) {
     if (err instanceof AiError) throw err
-    console.error('[ai/limits] failing open:', (err as Error)?.message)
+    log.error('ai/limits', 'failing open', { error: (err as Error)?.message })
   }
 }
 

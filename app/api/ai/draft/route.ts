@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
+import { log } from '@/lib/log'
 import { braveSearch } from '@/lib/ai/brave'
 import { createClient } from '@/lib/supabase/server'
 import { getCallerCapabilities } from '@/lib/auth/account'
@@ -137,10 +138,9 @@ export async function POST(req: Request): Promise<Response> {
       try {
         results = query ? await braveSearch(query, 6) : []
       } catch (err) {
-        console.error(
-          '[ai/draft] search failed, returning empty evidence stage:',
-          (err as Error)?.message
-        )
+        log.error('ai/draft', 'search failed, returning empty evidence stage', {
+          error: (err as Error)?.message,
+        })
       }
       // No usable results: return an empty stage rather than inviting invention.
       if (results.length === 0) return NextResponse.json({ stage, actions: [] })

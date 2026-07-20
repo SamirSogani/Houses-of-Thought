@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
+import { log } from '@/lib/log'
 import { braveSearch } from '@/lib/ai/brave'
 import { MINI_HOUSE_SYSTEM } from '@/lib/ai/prompts'
 import { MiniHouseSchema, MINI_HOUSE_MIN_CHARS, MINI_HOUSE_MAX_CHARS } from '@/lib/ai/mini-house'
@@ -79,7 +80,9 @@ export async function POST(req: Request): Promise<Response> {
       }
     } catch (err) {
       if (err instanceof AiError && err.status === 429) throw err
-      console.error('[ai/mini-house] search failed, generating without evidence:', (err as Error)?.message)
+      log.error('ai/mini-house', 'search failed, generating without evidence', {
+        error: (err as Error)?.message,
+      })
     }
 
     // 2. Generate the whole Mini House in one call, grounding evidence in the
