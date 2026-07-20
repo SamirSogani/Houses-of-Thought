@@ -64,9 +64,9 @@ export const initialState: State = {
   perspectives: seededPerspectives,
 
   evidence: [
-    { id: 1, text: 'Global K-12 AI-in-education market projected to reach $32B by 2027.', source: 'HolonIQ Global Education Outlook (2025)', owner: 'devan', byAI: false },
-    { id: 2, text: 'Average effect size of AI tutoring on learning outcomes: d = 0.34 (moderate).', source: 'Stanford GSE Meta-Analysis (2024)', owner: 'maya', byAI: false },
-    { id: 3, text: '76% of OECD countries now have a national AI-in-schools policy or draft framework.', source: 'OECD Education Digest (2025)', owner: 'you', byAI: false },
+    { id: 1, text: 'Intelligent tutoring systems raised test scores by a median of 0.66 standard deviations across 50 controlled evaluations.', source: 'Kulik & Fletcher, Review of Educational Research (2016)', url: 'https://journals.sagepub.com/doi/10.3102/0034654315581420', owner: 'you', byAI: false },
+    { id: 2, text: '25 percent of U.S. K-12 teachers used AI tools for instructional planning or teaching in the 2023-24 school year.', source: 'RAND, Uneven Adoption of AI Tools (2025)', url: 'https://www.rand.org/pubs/research_reports/RRA134-25.html', owner: 'you', byAI: false },
+    { id: 3, text: 'Fewer than 10 percent of schools and universities surveyed worldwide have formal guidance on using generative AI.', source: 'UNESCO global survey (2023)', url: 'https://www.unesco.org/en/articles/unesco-survey-less-10-schools-and-universities-have-formal-guidance-ai', owner: 'you', byAI: false },
   ],
 
   assumptions: [

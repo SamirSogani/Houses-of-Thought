@@ -13,6 +13,7 @@ import { Avatar } from '@/components/build/Avatar'
 import { examples, getExample } from '@/lib/examples/data'
 import { layers, axisMeasures, type PerspectiveDetail } from '@/lib/build/content'
 import { people } from '@/lib/build/people'
+import { safeHttpUrl } from '@/lib/safeUrl'
 import type { Assumption, Evidence, Implication, Perspective } from '@/lib/build/types'
 import {
   computeStrength,
@@ -336,14 +337,23 @@ function PerspectiveBlock({ p, detail }: { p: Perspective; detail?: PerspectiveD
         <>
           <div style={{ ...monoLabel, margin: '18px 0 10px' }}>Supporting evidence</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {detail.evidence.map((e, i) => (
-              <div key={i} style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 14, color: 'var(--ink)' }}>{e.text}</div>
-                <div style={{ marginTop: 7 }}>
-                  <span style={sourceChip}>{e.source}</span>
+            {detail.evidence.map((e, i) => {
+              const href = e.url ? safeHttpUrl(e.url) : null
+              return (
+                <div key={i} style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 14, color: 'var(--ink)' }}>{e.text}</div>
+                  <div style={{ marginTop: 7 }}>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...sourceChip, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                        {e.source} ↗
+                      </a>
+                    ) : (
+                      <span style={sourceChip}>{e.source}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}
@@ -365,13 +375,20 @@ function PerspectiveBlock({ p, detail }: { p: Perspective; detail?: PerspectiveD
 }
 
 function EvidenceRow({ e }: { e: Evidence }) {
+  const href = e.url ? safeHttpUrl(e.url) : null
   return (
     <div style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
       <Avatar who={e.owner} size={24} title={people[e.owner].name} />
       <div>
         <div style={{ fontSize: 14, color: 'var(--ink)' }}>{e.text}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
-          <span style={sourceChip}>{e.source}</span>
+          {href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ ...sourceChip, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              {e.source} ↗
+            </a>
+          ) : (
+            <span style={sourceChip}>{e.source}</span>
+          )}
           {e.byAI && <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>}
         </div>
       </div>

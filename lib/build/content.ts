@@ -100,7 +100,7 @@ export const axisMeasures = {
 export interface PerspectiveDetail {
   stance: string
   questions: { q: string; note: string }[]
-  evidence: { text: string; source: string }[]
+  evidence: { text: string; source: string; url?: string }[]
   counters: string[]
 }
 
@@ -124,12 +124,9 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     ],
     evidence: [
       {
-        text: 'Average effect size of AI tutoring on learning outcomes: d = 0.34 (moderate).',
-        source: 'Stanford GSE Meta-Analysis (2024)',
-      },
-      {
-        text: 'Largest measured gains occurred among students with disabilities and English learners.',
-        source: 'RAND Education (2024)',
+        text: 'Intelligent tutoring systems raised test scores by a median of 0.66 standard deviations across 50 controlled evaluations.',
+        source: 'Kulik & Fletcher, Review of Educational Research (2016)',
+        url: 'https://journals.sagepub.com/doi/10.3102/0034654315581420',
       },
     ],
     counters: [
@@ -156,8 +153,9 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     ],
     evidence: [
       {
-        text: 'Teacher-supervised AI use correlated with a 19% drop in low-level student errors.',
-        source: 'RAND Education (2024)',
+        text: '25 percent of U.S. K-12 teachers used AI tools for instructional planning or teaching in the 2023-24 school year.',
+        source: 'RAND, Uneven Adoption of AI Tools (2025)',
+        url: 'https://www.rand.org/pubs/research_reports/RRA134-25.html',
       },
     ],
     counters: [
@@ -180,8 +178,9 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     ],
     evidence: [
       {
-        text: '76% of OECD countries now have a national AI-in-schools policy or draft framework.',
-        source: 'OECD Education Digest (2025)',
+        text: "The FTC's 2025 COPPA Rule amendments require separate parental consent before children's data can be used for targeted advertising or shared with third parties.",
+        source: 'FTC COPPA Rule amendments (2025)',
+        url: 'https://www.ftc.gov/news-events/news/press-releases/2025/01/ftc-finalizes-changes-childrens-privacy-rule-limiting-companies-ability-monetize-kids-data',
       },
     ],
     counters: [
@@ -204,11 +203,12 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     ],
     evidence: [
       {
-        text: 'Global K-12 AI-in-education market projected to reach $32B by 2027.',
-        source: 'HolonIQ Global Education Outlook (2025)',
+        text: 'Fewer than 10 percent of schools and universities surveyed worldwide have formal guidance on using generative AI.',
+        source: 'UNESCO global survey (2023)',
+        url: 'https://www.unesco.org/en/articles/unesco-survey-less-10-schools-and-universities-have-formal-guidance-ai',
       },
     ],
-    counters: ['Market growth does not equal equitable access.'],
+    counters: ['A policy vacuum tends to hit low-resource districts hardest.'],
   },
   5: {
     stance:
@@ -226,7 +226,8 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     evidence: [
       {
         text: 'Entry-level task composition is shifting toward oversight and review of AI output.',
-        source: 'World Economic Forum Future of Jobs (2025)',
+        source: 'World Economic Forum, Future of Jobs Report (2025)',
+        url: 'https://www.weforum.org/publications/the-future-of-jobs-report-2025/',
       },
     ],
     counters: ['Employer demand may outpace how fast curricula can change.'],
@@ -246,8 +247,9 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
     ],
     evidence: [
       {
-        text: 'Compliance and procurement complexity flagged as a top adoption barrier.',
-        source: 'FTC COPPA Guidance (2025)',
+        text: "Districts must meet the updated COPPA Rule's consent, retention, and security obligations by April 2026, adding real compliance lift to procurement.",
+        source: 'FTC COPPA Rule amendments (2025)',
+        url: 'https://www.ftc.gov/news-events/news/press-releases/2025/01/ftc-finalizes-changes-childrens-privacy-rule-limiting-companies-ability-monetize-kids-data',
       },
     ],
     counters: ['Measurable outcomes tend to lag adoption by several years.'],

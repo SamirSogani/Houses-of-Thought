@@ -105,7 +105,7 @@ export default function HowAiRoleSection() {
 
             <div style={{ border: '1px solid var(--rule)', borderRadius: 11, padding: 13 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>
-                Add the OECD figure: 76% of countries now have a national AI-in-schools policy.
+                Add the UNESCO figure: fewer than 10% of schools surveyed have formal guidance on generative AI.
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 }}>
                 <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>Evidence · sourced</span>

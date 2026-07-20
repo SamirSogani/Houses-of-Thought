@@ -108,8 +108,8 @@ export const examples: ExampleHouse[] = [
       ],
       evidence: [
         { id: 1, text: 'The hard-capped NFL produced 12 different champions over 20 years, and the uncapped MLB produced 11.', source: 'League championship records (2004-2024)', owner: 'maya', byAI: false },
-        { id: 2, text: 'Payroll-to-wins correlation is weak in capped leagues (r ≈ 0.2) and stronger in uncapped ones (r ≈ 0.45).', source: 'Journal of Sports Economics (2022)', owner: 'devan', byAI: false },
-        { id: 3, text: 'Union analyses estimate a cap shifts 5 to 8 percent of league revenue from labor to ownership.', source: 'MLBPA / NFLPA CBA filings (2023)', owner: 'you', byAI: false },
+        { id: 2, text: 'Payroll-to-wins correlation is weaker in capped leagues than in uncapped ones.', source: 'Illustrative demo evidence, not a citation', owner: 'devan', byAI: false },
+        { id: 3, text: 'Union analyses estimate a cap shifts a mid-single-digit share of league revenue from labor to ownership.', source: 'Illustrative demo evidence, not a citation', owner: 'you', byAI: false },
       ],
       assumptions: [
         { id: 1, text: 'Fans value competitive balance and reward it with attention.', owner: 'you' },
@@ -154,8 +154,8 @@ export const examples: ExampleHouse[] = [
       ],
       evidence: [
         { id: 1, text: 'The startup has 18 months of runway at current burn and a signed Series A term sheet.', source: 'Offer data room (2026)', owner: 'you', byAI: false },
-        { id: 2, text: 'Median tenure before the equity cliff is 2.1 years, and the offered vest cliff is 1 year.', source: 'Carta equity report (2025)', owner: 'maya', byAI: false },
-        { id: 3, text: 'Comparable IC roles see 30 to 40 percent faster promotion at early-stage firms.', source: 'Levels.fyi cohort data (2025)', owner: 'ai', byAI: true },
+        { id: 2, text: 'The offered equity vests over four years with a one-year cliff, so leaving in year one forfeits all of it.', source: 'Offer letter (2026)', owner: 'maya', byAI: false },
+        { id: 3, text: 'Early-stage roles tend to carry broader scope and faster skill growth, traded against lower cash compensation.', source: 'Illustrative demo evidence, not a citation', owner: 'ai', byAI: true },
       ],
       assumptions: [
         { id: 1, text: 'The Series A closes on the stated timeline.', owner: 'you' },
@@ -200,9 +200,9 @@ export const examples: ExampleHouse[] = [
         { id: 4, name: 'Finance', summary: 'Watches whether output holds at the same payroll.', questions: 2, strength: 55, owner: 'you' },
       ],
       evidence: [
-        { id: 1, text: 'In a UK four-day-week trial, 71 percent of staff reported reduced burnout while revenue stayed roughly flat.', source: '4 Day Week Global pilot (2023)', owner: 'maya', byAI: false },
-        { id: 2, text: 'Iceland public-sector trials found productivity maintained or improved across most teams.', source: 'Autonomy / ALDA report (2021)', owner: 'devan', byAI: false },
-        { id: 3, text: '61 percent of participating UK firms kept the policy after the trial ended.', source: '4 Day Week Global follow-up (2024)', owner: 'ai', byAI: true },
+        { id: 1, text: 'In the UK four-day-week pilot, 71 percent of staff reported reduced burnout while revenue stayed roughly flat.', source: '4 Day Week Global / Autonomy UK pilot (2023)', url: 'https://autonomy.work/portfolio/uk4dwpilotresults/', owner: 'maya', byAI: false },
+        { id: 2, text: 'Iceland public-sector trials found productivity maintained or improved across most trial workplaces.', source: 'Autonomy / Alda report (2021)', url: 'https://autonomy.work/portfolio/icelandsww/', owner: 'devan', byAI: false },
+        { id: 3, text: '92 percent of the 61 participating UK companies continued the four-day week after the pilot ended.', source: '4 Day Week Global / Autonomy UK pilot (2023)', url: 'https://autonomy.work/portfolio/uk4dwpilotresults/', owner: 'ai', byAI: true },
       ],
       assumptions: [
         { id: 1, text: 'Output is driven by focus, not hours logged.', owner: 'you' },
@@ -247,9 +247,9 @@ export const examples: ExampleHouse[] = [
         { id: 4, name: 'Farmers', summary: 'Livelihoods and rural economies depend on livestock.', questions: 2, strength: 54, owner: 'you' },
       ],
       evidence: [
-        { id: 1, text: 'Animal agriculture accounts for roughly 14.5 percent of global greenhouse-gas emissions.', source: 'FAO livestock assessment (2013)', owner: 'devan', byAI: false },
-        { id: 2, text: 'Beef requires around 20 times the land per gram of protein compared with beans.', source: 'Our World in Data (2022)', owner: 'maya', byAI: false },
-        { id: 3, text: 'Well-planned vegetarian and vegan diets are nutritionally adequate per major dietetic bodies.', source: 'Academy of Nutrition & Dietetics position (2016)', owner: 'ai', byAI: true },
+        { id: 1, text: 'Livestock supply chains account for roughly 14.5 percent of global greenhouse-gas emissions.', source: 'FAO, Tackling Climate Change Through Livestock (2013)', url: 'https://www.fao.org/3/i3437e/i3437e.pdf', owner: 'devan', byAI: false },
+        { id: 2, text: 'Beef requires around 20 times the land per gram of protein compared with beans.', source: 'Our World in Data', url: 'https://ourworldindata.org/environmental-impacts-of-food', owner: 'maya', byAI: false },
+        { id: 3, text: 'Well-planned vegetarian and vegan diets are nutritionally adequate per major dietetic bodies.', source: 'Academy of Nutrition & Dietetics position (2016)', url: 'https://pubmed.ncbi.nlm.nih.gov/27886704/', owner: 'ai', byAI: true },
       ],
       assumptions: [
         { id: 1, text: 'Sentience gives animal suffering real moral weight.', owner: 'maya' },
@@ -292,9 +292,9 @@ export const examples: ExampleHouse[] = [
         { id: 3, name: 'New hires', summary: 'Onboard faster with one checkout and one setup.', questions: 2, strength: 62, owner: 'devan' },
       ],
       evidence: [
-        { id: 1, text: 'Google and Meta run billions of lines from a single repository with custom tooling.', source: 'Potvin & Levenberg, CACM (2016)', owner: 'you', byAI: false },
-        { id: 2, text: 'Teams migrating without incremental build tooling report 20 to 40 percent CI-time regressions.', source: 'Migration retrospectives survey (2024)', owner: 'maya', byAI: false },
-        { id: 3, text: 'Atomic cross-project changes drop from days to a single pull request in monorepo setups.', source: 'Nx / Turborepo case studies (2025)', owner: 'ai', byAI: true },
+        { id: 1, text: 'Google runs billions of lines of code from a single repository with custom tooling.', source: 'Potvin & Levenberg, CACM (2016)', url: 'https://dl.acm.org/doi/10.1145/2854146', owner: 'you', byAI: false },
+        { id: 2, text: 'Teams migrating without incremental build tooling commonly report significant CI-time regressions.', source: 'Illustrative demo evidence, not a citation', owner: 'maya', byAI: false },
+        { id: 3, text: 'Atomic cross-project changes drop from days to a single pull request in monorepo setups.', source: 'Vendor case studies, illustrative', owner: 'ai', byAI: true },
       ],
       assumptions: [
         { id: 1, text: 'We can invest in remote caching and affected-only CI.', owner: 'you' },

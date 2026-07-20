@@ -104,11 +104,11 @@ export default function HowCollaborationSection() {
                 <Avatar who="ai" size={24} title="Co-pilot" />
                 <div>
                   <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
-                    76% of OECD countries now have a national AI-in-schools policy or draft framework.
+                    Fewer than 10% of schools and universities surveyed worldwide have formal guidance on using generative AI.
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
                     <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', background: 'rgba(62,92,138,0.09)', borderRadius: 4, padding: '3px 7px' }}>
-                      OECD Education Digest (2025)
+                      UNESCO global survey (2023)
                     </span>
                     <span className="mono" style={{ fontSize: 9, color: 'var(--amber-hover)' }}>via Research Mode</span>
                   </div>
