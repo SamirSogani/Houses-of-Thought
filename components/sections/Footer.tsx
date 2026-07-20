@@ -138,7 +138,7 @@ export default function Footer() {
           }}
         >
           <span>Sheet 99 / Footer</span>
-          <span>© 2026 Houses of Thought · Intellectual Blueprint · Est. 2026</span>
+          <span>© 2026 Houses of Thought</span>
         </div>
       </div>
     </footer>

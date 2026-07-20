@@ -76,7 +76,7 @@ export function DashboardHeader({
               Houses of Thought
             </span>
             <span className="mono acct-dash-sub" style={{ fontSize: 9, color: 'var(--ink-subtle)', marginTop: 2 }}>
-              Intellectual Blueprint · Est. 2026
+              Intellectual Blueprint
             </span>
           </span>
         </Link>
@@ -106,7 +106,7 @@ export function DashboardHeader({
           )}
           <Link href="/build" style={{ ...monoLink, color: 'var(--ink)', ...(active === 'collab' ? activeStyle : {}) }} onMouseEnter={hover('var(--amber-hover)')} onMouseLeave={hover('var(--ink)')}>
             <SparkIcon size={13} fill="var(--amber-hover)" />
-            Collab
+            New house
           </Link>
           <Link
             href="/profile"

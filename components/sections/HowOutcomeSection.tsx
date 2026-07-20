@@ -21,8 +21,8 @@ export default function HowOutcomeSection() {
           </h2>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--ink-mid)', maxWidth: '48ch', marginTop: 16 }}>
             Every house ends with a House Strength read across evidence, logic,
-            and coverage. From there you can publish it, export it, or hand it
-            in.
+            and coverage. It autosaves to your dashboard as you build, and
+            classwork can be turned in to your teacher.
           </p>
         </div>
 
@@ -80,7 +80,7 @@ export default function HowOutcomeSection() {
                   color: 'var(--ink)',
                 }}
               >
-                Publish
+                Autosaved
               </span>
               <span
                 style={{
@@ -93,7 +93,7 @@ export default function HowOutcomeSection() {
                   color: 'var(--ink-subtle)',
                 }}
               >
-                Export PDF
+                Stress-tested
               </span>
               <span
                 style={{
@@ -106,7 +106,7 @@ export default function HowOutcomeSection() {
                   color: 'var(--ink-subtle)',
                 }}
               >
-                Hand in
+                Turn in
               </span>
             </div>
           </div>

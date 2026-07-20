@@ -270,7 +270,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
           primaryHref="/try"
           secondaryLabel="Browse more examples"
           secondaryHref="/examples"
-          note="No sign-up needed to try it. Your work saves locally until you create an account."
+          note="No sign-up needed to try it. Create a free account when you want to build and save full houses."
         />
       </main>
       <Footer />

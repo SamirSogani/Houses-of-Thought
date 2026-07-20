@@ -23,7 +23,7 @@ const groups: FaqGroup[] = [
       {
         question: 'Do I need an account to try it?',
         answer:
-          'No. You can try it free with no login, and your work saves locally in your browser. When you create an account, that work carries over.',
+          "No. You can build a Mini House free with no login. Mini House results aren't saved, though — create a free account when you want the full builder, where every house autosaves to your dashboard.",
       },
     ],
   },
@@ -38,7 +38,7 @@ const groups: FaqGroup[] = [
       {
         question: 'What is House Strength?',
         answer:
-          'A score that reads your reasoning across three axes: evidence, logic, and coverage. It rolls up into one overall number. Use it to find the thin spots in a house and decide where to strengthen it.',
+          'A structural score across three axes: evidence, logic, and coverage. It measures how complete each layer of the house is — sourced evidence, surfaced assumptions, range of perspectives — and rolls up into one overall number. Use it to find the thin spots and decide where to strengthen.',
       },
       {
         question: 'What is Research Mode?',
@@ -53,12 +53,12 @@ const groups: FaqGroup[] = [
       {
         question: 'What does the AI do, and what does it not do?',
         answer:
-          'It asks sharpening questions, surfaces perspectives you may have missed, gathers cited evidence, and stress-tests your conclusion once you reach one. It will not write that conclusion for you. In student mode the assistant steps back further and leaves the reasoning to you.',
+          'It asks sharpening questions, surfaces perspectives you may have missed, gathers cited evidence, and stress-tests your conclusion once you reach one. It will not write that conclusion for you. Student accounts run the co-pilot in Learn mode, where it coaches with Socratic questions instead of making suggestions.',
       },
       {
         question: 'How do you prevent hallucinated sources?',
         answer:
-          'Research Mode grounds each claim in a retrieved source, and every citation links to the original so you can read it yourself. When the AI is unsure, it flags that rather than stating it as fact. You can always see where a claim came from.',
+          'Research Mode only cites sources it actually retrieved in the same search — the AI cannot attach a URL it did not just find — and every citation links to the original so you can read it yourself. AI output can still be wrong, which is why every claim stays inspectable instead of taken on faith.',
       },
       {
         question: 'Can I trust the conclusions?',
@@ -73,17 +73,17 @@ const groups: FaqGroup[] = [
       {
         question: 'How do students join a class?',
         answer:
-          "Through a teacher's join link or class code. They land straight in the assigned house with no separate setup. Students under 12 only ever join through a teacher-managed classroom.",
+          "With a join link or class code from their teacher. A student creates a free student account, redeems the code, and the class and its assignments appear under Classes.",
       },
       {
         question: 'Do students get the AI assistant?',
         answer:
-          "In student mode the co-reasoning assistant steps back, so the thinking stays the student's own work. Students still get the full builder, Research Mode with cited sources, House Strength scoring, and the Stress Test.",
+          "Student accounts run the co-pilot in Learn mode: it coaches with Socratic questions instead of making suggestions, so the thinking stays the student's own work. Students still get the full builder, Research Mode with cited sources, House Strength scoring, and the Stress Test.",
       },
       {
         question: 'Is student work private?',
         answer:
-          "Yes. Student work stays private to the classroom, and teachers control the roster. We don't sell student data or train public models on it. Our Privacy and Terms cover the full detail.",
+          "Yes. Student work stays private to the classroom, and teachers control the roster. We don't sell student data and don't use it for advertising. Our Privacy and Terms pages cover the full detail.",
       },
     ],
   },
@@ -96,14 +96,14 @@ const groups: FaqGroup[] = [
           "It's free to start, with no paywall in the way of trying it or building your first houses. Detailed plans for classrooms and heavier use will be published once they're finalized.",
       },
       {
-        question: 'What happens to my local work when I sign up?',
+        question: 'Is my work saved before I sign up?',
         answer:
-          'It carries into your new account. Any house you built before signing up comes with you, so creating an account never costs you work.',
+          "Mini House results from the free try page aren't saved — they live only in that browser session. A free account unlocks the full builder, where every house autosaves to your dashboard as you work.",
       },
       {
         question: "What's the minimum age?",
         answer:
-          'Individual accounts are for ages 12 and up. Younger students take part only through a teacher-managed classroom, never with their own account.',
+          'You must be at least 13 to create an account. Support for younger classrooms through school-managed consent is on the roadmap, but not available yet.',
       },
     ],
   },

@@ -17,10 +17,11 @@ export default function EducatorCollabSection() {
 
         <div style={{ flex: '1 1 380px' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--ink-mid)', maxWidth: '56ch' }}>
-            Inside classrooms, collaboration means real people: teacher-to-student
-            feedback and peer review on a shared house. That&rsquo;s distinct from
-            the individual Collab builder, where the &ldquo;collaborator&rdquo; is
-            the AI. We only claim what exists today.
+            Inside classrooms, collaboration means real people: teachers review
+            submitted houses and leave graded feedback students see in their own
+            workspace. That&rsquo;s distinct from the individual builder, where
+            the &ldquo;collaborator&rdquo; is the AI. We only claim what exists
+            today — student peer review is on the roadmap.
           </p>
           <span
             style={{

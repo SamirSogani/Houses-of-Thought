@@ -1,16 +1,15 @@
-// How it works — Collaboration. Shows the team + attribution story with the real
-// workspace UI (Avatar + people), rendered rather than screenshotted. No live
-// presence dots or activity feed: this is a static, honest render.
+// How it works — Attribution. Shows who is actually on a house today (you and
+// the co-pilot) and how every item is attributed, rendered with the real
+// workspace UI (Avatar + people) rather than screenshotted. Human co-builders
+// are described in the future tense until collaboration ships.
 
 import { Avatar } from '@/components/build/Avatar'
 import { people } from '@/lib/build/people'
 import type { PersonKey } from '@/lib/build/types'
 
 const ownership: { key: PersonKey; owns: string }[] = [
-  { key: 'you', owns: 'Framing and final review' },
-  { key: 'maya', owns: 'Evidence and sources' },
-  { key: 'devan', owns: 'Perspectives' },
-  { key: 'ai', owns: 'Research Mode and stress tests' },
+  { key: 'you', owns: 'The reasoning: framing, assumptions, conclusion' },
+  { key: 'ai', owns: 'Research Mode, suggestions, and stress tests' },
 ]
 
 const cardStyle: React.CSSProperties = {
@@ -36,9 +35,9 @@ export default function HowCollaborationSection() {
       style={{ background: 'var(--parchment)', borderTop: '1px solid var(--rule)', paddingBlock: 'var(--section-py)' }}
     >
       <div className="container" data-reveal>
-        <p className="eyebrow">Collaboration</p>
+        <p className="eyebrow">Attribution</p>
         <h2 className="h2" style={{ marginTop: 16, maxWidth: '20ch' }}>
-          Build the house with your team.
+          Your work and the AI&rsquo;s, never blurred.
         </h2>
         <p
           style={{
@@ -50,10 +49,9 @@ export default function HowCollaborationSection() {
             maxWidth: '58ch',
           }}
         >
-          Invite co-builders and give each of them a perspective to own, so the reasoning divides
-          across the people who actually hold it. The AI sits on the rail as one more teammate.
-          Every perspective, source, and assumption is attributed to whoever added it, the co-pilot
-          included.
+          The AI sits on the rail as a teammate, not a ghostwriter. Every perspective, source, and
+          assumption is attributed to whoever added it, so anything the co-pilot found stays marked
+          as the co-pilot&rsquo;s. Human co-builders, each owning a perspective, are on the roadmap.
         </p>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginTop: 44 }}>
@@ -85,13 +83,13 @@ export default function HowCollaborationSection() {
           <div style={cardStyle}>
             <p style={panelLabel}>Attributed to who added it</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* A perspective owned by a teammate */}
+              {/* A perspective you wrote */}
               <div style={{ border: '1px solid var(--rule)', borderRadius: 11, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 16, color: 'var(--ink)' }}>Teachers</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <Avatar who="maya" size={22} />
-                    <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>Maya R.</span>
+                    <Avatar who="you" size={22} />
+                    <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink)' }}>You</span>
                   </span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, marginTop: 8 }}>

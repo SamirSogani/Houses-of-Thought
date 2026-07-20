@@ -354,9 +354,9 @@ function ConversionBlock({ originalQuestion, onTryAnother }: { originalQuestion:
               { text: 'Dozens of sub-questions, each with sub-conclusions', ok: true },
               { text: 'Full assumption taxonomy (unknown unknowns, foundational, evidence→inference)', ok: true },
               { text: 'Researched evidence with real Brave Search citations', ok: true },
-              { text: 'AI Sidebar that challenges your reasoning', ok: true },
-              { text: 'Logic Strength Meter + Reasoning Stress Tests', ok: true },
-              { text: 'All your Houses saved, versioned, and shareable', ok: true },
+              { text: 'AI co-pilot that challenges your reasoning', ok: true },
+              { text: 'House Strength score + reasoning stress tests', ok: true },
+              { text: 'Every house autosaved to your dashboard', ok: true },
             ]}
           />
         </div>

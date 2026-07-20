@@ -36,7 +36,7 @@ export default function FinalCtaSection() {
           <Link href="/try" className="btn-primary">
             Try it free <ArrowIcon />
           </Link>
-          <Link href="/signup" className="btn-ghost">
+          <Link href="/login?mode=signup" className="btn-ghost">
             Create free account
           </Link>
         </div>
@@ -49,8 +49,8 @@ export default function FinalCtaSection() {
             marginTop: 22,
           }}
         >
-          No sign-up to try. Your work is saved locally until you create an
-          account.
+          No sign-up to try. A free account unlocks the full builder, where
+          your houses autosave.
         </p>
       </div>
     </section>

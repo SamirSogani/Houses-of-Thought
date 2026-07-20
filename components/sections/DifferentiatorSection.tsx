@@ -1,7 +1,7 @@
 const columns = [
   {
     title: 'Guided, not given',
-    body: 'Collab means you reason with the AI. It asks the next question instead of handing you the answer.',
+    body: 'You reason with the AI, not through it. The co-pilot asks the next question instead of handing you the answer.',
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
         <circle cx="14" cy="14" r="10" stroke="#F2B021" strokeWidth="1.4" fill="none" />

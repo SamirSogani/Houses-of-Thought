@@ -3,11 +3,11 @@ import Link from 'next/link'
 const cards = [
   {
     label: 'Age floor',
-    body: 'Accounts are 12+. Younger students join only through a teacher-managed classroom.',
+    body: 'Accounts require users to be at least 13. School-managed consent for younger classrooms is on the roadmap.',
   },
   {
     label: 'Privacy posture',
-    body: "Student work is private to the classroom. We don't sell data or train public models on it.",
+    body: "Student work is private to the classroom. We don't sell student data and don't use it for advertising.",
   },
 ]
 
@@ -68,8 +68,8 @@ export default function EducatorTrustSection() {
         </div>
 
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-subtle)', marginTop: 28 }}>
-          COPPA / FERPA review pending. Copy here will be finalized against
-          policy before launch.
+          A formal COPPA / FERPA compliance review will be completed before
+          any school-wide deployment.
         </p>
       </div>
     </section>

@@ -3,13 +3,13 @@ import { CheckIcon, XIcon } from '@/components/icons'
 const studentFeatures = [
   { text: 'Structured house builder', ok: true },
   { text: 'Research Mode with cited sources', ok: true },
-  { text: 'Logic Strength & Stress Test', ok: true },
-  { text: 'Collab AI assistant steps back', ok: false },
+  { text: 'House Strength & Stress Test', ok: true },
+  { text: 'Co-pilot pinned to Learn mode (questions, not answers)', ok: false },
 ]
 
 const teacherFeatures = [
   'Everything in Student mode',
-  'Collab AI co-reasoning assistant',
+  'Full AI co-pilot (Learn and Decide modes)',
   'Classroom roster & review tools',
   'Assign, monitor & give feedback',
 ]

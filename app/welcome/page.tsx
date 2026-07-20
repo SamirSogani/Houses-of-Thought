@@ -14,7 +14,7 @@ function WelcomeMessage() {
     <div style={{ width: '100%', maxWidth: 420, textAlign: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
         <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
-        <span className="eyebrow">Placeholder</span>
+        <span className="eyebrow">Welcome</span>
         <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
       </div>
 
@@ -40,7 +40,7 @@ function WelcomeMessage() {
           marginTop: 16,
         }}
       >
-        Your Collab workspace is ready. Start building your house of reasoning.
+        Your workspace is ready. Start building your house of reasoning.
       </p>
 
       <Link

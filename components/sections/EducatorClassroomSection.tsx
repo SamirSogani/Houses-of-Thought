@@ -2,7 +2,7 @@ const steps = [
   {
     num: '01',
     title: 'Create a class & invite',
-    body: 'Spin up a classroom and share a join link or code. Students land straight in, with nothing to set up on their end.',
+    body: 'Spin up a classroom and share a join link or code. Students create a free account, redeem the code, and the class is waiting for them.',
   },
   {
     num: '02',
