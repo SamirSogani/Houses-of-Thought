@@ -42,6 +42,30 @@ describe('computeStrength', () => {
     const s = withContent({ evidence: evidence(3) }) // evidence 68, logic 22, coverage 4
     expect(computeStrength(s).overall).toBe(Math.round(68 * 0.4 + 22 * 0.35 + 4 * 0.25))
   })
+
+  it('the Evidence axis only fully credits SOURCED evidence (ai-slop §8)', () => {
+    const unsourced = (n: number): State['evidence'] =>
+      Array.from({ length: n }, (_, i) => ({ id: i + 1, text: 't', source: '', owner: 'you' as const, byAI: false }))
+
+    // Blank rows used to score identically to cited ones, so five empty rows
+    // maxed the axis the copy describes as "backed by a cited, checkable source".
+    expect(computeStrength(withContent({ evidence: unsourced(3) })).evidence).toBeLessThan(
+      computeStrength(withContent({ evidence: evidence(3) })).evidence
+    )
+
+    // A row counts as sourced via `source` OR `url`.
+    const byUrl: State['evidence'] = [
+      { id: 1, text: 't', source: '', url: 'https://x.test/a', owner: 'you', byAI: false },
+    ]
+    expect(computeStrength(withContent({ evidence: byUrl })).evidence).toBe(
+      computeStrength(withContent({ evidence: evidence(1) })).evidence
+    )
+
+    // Unsourced still counts half — a written claim is real work, just ungrounded.
+    expect(computeStrength(withContent({ evidence: unsourced(2) })).evidence).toBe(
+      computeStrength(withContent({ evidence: evidence(1) })).evidence
+    )
+  })
 })
 
 describe('layerDone thresholds', () => {

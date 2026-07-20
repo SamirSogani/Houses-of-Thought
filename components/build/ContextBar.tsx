@@ -33,6 +33,7 @@ export function ContextBar({
   modeLocked = false,
   readOnly = false,
   draftLocked = false,
+  scored = true,
   saveStatus = null,
   onModeChange,
   onTitleChange,
@@ -52,13 +53,17 @@ export function ContextBar({
   // strength renders as provisional and Publish is locked. The score itself is
   // never altered (invariant 6) — this is presentation only.
   draftLocked?: boolean
+  // False for a house with no content yet: the pill shows "Not scored yet"
+  // instead of a red number, so the product's first feedback isn't a failing
+  // grade on an empty page (ux M6). The score itself is unchanged.
+  scored?: boolean
   // null hides the indicator (read-only views, tab-locked views).
   saveStatus?: SaveStatus | null
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
 }) {
-  const col = strengthColor(strength.overall)
+  const col = scored ? strengthColor(strength.overall) : 'var(--ink-subtle)'
   const save = saveStatus ? SAVE_STATUS_TEXT[saveStatus] : null
   return (
     <div
@@ -108,9 +113,11 @@ export function ContextBar({
         type="button"
         onClick={onOpenReview}
         title={
-          draftLocked
-            ? 'Provisional — claim the AI-drafted layers to make this score yours.'
-            : 'Open Review to see the full breakdown'
+          !scored
+            ? 'Add content to any layer and the score starts working.'
+            : draftLocked
+              ? 'Provisional — claim the AI-drafted layers to make this score yours.'
+              : 'Open Review to see the full breakdown'
         }
         style={{
           display: 'flex',
@@ -125,14 +132,14 @@ export function ContextBar({
       >
         <span style={{ textAlign: 'left' }}>
           <span className="mono" style={{ display: 'block', fontSize: 9, color: 'var(--ink-subtle)' }}>
-            {draftLocked ? 'Strength · provisional' : 'House strength'}
+            {!scored ? 'House strength' : draftLocked ? 'Strength · provisional' : 'House strength'}
           </span>
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: col }}>
-              {strength.overall}
+              {scored ? strength.overall : '—'}
             </span>
             <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>
-              /100
+              {scored ? '/100' : 'not scored yet'}
             </span>
           </span>
         </span>
@@ -142,7 +149,7 @@ export function ContextBar({
             style={{
               display: 'block',
               height: '100%',
-              width: `${strength.overall}%`,
+              width: scored ? `${strength.overall}%` : '0%',
               background: col,
               borderRadius: 3,
               transition: 'width 0.4s cubic-bezier(0.2,0.7,0.2,1)',

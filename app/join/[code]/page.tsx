@@ -55,7 +55,10 @@ export default function JoinClassPage({ params }: { params: Promise<{ code: stri
         setError('That join code is not valid. Check it with your teacher and try again.')
         return
       }
-      router.replace('/dashboard')
+      // Land on /classes, not /dashboard (ux M5): the dashboard shows houses,
+      // so joining a class used to produce no visible confirmation anywhere.
+      // ?joined=1 lets that page acknowledge the join.
+      router.replace('/classes?joined=1')
     })()
   }, [code, router])
 

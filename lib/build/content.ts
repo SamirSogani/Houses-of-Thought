@@ -1,8 +1,6 @@
 // Static copy for the Build a House flow. Verbatim from handoff 02 §1 and 07-COPY-DECK.md.
 // No em-dashes in user-facing copy (en-dashes in K-12 / 1-2 / Paul-Elder are intentional).
 
-import type { Perspective } from './types'
-
 export interface LayerMeta {
   step: number
   key: string
@@ -77,9 +75,6 @@ export const layerKey = (step: number): string => layers[step - 1]?.key ?? ''
 export const framePurpose =
   'Decide whether K-12 schools should adopt AI tools, and under what guardrails, so the reasoning holds up to teachers, parents, and administrators.'
 export const frameQuestion = 'Should AI be used in schools?'
-
-// 03 §8 / 04 §3. Concept rotation for "+ Concept", cycled by concepts.length % 4.
-export const conceptRotation = ['Teacher agency', 'Assessment validity', 'Access gap', 'Vendor lock-in']
 
 // 07 §6.2 Conclusion prose.
 export const conclusionBullets = [
@@ -256,24 +251,3 @@ export const perspectiveDetails: Record<number, PerspectiveDetail> = {
   },
 }
 
-// Generic fallback for runtime-added perspectives (03 §6, 07 §3).
-export function genericDetail(p: Perspective): PerspectiveDetail {
-  return {
-    stance:
-      p.summary +
-      ' Flesh this out with the sub-questions it raises, the evidence behind it, and the objections it has to answer.',
-    questions: [
-      {
-        q: 'What is the core question this group is asking?',
-        note: 'Not answered yet. Ask the co-pilot for a starting point.',
-      },
-    ],
-    evidence: [],
-    counters: [],
-  }
-}
-
-export const emptyEvidenceLine =
-  'No evidence linked yet. Add it in the Evidence layer or with Research Mode.'
-export const emptyCountersLine =
-  'No counterarguments captured yet. Strong houses name the best objection to each perspective.'

@@ -16,6 +16,13 @@ import { StudentAssignments } from '@/components/classroom/StudentAssignments'
 export default function StudentClassroomPage() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
+  // Set by the join flow (/join/<code> → /classes?joined=1). Joining a class
+  // used to drop the student on the dashboard with no confirmation anywhere
+  // (ux M5). Read from window on mount so no Suspense boundary is required.
+  const [justJoined, setJustJoined] = useState(false)
+  useEffect(() => {
+    setJustJoined(new URLSearchParams(window.location.search).get('joined') === '1')
+  }, [])
 
   // Teachers have their own /classroom; keep the two entry points from crossing.
   const guard = useCallback(async () => {
@@ -80,6 +87,24 @@ export default function StudentClassroomPage() {
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--ink-mid)', marginTop: 8 }}>
             Join a class, track your progress, and open the work assigned to you.
           </p>
+
+          {justJoined && (
+            <p
+              role="status"
+              style={{
+                marginTop: 16,
+                padding: '11px 15px',
+                border: '1px solid var(--green-strong)',
+                background: 'rgba(63,143,91,0.10)',
+                borderRadius: 10,
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                color: 'var(--ink)',
+              }}
+            >
+              You&rsquo;re in. Your new class and any work assigned to you are below.
+            </p>
+          )}
 
           <div style={{ marginTop: 'clamp(24px, 3vw, 36px)' }}>
             <StudentClasses />

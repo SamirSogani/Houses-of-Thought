@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
 import { draftGateLocked } from '@/lib/ai/draft'
-import { serializeContent, type PersistedContent } from '@/lib/build/persistence'
+import { deriveStatus, serializeContent, type PersistedContent } from '@/lib/build/persistence'
 import type { Action, State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
 import { ContextBar, type SaveStatus } from './ContextBar'
@@ -391,6 +391,7 @@ export function BuildHousePage({
           modeLocked={modeLocked}
           readOnly={readOnly || lockedByOtherTab}
           draftLocked={draftGateLocked(state.draft)}
+          scored={deriveStatus(state) !== 'empty'}
           saveStatus={readOnly || lockedByOtherTab ? null : saveStatus}
           onModeChange={(mode) => {
             if (modeLocked) return

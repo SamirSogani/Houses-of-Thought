@@ -1,6 +1,6 @@
-// Static data + validation for the Profile page. No backend yet; edits live in local
-// component state. Copy taken from references/ux/Migration_v2_Profile.pdf (em-dashes
-// removed per brand rules, "Draft Full House" typo corrected).
+// Static data, validation, and row<->form mapping for the Profile page.
+// Profiles ARE database-backed (public.profiles); rowToProfile/autosaveRow below
+// are the boundary. Copy taken from references/ux/Migration_v2_Profile.pdf.
 
 export type AccountType = 'standard' | 'student' | 'teacher'
 
@@ -72,16 +72,6 @@ export interface ProfileData {
   role: string
   location: string
   perspectives: Record<PerspectiveKey, string>
-}
-
-export const initialProfile: ProfileData = {
-  username: 'Samir_sogani',
-  accountType: 'standard',
-  aboutMe: '',
-  currentProject: '',
-  role: '',
-  location: '',
-  perspectives: { biological: '', social: '', familial: '', individual: '' },
 }
 
 // Shape of a public.profiles row (see 0002_profiles_extend.sql). Column names are

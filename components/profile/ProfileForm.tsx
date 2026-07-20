@@ -29,7 +29,6 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
   const [profile, setProfile] = useState<ProfileData>(initial)
   const [save, setSave] = useState<SaveState>('saved')
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [tourNote, setTourNote] = useState(false)
   // The specific username the DB rejected as taken (23505); autosaveRow excludes
   // it so every OTHER field keeps saving while the inline error stands.
   const [taken, setTaken] = useState<string | null>(null)
@@ -186,26 +185,6 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
             </SectionCard>
           ))}
         </div>
-
-        {/* Onboarding Tour */}
-        <SectionCard style={{ marginTop: 8 }}>
-          <FieldLabel label="Onboarding Tour" helper="Restart the guided tour anytime to revisit how Houses of Thought works." />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setTourNote(true)
-                setTimeout(() => setTourNote(false), 4000)
-              }}
-              style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', border: '1px solid var(--ink)', borderRadius: 8, padding: '10px 16px', background: 'var(--white)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink)'; e.currentTarget.style.color = 'var(--parchment)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--white)'; e.currentTarget.style.color = 'var(--ink)' }}
-            >
-              Restart tour
-            </button>
-            {tourNote && <span style={{ fontSize: 13, color: 'var(--ink-subtle)' }}>The guided tour is on the way.</span>}
-          </div>
-        </SectionCard>
 
         {/* Danger Zone */}
         <SectionCard accent="var(--warning)">

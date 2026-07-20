@@ -10,8 +10,16 @@ export interface Strength {
 }
 
 export function computeStrength(s: State): Strength {
-  const withSrc = s.evidence.length
-  const evidence = Math.min(100, withSrc * 18 + 14)
+  // The Evidence axis is documented as "how well each claim is backed by a
+  // cited, checkable source" (content.ts axisMeasures). It used to credit every
+  // evidence ROW regardless of sourcing — the variable was already named
+  // `withSrc` but counted all of them — so five blank rows maxed the axis
+  // (audit ai-slop §8). Only rows carrying a source or URL count now; an
+  // unsourced row still contributes half, since a written claim is real work
+  // that just hasn't been grounded yet.
+  const sourced = s.evidence.filter((e) => e.source.trim() !== '' || (e.url ?? '') !== '').length
+  const unsourced = s.evidence.length - sourced
+  const evidence = Math.min(100, Math.round((sourced + unsourced * 0.5) * 18 + 14))
 
   const implic = s.pos.length + s.neg.length + s.unc.length
   const logic = Math.min(100, s.assumptions.length * 7 + 16 + implic * 2 + 6)
