@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { completeJSON, AiError } from '@/lib/ai/router'
 import { enforceAiLimit } from '@/lib/ai/limits'
+import { getCallerCapabilities } from '@/lib/auth/account'
 import { PERSONA, CRITIQUE_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
 
@@ -93,6 +94,13 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
   }
 
+  // Student posture clamp (decision 007 / audit M2): the critic returns both a
+  // Socratic `question` and a concrete `note` per standard. Students are pinned
+  // to coach posture everywhere, so strip the author-style `note`s server-side —
+  // the invariant can't be bypassed by calling this route directly instead of
+  // /suggest. Resolved once here (getCallerCapabilities reads the stored role).
+  const coachOnly = (await getCallerCapabilities()).aiPosture === 'coach'
+
   const system = `${PERSONA}\n\n${CRITIQUE_BLOCK}`
   const user = serializeHouseForPrompt(parsed.data.house as HouseForPrompt)
 
@@ -109,7 +117,15 @@ export async function POST(req: Request): Promise<Response> {
       // budget generously or Groq returns json_validate_failed with empty output.
       maxTokens: 6000,
     })
-    return NextResponse.json({ ...critique, standards: normalizeStandards(critique.standards) })
+    const standards = normalizeStandards(critique.standards)
+    if (coachOnly) {
+      return NextResponse.json({
+        ...critique,
+        standards: standards.map((s) => ({ ...s, note: '' })),
+        weakestLink: { ...critique.weakestLink, why: '' },
+      })
+    }
+    return NextResponse.json({ ...critique, standards })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json({ error: err.message }, { status: err.status })

@@ -47,10 +47,11 @@ export default function LoginPage() {
     setLoading(true)
 
     const supabase = createClient()
-    // account_type is passed in signup metadata AND (below) written explicitly:
-    // the signup trigger (0013) reads the metadata, but GoTrue's user-creation
-    // timing can leave it at the default, so we set it deterministically from the
-    // client — which now has a session — right after signing up.
+    // account_type is chosen once here at signup. The signup trigger (0013)
+    // reads it from metadata; reconcile_signup_role() (0026) then fixes the rare
+    // case where GoTrue's timing left the metadata unread. account_type is
+    // otherwise immutable to the client (0026 pins it via RLS), so this is the
+    // only moment a role is set.
     const result = isLogin
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({
@@ -75,7 +76,10 @@ export default function LoginPage() {
     }
 
     if (!isLogin && result.data.user) {
-      await supabase.from('profiles').update({ account_type: accountType }).eq('id', result.data.user.id)
+      // SECURITY DEFINER RPC, not a direct UPDATE: the profiles RLS now forbids
+      // the client from changing account_type. This only promotes a just-created
+      // account still on the trigger's 'standard' fallback to the chosen role.
+      await supabase.rpc('reconcile_signup_role', { p_type: accountType })
     }
 
     setLoading(false)

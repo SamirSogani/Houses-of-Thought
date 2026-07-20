@@ -1,9 +1,9 @@
 # Decision 017 — House Chat (admin-only beta)
 
 **Date:** 2026-07-18
-**Status:** Decided & implemented same day
-([plans/active/house-chat.md](../plans/active/house-chat.md)); pending an
-authed E2E pass by the operator.
+**Status:** Decided, implemented, and verified end-to-end. Implemented
+2026-07-18; authed E2E pass by the operator confirmed working 2026-07-20
+([plans/completed/house-chat.md](../plans/completed/house-chat.md)).
 **Builds on:** [014](014-admin-ai-monitor.md) (operator gate),
 [015](015-graceful-context-intake.md) (intake pattern),
 [016](016-draft-mode.md) (stage loop, claim gate — reused unchanged).

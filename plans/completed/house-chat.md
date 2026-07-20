@@ -1,8 +1,8 @@
 # House Chat — admin-only beta (decision 017)
 
-**Status:** Implemented 2026-07-18. Remaining: an authed E2E pass by the
-operator (sign in as `ADMIN_EMAIL_001`, run a question end-to-end, claim the
-layers in the builder). Unauthed gates and unit tests verified.
+**Status:** Complete. Implemented 2026-07-18 (decisions 017 + 018); authed E2E
+pass by the operator confirmed working 2026-07-20. Deferred follow-ups live in
+the decision records, not here.
 
 ## Scope
 
@@ -32,14 +32,16 @@ the question — decision 017 records the choices.
    one-shot human click (existing reducer actions); the composer stays locked
    until candidates arrive.
 
-## Verification
+## Verification (all passed)
 
-- `pnpm test` — includes `lib/ai/chat.test.ts` (verbatim-span clamps).
-- Unauthed: `/admin/chat` → 404; `POST /api/admin/chat-intake` → 403.
-- Authed E2E (operator): clarify round, live counts per stage, pause/stop,
-  claim pass + publish unlock in the builder, 429 copy under the daily cap;
-  with the 018 toggle on — candidates render, disagree, and Adopt writes
-  conclusion + reasoning and lands the implications.
+- `pnpm test` — 60 tests incl. `lib/ai/chat.test.ts` (verbatim-span clamps,
+  conclusion-candidate schema); `tsc --noEmit` clean; production build clean.
+- Unauthed: `/admin/chat` → 404; `POST /api/admin/chat-intake` → 403;
+  `POST /api/admin/chat-conclusions` → 403.
+- Authed E2E (operator, 2026-07-20): clarify round, live counts per stage,
+  pause/stop, claim pass + publish unlock in the builder; with the 018 toggle
+  on — candidates rendered, disagreed, and Adopt wrote conclusion + reasoning
+  and landed the implications. **Confirmed working.**
 
 ## Follow-ups (deferred)
 

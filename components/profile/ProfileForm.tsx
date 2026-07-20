@@ -10,7 +10,6 @@ import {
   autosaveRow,
   perspectiveFields,
   usernameError,
-  type AccountType,
   type PerspectiveKey,
   type ProfileData,
 } from '@/lib/profile/data'
@@ -50,7 +49,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
   // state). An invalid or known-taken username is simply EXCLUDED from the
   // payload (autosaveRow) instead of blocking the whole save — a seeded-invalid
   // username used to freeze every field while showing "All changes saved"
-  // (bl-H3). account_type is not in this payload; see changeAccountType.
+  // (bl-H3). account_type is never in this payload — it's immutable post-signup.
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
@@ -90,39 +89,17 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
       const row = autosaveRow(latestRef.current, takenRef.current)
       if (JSON.stringify(row) === savedRef.current) return
       // Best-effort final write; the component is unmounting so ignore the result.
-      void createClient().from('profiles').update(row).eq('id', userId)
+      // A Supabase query builder is a lazy thenable — the request only fires when
+      // it's awaited/.then()'d, so `void builder` never sent anything (audit B3).
+      createClient().from('profiles').update(row).eq('id', userId).then(() => {})
     }
   }, [userId])
 
   const set = <K extends keyof ProfileData>(key: K, value: ProfileData[K]) =>
     setProfile((p) => ({ ...p, [key]: value }))
 
-  // account_type changes are explicit and immediate — never part of the
-  // autosave, so a stale tab can't silently revert a switch (bl-H3), and
-  // leaving Teacher with live classes requires a confirmation (bl-H4).
-  async function changeAccountType(t: AccountType) {
-    if (t === profile.accountType) return
-    const supabase = createClient()
-    if (profile.accountType === 'teacher' && t !== 'teacher') {
-      const { count } = await supabase
-        .from('classes')
-        .select('id', { count: 'exact', head: true })
-        .eq('teacher_id', userId)
-      if ((count ?? 0) > 0) {
-        const ok = window.confirm(
-          `You have ${count} class${count === 1 ? '' : 'es'}. They stay as they are, but you won't be able to open rosters, assignments, or grading until you switch back to Teacher. Switch anyway?`
-        )
-        if (!ok) return
-      }
-    }
-    const previous = profile.accountType
-    set('accountType', t)
-    const { error } = await supabase.from('profiles').update({ account_type: t }).eq('id', userId)
-    if (error) {
-      set('accountType', previous) // revert the optimistic switch
-      setSave('error')
-    }
-  }
+  // account_type is chosen once at signup and pinned by RLS (migration 0026):
+  // there is no self-service role change, so the profile just displays it.
   const setPerspective = (key: PerspectiveKey, value: string) =>
     setProfile((p) => ({ ...p, perspectives: { ...p.perspectives, [key]: value } }))
 
@@ -162,10 +139,10 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
           )}
         </SectionCard>
 
-        {/* Account Type */}
+        {/* Account Type — set at signup, not editable here (migration 0026). */}
         <SectionCard>
-          <FieldLabel label="Account Type" helper="Choose the experience that matches you. You can change this anytime." />
-          <AccountTypeSelector value={profile.accountType} onChange={(t: AccountType) => void changeAccountType(t)} />
+          <FieldLabel label="Account Type" helper="Set when you created your account. To change it, contact us through the contact page." />
+          <AccountTypeSelector value={profile.accountType} />
         </SectionCard>
 
         {/* About / Current Project */}

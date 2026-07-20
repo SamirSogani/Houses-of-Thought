@@ -33,18 +33,35 @@ function TypeIcon({ type }: { type: AccountType }) {
   )
 }
 
-export function AccountTypeSelector({ value, onChange }: { value: AccountType; onChange: (t: AccountType) => void }) {
+// `onChange` omitted → read-only. account_type is chosen at signup and pinned by
+// RLS (migration 0026); the profile page renders this read-only, while the
+// signup page keeps it interactive for the one-time choice.
+export function AccountTypeSelector({
+  value,
+  onChange,
+}: {
+  value: AccountType
+  onChange?: (t: AccountType) => void
+}) {
+  const readOnly = !onChange
   return (
-    <div role="radiogroup" aria-label="Account type" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+    <div
+      role={readOnly ? 'group' : 'radiogroup'}
+      aria-label="Account type"
+      style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}
+    >
       {accountTypes.map((t) => {
         const active = t.key === value
+        // Read-only: only surface the active card so the page isn't offering
+        // choices the user can't make.
+        if (readOnly && !active) return null
+        const Tag = readOnly ? 'div' : 'button'
         return (
-          <button
+          <Tag
             key={t.key}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(t.key)}
+            {...(readOnly
+              ? {}
+              : { type: 'button' as const, role: 'radio', 'aria-checked': active, onClick: () => onChange(t.key) })}
             style={{
               textAlign: 'left',
               display: 'flex',
@@ -55,9 +72,10 @@ export function AccountTypeSelector({ value, onChange }: { value: AccountType; o
               background: active ? 'var(--amber-tint)' : 'var(--white)',
               border: `1px solid ${active ? 'var(--ink)' : 'var(--rule)'}`,
               transition: 'background 0.15s, border-color 0.15s',
+              cursor: readOnly ? 'default' : 'pointer',
             }}
-            onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = 'var(--ink-subtle)' }}
-            onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = 'var(--rule)' }}
+            onMouseEnter={readOnly ? undefined : (e) => { if (!active) e.currentTarget.style.borderColor = 'var(--ink-subtle)' }}
+            onMouseLeave={readOnly ? undefined : (e) => { if (!active) e.currentTarget.style.borderColor = 'var(--rule)' }}
           >
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)' }}>
@@ -66,12 +84,12 @@ export function AccountTypeSelector({ value, onChange }: { value: AccountType; o
               </span>
               {active && (
                 <span className="mono" style={{ fontSize: 8, color: 'var(--amber-hover)', border: '1px solid var(--amber-hover)', borderRadius: 4, padding: '2px 6px' }}>
-                  Active
+                  {readOnly ? 'Your account' : 'Active'}
                 </span>
               )}
             </span>
             <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--ink-mid)', lineHeight: 1.5 }}>{t.desc}</span>
-          </button>
+          </Tag>
         )
       })}
     </div>

@@ -1,7 +1,9 @@
 # Decision 018 — House Chat conclusion candidates (admin-only Author extension)
 
 **Date:** 2026-07-18
-**Status:** Decided & implemented same day.
+**Status:** Decided & implemented 2026-07-18; verified end-to-end by the
+operator 2026-07-20 (toggle on → candidates rendered, disagreed, and Adopt
+wrote the conclusion + reasoning and landed the implications).
 **Amends:** [016](016-draft-mode.md) §1 ("the AI drafts materials, never the
 verdict") and [007](007-ai-roles-and-audience.md)'s Author boundary — **for the
 House Chat admin surface only, per-question opt-in**. Everywhere else,
