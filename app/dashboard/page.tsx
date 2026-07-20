@@ -32,9 +32,19 @@ export default function DashboardPage() {
   // the user is authenticated; here we only load their houses.
   const loadHouses = useCallback(async () => {
     const supabase = createClient()
+    // Resolved here (not via useAuthedPage's `user`, which waits on a profile
+    // fetch) so the grid query fires on mount; middleware guarantees a user,
+    // so a null session just leaves the loading state in place.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
     const { data, error } = await supabase
       .from('houses')
       .select(HOUSE_COLUMNS)
+      // Only houses the user OWNS (db-C1) — teacher RLS (0014) also admits
+      // students' houses, which must never appear in the personal grid.
+      .eq('owner_id', user.id)
       // Strawman houses are attack targets, not the student's own work — keep
       // them out of the "Your Houses" grid.
       .eq('is_strawman', false)

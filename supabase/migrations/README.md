@@ -10,6 +10,24 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 - Write migrations idempotently (`if not exists`, `drop ... if exists`,
   `create or replace`) so re-running is safe.
 
+## Workflow rules
+
+Main auto-deploys to production, so ordering is a correctness property:
+
+1. **Apply before pushing.** A migration is applied to production *before* the
+   code that depends on it is pushed — never the other way around.
+2. **Expand → deploy → contract.** Every migration must be backward-compatible
+   with the currently-deployed code: add columns/tables first, deploy code that
+   uses them, and only remove the old shape in a later migration once nothing
+   deployed reads it.
+3. **Update the applied-state line below at apply time** — it is the only
+   record of what production has actually run until the Supabase CLI workflow
+   (analysis/operations-and-delivery-plan.md item 13) lands.
+
+**Applied through: 0024 (unconfirmed — assumed applied with commit 3142b8e;
+verify in the dashboard and update this line).** 0025 is a pending perf index,
+safe to apply any time.
+
 | File | Area | Adds |
 |---|---|---|
 | `0001_profiles.sql` | profiles | `profiles` table, signup trigger, RLS — backfill of hand-run SQL |
@@ -36,6 +54,7 @@ source of truth** for schema. Apply changes here — never only in the dashboard
 | `0022_houses_draft.sql` | houses | Adds `draft jsonb` — Draft Mode stage progress + per-layer claim map (decision 016); null on non-drafted houses |
 | `0023_ai_usage_retention.sql` | ai | Weekly pg_cron prune of `ai_usage` rows older than 90 days (rows are only read for "today"; the IP ceiling doubles anonymous row writes) |
 | `0024_classroom_integrity.sql` | classroom | `houses.turned_in_at`, `assignments.strawman_released` (+ release gate in `can_view_assignment_strawman`, grandfathering live strawmen), roster returns `account_type`. ⚠ Apply BEFORE deploying the matching client code |
+| `0025_dashboard_index.sql` | houses | Partial index `(owner_id, updated_at desc) where is_strawman = false` — perf helper for the owner-scoped dashboard grid query (finding db-C1); no behavior change |
 
 ## Applying to a fresh database
 
