@@ -1,6 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Fraunces, Inter_Tight, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, FOUNDER } from '@/lib/site'
 import './globals.css'
 import './styles/build-responsive.css'
 import './styles/marketing-responsive.css'
@@ -27,10 +28,66 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 })
 
+// Site-wide metadata (seo #2/#3, aeo C3). `title.template` lets every page
+// export a short `title` and still render "<Page> — Houses of Thought";
+// `metadataBase` makes the relative canonical/OG URLs below resolve absolutely.
+// Six of eight indexable routes previously shared one identical title.
 export const metadata: Metadata = {
-  title: 'Houses of Thought — Structured, Defensible Reasoning',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Houses of Thought — Critical Thinking, Structured',
+    template: `%s — ${SITE_NAME}`,
+  },
   description:
-    'Build the reasoning, not just the answer. Houses of Thought turns a question into structured, defensible reasoning, with AI that guides instead of deciding.',
+    'A critical-thinking tool for classrooms. Turn a hard question into structured, defensible reasoning — perspectives, cited evidence, and assumptions — with AI that guides instead of deciding.',
+  applicationName: SITE_NAME,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    url: '/',
+    title: 'Houses of Thought — Critical Thinking, Structured',
+    description:
+      'Turn a hard question into structured, defensible reasoning. Built for students and teachers.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Houses of Thought — Critical Thinking, Structured',
+    description:
+      'Turn a hard question into structured, defensible reasoning. Built for students and teachers.',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#F7F6F2', // parchment — matches the page background, no flash
+}
+
+// Organization + WebSite JSON-LD (seo #9, aeo H2/M2). Gives answer engines a
+// stable entity for "Houses of Thought" — otherwise ambiguous with the generic
+// phrase — and records the founder and the Paul–Elder lineage as structured
+// data rather than prose buried on /story.
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.svg`,
+      description: SITE_DESCRIPTION,
+      founder: { '@type': 'Person', name: FOUNDER },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: SITE_DESCRIPTION,
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      inLanguage: 'en',
+    },
+  ],
 }
 
 export default function RootLayout({
@@ -44,6 +101,10 @@ export default function RootLayout({
       className={`${fraunces.variable} ${interTight.variable} ${geistMono.variable}`}
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         {children}
         <Analytics />
       </body>

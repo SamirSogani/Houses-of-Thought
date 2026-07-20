@@ -5,16 +5,18 @@
 // theater the 2026-07-19 audit had us remove.
 
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/site'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
 import Footer from '@/components/sections/Footer'
 import CTASection from '@/components/sections/CTASection'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Contact',
   description:
     'Get in touch with Houses of Thought — questions, bug reports, account and data requests, or classroom pilots for your school.',
-}
+  path: '/contact',
+})
 
 const CONTACT_EMAIL = 'samir.sogani@gmail.com'
 

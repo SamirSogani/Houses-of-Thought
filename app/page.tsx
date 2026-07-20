@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
 import ScrollRevealInit from '@/components/ScrollReveal'
@@ -11,6 +12,12 @@ import ExampleTeaserSection from '@/components/sections/ExampleTeaserSection'
 import OriginQuoteSection from '@/components/sections/OriginQuoteSection'
 import FinalCtaSection from '@/components/sections/FinalCtaSection'
 import Footer from '@/components/sections/Footer'
+
+// Title/description come from the root layout's defaults; this only pins the
+// canonical so ?utm=/?next= variants don't index as duplicates (seo #3).
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+}
 
 export default function Home() {
   return (

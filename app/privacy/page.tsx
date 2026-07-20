@@ -5,16 +5,18 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/site'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
 import Footer from '@/components/sections/Footer'
 import { LegalArticle, DraftNotice } from '@/components/legal/LegalArticle'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Privacy Policy',
   description:
     'How Houses of Thought handles data: what we collect, how classroom and student work stays private, which AI providers process prompts, and your choices.',
-}
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   const markdown = fs.readFileSync(path.join(process.cwd(), 'legal', 'PRIVACY_POLICY.md'), 'utf8')

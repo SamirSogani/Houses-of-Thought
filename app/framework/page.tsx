@@ -6,6 +6,7 @@
 // target for the framework's terms (aeo H1), hence the DefinedTermSet JSON-LD.
 
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/site'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
@@ -13,9 +14,15 @@ import Footer from '@/components/sections/Footer'
 import CTASection from '@/components/sections/CTASection'
 
 export const metadata: Metadata = {
-  title: 'The Framework — the full House of Reason model',
-  description:
-    'Every element of the Houses of Thought framework: concepts, purpose, the overarching question, perspectives, evidence, assumptions, inference, conclusions, and implications — based on John Trapasso’s House of Reason, derived from the Paul–Elder model for critical thinking.',
+  ...pageMetadata({
+    title: 'The Framework',
+    description:
+      'Every element of the Houses of Thought framework: concepts, purpose, the overarching question, perspectives, evidence, assumptions, inference, conclusions, and implications — based on John Trapasso\u2019s House of Reason, derived from the Paul\u2013Elder model for critical thinking.',
+    path: '/framework',
+    ogTitle: 'The Houses of Thought Framework',
+  }),
+  // `absolute`: the brand name is already in this title.
+  title: { absolute: 'The Houses of Thought Framework: the full model, layer by layer' },
 }
 
 // One entry per element of the full model. `layer` is the builder layer the

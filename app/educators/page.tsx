@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/site'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
 import ScrollRevealInit from '@/components/ScrollReveal'
@@ -9,6 +11,14 @@ import EducatorCollabSection from '@/components/sections/EducatorCollabSection'
 import EducatorTrustSection from '@/components/sections/EducatorTrustSection'
 import CTASection from '@/components/sections/CTASection'
 import Footer from '@/components/sections/Footer'
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Critical Thinking for Classrooms',
+  description:
+    'A critical-thinking tool built for teachers: assign a question, watch students build structured reasoning, and grade the thinking rather than the answer. Students run the AI in Learn mode only.',
+  path: '/educators',
+  ogTitle: 'Houses of Thought for Classrooms',
+})
 
 export default function EducatorsPage() {
   return (

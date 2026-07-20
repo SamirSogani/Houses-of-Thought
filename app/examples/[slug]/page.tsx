@@ -3,6 +3,7 @@
 // controls. Server component over static fixtures (lib/examples/data.ts). The
 // AI-in-schools house renders verbatim from the stored Build content.
 
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Header from '@/components/Header'
@@ -14,6 +15,7 @@ import { examples, getExample } from '@/lib/examples/data'
 import { layers, axisMeasures, type PerspectiveDetail } from '@/lib/build/content'
 import { people } from '@/lib/build/people'
 import { safeHttpUrl } from '@/lib/safeUrl'
+import { absoluteUrl } from '@/lib/site'
 import type { Assumption, Evidence, Implication, Perspective } from '@/lib/build/types'
 import {
   computeStrength,
@@ -26,6 +28,31 @@ import {
 
 export function generateStaticParams() {
   return examples.map((e) => ({ slug: e.slug }))
+}
+
+// Per-example metadata (seo #2, aeo C3). These are the richest pages on the
+// site — a full rendered house each — and previously all shared the site-wide
+// title, so they were invisible to search as distinct documents.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+  const example = getExample(slug)
+  if (!example) return {}
+  const title = example.house.title || 'Example house'
+  return {
+    title,
+    description: `A worked example: ${example.summary} See the perspectives, cited evidence, assumptions, and House Strength behind the conclusion.`,
+    alternates: { canonical: `/examples/${slug}` },
+    openGraph: {
+      type: 'article',
+      title,
+      description: example.summary,
+      url: `/examples/${slug}`,
+    },
+  }
 }
 
 const monoLabel: React.CSSProperties = {
@@ -71,10 +98,24 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
   const s = computeStrength(h)
   const implTotal = h.pos.length + h.neg.length + h.unc.length
 
+  // BreadcrumbList JSON-LD (seo #9): Examples → this house.
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Examples', item: absoluteUrl('/examples') },
+      { '@type': 'ListItem', position: 2, name: h.title, item: absoluteUrl(`/examples/${slug}`) },
+    ],
+  }
+
   return (
     <>
       <Header />
       <SheetStrip sheet="Sheet 07 / Examples" />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <main>
         <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(28px, 4vw, 48px)' }}>
           <div className="container">

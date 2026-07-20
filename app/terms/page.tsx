@@ -5,16 +5,18 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/site'
 import Header from '@/components/Header'
 import SheetStrip from '@/components/SheetStrip'
 import Footer from '@/components/sections/Footer'
 import { LegalArticle, DraftNotice } from '@/components/legal/LegalArticle'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Terms of Service',
   description:
     'The terms that govern using Houses of Thought, including accounts, classroom use, AI features and their limits, and acceptable use.',
-}
+  path: '/terms',
+})
 
 export default function TermsPage() {
   const markdown = fs.readFileSync(path.join(process.cwd(), 'legal', 'TERMS_OF_SERVICE.md'), 'utf8')
