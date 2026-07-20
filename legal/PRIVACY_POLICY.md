@@ -1,10 +1,10 @@
 # Privacy Policy — Houses of Thought
 
 <!-- TODO: Effective date -->
-**Effective date:** [DATE]
+**Status:** Working draft — under legal review. An effective date will be set when this policy is finalized.
 
 <!-- TODO: Company/entity legal name -->
-This Privacy Policy describes how **[ENTITY LEGAL NAME]** ("we," "us," "our")
+This Privacy Policy describes how **Houses of Thought** ("we," "us," "our")
 collects, uses, and shares information when you use Houses of Thought (the
 "Service"), a web application for building structured reasoning ("houses"),
 individually or in a classroom setting.
@@ -310,9 +310,9 @@ absolute security.
 Questions, requests (including account deletion), or complaints:
 
 <!-- TODO: Contact email -->
-- **Email:** [CONTACT EMAIL]
+- **Contact:** through our [contact page](/contact)
 <!-- TODO: Registered/postal address -->
-- **Address:** [REGISTERED ADDRESS]
+- **Address:** a registered address will be added when the operating entity is finalized
 <!-- TODO: Determine whether a Data Protection Officer or EU/UK representative
 is required; if so, add their contact details here. -->
 

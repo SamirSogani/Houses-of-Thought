@@ -1,10 +1,10 @@
 # Terms of Service — Houses of Thought
 
 <!-- TODO: Effective date -->
-**Effective date:** [DATE]
+**Status:** Working draft — under legal review. An effective date will be set when these Terms are finalized.
 
 <!-- TODO: Legal entity name operating the service -->
-These Terms of Service ("Terms") are an agreement between you and [COMPANY LEGAL NAME] ("we," "us"), the operator of Houses of Thought (the "Service"), available at the Service's website. By creating an account or using the Service, you agree to these Terms.
+These Terms of Service ("Terms") are an agreement between you and Houses of Thought ("we," "us"), the operator of Houses of Thought (the "Service"), available at the Service's website. By creating an account or using the Service, you agree to these Terms.
 
 ## 1. The Service
 
@@ -27,11 +27,11 @@ The Service includes:
 ### Age and school use
 
 <!-- TODO: Set the minimum age and the under-13 / student-consent policy. The product is designed for classroom use by students, so COPPA (US) and equivalent rules likely apply; counsel should decide whether school consent (e.g., COPPA's school-official exception) or parental consent is required, and this section must be rewritten accordingly. -->
-You must be at least [MINIMUM AGE] to create an account, or use the Service under the supervision and with the consent of your school and, where required, a parent or guardian.
+You must be at least 13 to create an account, or use the Service under the supervision and with the consent of your school and, where required, a parent or guardian.
 
 ### Account deletion
 
-Self-service account deletion is not yet available in the product. To request deletion of your account and associated data, contact us at [CONTACT EMAIL]. <!-- TODO: Contact email; also update this section when in-product deletion ships -->
+Self-service account deletion is not yet available in the product. To request deletion of your account and associated data, contact us through our [contact page](/contact). <!-- TODO: Contact email; also update this section when in-product deletion ships -->
 
 ## 3. Free service
 
@@ -88,7 +88,7 @@ We may throttle, suspend, or remove content or accounts that violate this sectio
 
 ## 9. Operations and administration
 
-We use a limited administrative interface to monitor the health of the AI providers described in Section 5 (availability, error rates, latency). We also use hosting analytics to understand aggregate usage of the Service. For details on the data we collect and how we use it, see our Privacy Policy. <!-- TODO: Link the Privacy Policy once it exists -->
+We use a limited administrative interface to monitor the health of the AI providers described in Section 5 (availability, error rates, latency). We also use hosting analytics to understand aggregate usage of the Service. For details on the data we collect and how we use it, see our [Privacy Policy](/privacy).
 
 ## 10. Termination
 
@@ -115,7 +115,7 @@ We may modify the Service and these Terms. For material changes to these Terms w
 ## 15. Governing law and disputes
 
 <!-- TODO: Governing jurisdiction/state and venue; counsel to decide on arbitration/class-waiver language, especially given student users -->
-These Terms are governed by the laws of [JURISDICTION], without regard to conflict-of-laws rules. Disputes will be resolved in the courts of [VENUE], and each party consents to their jurisdiction.
+Governing law and venue will be specified when these Terms are finalized before launch.
 
 ## 16. General
 
@@ -125,5 +125,5 @@ These Terms are the entire agreement between you and us regarding the Service. I
 
 <!-- TODO: Contact email -->
 <!-- TODO: Registered business address -->
-Questions about these Terms: [CONTACT EMAIL]
-[COMPANY LEGAL NAME], [REGISTERED ADDRESS]
+Questions about these Terms: through our [contact page](/contact).
+A registered business address will be added when the operating entity is finalized.

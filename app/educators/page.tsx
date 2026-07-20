@@ -27,7 +27,7 @@ export default function EducatorsPage() {
           eyebrow="Get started"
           heading="Bring reasoning into your classroom."
           primaryLabel="Create a classroom"
-          primaryHref="/signup?role=educator"
+          primaryHref="/login?mode=signup&role=educator"
           secondaryLabel="Talk to us"
           secondaryHref="/contact"
           note="Free to start. Set up a class and invite your students in minutes."

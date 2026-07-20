@@ -52,7 +52,7 @@ export default function EducatorHeroSection() {
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 32 }}>
-            <Link href="/signup?role=educator" className="btn-primary">
+            <Link href="/login?mode=signup&role=educator" className="btn-primary">
               Create a classroom <ArrowIcon />
             </Link>
             <Link href="/try" className="btn-secondary">

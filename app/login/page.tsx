@@ -25,13 +25,18 @@ export default function LoginPage() {
   const [accountType, setAccountType] = useState<AccountType>('standard')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Set when signUp returns no session (Supabase email confirmation is on):
+  // the profile write and redirect can't proceed until the email is verified.
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null)
 
   // Open on the signup tab when arriving from a conversion CTA (e.g. the /try
-  // "Create free account" button links to /login?mode=signup). Read once on mount
-  // to avoid an SSR/hydration mismatch.
+  // "Create free account" button links to /login?mode=signup). A role param
+  // (educator CTAs link /login?mode=signup&role=educator) preselects the
+  // Teacher account type. Read once on mount to avoid a hydration mismatch.
   useEffect(() => {
-    const m = new URLSearchParams(window.location.search).get('mode')
-    if (m === 'signup') setMode('signup')
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('mode') === 'signup') setMode('signup')
+    if (params.get('role') === 'educator') setAccountType('teacher')
   }, [])
 
   const isLogin = mode === 'login'
@@ -60,6 +65,15 @@ export default function LoginPage() {
       return
     }
 
+    // Email confirmation on: signUp returns a user but no session. The profile
+    // write would fail under RLS and the redirect would bounce straight back
+    // here, so show an explicit "check your email" state instead (audit B8).
+    if (!isLogin && !result.data.session) {
+      setLoading(false)
+      setConfirmEmail(email)
+      return
+    }
+
     if (!isLogin && result.data.user) {
       await supabase.from('profiles').update({ account_type: accountType }).eq('id', result.data.user.id)
     }
@@ -67,6 +81,28 @@ export default function LoginPage() {
     setLoading(false)
     router.push(nextPath())
     router.refresh()
+  }
+
+  if (confirmEmail) {
+    return (
+      <AuthCard eyebrow="One more step" heading={'Check your\nemail.'}>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--ink-mid)' }} role="status">
+          We sent a confirmation link to <strong style={{ color: 'var(--ink)' }}>{confirmEmail}</strong>.
+          Open it to activate your account, then log in.
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ width: '100%', justifyContent: 'center', marginTop: 24 }}
+          onClick={() => {
+            setConfirmEmail(null)
+            setMode('login')
+          }}
+        >
+          Back to log in
+        </button>
+      </AuthCard>
+    )
   }
 
   return (
