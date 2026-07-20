@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // bounce with no ?next= return path, unlike every sibling authed route.
 const PROTECTED_PREFIXES = ['/dashboard', '/build', '/profile', '/classroom', '/classes', '/join']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

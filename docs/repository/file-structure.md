@@ -112,8 +112,8 @@ exists to locate the right file, not to invite broad exploration.
 
 ## Root files
 
-- `middleware.ts` — Next.js middleware; refreshes Supabase auth sessions on
-  every request.
+- `proxy.ts` — Next.js proxy (the middleware convention, renamed in Next 16);
+  refreshes Supabase auth sessions on every request.
 - `eslint.config.mjs` — flat ESLint config (`pnpm lint`); two react-hooks v7
   rules are downgraded to warnings as tracked debt (see the file's comment).
 - `.github/workflows/` — `ci.yml` (typecheck / lint / test / build gate) and

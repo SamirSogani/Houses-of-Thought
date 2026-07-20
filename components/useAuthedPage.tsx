@@ -6,7 +6,7 @@
 // literal, and one page forgetting the clamp is a policy bug. This hook is the
 // single home for that dance; migrate pages onto it as they're touched.
 //
-// Route protection stays middleware.ts's job — this hook only resolves WHO the
+// Route protection stays proxy.ts's job — this hook only resolves WHO the
 // user is and what their account type allows, for rendering decisions.
 
 import { useCallback, useEffect, useState } from 'react'
@@ -17,7 +17,7 @@ import { capabilitiesFor, type Capabilities } from '@/lib/auth/capabilities'
 import type { AccountType } from '@/lib/profile/data'
 
 export interface AuthedPage {
-  // null while loading; middleware guarantees a user on protected routes, so a
+  // null while loading; the proxy guarantees a user on protected routes, so a
   // persistent null means the session died — pages may redirect on `resolved`.
   user: User | null
   accountType: AccountType

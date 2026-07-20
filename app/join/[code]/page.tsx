@@ -3,7 +3,7 @@
 // Student join-by-code (plan phase 2). The invite link is /join/<code>; this
 // page redeems it via the join_class() RPC (which inserts the membership under
 // SECURITY DEFINER) and sends the student to their dashboard. Auth is enforced
-// by middleware, so by here the user is signed in.
+// by the proxy, so by here the user is signed in.
 
 import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'

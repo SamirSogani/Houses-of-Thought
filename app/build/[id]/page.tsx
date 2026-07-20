@@ -40,7 +40,7 @@ export default function BuildHouseRoute({
   // 'stale-write' before touching any child rows (see saveHouse).
   const revRef = useRef<string | null>(null)
 
-  // Route protection is handled by middleware.ts; here we load the house. A null
+  // Route protection is handled by proxy.ts; here we load the house. A null
   // result means not-found or not-yours (RLS makes both look empty) → dashboard.
   useEffect(() => {
     const supabase = createClient()

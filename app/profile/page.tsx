@@ -17,7 +17,7 @@ export default function ProfilePage() {
   const [initial, setInitial] = useState<ProfileData | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Route protection is handled by middleware.ts; here we only load the profile.
+  // Route protection is handled by proxy.ts; here we only load the profile.
   useEffect(() => {
     const supabase = createClient()
     let active = true

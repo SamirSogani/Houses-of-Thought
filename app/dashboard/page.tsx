@@ -28,12 +28,12 @@ export default function DashboardPage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Route protection is handled by middleware.ts, so by the time this renders
+  // Route protection is handled by proxy.ts, so by the time this renders
   // the user is authenticated; here we only load their houses.
   const loadHouses = useCallback(async () => {
     const supabase = createClient()
     // Resolved here (not via useAuthedPage's `user`, which waits on a profile
-    // fetch) so the grid query fires on mount; middleware guarantees a user,
+    // fetch) so the grid query fires on mount; the proxy guarantees a user,
     // so a null session just leaves the loading state in place.
     const {
       data: { user },
