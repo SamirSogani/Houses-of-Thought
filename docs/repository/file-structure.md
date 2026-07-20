@@ -63,16 +63,20 @@ exists to locate the right file, not to invite broad exploration.
 
 - **Purpose:** Next.js App Router — routes, pages, layouts.
 - **Belongs here:** `page.tsx`/`layout.tsx` per route, route-scoped styles.
-  `app/api/` holds server-only route handlers (`route.ts`) — currently the
-  co-pilot AI routes under `app/api/ai/` (e.g. `ai/suggest`), which take a house
-  payload and return proposals; they never write the DB.
+  `app/api/` holds server-only route handlers (`route.ts`) — the co-pilot AI
+  routes under `app/api/ai/` (e.g. `ai/suggest`), which take a house payload
+  and return proposals and never write the DB, plus the admin-gated routes
+  under `app/api/admin/` (monitor endpoints, plus House Chat's `chat-intake`
+  and `chat-conclusions`; decisions 017–018).
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
 - **Current routes:** marketing — `/`, `/how-it-works`, `/educators`, `/story`,
   `/faq`, `/examples` (+ `/examples/[slug]`), `/try`; auth — `/login`,
-  `/welcome` (placeholder post-auth screen); app — `/dashboard`, `/build`
+  `/forgot-password`, `/reset-password`, `/auth/callback` (emailed-link
+  landing route), `/welcome` (placeholder post-auth screen); app — `/dashboard`, `/build`
   (+ `/build/[id]`), `/house` (orphaned no-login builder), `/profile`,
   `/classes`, `/classroom` (+ `[classId]`, `[classId]/assignments/[assignmentId]`),
-  `/join/[code]`, `/admin` (+ `/admin/model`).
+  `/join/[code]`, `/admin` (+ `/admin/model`, `/admin/chat` — House Chat beta,
+  decision 017).
 
 ## `components/`
 
@@ -100,8 +104,9 @@ exists to locate the right file, not to invite broad exploration.
   `serialize.ts` (house → prompt text, pure), `prompts.ts` (shared persona +
   capability blocks), `findings.ts` (client-safe zod schemas / `AiAction`
   contract), `draft.ts` (client-safe Draft Mode contract — stages, claim
-  state, gate helpers; decision 016). `auth/admin.ts` gates the AI monitor
-  (decision 014).
+  state, gate helpers; decision 016), `chat.ts` (client-safe House Chat intake
+  contract + verbatim-span clamps; decision 017). `auth/admin.ts` gates the AI
+  monitor and House Chat (decisions 014, 017).
 
 ## Root files
 

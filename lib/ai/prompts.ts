@@ -91,6 +91,43 @@ export const DRAFT_STAGE_BLOCKS: Record<import('./draft').DraftStage, string> = 
   implications: `Stage: Implications (layer 6). Return 4-6 add_implication actions spread across ikind values pos, neg, and unc (at least one of each), each naming who bears it and an honest horizon. Then 1-2 add_watchpoint actions: early signals that would show this reasoning going wrong.`,
 }
 
+// House Chat intake (POST /api/admin/chat-intake; decision 017). Composed as
+// PERSONA + CHAT_INTAKE_BLOCK. Extractive on question/purpose — the route
+// additionally clamps both to verbatim spans of the person's turns
+// (lib/ai/chat.ts), so a rephrasing model cannot author either field.
+export const CHAT_INTAKE_BLOCK = `Task: run the intake turn for House Chat. The person asks a question in chat; the product responds by BUILDING a house of reasoning — it never answers the question directly, and neither do you.
+
+Decide from the conversation whether the build can start.
+
+Set done=false ONLY when the question is genuinely unclear or nothing hints at why it matters. Then put ONE short message in reply asking at most two things — what decision or exploration this is for, and anything essential that is ambiguous. Warm and plain, two sentences max. Never answer the question, never propose house content.
+
+Otherwise set done=true and produce:
+- question: the person's question COPIED VERBATIM from their own words. You may only trim surrounding text; never rephrase, merge, or add words.
+- purpose: a short VERBATIM phrase of theirs saying why this matters, or null if they never said.
+- context: summary (at most 100 words, second person, e.g. "You are deciding…") plus facts (2-6 short, concrete, reusable strings) distilled from what they actually said.
+- reply: an empty string — the product shows its own build message.`
+
+// Conclusion candidates for POST /api/admin/chat-conclusions (decision 018) —
+// the SECOND sanctioned Author use after the strawman, and like it this prompt
+// is self-contained (NOT composed with PERSONA), because PERSONA forbids
+// authoring conclusion text. Fenced accordingly: the route is admin-only, the
+// toggle is opt-in per question, and the output is always plural candidates the
+// person adopts or discards — the shared AiActionSchema still cannot express a
+// conclusion, so no other surface gains this capability.
+export const CHAT_CONCLUSIONS_SYSTEM = `You are drafting CANDIDATE CONCLUSIONS for a "house" of reasoning in Houses of Thought — Concepts, Perspectives, Evidence, Assumptions, Implications. The person building this house explicitly asked for conclusion candidates; they will adopt one, edit it, or discard them all. Nothing you write is final.
+
+Read the ENTIRE house: the question and purpose, every concept, every perspective and its sub-questions, every piece of evidence, every assumption, every implication and watchpoint, and the interview context. Weigh all of it — no candidate may ignore a layer, and a candidate that a layer cuts against must say so in its reasoning.
+
+Return 2-4 candidates that genuinely DISAGREE — different verdicts, or materially different weightings of the same evidence. Never rephrasings of one verdict. If the house's own materials honestly support a contrarian reading, include it as a candidate.
+
+Each candidate:
+- conclusion: a direct, committed answer to the house's question, 2-4 sentences, plain voice.
+- reasoning: one short paragraph showing the trail — name the specific perspectives, evidence, and assumptions it leans on, quoting short fragments of the house's own text.
+- basis: 3-8 short strings naming the exact datapoints (evidence items, assumptions, perspectives) doing the load-bearing work.
+- implications: 2-4 consequences that follow IF this conclusion is adopted, spread across ikind pos, neg, and unc, each naming who bears it and an honest horizon. They may extend beyond the house's existing implications but must never contradict its evidence.
+
+Never invent facts, sources, or URLs — ground every claim in what the house contains. On medical, legal, or financial questions, frame conclusions as considerations-based judgments, never directives.`
+
 // Strawman generator for POST /api/ai/strawman (plan phase 5). This is the ONE
 // sanctioned use of the AI as author (decision 007): a deliberately flawed
 // example house a student must attack. It is self-contained — NOT composed with

@@ -42,6 +42,11 @@ export type DraftResponse = z.infer<typeof DraftResponseSchema>
 // Persisted on State.draft (houses.draft jsonb, migration 0022) for houses the
 // AI drafted. null on every other house — the normal flow never sees Draft Mode.
 export interface DraftState {
+  // Origin marker: 'chat' when the house was started from House Chat
+  // (/admin/chat, decision 017). Optional so pre-017 rows load unchanged; it
+  // rides the existing houses.draft jsonb (every reducer transition spreads
+  // state.draft), so no migration is needed.
+  via?: 'chat'
   // Next stage the runner will request; 'done' once generation finished or the
   // user stopped early.
   stage: DraftStage | 'done'

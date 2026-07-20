@@ -255,6 +255,12 @@ export function AiMonitor() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
+            <Link
+              href="/admin/chat"
+              style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+            >
+              House chat
+            </Link>
             <button style={btn} onClick={load} disabled={loading}>
               Refresh
             </button>
