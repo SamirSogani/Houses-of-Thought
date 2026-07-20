@@ -8,6 +8,41 @@ start here, then work the domain reports in the priority order below.
 > each fix as a scoped task requiring the usual care (read the target, preserve
 > behavior, confirm ambiguous scope) per the repo constitution in `CLAUDE.md`.
 
+## ✅ Remediation status (2026-07-20)
+
+**Clusters 1–5 below are implemented** across ten commits (`23dec2f`..`9bd1513`).
+Typecheck, lint, 64 tests, and the production build all pass. What remains:
+
+**Two actions are required from a human before this ships:**
+
+1. **Apply migrations `0026_role_integrity.sql` and `0027_save_house_rpc.sql`
+   BEFORE deploying the code.** Both are expand-then-deploy: the app now calls
+   `reconcile_signup_role()` at signup and `save_house()` on every autosave.
+   Deploying the code first breaks signup and all saving.
+2. **Replace the interim contact address.** `/contact` currently uses the
+   founder's personal Gmail because no support address exists yet.
+
+**Deliberately deferred** (out of scope for this pass, still open):
+
+- Perf H2/H4 (AI failover deadline budget, per-instance router state), M1–M6.
+- Code-quality: shared AI-route handler, `router.ts` 836-LOC split, zod at the
+  Supabase row boundary, the `@/lib/ai/groq` shim migration.
+- UX H1 (the build workspace's small-screen story got a mobile drawer earlier,
+  but the audit's full responsive rework is not done).
+- AEO M4 (permalinked Mini Houses).
+
+**Judgment calls worth knowing about:**
+
+- `account_type` is now **immutable after signup**. The self-service role
+  switcher is gone; changing a role is an out-of-band admin action. This is a
+  deliberate product change, made because the alternative left the student →
+  teacher escalation open (security C1).
+- Fabricated citations were **replaced with real, web-verified sources** where
+  one existed, and explicitly labeled `"Illustrative demo evidence, not a
+  citation"` where none did — rather than deleting the demo content.
+- The production domain is **not hardcoded**: `lib/site.ts` resolves
+  `NEXT_PUBLIC_SITE_URL` → Vercel's injected production URL → localhost.
+
 ## What's in this folder
 
 | File | Domain | Model |

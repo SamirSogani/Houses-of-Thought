@@ -70,14 +70,22 @@ exists to locate the right file, not to invite broad exploration.
   and `chat-conclusions`; decisions 017–018), and the public `app/api/health/`
   uptime probe (DB reachability + configured AI-lane count).
 - **Does NOT belong:** Shared components (`components/`) or utilities (`lib/`).
-- **Current routes:** marketing — `/`, `/how-it-works`, `/educators`, `/story`,
-  `/faq`, `/examples` (+ `/examples/[slug]`), `/try`; auth — `/login`,
-  `/forgot-password`, `/reset-password`, `/auth/callback` (emailed-link
-  landing route), `/welcome` (placeholder post-auth screen); app — `/dashboard`, `/build`
-  (+ `/build/[id]`), `/house` (orphaned no-login builder), `/profile`,
-  `/classes`, `/classroom` (+ `[classId]`, `[classId]/assignments/[assignmentId]`),
-  `/join/[code]`, `/admin` (+ `/admin/model`, `/admin/chat` — House Chat beta,
-  decision 017).
+- **Current routes:** marketing — `/`, `/how-it-works`, `/framework` (the
+  definitional hub), `/educators`, `/story`, `/faq`, `/examples`
+  (+ `/examples/[slug]`), `/try`, `/contact`; legal — `/terms`, `/privacy`
+  (both render `legal/*.md` through `components/legal/LegalArticle`); auth —
+  `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`
+  (emailed-link landing route), `/welcome` (post-auth screen); app —
+  `/dashboard`, `/build` (+ `/build/[id]`), `/house` (orphaned no-login
+  builder), `/profile`, `/classes`, `/classroom` (+ `[classId]`,
+  `[classId]/assignments/[assignmentId]`), `/join/[code]`, `/admin`
+  (+ `/admin/model`, `/admin/chat` — House Chat beta, decision 017).
+- **Metadata & crawl surface:** `app/robots.ts`, `app/sitemap.ts`,
+  `app/llms.txt/route.ts`, `app/icon.svg`, `app/opengraph-image.tsx`, and
+  `app/not-found.tsx`. Per-page metadata is built with `pageMetadata()` from
+  `lib/site.ts`, which also resolves the production domain. Every app/auth
+  route directory carries a tiny `layout.tsx` whose only job is the `noindex`
+  metadata export (those pages are client components and cannot export it).
 
 ## `components/`
 
