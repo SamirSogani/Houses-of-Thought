@@ -31,9 +31,15 @@
 //     4. Cerebras  gpt-oss-120b           (multi-throttle bridge, on Google 429)
 //
 //   ON-DEMAND COMPLEX  (drafter)
-//   Heavy framework generation. Uses Gemini's large context + daily budget.
-//     1. Google    gemini-2.5-flash       (primary)
+//   Heavy framework generation. Leads with Gemini's large context, then falls
+//   onto the same resilience tail the other two lanes already have — real
+//   reasoning-pipeline testing (decision 019, Phase 1.5) found the original
+//   2-target chain had no margin left once Gemini AND Cerebras were both
+//   under real load the same day.
+//     1. Google    gemini-2.5-flash       (primary — large context)
 //     2. Cerebras  gpt-oss-120b           (on Gemini 429)
+//     3. Mistral   ministral-8b-latest    (on Cerebras 429)
+//     4. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
 //
 // Groq is special. A Groq 429 is read as an *org-wide* block, so we do NOT
 // immediately hop to gpt-oss-20b on the same account. Instead we open a strict
@@ -174,11 +180,24 @@ function suggestorAttempts(): Attempt[] {
   return attempts
 }
 
+// On-demand complex generation (drafter): Gemini's large context leads, then
+// Cerebras, then the same Mistral → Groq resilience tail the other two lanes
+// use, sharing the same Groq penalty box.
+function draftAttempts(): Attempt[] {
+  const attempts: Attempt[] = [
+    { ...TARGETS.geminiFlash },
+    { ...TARGETS.cerebrasGptOss120b },
+    { ...TARGETS.mistral8b },
+  ]
+  if (!groqCoolingDown()) {
+    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
+  }
+  return attempts
+}
+
 // Built fresh per request so it reflects current penalty-box / recovery state.
 function attemptsForRole(role: AiRole): Attempt[] {
-  if (role === 'drafter') {
-    return [{ ...TARGETS.geminiFlash }, { ...TARGETS.cerebrasGptOss120b }]
-  }
+  if (role === 'drafter') return draftAttempts()
   if (role === 'suggestor') return suggestorAttempts()
   return realtimeAttempts() // coach | critic
 }

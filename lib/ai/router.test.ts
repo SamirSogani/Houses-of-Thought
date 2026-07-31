@@ -145,8 +145,7 @@ describe('daily airbag (per provider)', () => {
   it('one provider daily-exhausted does NOT reach OpenRouter while others merely rate-limit', async () => {
     script = (m) => {
       if (m === MODELS.gemini) throw makeErr(429, DAILY)
-      if (m === MODELS.cerebras) throw makeErr(429, 'per-minute rate limit')
-      return OK
+      throw makeErr(429, 'per-minute rate limit') // cerebras, mistral, groq: transient only
     }
     await expect(ask('drafter')).rejects.toMatchObject({ status: 429, message: 'ai-rate-limited' })
     expect(calls.some((c) => c.model === MODELS.openrouter)).toBe(false)
@@ -155,13 +154,21 @@ describe('daily airbag (per provider)', () => {
 
   it('fires OpenRouter only when the whole lane is daily-exhausted, and skips marked providers', async () => {
     script = (m) => {
-      if (m === MODELS.gemini || m === MODELS.cerebras) throw makeErr(429, DAILY)
+      if ([MODELS.gemini, MODELS.cerebras, MODELS.mistral, MODELS.groqQwen].includes(m)) {
+        throw makeErr(429, DAILY)
+      }
       return OK
     }
     await expect(ask('drafter')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.gemini, MODELS.cerebras, MODELS.openrouter])
+    expect(calls.map((c) => c.model)).toEqual([
+      MODELS.gemini,
+      MODELS.cerebras,
+      MODELS.mistral,
+      MODELS.groqQwen,
+      MODELS.openrouter,
+    ])
 
-    // Next drafter request: both marked providers are skipped without a call.
+    // Next drafter request: all four marked providers are skipped without a call.
     calls.length = 0
     await expect(ask('drafter')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.model)).toEqual([MODELS.openrouter])
