@@ -1,8 +1,12 @@
 # 06 — Phase 1.5 bounded retries: built, and real-verified (2026-07-31)
 
 Written the day after 05, once real testing kept reproducing the exact
-failure 05 flagged. **Everything below is uncommitted** — check
-`git status`/`git diff` first.
+failure 05 flagged. **Everything below is now committed** — check
+`git log` if that ever seems stale. **This doc's "Updated next steps" are
+superseded by
+[07-phase1.5-continued.md](07-phase1.5-continued.md)** (drafter stagger fix,
+schema audit, a renewed and earlier capacity limit) — read 07 for current
+status.
 
 ## What shipped
 

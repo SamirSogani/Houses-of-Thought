@@ -37,6 +37,16 @@ if (typeof window !== 'undefined') {
 
 const StanceModelSchema = PerspectiveStanceSchema.omit({ perspective_id: true, stance_label: true })
 
+// Mirrors runReviewPanel's REVIEWER_STAGGER_MS (orchestrator-panel.ts). Real
+// testing (06-phase1.5-bounded-retries.md, 2026-07-31) showed this step's 4
+// sub-element calls per bundle, fired in parallel across all n bundles with
+// no stagger, exhausted the 2-target drafter lane (Gemini + Cerebras) at
+// n=2 — 8 simultaneous calls drew 3 consecutive ai-rate-limited responses.
+// Staggering every call's start, flattened across bundles AND sub-elements
+// (not just bundles), spreads the full 4n calls over time instead of firing
+// them at once.
+const DRAFTER_STAGGER_MS = 150
+
 export async function runPerspectivesGenerateStances(
   frame: FramePacket,
   scoping: BreadthScopingPacket,
@@ -117,43 +127,56 @@ export async function runPerspectivesGenerateDetails(
         ? { priorArtifact: repair.priorBundles[i], priorVerdict }
         : undefined
 
+      // Flattened across bundles AND sub-elements (i*4+j), not just bundles —
+      // see DRAFTER_STAGGER_MS above.
+      const stagger = (j: number) =>
+        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * DRAFTER_STAGGER_MS))
+
       const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
-        completeJSON({
-          role: 'drafter',
-          system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_SUBQUESTIONS_BLOCK}`,
-          user: appendRegenerationFeedback(stanceText, feedback),
-          schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
-          schemaName: 'perspective_subquestions',
-          effort: 'high',
-          maxTokens: 500,
-        }),
-        completeJSON({
-          role: 'drafter',
-          system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_ASSUMPTIONS_BLOCK}`,
-          user: appendRegenerationFeedback(stanceText, feedback),
-          schema: PerspectiveBundleSchema.pick({ assumptions: true }),
-          schemaName: 'perspective_assumptions',
-          effort: 'high',
-          maxTokens: 500,
-        }),
-        completeJSON({
-          role: 'drafter',
-          system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
-          user: appendRegenerationFeedback(stanceText, feedback),
-          schema: PerspectiveBundleSchema.pick({ evidence: true }),
-          schemaName: 'perspective_evidence',
-          effort: 'high',
-          maxTokens: 700,
-        }),
-        completeJSON({
-          role: 'drafter',
-          system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_COUNTERARGUMENT_BLOCK}`,
-          user: appendRegenerationFeedback(stanceText, feedback),
-          schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),
-          schemaName: 'perspective_counterargument',
-          effort: 'high',
-          maxTokens: 700,
-        }),
+        stagger(0).then(() =>
+          completeJSON({
+            role: 'drafter',
+            system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_SUBQUESTIONS_BLOCK}`,
+            user: appendRegenerationFeedback(stanceText, feedback),
+            schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
+            schemaName: 'perspective_subquestions',
+            effort: 'high',
+            maxTokens: 500,
+          })
+        ),
+        stagger(1).then(() =>
+          completeJSON({
+            role: 'drafter',
+            system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_ASSUMPTIONS_BLOCK}`,
+            user: appendRegenerationFeedback(stanceText, feedback),
+            schema: PerspectiveBundleSchema.pick({ assumptions: true }),
+            schemaName: 'perspective_assumptions',
+            effort: 'high',
+            maxTokens: 500,
+          })
+        ),
+        stagger(2).then(() =>
+          completeJSON({
+            role: 'drafter',
+            system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
+            user: appendRegenerationFeedback(stanceText, feedback),
+            schema: PerspectiveBundleSchema.pick({ evidence: true }),
+            schemaName: 'perspective_evidence',
+            effort: 'high',
+            maxTokens: 700,
+          })
+        ),
+        stagger(3).then(() =>
+          completeJSON({
+            role: 'drafter',
+            system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_COUNTERARGUMENT_BLOCK}`,
+            user: appendRegenerationFeedback(stanceText, feedback),
+            schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),
+            schemaName: 'perspective_counterargument',
+            effort: 'high',
+            maxTokens: 700,
+          })
+        ),
       ])
 
       return {
