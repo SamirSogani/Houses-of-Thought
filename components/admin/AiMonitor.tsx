@@ -261,6 +261,12 @@ export function AiMonitor() {
             >
               House chat
             </Link>
+            <Link
+              href="/admin/reasoning"
+              style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+            >
+              Reasoning pipeline
+            </Link>
             <button style={btn} onClick={load} disabled={loading}>
               Refresh
             </button>

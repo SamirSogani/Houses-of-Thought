@@ -64,6 +64,7 @@
 
 import type OpenAI from 'openai'
 import { z } from 'zod'
+import { log } from '@/lib/log'
 import {
   AiError,
   estimateTokens,
@@ -428,13 +429,25 @@ export async function completeJSON<T>(opts: {
 
   // Ask once; on schema-parse failure, ask again with the validation error
   // appended so the model can self-correct. Then give up.
-  const first = tryParse(await execute(opts.role, base))
+  const firstRaw = await execute(opts.role, base)
+  const first = tryParse(firstRaw)
   if (first.ok) return first.value
 
   const retryUser = `${opts.user}\n\nYour previous reply did not match the required schema (${first.error}). Reply again with only valid JSON that matches the schema.`
-  const second = tryParse(await execute(opts.role, { ...base, user: retryUser }))
+  const secondRaw = await execute(opts.role, { ...base, user: retryUser })
+  const second = tryParse(secondRaw)
   if (second.ok) return second.value
 
+  // Diagnostic only (2026-07-30): visibility into what the model actually
+  // returned on a genuine ai-invalid-output — this path previously had none.
+  log.error('ai/router', 'completeJSON invalid output after retry', {
+    schemaName: opts.schemaName,
+    role: opts.role,
+    firstError: first.error,
+    firstRaw: firstRaw.slice(0, 500),
+    secondError: second.error,
+    secondRaw: secondRaw.slice(0, 500),
+  })
   throw new AiError(502, 'ai-invalid-output')
 }
 
