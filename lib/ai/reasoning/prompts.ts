@@ -9,7 +9,7 @@
 // and generators are told this explicitly so they describe what evidence
 // would be needed rather than fabricating a specific, real-sounding source.
 
-import type { FramePacket, PerspectiveBundle } from './contracts'
+import type { FramePacket, PerspectiveBundle, ReviewPanelVerdict } from './contracts'
 import type { StandardDef } from './standards'
 
 export const REASONING_PERSONA = `You are one stage in a multi-agent reasoning pipeline inside Houses of Thought's admin tools. The pipeline reasons through a hard question in strict sequence — frame, perspectives, assumptions, evidence, conclusions, implications — modeled on Paul & Elder's Elements of Reasoning. You are doing exactly ONE stage; you do not see, and must not try to redo, any other stage's job.
@@ -31,7 +31,7 @@ Produce:
 - core_question: restate the question as concisely and directly as the original phrasing already is — often nearly verbatim. Only reword where the original is genuinely ambiguous or missing something essential. Precise means unambiguous, NOT longer or more formal: padding a simple question with qualifiers like "specific institution," "comprehensive policy," or "all forms of X" makes it WORSE, not better, when the original had no such ambiguity to resolve. If the original word choice is a loaded binary (e.g. "ban"), KEEP it for fidelity to what was actually asked — do not soften or euphemize it into a different question — and instead widen the frame in scope_notes (below), not by rewriting core_question.
 - definitions: terms someone must pin down before reasoning about this, each with a working definition for THIS question (not dictionary boilerplate). At most 6.
 - purpose: one sentence on why this question matters — name WHO holds this decision if it's reasonably inferable from the question (e.g. "our school's administration," "a parent," "the student"), not a generic "to evaluate impacts." Don't invent a decision-maker the question gives no basis for.
-- scope_notes: name the actual range of distinct considerations at stake — don't stop at the first few obvious ones; think across practical, social, economic, and procedural angles before settling on a list. If core_question poses a binary (ban/don't, allow/forbid), explicitly state here that the full spectrum of options between the extremes is in scope too, not just the two poles — this is where the framing stays open, not in core_question's wording. Also state what's explicitly out of scope.
+- scope_notes: name the actual range of distinct considerations at stake — don't stop at the first few obvious ones; think across practical, social, economic, and procedural angles before settling on a list. If core_question poses a binary (ban/don't, allow/forbid), explicitly state here that the full spectrum of options between the extremes is in scope too, not just the two poles — this is where the framing stays open, not in core_question's wording. Also state what's explicitly out of scope. Aim for under ~1200 characters — thorough, not exhaustive; name the categories of consideration, don't enumerate every instance within each.
 
 Do not answer the question. Do not take a side. Do not editorialize the question into something wordier or more formal-sounding than it needs to be.`
 
@@ -112,6 +112,22 @@ Be a firm, fair grader, not a cheerleader. pass:true only if the artifact genuin
 
   const user = `## Question and context\n${context}\n\n## Artifact under review\n${JSON.stringify(artifact, null, 2)}`
   return { system, user }
+}
+
+// ── Regeneration feedback (bounded retries, 03-orchestration-and-failure-
+// handling.md: "the regenerating agent... sees its own prior output plus the
+// panel's failing-standard notes... targeted repair, not independent
+// judgment"). Shared by every generate step that can be re-invoked after a
+// failed panel verdict — appends the prior artifact and exactly what failed.
+export function appendRegenerationFeedback(
+  context: string,
+  repair?: { priorArtifact: unknown; priorVerdict: ReviewPanelVerdict }
+): string {
+  if (!repair) return context
+  const failing = (Object.entries(repair.priorVerdict.standards) as [string, { pass: boolean; notes: string }][])
+    .filter(([, v]) => !v.pass)
+  const feedback = failing.map(([id, v]) => `- ${id}: ${v.notes}`).join('\n')
+  return `${context}\n\n## Your previous attempt (revise this — do not start over)\n${JSON.stringify(repair.priorArtifact, null, 2)}\n\n## Why it failed review — address this feedback specifically\n${feedback}`
 }
 
 // ── Serialization helpers — build the `user` context text for later steps ──

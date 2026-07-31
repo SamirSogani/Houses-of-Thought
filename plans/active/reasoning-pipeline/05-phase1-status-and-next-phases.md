@@ -3,16 +3,20 @@
 Written 2026-07-30 so a fresh session can pick this up without the
 conversation that built it. **Everything below is uncommitted** — check
 `git status`/`git diff` first; nothing here should be assumed already merged.
+**Phase 1.5's bounded retries (below) shipped and were real-verified
+2026-07-31 — see
+[06-phase1.5-bounded-retries.md](06-phase1.5-bounded-retries.md) for that
+session's full findings** (the Frame prompt convergence story, 2 more real
+bugs fixed, and real verification reaching past Frame for the first time).
+This file is kept as the Phase-1-build historical record; 06 is now the
+current-status doc.
 
 ## What's actually done and real-verified
 
 All 17 steps (`lib/ai/reasoning/steps.ts` `STEP_ORDER`) are wired end-to-end.
 **Dry-run mode works fully** (free, zero API calls — confirms plumbing after
-any change). **Real (non-dry-run) verification only reached the Frame layer**
-— every real run so far hard-blocked at `frame-review` before perspectives,
-global layers, conclusions, implications, or final-composition ever got a
-real model call. That's the single biggest verification gap: **the pipeline
-past Frame has never been exercised with real completeJSON calls.**
+any change). Real (non-dry-run) verification reached only the Frame layer as
+of 2026-07-30 — see 06 for why that changed the next day.
 
 Two real bugs were found and fixed live:
 1. `SingleStandardVerdictSchema.notes` was capped at 400 chars; the reviewer
@@ -42,27 +46,19 @@ saturated that day. Reverted to `role: 'critic'` for all 9 calls, relying on
 its own 4-provider failover chain instead. **Don't reintroduce cross-role
 spreading without new evidence it's needed.**
 
-## Known open issue — where Frame-prompt tuning left off
+## Frame-prompt tuning — resolved 2026-07-31
 
-`FRAME_BLOCK` in `lib/ai/reasoning/prompts.ts` has been through 3 real
-iterations:
-1. Original: produced verbose, padded `core_question` (e.g. added "specific
-   institution," "all mandatory" to a clean question) — failed clarity/depth.
-2. Fix: "restate concisely, don't pad if already clear" — fixed padding and
-   depth (broader `scope_notes`), but over-corrected: pure verbatim
-   preservation left decision-context (who/why) and loaded binary phrasing
-   ("ban") unaddressed — failed clarity/logic instead.
-3. Fix: keep `core_question` wording untouched even if loaded, but push "the
-   full spectrum of options is in scope" into `scope_notes` and "who holds
-   this decision" into `purpose` instead. **This fix has not been verified —
-   provider rate-limiting blocked the real run before frame-review could be
-   reached again.**
-
-**Next step:** check provider health (below), then run a real n=2 pass at
-`/admin/reasoning` with "Should our school ban homework?" and check whether
-`frame-review` passes cleanly. If clarity/logic still fail, read the actual
-reviewer notes (expand "Frame review" in the UI, or `preview_logs` /
-server console for the `panel verdict` log line) before editing blind.
+`FRAME_BLOCK` in `lib/ai/reasoning/prompts.ts` went through 3 iterations in
+this doc's original writing (padding → over-corrected verbatim-preservation →
+push spectrum/purpose out of `core_question`). Fix #3's real verification was
+blocked at the time by provider capacity (a live-check probe passing doesn't
+mean the next real completeJSON call succeeds — the drafter lane has very
+little real spare capacity). **Resolved the next day — see
+[06](06-phase1.5-bounded-retries.md#real-verified-live-2026-07-31--the-frame-prompt-convergence-story)
+for the full story**: fix #3 doesn't pass cleanly alone, but Phase 1.5's new
+regeneration loop converges it in 2 more rounds, and the actual winning fix
+was narrower than expected (disambiguating "our" → "a K-12 school", not
+abandoning the binary "ban" wording fix #3 deliberately kept).
 
 ## Before spending any real API calls
 
@@ -83,7 +79,7 @@ run (always safe, zero cost) to verify structural changes instead.
 | `lib/ai/reasoning/budget.ts` | Cost model, `MAX_N_PHASE1 = 3` |
 | `lib/ai/reasoning/orchestrator-{panel,setup,perspectives,global}.ts` | Server-only execution |
 | `app/api/admin/reasoning/route.ts` | The 17-step dispatcher |
-| `app/admin/reasoning/page.tsx` + `components/admin/reasoning/*` | UI |
+| `app/admin/reasoning/page.tsx` + `components/admin/reasoning/*` | UI; `ReasoningPipelinePage.tsx` now retries `ai-rate-limited` automatically (Phase 1.5 #2) |
 | `lib/ai/limits.ts` | Added `ADMIN_REASONING_DAILY_RUN_CAP` + `enforceReasoningRunLimit` |
 | `lib/ai/router.ts` | Added raw-content diagnostic logging (shared file, additive-only) |
 
@@ -100,25 +96,24 @@ run (always safe, zero cost) to verify structural changes instead.
 4. Dry run first (free) after any change, then real n=2 if provider health
    allows.
 
-## Phase 1.5 — next, cheapest and highest-value
+## Phase 1.5 — status
 
-1. **Bounded retries** (2 retries/3 attempts, per decision 019's
-   orchestration design) for both generate and review steps, feeding the
-   panel's failing-standard notes back as targeted context on retry. Today's
-   session hit exactly the failures this would absorb automatically instead
-   of surfacing a manual "Retry" click.
-2. **Distinguish rate-limit failures from invalid-output failures** — the
-   former needs a wait-then-retry (a same-instant retry won't help if the
-   whole chain is exhausted, as seen today); the latter benefits from the
-   existing "here's what was wrong, fix it" retry pattern.
-3. **Finish the Frame prompt convergence** (see above).
-4. **Audit other packet schemas' max-lengths** against what their prompts
-   actually ask for — `ConclusionsPacketSchema`, `ImplicationsPacketSchema`,
+All shipped and real-verified 2026-07-31 — see
+[06](06-phase1.5-bounded-retries.md) for the full build (both the
+transport-level and verdict-driven retry halves) and live-verification
+results:
+
+1. ~~Bounded retries (generate + review)~~ — DONE.
+2. ~~Distinguish rate-limit vs. invalid-output failures~~ — DONE.
+3. ~~Finish the Frame prompt convergence~~ — DONE (resolved, see above).
+4. **Remaining:** audit other packet schemas' max-lengths
+   (`ConclusionsPacketSchema`, `ImplicationsPacketSchema`,
    `GlobalAssumptionsPacketSchema`, `GlobalEvidencePacketSchema`,
-   `PerspectiveBundleSchema` — using the same fix pattern as the
-   `notes` field (raised 400→700).
-5. **First real test of perspectives-generate onward** — never yet exercised
-   with real model calls; only proven via dry run.
+   `PerspectiveBundleSchema`) — not yet real-exercised, so not yet confirmed
+   necessary the way `scope_notes`/`notes` were.
+5. **Remaining:** first real test of perspectives-review onward — reached
+   for the first time 2026-07-31 but paused on a real rate-limit; see 06's
+   "Updated next steps."
 
 ## Phase 2
 

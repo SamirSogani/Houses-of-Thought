@@ -1,0 +1,144 @@
+// Bounded-retry logic for the Perspectives layer (decision 019, Phase 1.5 #1)
+// — the one layer that regenerates per-bundle instead of hard-blocking. This
+// pins the two properties that matter and can't be exercised live today
+// (provider capacity is too unstable to reach real perspectives review, see
+// plans/active/reasoning-pipeline/05): a settled bundle (passed, or already
+// degraded) is never re-asked-for or re-reviewed, and a still-failing bundle
+// degrades only once MAX_REGENERATION_ATTEMPTS is actually exhausted.
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { FramePacket, PerspectiveBundle, PerspectiveStance, ReviewPanelVerdict } from './contracts'
+import { STANDARD_IDS } from './contracts'
+import { MAX_REGENERATION_ATTEMPTS } from './budget'
+
+const completeJSONMock = vi.fn()
+vi.mock('@/lib/ai/router', () => ({ completeJSON: (...args: unknown[]) => completeJSONMock(...args) }))
+
+const runReviewPanelMock = vi.fn()
+vi.mock('./orchestrator-panel', () => ({ runReviewPanel: (...args: unknown[]) => runReviewPanelMock(...args) }))
+
+const { runPerspectivesGenerateDetails, runPerspectivesReview } = await import('./orchestrator-perspectives')
+
+const frame: FramePacket = {
+  original_query: 'Should our school ban homework?',
+  core_question: 'Should our school ban homework?',
+  definitions: [],
+  purpose: 'test',
+  scope_notes: 'test',
+}
+
+function stance(id: string, label: string): PerspectiveStance {
+  return { perspective_id: id, stance_label: label, stance_summary: 'summary', key_claims: ['claim'] }
+}
+
+function bundle(id: string, label: string): PerspectiveBundle {
+  return {
+    ...stance(id, label),
+    sub_questions: ['q'],
+    assumptions: ['a'],
+    evidence: [],
+    counterargument: { authored_by_perspective_id: 'other', target_claims: ['claim'], rebuttals: ['r'] },
+  }
+}
+
+function verdict(overall_pass: boolean, degraded = false): ReviewPanelVerdict {
+  const standards = Object.fromEntries(
+    STANDARD_IDS.map((id) => [id, { pass: overall_pass, notes: overall_pass ? 'fine' : `${id} failed` }])
+  ) as ReviewPanelVerdict['standards']
+  return { subject_id: 'p1', standards, overall_pass, degraded }
+}
+
+beforeEach(() => {
+  completeJSONMock.mockReset()
+  runReviewPanelMock.mockReset()
+  completeJSONMock.mockResolvedValue({})
+})
+
+describe('runPerspectivesGenerateDetails', () => {
+  it('generates every bundle fresh when there is no prior verdict', async () => {
+    const stances = [stance('p1', 'A'), stance('p2', 'B')]
+    completeJSONMock.mockResolvedValue({ sub_questions: ['q'] })
+    const { bundles, attempts } = await runPerspectivesGenerateDetails(frame, stances, false)
+    expect(bundles).toHaveLength(2)
+    expect(attempts).toEqual([1, 1])
+    expect(completeJSONMock).toHaveBeenCalledTimes(8) // 4 sub-elements x 2 bundles
+  })
+
+  it('regenerates only the failing bundle, leaving a settled one untouched', async () => {
+    const stances = [stance('p1', 'A'), stance('p2', 'B')]
+    const priorBundles = [bundle('p1', 'A'), bundle('p2', 'B')]
+    const priorVerdicts = [verdict(false), verdict(true)] // p1 failed, p2 already passed
+    const priorAttempts = [1, 1]
+
+    completeJSONMock.mockResolvedValue({ sub_questions: ['regenerated'] })
+    const { bundles, attempts } = await runPerspectivesGenerateDetails(frame, stances, false, {
+      priorBundles,
+      priorVerdicts,
+      priorAttempts,
+    })
+
+    // p2 (settled) is the exact same object back — never regenerated.
+    expect(bundles[1]).toBe(priorBundles[1])
+    // p1 (failing) went through completeJSON again.
+    expect(completeJSONMock).toHaveBeenCalledTimes(4) // only p1's 4 sub-elements
+    expect(attempts).toEqual([2, 1]) // only p1's attempt count advanced
+
+    // The regeneration prompt actually carries the prior artifact + failing notes.
+    const userPrompts = completeJSONMock.mock.calls.map((c) => (c[0] as { user: string }).user)
+    expect(userPrompts.every((u) => u.includes('Your previous attempt'))).toBe(true)
+    expect(userPrompts.every((u) => u.includes('clarity failed'))).toBe(true)
+  })
+
+  it('never regenerates a bundle that already exhausted its attempts and degraded', async () => {
+    const stances = [stance('p1', 'A')]
+    const priorBundles = [bundle('p1', 'A')]
+    const priorVerdicts = [verdict(false, true)] // failed AND degraded — settled, gave up
+    const priorAttempts = [MAX_REGENERATION_ATTEMPTS]
+
+    const { bundles, attempts } = await runPerspectivesGenerateDetails(frame, stances, false, {
+      priorBundles,
+      priorVerdicts,
+      priorAttempts,
+    })
+
+    expect(bundles[0]).toBe(priorBundles[0])
+    expect(completeJSONMock).not.toHaveBeenCalled()
+    expect(attempts).toEqual([MAX_REGENERATION_ATTEMPTS])
+  })
+})
+
+describe('runPerspectivesReview', () => {
+  it('reviews every bundle fresh when there is no prior verdict', async () => {
+    const bundles = [bundle('p1', 'A'), bundle('p2', 'B')]
+    runReviewPanelMock.mockResolvedValue(verdict(true))
+    const verdicts = await runPerspectivesReview(frame, bundles, null, null, false)
+    expect(verdicts).toHaveLength(2)
+    expect(runReviewPanelMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not re-review a settled bundle (passed, or already degraded)', async () => {
+    const bundles = [bundle('p1', 'A'), bundle('p2', 'B')]
+    const priorVerdicts = [verdict(true), verdict(false, true)]
+    const verdicts = await runPerspectivesReview(frame, bundles, priorVerdicts, [1, MAX_REGENERATION_ATTEMPTS], false)
+    expect(runReviewPanelMock).not.toHaveBeenCalled()
+    expect(verdicts).toEqual(priorVerdicts)
+  })
+
+  it('keeps a still-failing bundle retryable below the attempt cap', async () => {
+    const bundles = [bundle('p1', 'A')]
+    const priorVerdicts = [verdict(false)]
+    runReviewPanelMock.mockResolvedValue(verdict(false))
+    const verdicts = await runPerspectivesReview(frame, bundles, priorVerdicts, [1], false)
+    expect(verdicts[0].overall_pass).toBe(false)
+    expect(verdicts[0].degraded).toBe(false)
+  })
+
+  it('degrades a bundle only once it fails at the final attempt', async () => {
+    const bundles = [bundle('p1', 'A')]
+    const priorVerdicts = [verdict(false)]
+    runReviewPanelMock.mockResolvedValue(verdict(false))
+    const verdicts = await runPerspectivesReview(frame, bundles, priorVerdicts, [MAX_REGENERATION_ATTEMPTS], false)
+    expect(verdicts[0].overall_pass).toBe(false)
+    expect(verdicts[0].degraded).toBe(true)
+  })
+})

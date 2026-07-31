@@ -53,7 +53,10 @@ function stepDone(run: RunState, stepId: StepId): boolean {
     case 'frame-generate':
       return run.frame != null
     case 'frame-review':
-      return run.frameVerdict != null
+      // A failing-but-retryable verdict sits in run.frameVerdict while the
+      // layer loops back to regenerate (route.ts retryStep()) — only a PASS
+      // means this step is actually done, not merely "a verdict exists."
+      return run.frameVerdict?.overall_pass === true
     case 'context-gather-post':
       return run.contextGatherPost != null
     case 'breadth-scoping':
@@ -63,23 +66,27 @@ function stepDone(run: RunState, stepId: StepId): boolean {
     case 'perspectives-generate-details':
       return run.perspectives != null
     case 'perspectives-review':
-      return run.perspectiveVerdicts != null
+      // "Done" means every bundle has settled — passed, or gave up and
+      // degraded — not merely that a first round of verdicts exists (some
+      // may still be mid-regeneration; see needsRegeneration() in
+      // orchestrator-perspectives.ts).
+      return run.perspectiveVerdicts != null && run.perspectiveVerdicts.every((v) => v.overall_pass || v.degraded)
     case 'global-assumptions-generate':
       return run.globalAssumptions != null
     case 'global-assumptions-review':
-      return run.globalAssumptionsVerdict != null
+      return run.globalAssumptionsVerdict?.overall_pass === true
     case 'global-evidence-generate':
       return run.globalEvidence != null
     case 'global-evidence-review':
-      return run.globalEvidenceVerdict != null
+      return run.globalEvidenceVerdict?.overall_pass === true
     case 'conclusions-generate':
       return run.conclusions != null
     case 'conclusions-review':
-      return run.conclusionsVerdict != null
+      return run.conclusionsVerdict?.overall_pass === true
     case 'implications-generate':
       return run.implications != null
     case 'implications-review':
-      return run.implicationsVerdict != null
+      return run.implicationsVerdict?.overall_pass === true
     case 'final-composition':
       return run.finalAnswer != null
   }
@@ -187,8 +194,11 @@ export function ReasoningStagesList({
                         {verdict ? (
                           verdict.degraded ? (
                             <span style={degradedPill}>degraded</span>
-                          ) : (
+                          ) : verdict.overall_pass ? (
                             <CheckIcon size={12} />
+                          ) : (
+                            // Failed but not yet degraded — still regenerating.
+                            <span className="mini-spinner" aria-hidden="true" />
                           )
                         ) : (
                           <span className="mini-spinner" aria-hidden="true" />

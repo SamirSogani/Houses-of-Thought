@@ -20,6 +20,7 @@ import {
   FRAME_BLOCK,
   BREADTH_SCOPING_BLOCK,
   serializeFrame,
+  appendRegenerationFeedback,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
 import { clampN } from './budget'
@@ -45,7 +46,11 @@ export async function runContextGather(context: string, dryRun: boolean): Promis
 
 const FrameModelSchema = FramePacketSchema.omit({ original_query: true })
 
-export async function runFrameGenerate(originalQuery: string, dryRun: boolean): Promise<FramePacket> {
+export async function runFrameGenerate(
+  originalQuery: string,
+  dryRun: boolean,
+  repair?: { priorFrame: FramePacket; priorVerdict: ReviewPanelVerdict }
+): Promise<FramePacket> {
   if (dryRun) {
     return {
       original_query: originalQuery,
@@ -58,11 +63,19 @@ export async function runFrameGenerate(originalQuery: string, dryRun: boolean): 
   const modelOut = await completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${FRAME_BLOCK}`,
-    user: `Original question: ${originalQuery}`,
+    user: appendRegenerationFeedback(
+      `Original question: ${originalQuery}`,
+      repair && { priorArtifact: repair.priorFrame, priorVerdict: repair.priorVerdict }
+    ),
     schema: FrameModelSchema,
     schemaName: 'frame_packet',
     effort: 'high',
-    maxTokens: 1200,
+    // 1200 truncated mid-JSON on a real regeneration round (2026-07-31, log:
+    // "response was not valid JSON" on BOTH the raw attempt and completeJSON's
+    // own retry) — up to 6 definitions plus the 1400-char scope_notes
+    // (contracts.ts) can outgrow 1200 output tokens, especially when the
+    // model is also addressing repair feedback.
+    maxTokens: 2000,
   })
   return { ...modelOut, original_query: originalQuery }
 }

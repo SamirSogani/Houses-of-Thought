@@ -1,12 +1,15 @@
 # Decision 019 — Multi-agent reasoning pipeline for admin chat
 
 **Date:** 2026-07-30
-**Status:** Phase 1 implemented and partially real-verified (2026-07-30,
-uncommitted) — the pipeline runs end-to-end in dry run, and real calls have
-been verified through the Frame layer (two real bugs found and fixed live).
-Perspectives onward is real-untested so far. Current status, known open
-issues, and next phases:
-[plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md](../plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md).
+**Status:** Phase 1 implemented; Phase 1.5's bounded retries (generate +
+review, transport + verdict-driven) shipped and real-verified 2026-07-31
+(uncommitted) — the pipeline runs end-to-end in dry run, real calls now
+reach past the Frame layer for the first time (four real bugs found and
+fixed live across both sessions), and perspectives-review onward is reached
+but not yet fully real-verified (paused on a real provider rate-limit, not a
+code issue). Current status, known open issues, and next phases:
+[plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md](../plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md)
+and [06-phase1.5-bounded-retries.md](../plans/active/reasoning-pipeline/06-phase1.5-bounded-retries.md).
 Full spec: [plans/active/reasoning-pipeline/](../plans/active/reasoning-pipeline/README.md).
 **Relates to:** [016](016-draft-mode.md) (stage loop), [017](017-house-chat-admin-beta.md)
 (admin chat), [018](018-house-chat-conclusion-candidates.md) (conclusion

@@ -30,7 +30,15 @@ import {
   FINAL_COMPOSITION_BLOCK,
   serializeFrame,
   serializePerspectives,
+  appendRegenerationFeedback,
 } from './prompts'
+
+// Shared shape for "regenerate this after a failed panel verdict" across the
+// four hard-block global/conclusions/implications generators below.
+interface Repair<T> {
+  priorArtifact: T
+  priorVerdict: ReviewPanelVerdict
+}
 import { runReviewPanel } from './orchestrator-panel'
 
 if (typeof window !== 'undefined') {
@@ -44,7 +52,8 @@ function questionContext(frame: FramePacket, bundles: PerspectiveBundle[]): stri
 export async function runGlobalAssumptionsGenerate(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
-  dryRun: boolean
+  dryRun: boolean,
+  repair?: Repair<GlobalAssumptionsPacket>
 ): Promise<GlobalAssumptionsPacket> {
   if (dryRun) {
     return {
@@ -55,7 +64,7 @@ export async function runGlobalAssumptionsGenerate(
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_ASSUMPTIONS_BLOCK}`,
-    user: questionContext(frame, bundles),
+    user: appendRegenerationFeedback(questionContext(frame, bundles), repair),
     schema: GlobalAssumptionsPacketSchema,
     schemaName: 'global_assumptions_packet',
     effort: 'high',
@@ -74,7 +83,8 @@ export async function runGlobalAssumptionsReview(
 export async function runGlobalEvidenceGenerate(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
-  dryRun: boolean
+  dryRun: boolean,
+  repair?: Repair<GlobalEvidencePacket>
 ): Promise<GlobalEvidencePacket> {
   if (dryRun) {
     return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
@@ -82,7 +92,7 @@ export async function runGlobalEvidenceGenerate(
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    user: questionContext(frame, bundles),
+    user: appendRegenerationFeedback(questionContext(frame, bundles), repair),
     schema: GlobalEvidencePacketSchema,
     schemaName: 'global_evidence_packet',
     effort: 'high',
@@ -103,14 +113,15 @@ export async function runConclusionsGenerate(
   bundles: PerspectiveBundle[],
   globalAssumptions: GlobalAssumptionsPacket,
   globalEvidence: GlobalEvidencePacket,
-  dryRun: boolean
+  dryRun: boolean,
+  repair?: Repair<ConclusionsPacket>
 ): Promise<ConclusionsPacket> {
   if (dryRun) return { conclusions: ['[dry run] conclusion.'], supporting_chain: ['[dry run] supporting step.'] }
   const context = `${questionContext(frame, bundles)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${CONCLUSIONS_BLOCK}`,
-    user: context,
+    user: appendRegenerationFeedback(context, repair),
     schema: ConclusionsPacketSchema,
     schemaName: 'conclusions_packet',
     effort: 'high',
@@ -130,7 +141,8 @@ export async function runImplicationsGenerate(
   frame: FramePacket,
   conclusions: ConclusionsPacket,
   degradedNotes: string[],
-  dryRun: boolean
+  dryRun: boolean,
+  repair?: Repair<ImplicationsPacket>
 ): Promise<ImplicationsPacket> {
   if (dryRun) {
     return {
@@ -146,7 +158,7 @@ export async function runImplicationsGenerate(
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${IMPLICATIONS_BLOCK}`,
-    user: context,
+    user: appendRegenerationFeedback(context, repair),
     schema: ImplicationsPacketSchema,
     schemaName: 'implications_packet',
     effort: 'high',

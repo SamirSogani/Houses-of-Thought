@@ -20,7 +20,7 @@ import { isCallerAdmin } from '@/lib/auth/admin'
 import { enforceReasoningRunLimit } from '@/lib/ai/limits'
 import { log } from '@/lib/log'
 import { STEP_ORDER, type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
-import { MIN_N, MAX_N_PHASE1 } from '@/lib/ai/reasoning/budget'
+import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
 import { serializeFrame } from '@/lib/ai/reasoning/prompts'
 import {
   ContextGatherVerdictSchema,
@@ -74,6 +74,9 @@ const RunStateSchema = z.object({
   perspectiveStances: z.array(PerspectiveStanceSchema).nullish(),
   perspectives: z.array(PerspectiveBundleSchema).nullish(),
   perspectiveVerdicts: z.array(ReviewPanelVerdictSchema).nullish(),
+  // Per-bundle regeneration count (03-orchestration-and-failure-handling.md);
+  // parallel to `perspectives`. Absent/null means "never regenerated yet."
+  perspectiveAttempts: z.array(z.number().int()).nullish(),
   globalAssumptions: GlobalAssumptionsPacketSchema.nullish(),
   globalAssumptionsVerdict: ReviewPanelVerdictSchema.nullish(),
   globalEvidence: GlobalEvidencePacketSchema.nullish(),
@@ -89,6 +92,13 @@ const RequestSchema = z.object({
   step: z.enum(STEP_ORDER),
   capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
   dryRun: z.boolean().optional(),
+  // Which attempt (1-indexed) this is for the layer currently in flight — the
+  // client increments it only across a regenerate-then-re-review loop-back
+  // (see `retry` on the response below) and resets it to 1 on any genuinely
+  // new layer. Read only by hard-block review steps to decide retry vs halt;
+  // perspectives-review tracks its own per-bundle counts in run state instead
+  // (a single scalar can't represent "n independent bundles' attempt counts").
+  attempt: z.number().int().min(1).max(MAX_REGENERATION_ATTEMPTS).nullish(),
   run: RunStateSchema,
 })
 
@@ -102,9 +112,21 @@ function ok(step: StepId, patch: Record<string, unknown>): Response {
   return NextResponse.json({ step, patch, nextStep: nextStepAfter(step), halted: false })
 }
 
-// Only called for steps whose failure mode is 'hard-block' (steps.ts); the
-// dev-time check below guards against a future edit adding a case here
-// without updating STEP_FAILURE_MODE, or vice versa.
+// A failed panel verdict with regenerations still available: loop the client
+// back to `generateStep` (NOT the linear nextStep) instead of halting. The
+// client just follows whatever `nextStep` a response carries, so looping
+// backward needs no special client-side case — but it DOES need `retry:
+// true` to know to increment its attempt counter rather than reset it (see
+// ReasoningPipelinePage.tsx) — two review steps in the same STEP_ORDER
+// position (a fresh pass vs. a loop-back) would otherwise be indistinguishable.
+function retryStep(step: StepId, generateStep: StepId, patch: Record<string, unknown>): Response {
+  return NextResponse.json({ step, patch, nextStep: generateStep, halted: false, retry: true })
+}
+
+// Only called for steps whose failure mode is 'hard-block' (steps.ts) once
+// MAX_REGENERATION_ATTEMPTS is exhausted; the dev-time check below guards
+// against a future edit adding a case here without updating
+// STEP_FAILURE_MODE, or vice versa.
 function halted(step: StepId, verdict: ReviewPanelVerdict, patch: Record<string, unknown>): Response {
   if (STEP_FAILURE_MODE[step] !== 'hard-block') {
     log.error('ai/reasoning/route', 'halted() called on a non-hard-block step', { step })
@@ -115,7 +137,7 @@ function halted(step: StepId, verdict: ReviewPanelVerdict, patch: Record<string,
     patch,
     nextStep: null,
     halted: true,
-    haltReason: `${step} failed review — ${failing.length}/9 standards failed (${failing.join(', ')}).`,
+    haltReason: `${step} failed review after ${MAX_REGENERATION_ATTEMPTS} attempts — ${failing.length}/9 standards still failing (${failing.join(', ')}).`,
   })
 }
 
@@ -147,6 +169,7 @@ export async function POST(req: Request): Promise<Response> {
   const { step, run } = parsed.data
   const dryRun = parsed.data.dryRun ?? false
   const capN = parsed.data.capN ?? MAX_N_PHASE1
+  const attempt = parsed.data.attempt ?? 1
 
   // Run-level cap: checked once, at the true start of a run — not per step.
   if (step === 'context-gather-pre' && !dryRun) {
@@ -166,14 +189,21 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       case 'frame-generate': {
-        const frame = await runFrameGenerate(run.originalQuery, dryRun)
+        const repair =
+          run.frame && run.frameVerdict && !run.frameVerdict.overall_pass
+            ? { priorFrame: run.frame, priorVerdict: run.frameVerdict }
+            : undefined
+        const frame = await runFrameGenerate(run.originalQuery, dryRun, repair)
         return ok(step, { frame })
       }
 
       case 'frame-review': {
         if (!run.frame) return missing('frame')
         const verdict = await runFrameReview(run.frame, dryRun)
-        if (!verdict.overall_pass) return halted(step, verdict, { frameVerdict: verdict })
+        if (!verdict.overall_pass) {
+          if (attempt < MAX_REGENERATION_ATTEMPTS) return retryStep(step, 'frame-generate', { frameVerdict: verdict })
+          return halted(step, verdict, { frameVerdict: verdict })
+        }
         return ok(step, { frameVerdict: verdict })
       }
 
@@ -200,40 +230,77 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'perspectives-generate-details': {
         if (!run.frame || !run.perspectiveStances) return missing('frame/perspectiveStances')
-        const bundles = await runPerspectivesGenerateDetails(run.frame, run.perspectiveStances, dryRun)
-        return ok(step, { perspectives: bundles })
+        const repair =
+          run.perspectives && run.perspectiveVerdicts
+            ? {
+                priorBundles: run.perspectives,
+                priorVerdicts: run.perspectiveVerdicts,
+                priorAttempts: run.perspectiveAttempts ?? run.perspectives.map(() => 1),
+              }
+            : undefined
+        const { bundles, attempts } = await runPerspectivesGenerateDetails(run.frame, run.perspectiveStances, dryRun, repair)
+        return ok(step, { perspectives: bundles, perspectiveAttempts: attempts })
       }
 
       case 'perspectives-review': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
-        // Degrade-and-continue: never halts, even if every bundle failed.
-        const verdicts = await runPerspectivesReview(run.frame, run.perspectives, dryRun)
+        // Degrade-and-continue, per bundle: a bundle whose verdict still
+        // fails after MAX_REGENERATION_ATTEMPTS is marked degraded, but a
+        // bundle with retries left loops the WHOLE step back to regenerate
+        // — never halts, even if every bundle is currently failing.
+        const verdicts = await runPerspectivesReview(
+          run.frame,
+          run.perspectives,
+          run.perspectiveVerdicts ?? null,
+          run.perspectiveAttempts ?? null,
+          dryRun
+        )
+        const stillRetrying = verdicts.some((v) => !v.overall_pass && !v.degraded)
+        if (stillRetrying) return retryStep(step, 'perspectives-generate-details', { perspectiveVerdicts: verdicts })
         return ok(step, { perspectiveVerdicts: verdicts })
       }
 
       case 'global-assumptions-generate': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
-        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun)
+        const repair =
+          run.globalAssumptions && run.globalAssumptionsVerdict && !run.globalAssumptionsVerdict.overall_pass
+            ? { priorArtifact: run.globalAssumptions, priorVerdict: run.globalAssumptionsVerdict }
+            : undefined
+        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun, repair)
         return ok(step, { globalAssumptions: packet })
       }
 
       case 'global-assumptions-review': {
         if (!run.frame || !run.globalAssumptions) return missing('frame/globalAssumptions')
         const verdict = await runGlobalAssumptionsReview(run.frame, run.globalAssumptions, dryRun)
-        if (!verdict.overall_pass) return halted(step, verdict, { globalAssumptionsVerdict: verdict })
+        if (!verdict.overall_pass) {
+          if (attempt < MAX_REGENERATION_ATTEMPTS) {
+            return retryStep(step, 'global-assumptions-generate', { globalAssumptionsVerdict: verdict })
+          }
+          return halted(step, verdict, { globalAssumptionsVerdict: verdict })
+        }
         return ok(step, { globalAssumptionsVerdict: verdict })
       }
 
       case 'global-evidence-generate': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
-        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun)
+        const repair =
+          run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
+            ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
+            : undefined
+        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair)
         return ok(step, { globalEvidence: packet })
       }
 
       case 'global-evidence-review': {
         if (!run.frame || !run.globalEvidence) return missing('frame/globalEvidence')
         const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun)
-        if (!verdict.overall_pass) return halted(step, verdict, { globalEvidenceVerdict: verdict })
+        if (!verdict.overall_pass) {
+          if (attempt < MAX_REGENERATION_ATTEMPTS) {
+            return retryStep(step, 'global-evidence-generate', { globalEvidenceVerdict: verdict })
+          }
+          return halted(step, verdict, { globalEvidenceVerdict: verdict })
+        }
         return ok(step, { globalEvidenceVerdict: verdict })
       }
 
@@ -241,12 +308,17 @@ export async function POST(req: Request): Promise<Response> {
         if (!run.frame || !run.perspectives || !run.globalAssumptions || !run.globalEvidence) {
           return missing('frame/perspectives/globalAssumptions/globalEvidence')
         }
+        const repair =
+          run.conclusions && run.conclusionsVerdict && !run.conclusionsVerdict.overall_pass
+            ? { priorArtifact: run.conclusions, priorVerdict: run.conclusionsVerdict }
+            : undefined
         const packet = await runConclusionsGenerate(
           run.frame,
           run.perspectives,
           run.globalAssumptions,
           run.globalEvidence,
-          dryRun
+          dryRun,
+          repair
         )
         return ok(step, { conclusions: packet })
       }
@@ -254,21 +326,35 @@ export async function POST(req: Request): Promise<Response> {
       case 'conclusions-review': {
         if (!run.frame || !run.conclusions) return missing('frame/conclusions')
         const verdict = await runConclusionsReview(run.frame, run.conclusions, dryRun)
-        if (!verdict.overall_pass) return halted(step, verdict, { conclusionsVerdict: verdict })
+        if (!verdict.overall_pass) {
+          if (attempt < MAX_REGENERATION_ATTEMPTS) {
+            return retryStep(step, 'conclusions-generate', { conclusionsVerdict: verdict })
+          }
+          return halted(step, verdict, { conclusionsVerdict: verdict })
+        }
         return ok(step, { conclusionsVerdict: verdict })
       }
 
       case 'implications-generate': {
         if (!run.frame || !run.conclusions) return missing('frame/conclusions')
         const degradedNotes = degradedPerspectiveNotes(run)
-        const packet = await runImplicationsGenerate(run.frame, run.conclusions, degradedNotes, dryRun)
+        const repair =
+          run.implications && run.implicationsVerdict && !run.implicationsVerdict.overall_pass
+            ? { priorArtifact: run.implications, priorVerdict: run.implicationsVerdict }
+            : undefined
+        const packet = await runImplicationsGenerate(run.frame, run.conclusions, degradedNotes, dryRun, repair)
         return ok(step, { implications: packet })
       }
 
       case 'implications-review': {
         if (!run.frame || !run.implications) return missing('frame/implications')
         const verdict = await runImplicationsReview(run.frame, run.implications, dryRun)
-        if (!verdict.overall_pass) return halted(step, verdict, { implicationsVerdict: verdict })
+        if (!verdict.overall_pass) {
+          if (attempt < MAX_REGENERATION_ATTEMPTS) {
+            return retryStep(step, 'implications-generate', { implicationsVerdict: verdict })
+          }
+          return halted(step, verdict, { implicationsVerdict: verdict })
+        }
         return ok(step, { implicationsVerdict: verdict })
       }
 

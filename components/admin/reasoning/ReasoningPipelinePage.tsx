@@ -13,7 +13,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { useSignOut } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { type StepId } from '@/lib/ai/reasoning/steps'
-import { estimatePipelineCost, MIN_N, MAX_N_PHASE1 } from '@/lib/ai/reasoning/budget'
+import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 
 type Phase = 'form' | 'running' | 'paused' | 'halted' | 'done'
@@ -37,7 +37,25 @@ interface StepResponse {
   nextStep: StepId | null
   halted: boolean
   haltReason?: string
+  // true only when the server looped `nextStep` BACKWARD to regenerate after
+  // a failed panel verdict (route.ts's retryStep()) — distinguishes that from
+  // ordinary forward progression that happens to land on the same step id
+  // (e.g. context-gather-pre's normal nextStep is also 'frame-generate').
+  retry?: boolean
 }
+
+// Bounded wait-then-retry for a transient upstream provider 429 (decision
+// 019's "2 retries/3 attempts" model, Phase 1.5 #2). Scoped ONLY to
+// 'ai-rate-limited' — our own daily-cap code ('rate-limited', see
+// lib/ai/findings.ts) never clears mid-run, so retrying it is pointless, and
+// every other AiError (invalid-output, context-overflow, ...) already gets
+// its own same-instant self-correction retry inside completeJSON
+// (lib/ai/router.ts) — stacking a second, identical retry on top of that
+// wouldn't address a different failure mode, just spend more quota on one
+// that already had its shot. A short backoff (not a long one) because the
+// whole loop must fit inside this route's 30s serverless budget.
+const RATE_LIMIT_RETRY_DELAYS_MS = [5_000, 15_000]
+const MAX_STEP_ATTEMPTS = RATE_LIMIT_RETRY_DELAYS_MS.length + 1
 
 export function ReasoningPipelinePage() {
   const signOut = useSignOut()
@@ -49,8 +67,15 @@ export function ReasoningPipelinePage() {
   const [run, setRun] = useState<RunState>({ originalQuery: '' })
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [haltReason, setHaltReason] = useState<string | null>(null)
+  const [retryInfo, setRetryInfo] = useState<{ attempt: number; waitMs: number } | null>(null)
+  const [regenerationInfo, setRegenerationInfo] = useState<{ attempt: number } | null>(null)
   const runRef = useRef(run)
   runRef.current = run
+  // Which attempt (1-indexed) the layer currently in flight is on — sent as
+  // `attempt` so hard-block review steps can decide retry-vs-halt (route.ts).
+  // Incremented only on a `retry: true` response, reset to 1 on any other
+  // (forward progression, or a fresh run) — see StepResponse.retry above.
+  const layerAttemptRef = useRef(1)
 
   useEffect(() => {
     if (phase !== 'running' || !step) return
@@ -58,36 +83,58 @@ export function ReasoningPipelinePage() {
     const controller = new AbortController()
 
     ;(async () => {
-      try {
-        const res = await fetch('/api/admin/reasoning', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ step, capN: n, dryRun, run: runRef.current }),
-          signal: controller.signal,
-        })
-        if (cancelled) return
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string }
-          setErrorCode(body.error ?? 'ai-upstream-error')
+      for (let attempt = 1; attempt <= MAX_STEP_ATTEMPTS; attempt++) {
+        try {
+          const res = await fetch('/api/admin/reasoning', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ step, capN: n, dryRun, attempt: layerAttemptRef.current, run: runRef.current }),
+            signal: controller.signal,
+          })
+          if (cancelled) return
+          if (!res.ok) {
+            const body = (await res.json().catch(() => ({}))) as { error?: string }
+            const code = body.error ?? 'ai-upstream-error'
+            const waitMs = RATE_LIMIT_RETRY_DELAYS_MS[attempt - 1]
+            if (code === 'ai-rate-limited' && waitMs !== undefined) {
+              setRetryInfo({ attempt, waitMs })
+              await new Promise((resolve) => setTimeout(resolve, waitMs))
+              if (cancelled) return
+              continue
+            }
+            setRetryInfo(null)
+            setErrorCode(code)
+            setPhase('paused')
+            return
+          }
+          setRetryInfo(null)
+          const data = (await res.json()) as StepResponse
+          setRun((prev) => ({ ...prev, ...data.patch }))
+          if (data.retry) {
+            layerAttemptRef.current += 1
+            setRegenerationInfo({ attempt: layerAttemptRef.current })
+          } else {
+            layerAttemptRef.current = 1
+            setRegenerationInfo(null)
+          }
+          if (data.halted) {
+            setHaltReason(data.haltReason ?? 'Pipeline halted.')
+            setPhase('halted')
+            return
+          }
+          if (data.nextStep === null) {
+            setPhase('done')
+            return
+          }
+          setStep(data.nextStep)
+          return
+        } catch (err) {
+          if ((err as Error)?.name === 'AbortError' || cancelled) return
+          setRetryInfo(null)
+          setErrorCode('ai-network-error')
           setPhase('paused')
           return
         }
-        const data = (await res.json()) as StepResponse
-        setRun((prev) => ({ ...prev, ...data.patch }))
-        if (data.halted) {
-          setHaltReason(data.haltReason ?? 'Pipeline halted.')
-          setPhase('halted')
-          return
-        }
-        if (data.nextStep === null) {
-          setPhase('done')
-          return
-        }
-        setStep(data.nextStep)
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError' || cancelled) return
-        setErrorCode('ai-network-error')
-        setPhase('paused')
       }
     })()
 
@@ -102,16 +149,21 @@ export function ReasoningPipelinePage() {
     setRun({ originalQuery: question.trim() })
     setErrorCode(null)
     setHaltReason(null)
+    setRetryInfo(null)
+    setRegenerationInfo(null)
+    layerAttemptRef.current = 1
     setStep('context-gather-pre')
     setPhase('running')
   }
 
   function pause() {
     setPhase('paused')
+    setRetryInfo(null)
   }
 
   function resume() {
     setErrorCode(null)
+    setRetryInfo(null)
     setPhase('running')
   }
 
@@ -121,6 +173,9 @@ export function ReasoningPipelinePage() {
     setRun({ originalQuery: '' })
     setErrorCode(null)
     setHaltReason(null)
+    setRetryInfo(null)
+    setRegenerationInfo(null)
+    layerAttemptRef.current = 1
   }
 
   const cost = estimatePipelineCost(n)
@@ -249,6 +304,20 @@ export function ReasoningPipelinePage() {
             <div style={{ marginTop: 12 }}>
               <ReasoningStagesList run={run} currentStep={step} running={phase === 'running'} />
             </div>
+
+            {retryInfo && (
+              <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 12, textTransform: 'none', letterSpacing: 'normal' }}>
+                Upstream provider rate-limited — retrying automatically in {Math.round(retryInfo.waitMs / 1000)}s
+                (attempt {retryInfo.attempt + 1}/{MAX_STEP_ATTEMPTS})…
+              </div>
+            )}
+
+            {regenerationInfo && (
+              <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 12, textTransform: 'none', letterSpacing: 'normal' }}>
+                Failed review — regenerating with the panel&apos;s feedback (attempt {regenerationInfo.attempt}/
+                {MAX_REGENERATION_ATTEMPTS})…
+              </div>
+            )}
 
             {errorCode && (
               <div style={{ fontSize: 12.5, color: 'var(--ink)', marginTop: 12, lineHeight: 1.45 }}>

@@ -2,8 +2,10 @@
 // fan-out point (decisions/019). Split into two generate rounds because the 4
 // sub-elements need each bundle's own generated stance text as input
 // (lib/ai/reasoning/steps.ts explains why that can't be one request). Failure
-// here is the one place that degrades instead of hard-blocking: a perspective
-// bundle whose panel fails is marked degraded and passed forward, since the
+// here is the one place that degrades instead of hard-blocking: a bundle
+// whose panel fails gets its own bounded regenerations (MAX_REGENERATION_ATTEMPTS,
+// lib/ai/reasoning/budget.ts) — only that bundle, not the others — and is
+// marked degraded and passed forward only once those are exhausted, since the
 // other bundles still give downstream layers something to work with.
 
 import { completeJSON } from '@/lib/ai/router'
@@ -24,8 +26,10 @@ import {
   PERSPECTIVE_EVIDENCE_BLOCK,
   PERSPECTIVE_COUNTERARGUMENT_BLOCK,
   serializeFrame,
+  appendRegenerationFeedback,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
+import { MAX_REGENERATION_ATTEMPTS } from './budget'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-perspectives.ts is server-only and must not run in the browser')
@@ -78,26 +82,46 @@ function dryRunBundle(stance: PerspectiveStance, authoredBy: string): Perspectiv
   }
 }
 
+// Only a bundle whose last verdict failed AND hasn't exhausted its retries
+// needs regenerating — everything else (already passed, or already gave up
+// and degraded) is carried forward untouched. Shared by generate and review
+// below so the two can never disagree about which bundles are "still live."
+function needsRegeneration(verdict: ReviewPanelVerdict | undefined): boolean {
+  return verdict != null && !verdict.overall_pass && !verdict.degraded
+}
+
 export async function runPerspectivesGenerateDetails(
   frame: FramePacket,
   stances: PerspectiveStance[],
-  dryRun: boolean
-): Promise<PerspectiveBundle[]> {
+  dryRun: boolean,
+  // Present only on a retry loop-back from perspectives-review (03-
+  // orchestration-and-failure-handling.md: "only the failing unit
+  // regenerates... one perspective's bundle failing doesn't touch any other
+  // perspective"). Bundles whose prior verdict already settled (passed, or
+  // exhausted retries and degraded) are returned unchanged, not re-asked for.
+  repair?: { priorBundles: PerspectiveBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] }
+): Promise<{ bundles: PerspectiveBundle[]; attempts: number[] }> {
   const frameText = serializeFrame(frame)
   const n = stances.length
 
-  return Promise.all(
+  const bundles = await Promise.all(
     stances.map(async (stance, i) => {
       const authoredBy = stances[(i + 1) % n].perspective_id
       if (dryRun) return dryRunBundle(stance, authoredBy)
 
+      const priorVerdict = repair?.priorVerdicts[i]
+      if (repair && !needsRegeneration(priorVerdict)) return repair.priorBundles[i]
+
       const stanceText = `${frameText}\n\n## This perspective's stance\n${stance.stance_label}: ${stance.stance_summary}\nKey claims:\n${stance.key_claims.map((c) => `- ${c}`).join('\n')}`
+      const feedback = repair && priorVerdict
+        ? { priorArtifact: repair.priorBundles[i], priorVerdict }
+        : undefined
 
       const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
         completeJSON({
           role: 'drafter',
           system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_SUBQUESTIONS_BLOCK}`,
-          user: stanceText,
+          user: appendRegenerationFeedback(stanceText, feedback),
           schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
           schemaName: 'perspective_subquestions',
           effort: 'high',
@@ -106,7 +130,7 @@ export async function runPerspectivesGenerateDetails(
         completeJSON({
           role: 'drafter',
           system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_ASSUMPTIONS_BLOCK}`,
-          user: stanceText,
+          user: appendRegenerationFeedback(stanceText, feedback),
           schema: PerspectiveBundleSchema.pick({ assumptions: true }),
           schemaName: 'perspective_assumptions',
           effort: 'high',
@@ -115,7 +139,7 @@ export async function runPerspectivesGenerateDetails(
         completeJSON({
           role: 'drafter',
           system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
-          user: stanceText,
+          user: appendRegenerationFeedback(stanceText, feedback),
           schema: PerspectiveBundleSchema.pick({ evidence: true }),
           schemaName: 'perspective_evidence',
           effort: 'high',
@@ -124,7 +148,7 @@ export async function runPerspectivesGenerateDetails(
         completeJSON({
           role: 'drafter',
           system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_COUNTERARGUMENT_BLOCK}`,
-          user: stanceText,
+          user: appendRegenerationFeedback(stanceText, feedback),
           schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),
           schemaName: 'perspective_counterargument',
           effort: 'high',
@@ -141,19 +165,37 @@ export async function runPerspectivesGenerateDetails(
       }
     })
   )
+
+  const attempts = stances.map((_, i) => {
+    if (!repair) return 1
+    return needsRegeneration(repair.priorVerdicts[i]) ? repair.priorAttempts[i] + 1 : repair.priorAttempts[i]
+  })
+
+  return { bundles, attempts }
 }
 
-// The one step that degrades instead of hard-blocking: a bundle whose panel
-// fails is marked degraded and kept, since the remaining bundles still give
-// the global layers something to work with (03-orchestration-and-failure-handling.md).
+// The one step that degrades instead of hard-blocking: a bundle that still
+// fails after MAX_REGENERATION_ATTEMPTS is marked degraded and kept, since
+// the remaining bundles still give the global layers something to work with
+// (03-orchestration-and-failure-handling.md). A bundle already settled last
+// cycle (passed, or already degraded) is NOT re-submitted to a fresh panel —
+// its prior verdict is final and carried forward as-is.
 export async function runPerspectivesReview(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
+  priorVerdicts: ReviewPanelVerdict[] | null,
+  attempts: number[] | null,
   dryRun: boolean
 ): Promise<ReviewPanelVerdict[]> {
   const context = serializeFrame(frame)
-  const verdicts = await Promise.all(
-    bundles.map((b) => runReviewPanel(b.perspective_id, 'perspectives-review', b, context, dryRun))
+  return Promise.all(
+    bundles.map(async (b, i) => {
+      const prior = priorVerdicts?.[i]
+      if (prior && !needsRegeneration(prior)) return prior
+      const verdict = await runReviewPanel(b.perspective_id, 'perspectives-review', b, context, dryRun)
+      if (verdict.overall_pass) return verdict
+      const attemptsUsed = attempts?.[i] ?? 1
+      return attemptsUsed >= MAX_REGENERATION_ATTEMPTS ? { ...verdict, degraded: true } : verdict
+    })
   )
-  return verdicts.map((v) => (v.overall_pass ? v : { ...v, degraded: true }))
 }

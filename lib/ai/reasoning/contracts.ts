@@ -3,12 +3,22 @@
 // server imports — mirrors lib/ai/chat.ts / lib/ai/draft.ts.
 //
 // Phase 1 (decisions/019 + plans/active/reasoning-pipeline/04, verification
-// stage 1): no retries, no persistence — every packet here rides in ephemeral
-// client state for the length of one run, never the DB.
+// stage 1): no persistence — every packet here rides in ephemeral client
+// state for the length of one run, never the DB. Bounded retries (Phase 1.5,
+// 03-orchestration-and-failure-handling.md) DID land within Phase 1 scope —
+// see ReviewPanelVerdictSchema.degraded below and
+// app/api/admin/reasoning/route.ts's retryStep().
 
 import { z } from 'zod'
 
 const str = z.string().min(1).max(600)
+// scope_notes asks for a lot in one field (FRAME_BLOCK, lib/ai/reasoning/
+// prompts.ts: practical/social/economic/procedural angles, a spectrum-of-
+// options note, an out-of-scope note) — the shared 600-char `str` cap
+// rejected well-formed output that genuinely needed the room, surfaced live
+// (2026-07-31) on a regeneration attempt: same failure pattern as
+// SingleStandardVerdictSchema.notes below, same fix.
+const scopeNotesStr = z.string().min(1).max(1400)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 const ConfidenceSchema = z.enum(['low', 'medium', 'high'])
 
@@ -26,7 +36,7 @@ export const FramePacketSchema = z.object({
   core_question: str,
   definitions: z.array(z.object({ term: str, definition: str })).max(6),
   purpose: str,
-  scope_notes: str,
+  scope_notes: scopeNotesStr,
 })
 export type FramePacket = z.infer<typeof FramePacketSchema>
 
@@ -120,9 +130,13 @@ export const ReviewPanelVerdictSchema = z.object({
   subject_id: str,
   standards: ReviewPanelStandardsSchema,
   overall_pass: z.boolean(),
-  // Phase 1 has no retries, so degraded only ever means "perspective bundle
-  // whose panel failed and was passed forward anyway" — never a retried-then-
-  // recovered state (that's a Phase 2 concept).
+  // true only for a perspective bundle that exhausted MAX_REGENERATION_ATTEMPTS
+  // (lib/ai/reasoning/budget.ts) and was passed forward anyway — the one layer
+  // with real redundancy (the other bundles), per
+  // 03-orchestration-and-failure-handling.md. Every other reviewed layer
+  // hard-blocks-and-halts instead of ever setting this true (steps.ts
+  // STEP_FAILURE_MODE) — see app/api/admin/reasoning/route.ts for the
+  // regenerate-then-re-review loop this field is part of.
   degraded: z.boolean(),
 })
 export type ReviewPanelVerdict = z.infer<typeof ReviewPanelVerdictSchema>

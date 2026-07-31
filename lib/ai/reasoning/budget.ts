@@ -11,6 +11,11 @@
 export const MAX_N_PHASE1 = 3
 export const MIN_N = 2
 
+// Bounded retries (03-orchestration-and-failure-handling.md): a failing
+// bundle or hard-block layer gets up to 2 regenerations — 3 attempts total —
+// before it degrades (perspectives) or halts the pipeline (everything else).
+export const MAX_REGENERATION_ATTEMPTS = 3
+
 export function estimatePipelineCost(n: number): { generators: number; reviewers: number; total: number } {
   const generators = 5 * n + 9
   const reviewers = 9 * n + 45
