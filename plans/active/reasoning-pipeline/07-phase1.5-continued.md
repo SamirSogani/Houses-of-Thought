@@ -1,4 +1,4 @@
-# 07 — Phase 1.5 continued: drafter stagger, schema audit, renewed capacity limit (2026-07-31)
+# 07 — Phase 1.5 continued: drafter stagger, schema audit, widened drafter lane, daily run cap (2026-07-31)
 
 Written the same day as 06, picking up its "Updated next steps." **Code below
 is committed; this doc records what was and wasn't real-verified** — check
@@ -73,16 +73,47 @@ shown no real headroom for most of today's testing (Gemini's 429 predates
 this session entirely). Chasing it further without evidence of recovery just
 spends quota to relearn what's already known.
 
+## 4. Drafter lane widened to Mistral + Groq — shipped, real-test blocked differently
+
+Samir pointed out the drafter lane didn't have to be just Gemini/Cerebras —
+Mistral and Groq were healthy all session and already back the other two
+lanes. `lib/ai/router.ts`'s `attemptsForRole('drafter')` was hardcoded to
+exactly `[geminiFlash, cerebrasGptOss120b]`, unlike `suggestorAttempts()` /
+`realtimeAttempts()`'s full 4-target chains. Added `draftAttempts()`
+following the same pattern (Mistral after Cerebras, then Groq with the
+existing cooldown/penalty-box handling) — this is a **shared router.ts
+change**, so it affects every `role: 'drafter'` caller app-wide (Draft Mode,
+`/api/ai/research`, mini-house, strawman, chat-conclusions), not just the
+reasoning pipeline. `router-monitor.ts`'s `buildLanes()` is a separate
+hardcoded source of truth for the admin display and needed the identical
+update — confirmed via the browser (`/admin` now shows all 4 targets in the
+drafter lane). Two `router.test.ts` cases that pinned the old 2-target shape
+were updated to exercise the full chain; typecheck + full suite (71 tests)
+pass. Committed separately from the stagger fix.
+
+Retried the real n=2 run immediately after, expecting the wider lane to
+finally get past frame. Instead hit a **different, hard stop on the very
+first step**: `enforceReasoningRunLimit()` (`lib/ai/limits.ts`) — this app's
+own `ADMIN_REASONING_DAILY_RUN_CAP = 8`, a deliberate per-day cap on real
+reasoning-pipeline run-starts (incremented once per "Run pipeline" click,
+independent of and separate from any AI provider's own quota). Cumulative
+real runs today (06's session + this session's 3 attempts) had already
+crossed 8 — the UI correctly showed "The co-pilot is resting — daily limit
+reached. It resets tomorrow," failing before any AI call was even made. This
+is working as designed, not a bug — don't try to raise or bypass the cap to
+force a test through.
+
 ## Updated next steps
 
-1. **Real-verify the stagger fix** at `perspectives-generate-details` once
-   the drafter lane actually has headroom — check `/admin`'s live probe
-   first and confirm BOTH Gemini and Cerebras read UP, not just one, before
-   spending real quota on a run.
-2. If Cerebras's `empty-output` failure mode recurs, look closer — check
-   whether `completeJSON`'s raw-content diagnostic logging (`lib/ai/router.ts`,
-   05's bug #2) actually captures it, this time from a session where the dev
-   server's own stdout is reachable.
+1. **Real-verify both the stagger fix and the widened drafter lane** at
+   `perspectives-generate-details` — blocked for the rest of today (2026-07-31)
+   by `ADMIN_REASONING_DAILY_RUN_CAP`, not by provider health. Resume tomorrow;
+   check `/admin`'s live probe for provider health first, but the run-count
+   cap is now the binding constraint, not Gemini/Cerebras specifically.
+2. If Cerebras's `empty-output` failure mode (item 3, above) recurs, look
+   closer — check whether `completeJSON`'s raw-content diagnostic logging
+   (`lib/ai/router.ts`, 05's bug #2) actually captures it, this time from a
+   session where the dev server's own stdout is reachable.
 3. Schema audit is DONE — don't re-open unless real testing at
    perspectives-review/global/conclusions/implications produces an actual
    truncation failure.
