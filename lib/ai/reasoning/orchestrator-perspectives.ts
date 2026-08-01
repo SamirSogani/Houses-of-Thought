@@ -71,7 +71,7 @@ export async function runPerspectivesGenerateStances(
         schema: StanceModelSchema,
         schemaName: 'perspective_stance',
         effort: 'high',
-        maxTokens: 700,
+        maxTokens: 1000,
       })
       return { perspective_id, stance_label: label, ...modelOut }
     })
@@ -141,7 +141,7 @@ export async function runPerspectivesGenerateDetails(
             schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
             schemaName: 'perspective_subquestions',
             effort: 'high',
-            maxTokens: 800,
+            maxTokens: 1100,
           })
         ),
         stagger(1).then(() =>
@@ -152,7 +152,7 @@ export async function runPerspectivesGenerateDetails(
             schema: PerspectiveBundleSchema.pick({ assumptions: true }),
             schemaName: 'perspective_assumptions',
             effort: 'high',
-            maxTokens: 900,
+            maxTokens: 1200,
           })
         ),
         stagger(2).then(() =>
@@ -163,7 +163,7 @@ export async function runPerspectivesGenerateDetails(
             schema: PerspectiveBundleSchema.pick({ evidence: true }),
             schemaName: 'perspective_evidence',
             effort: 'high',
-            maxTokens: 1400,
+            maxTokens: 1800,
           })
         ),
         stagger(3).then(() =>
@@ -174,7 +174,7 @@ export async function runPerspectivesGenerateDetails(
             schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),
             schemaName: 'perspective_counterargument',
             effort: 'high',
-            maxTokens: 1200,
+            maxTokens: 1600,
           })
         ),
       ])

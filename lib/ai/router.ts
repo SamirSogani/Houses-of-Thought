@@ -81,10 +81,12 @@
 // caught and escalated to the next larger-window target rather than surfaced.
 //
 // Cascade discipline: 429s, context overflows, 5xx, timeouts / network errors,
-// sunset-model 404s, and empty generations all advance to the next target —
-// provider incidents are exactly what a multi-target lane exists to survive.
-// Only a misconfiguration-shaped error (400 / 401 / 403) is thrown immediately so
-// a genuine bug surfaces instead of being retried at full price four times.
+// sunset-model 404s, empty generations, and Groq's json_validate_failed (its
+// own strict-schema generation failing, not our request being malformed) all
+// advance to the next target — provider incidents are exactly what a
+// multi-target lane exists to survive. Only a genuine misconfiguration-shaped
+// error (400 / 401 / 403, everything else) is thrown immediately so a real bug
+// surfaces instead of being retried at full price four times.
 // Latency: every attempt carries a per-role timeout and the chain a shared
 // deadline (ATTEMPT_TIMEOUT_MS / CHAIN_DEADLINE_MS) so one slow-but-alive
 // provider cannot eat the route's entire 30s serverless budget.
@@ -98,6 +100,7 @@ import {
   estimateTokens,
   isContextOverflow,
   isDailyQuota,
+  isGroqJsonValidateFailed,
   mapUpstream,
   reasoningEffortFor,
   statusOf,
@@ -294,8 +297,7 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
       return { content, target: attempt }
     } catch (err) {
       const latencyMs = Date.now() - started
-      // An empty generation is provider flakiness (Groq's json_validate_failed
-      // pattern returns exactly this), not caller error — cascade past it.
+      // An empty generation is provider flakiness, not caller error — cascade past it.
       if (err instanceof AiError && err.message === 'ai-empty-output') {
         laneAllDaily = false
         lastTransient = err
@@ -321,6 +323,18 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
         laneAllDaily = false
         record(attempt, 'error', 'context-overflow', latencyMs)
         continue // escalate to the next larger-window target
+      }
+      // Groq's json_validate_failed (see isGroqJsonValidateFailed, router-shared.ts):
+      // a 400, but the model's OWN generation failing Groq's strict json_schema
+      // validation — not a bad request from us. Confirmed live producing fully
+      // coherent, on-topic content that just missed a closing quote or a required
+      // field — worth another attempt, not a hard stop. Check BEFORE the generic
+      // 400 = terminal rule below.
+      if (isGroqJsonValidateFailed(err)) {
+        laneAllDaily = false
+        lastTransient = mapUpstream(err, attempt.provider)
+        record(attempt, 'error', 'json-validate-failed', latencyMs)
+        continue
       }
       // Transient provider incidents: 5xx, no-status (SDK timeout / network),
       // and 404 (a sunset model id must degrade, not kill the lane).

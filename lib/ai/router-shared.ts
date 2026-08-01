@@ -58,6 +58,22 @@ export function isContextOverflow(err: unknown): boolean {
   return CONTEXT_OVERFLOW_RE.test(errorText(err))
 }
 
+// Groq's strict json_schema mode (supportsJsonSchema, below) does server-side
+// constrained-decoding validation and 400s as json_validate_failed when the
+// model's OWN generation doesn't conform — confirmed live (2026-07-31) on
+// frame_packet: a fully coherent, on-topic response that simply never closed
+// its final string's quote before the closing brace, and separately, one
+// missing a required field entirely. This is a provider-side generation
+// glitch, not a client misconfiguration — unlike a genuine 400 (bad request
+// shape, auth, etc.), it deserves the exact same cascade-to-next-target
+// treatment as an empty generation, not an immediate throw. Groq-specific
+// (the only provider routed through strict json_schema here); revisit if
+// another provider's structured-output mode ever needs the same treatment.
+const JSON_VALIDATE_FAILED_RE = /json_validate_failed/i
+export function isGroqJsonValidateFailed(err: unknown): boolean {
+  return statusOf(err) === 400 && JSON_VALIDATE_FAILED_RE.test(errorText(err))
+}
+
 // Map a non-transient (or terminal) error onto a status routes can surface.
 export function mapUpstream(err: unknown, provider: string): AiError {
   const status = statusOf(err)

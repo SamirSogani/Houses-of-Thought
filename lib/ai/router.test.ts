@@ -202,10 +202,21 @@ describe('transient vs terminal errors', () => {
     expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
   })
 
-  it('empty generation cascades (Groq json_validate_failed pattern)', async () => {
+  it('empty generation cascades', async () => {
     script = (m) => (m === MODELS.mistral ? '' : OK)
     await expect(ask('coach')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+  })
+
+  it("Groq's json_validate_failed (its own generation failing strict-schema validation) cascades, not thrown as a terminal 400", async () => {
+    script = (m) => {
+      if (m === MODELS.groqOss) {
+        throw makeErr(400, 'Failed to generate JSON. json_validate_failed invalid_request_error')
+      }
+      return OK
+    }
+    await expect(ask('drafter')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.model)).toEqual([MODELS.groqOss, MODELS.gemini])
   })
 
   it('401 is terminal (misconfiguration must surface)', async () => {
