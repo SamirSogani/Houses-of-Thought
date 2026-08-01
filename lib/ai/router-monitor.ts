@@ -77,10 +77,9 @@ function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: L
       laneStep('Multi-throttle bridge (Google 429)', TARGETS.cerebrasGptOss120b),
     ],
     drafter: [
-      laneStep('Primary — large context', TARGETS.geminiFlash),
-      laneStep('Secondary (Gemini 429)', TARGETS.cerebrasGptOss120b),
-      laneStep('Fallback (Cerebras 429)', TARGETS.mistral8b),
-      laneStep('Fallback (Mistral 429)', TARGETS.groqQwen, 'post-cooldown → gpt-oss-20b'),
+      laneStep('Primary — strict json_schema', TARGETS.groqGptOss20b),
+      laneStep('Fallback (Groq cooling / 429) — large context', TARGETS.geminiFlash),
+      laneStep('Fallback (Gemini 429)', TARGETS.cerebrasGptOss120b),
     ],
   }
 }

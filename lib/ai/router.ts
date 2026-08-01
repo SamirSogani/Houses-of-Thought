@@ -31,15 +31,36 @@
 //     4. Cerebras  gpt-oss-120b           (multi-throttle bridge, on Google 429)
 //
 //   ON-DEMAND COMPLEX  (drafter)
-//   Heavy framework generation. Leads with Gemini's large context, then falls
-//   onto the same resilience tail the other two lanes already have — real
-//   reasoning-pipeline testing (decision 019, Phase 1.5) found the original
-//   2-target chain had no margin left once Gemini AND Cerebras were both
-//   under real load the same day.
-//     1. Google    gemini-2.5-flash       (primary — large context)
-//     2. Cerebras  gpt-oss-120b           (on Gemini 429)
-//     3. Mistral   ministral-8b-latest    (on Cerebras 429)
-//     4. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
+//   Heavy framework generation. Leads with Groq (Samir's call, 2026-07-31: no
+//   prior-project history of Groq itself failing — a problem here points at
+//   this app's setup, not the provider), then falls back to Gemini's large
+//   context and Cerebras. Mistral was tried here too and deliberately dropped
+//   (2026-07-31): under real drafter traffic it reproducibly returned
+//   malformed JSON on this role's more complex structured-output schemas
+//   (perspectives' multi-field packets) — wrapping array items in stray
+//   objects, or degenerating into repeated whitespace instead of finishing
+//   valid JSON — not a rate-limit or token-budget problem, just this model
+//   class under-provisioned for what drafter role actually asks of it.
+//   Mistral stays primary/fallback in the suggestor and real-time lanes,
+//   where the ask is simpler. Gemini stays in the chain (not primary) as the
+//   large-context escape hatch: size-aware routing already skips Groq/
+//   Cerebras's 128k windows for anything too big, landing on Gemini's ~1M
+//   regardless of nominal order.
+//
+//   Drafter's Groq attempt deliberately pins gpt-oss-20b, NOT the qwen model
+//   the other two lanes default to (currentGroqTarget()) — confirmed live
+//   (2026-07-31) the very first real run after Groq went primary here:
+//   supportsJsonSchema() (router-shared.ts) already documents that Groq's
+//   strict json_schema structured output "is only reliable on the gpt-oss
+//   family"; qwen gets the looser json_object mode (schema hinted in the
+//   prompt, not enforced), and Groq's own API-side validation in that mode
+//   400s with json_validate_failed when the model's freeform output doesn't
+//   parse. Exactly what hit perspectives-generate-stances immediately. Not a
+//   Groq reliability problem — a model-choice bug in what this lane asked
+//   Groq for.
+//     1. Groq      gpt-oss-20b            (primary — strict json_schema)
+//     2. Google    gemini-2.5-flash       (on Groq cooling / 429)
+//     3. Cerebras  gpt-oss-120b           (on Google 429)
 //
 // Groq is special. A Groq 429 is read as an *org-wide* block, so we do NOT
 // immediately hop to gpt-oss-20b on the same account. Instead we open a strict
@@ -73,6 +94,7 @@ import { z } from 'zod'
 import { log } from '@/lib/log'
 import {
   AiError,
+  errorText,
   estimateTokens,
   isContextOverflow,
   isDailyQuota,
@@ -83,7 +105,7 @@ import {
   TOKEN_SAFETY_MARGIN,
   type AiRole,
 } from './router-shared'
-import { clientFor, TARGETS, __resetClients, type Target } from './router-config'
+import { clientFor, TARGETS, targetName, __resetClients, type Target } from './router-config'
 import {
   clearGroqRecovering,
   currentGroqTarget,
@@ -180,19 +202,22 @@ function suggestorAttempts(): Attempt[] {
   return attempts
 }
 
-// On-demand complex generation (drafter): Gemini's large context leads, then
-// Cerebras, then the same Mistral → Groq resilience tail the other two lanes
-// use, sharing the same Groq penalty box.
+// On-demand complex generation (drafter): Groq leads (Samir's call, see the
+// header comment above), sharing the same Groq penalty box as the other two
+// lanes — while it's open, drafter traffic skips Groq entirely and leads
+// with Gemini instead, same as realtimeAttempts()/suggestorAttempts().
+// Pins gpt-oss-20b specifically (NOT currentGroqTarget()'s qwen default) —
+// see the header comment above for why. Mistral deliberately excluded, also
+// see the header comment above.
 function draftAttempts(): Attempt[] {
-  const attempts: Attempt[] = [
+  if (groqCoolingDown()) {
+    return [{ ...TARGETS.geminiFlash }, { ...TARGETS.cerebrasGptOss120b }]
+  }
+  return [
+    { ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true },
     { ...TARGETS.geminiFlash },
     { ...TARGETS.cerebrasGptOss120b },
-    { ...TARGETS.mistral8b },
   ]
-  if (!groqCoolingDown()) {
-    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
-  }
-  return attempts
 }
 
 // Built fresh per request so it reflects current penalty-box / recovery state.
@@ -228,7 +253,7 @@ interface ExecuteOpts {
 //   - 400 / 401 / 403: misconfiguration-shaped — thrown immediately.
 //   - Deadline: attempts stop once opts.deadlineAt passes, throwing the most
 //     actionable error seen, so a slow chain degrades instead of platform-killing.
-async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
+async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: string; target: Target }> {
   const attempts = attemptsForRole(role)
   let last429: AiError | null = null
   let lastTransient: AiError | null = null
@@ -266,7 +291,7 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
       const content = await callProvider(client, attempt, opts, timeoutMs)
       if (attempt.provider === 'groq') clearGroqRecovering() // healthy again
       record(attempt, 'ok', undefined, Date.now() - started)
-      return content
+      return { content, target: attempt }
     } catch (err) {
       const latencyMs = Date.now() - started
       // An empty generation is provider flakiness (Groq's json_validate_failed
@@ -326,7 +351,7 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<string> {
       try {
         const content = await callProvider(client, { ...TARGETS.openrouterFree }, opts, timeoutMs)
         record(TARGETS.openrouterFree, 'ok')
-        return content
+        return { content, target: TARGETS.openrouterFree }
       } catch (err) {
         if (err instanceof AiError) throw err
         if (statusOf(err) === 429) {
@@ -370,26 +395,62 @@ async function callProvider(
     : ({ type: 'json_object' as const })
   const reasoning_effort = reasoningEffortFor(attempt.model, opts.effort)
 
-  const completion = await client.chat.completions.create(
-    {
+  let completion: OpenAI.Chat.Completions.ChatCompletion
+  try {
+    completion = (await client.chat.completions.create(
+      {
+        model: attempt.model,
+        max_tokens: opts.maxTokens,
+        response_format,
+        // reasoning_effort is only accepted by some models; omit it elsewhere.
+        ...(reasoning_effort ? { reasoning_effort } : {}),
+        messages: [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: opts.user },
+        ],
+      } as Parameters<typeof client.chat.completions.create>[0],
+      // Per-attempt budget (overrides the client-level 25s backstop) so a slow
+      // target times out into the cascade instead of eating the whole chain.
+      { timeout: timeoutMs }
+    )) as OpenAI.Chat.Completions.ChatCompletion
+  } catch (err) {
+    // Full request-context diagnostic on ANY upstream failure (2026-07-31):
+    // mapUpstream's downstream log has provider+status but not WHICH call this
+    // was or the request params that shaped it — the exact fields needed to
+    // root-cause a reproducible failure (e.g. Groq's json_validate_failed
+    // recurring across models). Logs once here with everything in scope, then
+    // re-throws untouched so execute()'s cascade/classification is unchanged.
+    log.error('ai/router', 'upstream call failed', {
+      provider: attempt.provider,
       model: attempt.model,
-      max_tokens: opts.maxTokens,
-      response_format,
-      // reasoning_effort is only accepted by some models; omit it elsewhere.
-      ...(reasoning_effort ? { reasoning_effort } : {}),
-      messages: [
-        { role: 'system', content: systemContent },
-        { role: 'user', content: opts.user },
-      ],
-    } as Parameters<typeof client.chat.completions.create>[0],
-    // Per-attempt budget (overrides the client-level 25s backstop) so a slow
-    // target times out into the cascade instead of eating the whole chain.
-    { timeout: timeoutMs }
-  )
+      status: statusOf(err) ?? 'unknown',
+      schemaName: opts.schemaName,
+      effort: opts.effort,
+      reasoningEffort: reasoning_effort ?? '(omitted)',
+      useJsonSchema,
+      maxTokens: opts.maxTokens,
+      neededTokens: opts.neededTokens,
+      detail: errorText(err),
+    })
+    throw err
+  }
 
-  const content = (completion as OpenAI.Chat.Completions.ChatCompletion).choices[0]
-    ?.message?.content
-  if (!content) throw new AiError(502, 'ai-empty-output')
+  const content = completion.choices[0]?.message?.content
+  if (!content) {
+    // An empty 200 (distinct from the thrown errors above) — log the request
+    // context here too, since ai-empty-output otherwise cascades silently.
+    log.error('ai/router', 'upstream empty output', {
+      provider: attempt.provider,
+      model: attempt.model,
+      schemaName: opts.schemaName,
+      effort: opts.effort,
+      reasoningEffort: reasoning_effort ?? '(omitted)',
+      useJsonSchema,
+      maxTokens: opts.maxTokens,
+      finishReason: completion.choices[0]?.finish_reason ?? '(none)',
+    })
+    throw new AiError(502, 'ai-empty-output')
+  }
   return content
 }
 
@@ -448,24 +509,29 @@ export async function completeJSON<T>(opts: {
 
   // Ask once; on schema-parse failure, ask again with the validation error
   // appended so the model can self-correct. Then give up.
-  const firstRaw = await execute(opts.role, base)
-  const first = tryParse(firstRaw)
+  const firstResult = await execute(opts.role, base)
+  const first = tryParse(firstResult.content)
   if (first.ok) return first.value
 
   const retryUser = `${opts.user}\n\nYour previous reply did not match the required schema (${first.error}). Reply again with only valid JSON that matches the schema.`
-  const secondRaw = await execute(opts.role, { ...base, user: retryUser })
-  const second = tryParse(secondRaw)
+  const secondResult = await execute(opts.role, { ...base, user: retryUser })
+  const second = tryParse(secondResult.content)
   if (second.ok) return second.value
 
   // Diagnostic only (2026-07-30): visibility into what the model actually
   // returned on a genuine ai-invalid-output — this path previously had none.
+  // firstTarget/secondTarget (2026-07-31): which provider/model actually
+  // served each attempt — the raw content alone couldn't say whether a
+  // reproducible malformed-output pattern traces to one specific target.
   log.error('ai/router', 'completeJSON invalid output after retry', {
     schemaName: opts.schemaName,
     role: opts.role,
+    firstTarget: targetName(firstResult.target),
     firstError: first.error,
-    firstRaw: firstRaw.slice(0, 500),
+    firstRaw: firstResult.content.slice(0, 500),
+    secondTarget: targetName(secondResult.target),
     secondError: second.error,
-    secondRaw: secondRaw.slice(0, 500),
+    secondRaw: secondResult.content.slice(0, 500),
   })
   throw new AiError(502, 'ai-invalid-output')
 }

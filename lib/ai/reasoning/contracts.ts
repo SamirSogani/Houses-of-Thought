@@ -19,6 +19,12 @@ const str = z.string().min(1).max(600)
 // (2026-07-31) on a regeneration attempt: same failure pattern as
 // SingleStandardVerdictSchema.notes below, same fix.
 const scopeNotesStr = z.string().min(1).max(1400)
+// rebuttals asks for substantive, specific reasoning per targeted claim ("name
+// exactly what is wrong or weak"), not a generic complaint — same failure
+// shape as SingleStandardVerdictSchema.notes below, surfaced live (2026-07-31)
+// on real perspectives-generate-details traffic: the shared 600-char `str`
+// cap rejected a well-formed rebuttal that genuinely needed the room.
+const rebuttalStr = z.string().min(1).max(1000)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 const ConfidenceSchema = z.enum(['low', 'medium', 'high'])
 
@@ -69,7 +75,7 @@ export const PerspectiveBundleSchema = z.object({
     // (01-layers-and-standards.md): must not be this bundle's own perspective_id.
     authored_by_perspective_id: str,
     target_claims: z.array(str).min(1).max(6),
-    rebuttals: z.array(str).min(1).max(6),
+    rebuttals: z.array(rebuttalStr).min(1).max(6),
   }),
 })
 export type PerspectiveBundle = z.infer<typeof PerspectiveBundleSchema>

@@ -62,7 +62,7 @@ export const LAYER_STANDARD_CRITERIA: Record<ReviewGateStep, Record<StandardId, 
     breadth:
       'Does scope_notes leave room for genuinely different angles to be explored later, rather than pre-narrowing toward one side of the question?',
     logic:
-      'Does the framing avoid begging the question — does core_question pose the issue neutrally rather than presupposing an answer?',
+      'Does the framing avoid begging the question — if core_question keeps a loaded/binary phrasing verbatim (for fidelity to the original), does scope_notes explicitly open up the full spectrum of alternatives rather than leaving it implicitly foreclosed?',
     significance:
       'Is this core_question substantial enough to justify the full pipeline, not a trivial or already-settled matter?',
     fairness:

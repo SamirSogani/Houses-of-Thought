@@ -145,7 +145,7 @@ describe('daily airbag (per provider)', () => {
   it('one provider daily-exhausted does NOT reach OpenRouter while others merely rate-limit', async () => {
     script = (m) => {
       if (m === MODELS.gemini) throw makeErr(429, DAILY)
-      throw makeErr(429, 'per-minute rate limit') // cerebras, mistral, groq: transient only
+      throw makeErr(429, 'per-minute rate limit') // cerebras, groq: transient only
     }
     await expect(ask('drafter')).rejects.toMatchObject({ status: 429, message: 'ai-rate-limited' })
     expect(calls.some((c) => c.model === MODELS.openrouter)).toBe(false)
@@ -154,17 +154,16 @@ describe('daily airbag (per provider)', () => {
 
   it('fires OpenRouter only when the whole lane is daily-exhausted, and skips marked providers', async () => {
     script = (m) => {
-      if ([MODELS.gemini, MODELS.cerebras, MODELS.mistral, MODELS.groqQwen].includes(m)) {
+      if ([MODELS.gemini, MODELS.cerebras, MODELS.groqOss].includes(m)) {
         throw makeErr(429, DAILY)
       }
       return OK
     }
     await expect(ask('drafter')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.model)).toEqual([
+      MODELS.groqOss,
       MODELS.gemini,
       MODELS.cerebras,
-      MODELS.mistral,
-      MODELS.groqQwen,
       MODELS.openrouter,
     ])
 
@@ -305,7 +304,12 @@ describe('completeJSON self-correction', () => {
 })
 
 describe('reasoning_effort mapping', () => {
-  it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss passes through; mistral omits', async () => {
+  it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss/qwen capped at their floor; mistral omits', async () => {
+    // drafter now leads with Groq (gpt-oss-20b) — fail it so the chain reaches Gemini.
+    script = (m) => {
+      if (m === MODELS.groqOss) throw makeErr(429, 'rate limit')
+      return OK
+    }
     await ask('drafter', { effort: 'high' })
     expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
 
@@ -314,8 +318,12 @@ describe('reasoning_effort mapping', () => {
     expect(calls.at(-1)?.params.reasoning_effort).toBe('none')
 
     calls.length = 0
+    script = () => OK
+    // gpt-oss capped at its floor ('low') regardless of requested effort — see
+    // reasoningEffortFor (router-shared.ts): 'high' was confirmed live to
+    // starve the actual JSON output of its token budget.
     await ask('suggestor', { effort: 'high' }) // cerebras gpt-oss-120b primary
-    expect(calls.at(-1)?.params.reasoning_effort).toBe('high')
+    expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
 
     calls.length = 0
     await ask('coach', { effort: 'high' }) // mistral primary

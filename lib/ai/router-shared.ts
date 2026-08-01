@@ -94,11 +94,18 @@ export function supportsJsonSchema(model: string): boolean {
 // qwen *reasoning* models (e.g. qwen3.6-27b) take none|default. qwen *coder*
 // models (qwen3-coder / qwen-2.5-coder) accept no such field — excluding 'coder'
 // is what keeps the OpenRouter airbag from 400-ing. Mistral: omit (undefined).
+//
+// gpt-oss/qwen are both capped at their family's floor regardless of the
+// caller's requested effort (2026-07-31): confirmed live that 'high' reasoning
+// on these models can consume the entire maxTokens budget on internal
+// reasoning tokens before emitting any answer content — reproduced on BOTH
+// qwen (Groq) and gpt-oss-20b (Groq) as an empty completion, surfaced by Groq
+// as json_validate_failed with an empty failed_generation. Gemini already had
+// this exact protection (below); these two didn't. qwen's vocabulary has no
+// 'low' tier, so 'none' is its floor.
 export function reasoningEffortFor(model: string, effort: 'low' | 'high'): string | undefined {
-  if (model.includes('gpt-oss')) return effort
-  if (model.includes('qwen') && !model.includes('coder')) {
-    return effort === 'high' ? 'default' : 'none'
-  }
+  if (model.includes('gpt-oss')) return 'low'
+  if (model.includes('qwen') && !model.includes('coder')) return 'none'
   // Gemini 2.5's OpenAI-compat endpoint accepts reasoning_effort — and DEFAULTS
   // to dynamic thinking billed as output tokens, the priciest out-rate in the
   // fleet (~50–70% of drafter-lane cost when left on). 2.5 Flash supports 'none';
