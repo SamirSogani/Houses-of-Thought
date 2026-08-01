@@ -163,41 +163,6 @@ export async function enforceAiLimit(req: Request): Promise<void> {
   }
 }
 
-// Per-day cap on reasoning-pipeline RUNS (decisions/019 Phase 1), not calls —
-// a single n=3 run is already ~96 completeJSON calls, so metering every call
-// individually would need a new increment-by-N RPC; a coarse run-count cap on
-// the existing RPC is proportionate for one admin operator doing occasional
-// manual verification runs. Deliberately its OWN ai_usage subject namespace
-// ('admin-reasoning'), NOT the shared pooled enforceAiLimit: one run would
-// exhaust the admin's normal USER_DAILY_CAP in ~2-3 runs, defeating the point
-// of a separate budget. Safe because this route is already admin-only (no
-// cross-user fairness concern) and provider-level protection (penalty box,
-// daily-exhaustion tracking in router-state.ts) applies regardless of which
-// ai_usage subject a call's bookkeeping uses.
-export const ADMIN_REASONING_DAILY_RUN_CAP = 8
-const ADMIN_REASONING_SUBJECT = 'admin-reasoning'
-
-// Throws AiError(429) when the daily run cap is hit. Fails OPEN on any
-// limiter outage, same posture as enforceAiLimit. Call once per run, at the
-// step that starts a fresh run (context-gather-pre) — not once per step.
-export async function enforceReasoningRunLimit(): Promise<void> {
-  try {
-    const { data, error } = await serviceClient().rpc('increment_ai_usage', {
-      sub: ADMIN_REASONING_SUBJECT,
-    })
-    if (error) {
-      log.error('ai/limits', 'reasoning run-limit increment failed, failing open', { error: error.message })
-      return
-    }
-    if (typeof data === 'number' && data > ADMIN_REASONING_DAILY_RUN_CAP) {
-      throw new AiError(429, 'rate-limited')
-    }
-  } catch (err) {
-    if (err instanceof AiError) throw err
-    log.error('ai/limits', 'reasoning run-limit failing open', { error: (err as Error)?.message })
-  }
-}
-
 export interface AiUsageSummary {
   day: string
   totalCalls: number

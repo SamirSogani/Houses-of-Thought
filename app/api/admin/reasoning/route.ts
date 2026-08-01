@@ -8,16 +8,12 @@
 // two more — so a single request never chains two dependent
 // completeJSON-latency-bounded batches. See lib/ai/reasoning/steps.ts.
 //
-// Admin-only (403 before any quota is spent). enforceReasoningRunLimit fires
-// only on the first step of a run (context-gather-pre) — a per-day cap on
-// RUNS, not calls, using its own ai_usage subject namespace, deliberately NOT
-// the shared pooled enforceAiLimit (see lib/ai/limits.ts for why).
+// Admin-only (403 before any quota is spent).
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { AiError } from '@/lib/ai/router'
 import { isCallerAdmin } from '@/lib/auth/admin'
-import { enforceReasoningRunLimit } from '@/lib/ai/limits'
 import { log } from '@/lib/log'
 import { STEP_ORDER, type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
 import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
@@ -170,16 +166,6 @@ export async function POST(req: Request): Promise<Response> {
   const dryRun = parsed.data.dryRun ?? false
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
-
-  // Run-level cap: checked once, at the true start of a run — not per step.
-  if (step === 'context-gather-pre' && !dryRun) {
-    try {
-      await enforceReasoningRunLimit()
-    } catch (err) {
-      if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: err.status })
-      throw err
-    }
-  }
 
   try {
     switch (step) {
