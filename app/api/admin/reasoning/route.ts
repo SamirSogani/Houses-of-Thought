@@ -257,8 +257,8 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       case 'global-assumptions-review': {
-        if (!run.frame || !run.globalAssumptions) return missing('frame/globalAssumptions')
-        const verdict = await runGlobalAssumptionsReview(run.frame, run.globalAssumptions, dryRun)
+        if (!run.frame || !run.perspectives || !run.globalAssumptions) return missing('frame/perspectives/globalAssumptions')
+        const verdict = await runGlobalAssumptionsReview(run.frame, run.perspectives, run.globalAssumptions, dryRun)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-assumptions-generate', { globalAssumptionsVerdict: verdict })

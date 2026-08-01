@@ -74,10 +74,11 @@ export async function runGlobalAssumptionsGenerate(
 
 export async function runGlobalAssumptionsReview(
   frame: FramePacket,
+  bundles: PerspectiveBundle[],
   packet: GlobalAssumptionsPacket,
   dryRun: boolean
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'global-assumptions-review', packet, serializeFrame(frame), dryRun)
+  return runReviewPanel(frame.core_question, 'global-assumptions-review', packet, questionContext(frame, bundles), dryRun)
 }
 
 export async function runGlobalEvidenceGenerate(

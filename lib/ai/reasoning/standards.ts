@@ -52,7 +52,7 @@ export const LAYER_STANDARD_CRITERIA: Record<ReviewGateStep, Record<StandardId, 
     clarity:
       "Is core_question phrased so a reader immediately grasps what's being decided — no ambiguous pronouns, no compound multi-part question?",
     accuracy:
-      'Does core_question and purpose faithfully restate what was actually asked, without silently narrowing, broadening, or shifting it?',
+      'Does core_question and purpose faithfully restate what was actually asked, without silently narrowing, broadening, or shifting it? Resolving a vague possessive/first-person referent (e.g. "our school" → "a K-12 school") is NOT a shift — the underlying question and stakes are unchanged, only the ambiguous referent is fixed.',
     precision:
       'Are the definitions concrete and specific to this question (not circular or generic dictionary text), and does scope_notes name specifics rather than hand-wave?',
     relevance:
