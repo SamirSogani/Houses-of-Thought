@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { useSignOut } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
-import { type StepId } from '@/lib/ai/reasoning/steps'
+import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
 import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 
@@ -73,8 +73,20 @@ export function ReasoningPipelinePage() {
   runRef.current = run
   // Which attempt (1-indexed) the layer currently in flight is on — sent as
   // `attempt` so hard-block review steps can decide retry-vs-halt (route.ts).
-  // Incremented only on a `retry: true` response, reset to 1 on any other
-  // (forward progression, or a fresh run) — see StepResponse.retry above.
+  // Incremented only on a `retry: true` response, reset to 1 once a review
+  // step actually passes (or a fresh run starts) — see StepResponse.retry
+  // above. Real-verified (2026-08-01) that resetting on EVERY non-retry
+  // response — including a `*-generate` step's own response, which is never
+  // itself `retry: true` even mid-loop — silently wiped the count back to 1
+  // every time a retry looped back through generate. Review would then
+  // always see attempt=1, `attempt < MAX_REGENERATION_ATTEMPTS` would always
+  // hold, and a layer that never contentfully improves (unlike Frame, which
+  // always happened to genuinely pass first) would regenerate forever
+  // instead of halting after 3 real attempts — confirmed live: 20+ real
+  // global-assumptions-review calls, the halt path never reached. Only a
+  // completed REVIEW step (isReviewStep) is a legitimate place to reset —
+  // its own generate step's response must leave the count untouched so the
+  // NEXT review call still sees the real, escalating attempt number.
   const layerAttemptRef = useRef(1)
 
   useEffect(() => {
@@ -113,7 +125,9 @@ export function ReasoningPipelinePage() {
           if (data.retry) {
             layerAttemptRef.current += 1
             setRegenerationInfo({ attempt: layerAttemptRef.current })
-          } else {
+          } else if (isReviewStep(step)) {
+            // A generate step's own (always non-retry) response must NOT
+            // reset this — see layerAttemptRef's comment above.
             layerAttemptRef.current = 1
             setRegenerationInfo(null)
           }

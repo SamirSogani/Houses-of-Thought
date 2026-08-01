@@ -74,8 +74,12 @@ export const PerspectiveBundleSchema = z.object({
     // Which perspective's session actually wrote it — the independence check
     // (01-layers-and-standards.md): must not be this bundle's own perspective_id.
     authored_by_perspective_id: str,
-    target_claims: z.array(str).min(1).max(6),
-    rebuttals: z.array(rebuttalStr).min(1).max(6),
+    // max 8, matching key_claims above (2026-08-01: real traffic showed the
+    // model routinely ignoring the prompt's own "1-6" ask and rebutting more
+    // than 6 of the stance's key_claims — target_claims is drawn FROM
+    // key_claims, so it shouldn't be capped tighter than its own source).
+    target_claims: z.array(str).min(1).max(8),
+    rebuttals: z.array(rebuttalStr).min(1).max(8),
   }),
 })
 export type PerspectiveBundle = z.infer<typeof PerspectiveBundleSchema>
@@ -108,13 +112,16 @@ export const STANDARD_IDS = [
 ] as const
 export type StandardId = (typeof STANDARD_IDS)[number]
 
-// What ONE standard reviewer's completeJSON call returns. notes' 700-char cap
-// (raised from 400, 2026-07-30) reflects what the prompt actually asks for —
-// quoting a fragment of the artifact plus the specific reason genuinely runs
-// past 400 chars; the tighter cap was rejecting well-formed, on-task output.
+// What ONE standard reviewer's completeJSON call returns. notes' cap (400 ->
+// 700 on 2026-07-30, -> 1000 on 2026-08-01) keeps climbing because the prompt
+// keeps genuinely needing the room: quoting a fragment of the artifact plus
+// the specific reason, and for a densely-argued perspective bundle (the
+// densest artifact any reviewer sees), that routinely runs past 700 too —
+// confirmed live on perspectives-review's accuracy standard, failing
+// completeJSON's self-correction retry both attempts at 700.
 export const SingleStandardVerdictSchema = z.object({
   pass: z.boolean(),
-  notes: z.string().min(1).max(700),
+  notes: z.string().min(1).max(1000),
 })
 export type SingleStandardVerdict = z.infer<typeof SingleStandardVerdictSchema>
 

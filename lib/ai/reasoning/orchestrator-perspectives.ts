@@ -37,15 +37,27 @@ if (typeof window !== 'undefined') {
 
 const StanceModelSchema = PerspectiveStanceSchema.omit({ perspective_id: true, stance_label: true })
 
-// Mirrors runReviewPanel's REVIEWER_STAGGER_MS (orchestrator-panel.ts). Real
-// testing (06-phase1.5-bounded-retries.md, 2026-07-31) showed this step's 4
-// sub-element calls per bundle, fired in parallel across all n bundles with
-// no stagger, exhausted the 2-target drafter lane (Gemini + Cerebras) at
-// n=2 — 8 simultaneous calls drew 3 consecutive ai-rate-limited responses.
-// Staggering every call's start, flattened across bundles AND sub-elements
-// (not just bundles), spreads the full 4n calls over time instead of firing
-// them at once.
-const DRAFTER_STAGGER_MS = 150
+// Mirrors runReviewPanel's REVIEWER_STAGGER_MS (orchestrator-panel.ts), but
+// widened far past that pattern's original 150ms (2026-07-31 session,
+// earlier): a 150ms spread only fixed *simultaneous* 429s — it did nothing
+// against Groq's actual constraint, discovered by real-verifying past this
+// step for the first time ever: an account-level 8000 TPM (tokens/minute)
+// cap on gpt-oss-20b, counted against REQUESTED max_tokens, not just what's
+// consumed. This step's 4 sub-calls request 1100+1200+1800+1600 = 5700
+// tokens per bundle; at n=2 that's 11400 requested tokens for 8 calls, well
+// over one minute's budget if fired close together — confirmed live via
+// Groq's own "Limit 8000, Used 7434, Requested 1521" error.
+//
+// 20s between each flattened call spreads n=2's 8 calls (indices 0-7) across
+// ~140s — an effective ~4900 TPM, ~60% of the cap, with real margin since
+// actual response latency adds further gaps the math below doesn't count.
+// The n=3 case (12 calls, 17100 tokens, ~220s spread) lands at a near-
+// identical ~4700 TPM — a fixed per-call stagger scales the total spread
+// with the load, keeping the effective rate roughly constant regardless of
+// n. Deliberately slow: decision 019's whole premise is a slower, more
+// rigorous answer, not a fast one — reliably finishing in minutes beats
+// finishing fast and failing.
+const DRAFTER_STAGGER_MS = 20_000
 
 export async function runPerspectivesGenerateStances(
   frame: FramePacket,

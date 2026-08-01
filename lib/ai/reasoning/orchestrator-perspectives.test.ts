@@ -6,7 +6,7 @@
 // degraded) is never re-asked-for or re-reviewed, and a still-failing bundle
 // degrades only once MAX_REGENERATION_ATTEMPTS is actually exhausted.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FramePacket, PerspectiveBundle, PerspectiveStance, ReviewPanelVerdict } from './contracts'
 import { STANDARD_IDS } from './contracts'
 import { MAX_REGENERATION_ATTEMPTS } from './budget'
@@ -52,13 +52,25 @@ beforeEach(() => {
   completeJSONMock.mockReset()
   runReviewPanelMock.mockReset()
   completeJSONMock.mockResolvedValue({})
+  // runPerspectivesGenerateDetails staggers its calls via real setTimeout
+  // (DRAFTER_STAGGER_MS, widened to 20s live to fit Groq's real TPM budget —
+  // see orchestrator-perspectives.ts). Fake timers keep these tests fast
+  // regardless of that constant's value; vi.runAllTimersAsync() below flushes
+  // every pending stagger delay instead of a test actually waiting on it.
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('runPerspectivesGenerateDetails', () => {
   it('generates every bundle fresh when there is no prior verdict', async () => {
     const stances = [stance('p1', 'A'), stance('p2', 'B')]
     completeJSONMock.mockResolvedValue({ sub_questions: ['q'] })
-    const { bundles, attempts } = await runPerspectivesGenerateDetails(frame, stances, false)
+    const resultPromise = runPerspectivesGenerateDetails(frame, stances, false)
+    await vi.runAllTimersAsync()
+    const { bundles, attempts } = await resultPromise
     expect(bundles).toHaveLength(2)
     expect(attempts).toEqual([1, 1])
     expect(completeJSONMock).toHaveBeenCalledTimes(8) // 4 sub-elements x 2 bundles
@@ -71,11 +83,13 @@ describe('runPerspectivesGenerateDetails', () => {
     const priorAttempts = [1, 1]
 
     completeJSONMock.mockResolvedValue({ sub_questions: ['regenerated'] })
-    const { bundles, attempts } = await runPerspectivesGenerateDetails(frame, stances, false, {
+    const resultPromise = runPerspectivesGenerateDetails(frame, stances, false, {
       priorBundles,
       priorVerdicts,
       priorAttempts,
     })
+    await vi.runAllTimersAsync()
+    const { bundles, attempts } = await resultPromise
 
     // p2 (settled) is the exact same object back — never regenerated.
     expect(bundles[1]).toBe(priorBundles[1])
