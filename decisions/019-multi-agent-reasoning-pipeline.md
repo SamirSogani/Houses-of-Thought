@@ -1,15 +1,16 @@
 # Decision 019 — Multi-agent reasoning pipeline for admin chat
 
 **Date:** 2026-07-30
-**Status:** Phase 1 implemented; Phase 1.5's bounded retries (generate +
-review, transport + verdict-driven) shipped and real-verified 2026-07-31
-(uncommitted) — the pipeline runs end-to-end in dry run, real calls now
-reach past the Frame layer for the first time (four real bugs found and
-fixed live across both sessions), and perspectives-review onward is reached
-but not yet fully real-verified (paused on a real provider rate-limit, not a
-code issue). Current status, known open issues, and next phases:
-[plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md](../plans/active/reasoning-pipeline/05-phase1-status-and-next-phases.md)
-and [06-phase1.5-bounded-retries.md](../plans/active/reasoning-pipeline/06-phase1.5-bounded-retries.md).
+**Status:** Phase 1 implemented; Phase 1.5's bounded retries shipped. Real
+testing across several sessions found and fixed a chain of real bugs
+(schema caps, a reasoning_effort budget-starvation root cause spanning
+three providers, a Groq structured-output failure mode wrongly classified
+as terminal, and a client-side bug that silently disabled every hard-block
+layer's 3-attempt halt) — real runs now reach past Perspectives into the
+global layers for the first time. Current status, known open issues, and
+next phases:
+[plans/active/reasoning-pipeline/08-phase1.5-root-cause-and-halt-bug.md](../plans/active/reasoning-pipeline/08-phase1.5-root-cause-and-halt-bug.md)
+(05-07 are the dated history of how it got there).
 Full spec: [plans/active/reasoning-pipeline/](../plans/active/reasoning-pipeline/README.md).
 **Relates to:** [016](016-draft-mode.md) (stage loop), [017](017-house-chat-admin-beta.md)
 (admin chat), [018](018-house-chat-conclusion-candidates.md) (conclusion

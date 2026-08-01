@@ -1,9 +1,10 @@
 # Plan — Multi-agent reasoning pipeline
 
-**Scoped:** 2026-07-30 · **Status:** Phase 1 implemented and partially
-real-verified (uncommitted) — see
-[05-phase1-status-and-next-phases.md](05-phase1-status-and-next-phases.md)
-for exactly what's done, what's open, and the next phases. Decided by
+**Scoped:** 2026-07-30 · **Status:** Phase 1 implemented; Phase 1.5 real
+bugs found and fixed live across several sessions — see
+[08-phase1.5-root-cause-and-halt-bug.md](08-phase1.5-root-cause-and-halt-bug.md)
+for current status, what's done, what's open, and the next phases
+(05-07 are the dated history of how it got there). Decided by
 [decision 019](../../../decisions/019-multi-agent-reasoning-pipeline.md), which
 also records why this is a separate reasoning surface rather than a
 replacement for decision 016's stage loop or 018's conclusion candidates.
@@ -55,7 +56,7 @@ Sequencing, concurrency, and failure handling:
 Verification plan and deferred implementation questions:
 [04-verification-and-open-questions.md](04-verification-and-open-questions.md).
 Current build status, known open issues, and next phases (start here to
-resume work): [05-phase1-status-and-next-phases.md](05-phase1-status-and-next-phases.md).
+resume work): [08-phase1.5-root-cause-and-halt-bug.md](08-phase1.5-root-cause-and-halt-bug.md).
 
 ## Why perspectives fan out and nothing else does
 

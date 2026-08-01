@@ -2,7 +2,10 @@
 
 Written the same day as 06, picking up its "Updated next steps." **Code below
 is committed; this doc records what was and wasn't real-verified** — check
-`git log` if that ever seems stale.
+`git log` if that ever seems stale. **Superseded for current status by
+[08-phase1.5-root-cause-and-halt-bug.md](08-phase1.5-root-cause-and-halt-bug.md)**
+— read 08 first; it also found and fixed a real bug in the retry logic this
+doc's testing ran into but didn't diagnose.
 
 ## 1. Drafter stagger — shipped, NOT yet real-verified
 
