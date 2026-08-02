@@ -25,6 +25,11 @@ const scopeNotesStr = z.string().min(1).max(1400)
 // on real perspectives-generate-details traffic: the shared 600-char `str`
 // cap rejected a well-formed rebuttal that genuinely needed the room.
 const rebuttalStr = z.string().min(1).max(1000)
+// search_findings holds runSearches()'s (lib/ai/reasoning/search.ts) formatted
+// dump of up to 3 queries' real results (title+url+description each) — the
+// 600-char `str` cap rejected this immediately on real traffic (2026-08-02):
+// even one query's worth of real results routinely exceeds it, let alone 3.
+const searchFindingsStr = z.string().min(1).max(4000)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 const ConfidenceSchema = z.enum(['low', 'medium', 'high'])
 
@@ -33,8 +38,17 @@ export const ContextGatherVerdictSchema = z.object({
   needs_user_input: z.boolean(),
   questions_for_user: z.array(str).max(3),
   reason: str,
+  // Populated by the orchestrator (runContextGather, orchestrator-setup.ts)
+  // via real search on questions_for_user when needs_user_input is true — the
+  // model can't have real results yet at the point it decides whether to ask,
+  // so this is never part of what the model itself returns (see
+  // ContextGatherModelSchema below). Null when not needed or not run.
+  search_findings: searchFindingsStr.nullable(),
 })
 export type ContextGatherVerdict = z.infer<typeof ContextGatherVerdictSchema>
+
+// What the model actually produces — search_findings is added after the call.
+export const ContextGatherModelSchema = ContextGatherVerdictSchema.omit({ search_findings: true })
 
 // ── Frame ───────────────────────────────────────────────────────────────────
 export const FramePacketSchema = z.object({

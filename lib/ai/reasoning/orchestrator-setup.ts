@@ -6,7 +6,7 @@
 
 import { completeJSON } from '@/lib/ai/router'
 import {
-  ContextGatherVerdictSchema,
+  ContextGatherModelSchema,
   type ContextGatherVerdict,
   FramePacketSchema,
   type FramePacket,
@@ -23,6 +23,7 @@ import {
   appendRegenerationFeedback,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
+import { runSearches } from './search'
 import { clampN } from './budget'
 
 if (typeof window !== 'undefined') {
@@ -31,17 +32,31 @@ if (typeof window !== 'undefined') {
 
 export async function runContextGather(context: string, dryRun: boolean): Promise<ContextGatherVerdict> {
   if (dryRun) {
-    return { needs_user_input: false, questions_for_user: [], reason: '[dry run] proceeding without asking.' }
+    return {
+      needs_user_input: false,
+      questions_for_user: [],
+      reason: '[dry run] proceeding without asking.',
+      search_findings: null,
+    }
   }
-  return completeJSON({
+  const verdict = await completeJSON({
     role: 'coach',
     system: `${REASONING_PERSONA}\n\n${CONTEXT_GATHER_BLOCK}`,
     user: context,
-    schema: ContextGatherVerdictSchema,
+    schema: ContextGatherModelSchema,
     schemaName: 'context_gather_verdict',
     effort: 'low',
     maxTokens: 400,
   })
+  // Search enriches the question shown to the user — it never substitutes for
+  // asking (Samir's call): even a fully-answered questions_for_user still
+  // surfaces to the user, just with real findings attached instead of a bare
+  // question.
+  if (!verdict.needs_user_input || verdict.questions_for_user.length === 0) {
+    return { ...verdict, search_findings: null }
+  }
+  const search_findings = await runSearches(verdict.questions_for_user)
+  return { ...verdict, search_findings }
 }
 
 const FrameModelSchema = FramePacketSchema.omit({ original_query: true })

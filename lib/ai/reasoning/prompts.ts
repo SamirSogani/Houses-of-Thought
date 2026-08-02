@@ -55,9 +55,11 @@ export const PERSPECTIVE_ASSUMPTIONS_BLOCK = `Task: given ONE perspective's stan
 
 Return 1-6 assumptions this stance depends on but does not defend. Prefer load-bearing ones — assumptions the stance would collapse without.`
 
-export const PERSPECTIVE_EVIDENCE_BLOCK = `Task: given ONE perspective's stance below, name what would support it. This stage has no live web search.
+export const PERSPECTIVE_EVIDENCE_BLOCK = `Task: given ONE perspective's stance below, name what would support it.
 
-Return up to 6 evidence items, each: claim_id (a short slug naming what it supports), source_ref (the kind/name of source this would come from, described specifically — e.g. "district cost data," "peer-reviewed study on X" — never invent a specific real-sounding URL, author, or study that does not exist), confidence (low/medium/high), and caveats (a limitation, or null). Be honest that this is what a real search would need to find, not a verified citation.`
+Real web search is available via search_queries (up to 3). Most claims don't need it — only request search when a specific, checkable fact (a named study, a real statistic, an actual policy) would turn a hypothetical evidence item into a real, citable one. Leave search_queries empty otherwise; that is the normal case, not a fallback.
+
+Return up to 6 evidence items, each: claim_id (a short slug naming what it supports), source_ref (if real search results were given back to you, a real URL or source name FROM those results — never a URL you were not actually given; otherwise the kind/name of source this would come from, described specifically — e.g. "district cost data," "peer-reviewed study on X" — never invent a specific real-sounding URL, author, or study that does not exist), confidence (low/medium/high), and caveats (a limitation, or null). If an item is not grounded in real search results, be honest that this is what a real search would need to find, not a verified citation.`
 
 export const PERSPECTIVE_COUNTERARGUMENT_BLOCK = `Task: you are NOT the author of the stance below — argue the strongest case AGAINST it. Attack, do not restate softened.
 
@@ -68,9 +70,11 @@ export const GLOBAL_ASSUMPTIONS_BLOCK = `Task: given the core question and ALL v
 
 Return question_level_assumptions (1-8), each ONE distinct, testable claim — if a sentence bundles multiple conditions ("X assumes A, and that B, and that C"), split it into separate assumptions unless A/B/C truly stand or fall together. And cross_perspective_notes (1-2 sentences naming WHICH specific perspectives or claims revealed the pattern — a bare assertion that a pattern exists, without pointing to what in the perspectives showed it, is not enough). Do not just repeat an assumption already listed inside one perspective's own assumptions unless naming it at a genuinely more general level.`
 
-export const GLOBAL_EVIDENCE_BLOCK = `Task: given the core question and ALL vetted perspectives below, name evidence relevant to the QUESTION ITSELF, not confined to defending any one stance. This stage has no live web search.
+export const GLOBAL_EVIDENCE_BLOCK = `Task: given the core question and ALL vetted perspectives below, name evidence relevant to the QUESTION ITSELF, not confined to defending any one stance.
 
-Return up to 8 question_level_evidence items, each: claim_id, source_ref (described specifically — describe what a real search would need to find, never invent a specific real-sounding source), confidence.`
+Real web search is available via search_queries (up to 3). Most claims don't need it — only request search when a specific, checkable fact would turn a hypothetical evidence item into a real, citable one. Leave search_queries empty otherwise; that is the normal case, not a fallback.
+
+Return up to 8 question_level_evidence items, each: claim_id, source_ref (if real search results were given back to you, a real URL or source name FROM those results — never a URL you were not actually given; otherwise described specifically — describe what a real search would need to find, never invent a specific real-sounding source), confidence.`
 
 // ── Conclusions and implications ────────────────────────────────────────────
 export const CONCLUSIONS_BLOCK = `Task: given the core question, all vetted perspectives, and the global assumptions and evidence below, draw the conclusion(s) that actually follow.

@@ -92,6 +92,43 @@ function stepDone(run: RunState, stepId: StepId): boolean {
   }
 }
 
+// Context-gather has no ReviewPanelVerdict to reuse ReviewPanelVerdictPanel
+// with — it's a different, much smaller shape (needs_user_input/questions_for_user/
+// reason, plus search_findings attached by the orchestrator, contracts.ts) —
+// so this is a small dedicated block rather than a new general-purpose panel.
+// Only rendered when there's something to show the user (needs_user_input).
+function ContextGatherNote({ verdict }: { verdict: ContextGatherVerdict | null | undefined }) {
+  if (!verdict?.needs_user_input || verdict.questions_for_user.length === 0) return null
+  return (
+    <div
+      style={{
+        marginLeft: 24,
+        marginTop: 2,
+        marginBottom: 2,
+        padding: '8px 10px',
+        borderRadius: 7,
+        border: '1px solid var(--amber)',
+        background: 'var(--amber-tint)',
+        fontSize: 11.5,
+        color: 'var(--ink)',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{verdict.reason}</div>
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        {verdict.questions_for_user.map((q, i) => (
+          <li key={i}>{q}</li>
+        ))}
+      </ul>
+      {verdict.search_findings && (
+        <details style={{ marginTop: 6 }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--ink-subtle)' }}>Search findings</summary>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10.5, marginTop: 4 }}>{verdict.search_findings}</pre>
+        </details>
+      )}
+    </div>
+  )
+}
+
 const degradedPill: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 700,
@@ -156,6 +193,8 @@ export function ReasoningStagesList({
               </span>
             </div>
 
+            {group.id === 'context-gather-pre' && <ContextGatherNote verdict={run.contextGatherPre} />}
+            {group.id === 'context-gather-post' && <ContextGatherNote verdict={run.contextGatherPost} />}
             {group.id === 'frame' && run.frameVerdict && (
               <ReviewPanelVerdictPanel label="Frame review" verdict={run.frameVerdict} artifact={run.frame} />
             )}

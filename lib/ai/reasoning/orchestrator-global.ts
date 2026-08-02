@@ -40,6 +40,7 @@ interface Repair<T> {
   priorVerdict: ReviewPanelVerdict
 }
 import { runReviewPanel } from './orchestrator-panel'
+import { generateWithOptionalSearch } from './search'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-global.ts is server-only and must not run in the browser')
@@ -90,13 +91,12 @@ export async function runGlobalEvidenceGenerate(
   if (dryRun) {
     return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
   }
-  return completeJSON({
+  return generateWithOptionalSearch({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    user: appendRegenerationFeedback(questionContext(frame, bundles), repair),
-    schema: GlobalEvidencePacketSchema,
+    buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles), repair) + searchContext,
+    baseSchema: GlobalEvidencePacketSchema,
     schemaName: 'global_evidence_packet',
-    effort: 'high',
     // 900 -> 1800, third instance of the exact same fix this session
     // (conclusions_packet, implications_packet): up to 8 items, each with a
     // 600-char claim_id AND a 600-char source_ref. Confirmed live: Gemini

@@ -29,6 +29,7 @@ import {
   appendRegenerationFeedback,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
+import { generateWithOptionalSearch } from './search'
 import { MAX_REGENERATION_ATTEMPTS } from './budget'
 
 if (typeof window !== 'undefined') {
@@ -168,13 +169,12 @@ export async function runPerspectivesGenerateDetails(
           })
         ),
         stagger(2).then(() =>
-          completeJSON({
+          generateWithOptionalSearch({
             role: 'drafter',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
-            user: appendRegenerationFeedback(stanceText, feedback),
-            schema: PerspectiveBundleSchema.pick({ evidence: true }),
+            buildUser: (searchContext) => appendRegenerationFeedback(stanceText, feedback) + searchContext,
+            baseSchema: PerspectiveBundleSchema.pick({ evidence: true }),
             schemaName: 'perspective_evidence',
-            effort: 'high',
             maxTokens: 1800,
           })
         ),
