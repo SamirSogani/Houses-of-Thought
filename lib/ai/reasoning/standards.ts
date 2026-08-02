@@ -50,7 +50,7 @@ export const LAYER_STANDARD_CRITERIA: Record<ReviewGateStep, Record<StandardId, 
   // Job: pose the question clearly and set up terms/scope — NOT argue it.
   'frame-review': {
     clarity:
-      "Is core_question phrased so a reader immediately grasps what's being decided — no ambiguous pronouns, no compound multi-part question?",
+      "Is core_question phrased so a reader immediately grasps what's being decided — no ambiguous pronouns, no compound multi-part question? core_question does NOT need to name the decision-maker or spell out every policy alternative inline — that's purpose's and scope_notes' job respectively. Judge only whether the question itself is unambiguous, not whether that surrounding context has been folded into core_question too.",
     accuracy:
       'Does core_question and purpose faithfully restate what was actually asked, without silently narrowing, broadening, or shifting it? Resolving a vague possessive/first-person referent (e.g. "our school" → "a K-12 school") is NOT a shift — the underlying question and stakes are unchanged, only the ambiguous referent is fixed.',
     precision:
