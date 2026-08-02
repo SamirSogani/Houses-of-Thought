@@ -8,10 +8,8 @@ even its own retry. [03](03-orchestration-and-failure-handling.md)'s "Budget
 enforcement" section spec'd this; Phase 1 shipped only
 [budget.ts](../../../lib/ai/reasoning/budget.ts)'s static `clampN`.
 
-**Code below is committed** — check `git log` if that ever seems stale. **Not
-yet real-verified** — needs a live run while the drafter lane is actually
-under stress (same provider-quota discipline as every prior session in this
-plan: check `/admin` first, don't force it).
+**Code below is committed** — check `git log` if that ever seems stale.
+**Real-verified 2026-08-02, same day** — see "Real verification" below.
 
 ## Design (confirmed with Samir before implementing)
 
@@ -61,17 +59,68 @@ route handler calls `drafterLaneStress()` and passes the result in; the type
 itself is imported with `import type` (compile-time only, erased from any
 bundle).
 
-## What's tested vs. what isn't
+## What's tested
 
 Unit-tested (`router.test.ts`, `orchestrator-perspectives.test.ts`): the
 signal's tier transitions (driven through real `completeJSON`/`execute`
 cascades, not by reaching into `router-state.ts` internals), and that the
-stagger schedule actually widens under each stress level. **Not yet
-exercised live** — this session's own quota was already burned down (see 13),
-so there was no safe way to real-verify against genuine Groq daily-exhaustion
-today. Next real-testing session: check `/admin` for a stale
-`dailyExhaustedProviders` entry (auto-clears at UTC midnight) or force
-`degraded`/`critical` via a throwaway script against `router-state.ts`'s
-test-only reset/marking hooks before running a real pipeline test, and
-confirm the stagger/n-clamp actually engaged (look for the new `log.warn`
-lines: `ai/reasoning/perspectives` and `ai/reasoning/route`).
+stagger schedule actually widens under each stress level.
+
+## Real verification — 2026-08-02
+
+Two real runs, same session the code was built in, provider health checked
+at `/admin` first each time (all UP except Gemini rate-limited).
+
+**Run A (n=2), "Should our neighborhood association ban short-term rentals
+like Airbnb?":** started with Groq healthy. Mid-run, Groq's `gpt-oss-20b` hit
+its real **daily** token cap (TPD: 198,728/200,000 used) on a
+`perspective_evidence` call and got marked exhausted; Gemini then 429'd on
+every subsequent drafter call in that same `perspectives-generate-details`
+invocation (8 of 8 flattened calls) — the doc 13 cascade shape, live. The
+*existing* (unmodified) router cascade absorbed all 8 onto Cerebras
+correctly: both perspective bundles passed review 9/9 on the first attempt,
+and the full 17-step run completed cleanly through final composition. Since
+stress is read once per `runPerspectivesGenerateDetails` call and Groq only
+went out mid-call, this run's own stagger stayed at the base 20s — it
+verified the *pre-existing* cascade held under a genuine live exhaustion
+event, not the new stagger widening.
+
+**Run B (requested n=3), "Should our public library system eliminate late
+fees for overdue books?":** started with Groq already daily-exhausted from
+Run A and Gemini already showing 0 OK / 17 FAIL in its recent event log —
+`/admin` confirmed both before starting. This is the first run where both new
+mechanisms actually engaged, confirmed directly from server logs and the
+network response body:
+
+```
+{"level":"warn","scope":"ai/reasoning/route","msg":"drafter lane under stress — shrinking n pre-flight","stress":"critical","requestedN":3,"effectiveN":2}
+{"level":"warn","scope":"ai/reasoning/perspectives","msg":"drafter lane under stress — widening stagger","stress":"critical","staggerMs":40000}
+```
+
+The `breadth-scoping` response confirmed the clamp landed: `"breadthScoping":
+{"n":2, ...}` with only 2 `candidate_viewpoint_labels`, even though the
+model's own rationale argued for more perspectives — `clampNForStress`
+correctly overrode both the model and the user's requested n=3.
+
+**But:** the run still didn't reach a clean finish. With Groq fully out and
+Gemini this saturated (worse than run 3's original conditions, where only
+Groq was out and Gemini was merely self-rate-limiting), Cerebras — the only
+thing actually serving drafter calls at this point — produced schema-invalid
+JSON on a `perspective_assumptions` call (content wrapped in a stray array
+instead of the expected object) and failed `completeJSON`'s one built-in
+retry too, surfacing as a 502 `ai-invalid-output` that paused the pipeline
+("Could not reach a stage of the pipeline"). Stopped there rather than
+clicking Retry and spending more quota chasing a clean run under what was
+today an unusually severe compounded-provider day — same precedent as 13's
+"stopped rather than continuing to retry."
+
+**Conclusion:** both mechanisms verified working exactly as designed — the
+pre-flight clamp and the stagger widening both measurably reduce
+concentration on the fallback lane. But they're mitigations, not a
+guarantee: under sufficiently severe *simultaneous* multi-provider stress
+(not just Groq out, but the sole remaining live target itself heavily
+loaded), Cerebras can still occasionally produce invalid JSON on the first
+two attempts. A genuine residual gap, not a bug in this change — worth a
+separate decision (e.g., a third stagger tier, or a targeted extra retry on
+`ai-invalid-output` specifically under `critical` stress) rather than folding
+into this change silently.

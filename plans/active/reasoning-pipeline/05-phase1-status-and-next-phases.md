@@ -119,8 +119,10 @@ results:
 
 1. Persist packets/verdicts (new table, or decide against once Phase 1.5's
    log volume shows whether it's actually needed).
-2. ~~Dynamic budget enforcement~~ — DONE (not yet real-verified), see
-   [14](14-dynamic-budget-enforcement.md).
+2. ~~Dynamic budget enforcement~~ — DONE, real-verified 2026-08-02, see
+   [14](14-dynamic-budget-enforcement.md) (including a real residual gap it
+   surfaced: Cerebras can still produce invalid JSON under sufficiently
+   severe simultaneous multi-provider stress).
 3. A/B the review panel (panels on vs. auto-pass) — decision 019 verification
    stage 3, confirms the 9-reviewer cost is earning better answers.
 
