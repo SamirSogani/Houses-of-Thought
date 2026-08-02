@@ -97,7 +97,14 @@ export async function runGlobalEvidenceGenerate(
     schema: GlobalEvidencePacketSchema,
     schemaName: 'global_evidence_packet',
     effort: 'high',
-    maxTokens: 900,
+    // 900 -> 1800, third instance of the exact same fix this session
+    // (conclusions_packet, implications_packet): up to 8 items, each with a
+    // 600-char claim_id AND a 600-char source_ref. Confirmed live: Gemini
+    // truncated mid-JSON on the 2nd evidence item, twice in a row, at this
+    // cap - immediately after global_assumptions_packet (smaller max, no
+    // truncation seen) passed clean, isolating this as the schema-shape
+    // issue, not a fluke of that particular call.
+    maxTokens: 1800,
   })
 }
 
