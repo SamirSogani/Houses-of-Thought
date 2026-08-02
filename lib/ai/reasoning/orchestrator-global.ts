@@ -168,7 +168,13 @@ export async function runImplicationsGenerate(
     schema: ImplicationsPacketSchema,
     schemaName: 'implications_packet',
     effort: 'high',
-    maxTokens: 900,
+    // 900 -> 1800, same fix and same evidence shape as conclusions_packet
+    // above: ImplicationsPacketSchema allows up to 8 implications (each with
+    // a 600-char text AND a 600-char who) plus 6 caveats at 600 chars -
+    // structurally larger than conclusions_packet's own bounds, so it needed
+    // at least the same headroom. Confirmed live: Gemini truncated mid-JSON
+    // on the first implication's text field, twice in a row, at this cap.
+    maxTokens: 1800,
   })
 }
 
