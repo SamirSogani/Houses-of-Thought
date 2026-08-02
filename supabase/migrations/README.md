@@ -55,6 +55,8 @@ safe to apply any time.
 | `0023_ai_usage_retention.sql` | ai | Weekly pg_cron prune of `ai_usage` rows older than 90 days (rows are only read for "today"; the IP ceiling doubles anonymous row writes) |
 | `0024_classroom_integrity.sql` | classroom | `houses.turned_in_at`, `assignments.strawman_released` (+ release gate in `can_view_assignment_strawman`, grandfathering live strawmen), roster returns `account_type`. ⚠ Apply BEFORE deploying the matching client code |
 | `0025_dashboard_index.sql` | houses | Partial index `(owner_id, updated_at desc) where is_strawman = false` — perf helper for the owner-scoped dashboard grid query (finding db-C1); no behavior change |
+| `0028_ai_daily_exhaustion.sql` | ai | `ai_daily_exhaustion` (deny-all RLS) — persists which provider tripped its daily quota so `lib/ai/router-state.ts` survives a dev-server restart (decision 019, reasoning pipeline) |
+| `0029_fix_ai_daily_exhaustion_grant.sql` | ai | **Functionality fix for 0028**: grant `select, insert` on `ai_daily_exhaustion` to `service_role` — RLS bypass alone doesn't grant base table access; confirmed live as a `permission denied for table` error the first time a real daily exhaustion occurred |
 
 ## Applying to a fresh database
 
