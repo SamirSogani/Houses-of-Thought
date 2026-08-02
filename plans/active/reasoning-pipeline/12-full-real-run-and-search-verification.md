@@ -106,4 +106,5 @@ breakdown, **Phase 2 is now unblocked**:
 
 Worth one or two more real runs at n=2/n=3 on different question shapes
 before calling Phase 1.5 fully closed — this session's clean run is strong
-evidence, not yet a large sample.
+evidence, not yet a large sample. **Done same day, see
+[13-two-more-real-runs-and-a-grant-bug.md](13-two-more-real-runs-and-a-grant-bug.md).**
