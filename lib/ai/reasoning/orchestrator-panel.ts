@@ -31,6 +31,18 @@ if (typeof window !== 'undefined') {
 // small stagger avoids firing all 9 in the same instant.
 const REVIEWER_STAGGER_MS = 150
 
+// A genuinely good artifact rarely satisfies all nine independent reviewers at
+// once: each is a separate, noisy binary judgment, and AND-ing nine of them
+// makes unanimity a near-coin-flip even on strong content — worse, the failing
+// subset is DIFFERENT each attempt, which is what drove the observed
+// regenerate-and-halt behaviour (a standard passes, a sibling in tension with
+// it fails, the repair flips them, repeat). Tolerate up to this many failing
+// standards so one noisy or finicky reviewer can't halt an otherwise-sound run.
+// The integrity of the gate is preserved by the regeneration loop and the
+// per-standard notes, not by demanding a perfect nine. Set to 0 to restore
+// decision 019's original strict unanimity.
+const MAX_PANEL_FAILURES = 1
+
 function dryRunVerdict(subjectId: string): ReviewPanelVerdict {
   const standards = Object.fromEntries(
     STANDARDS.map((s) => [s.id, { pass: true, notes: `[dry run] ${s.name} not actually graded.` }])
@@ -63,8 +75,17 @@ export async function runReviewPanel(
           user,
           schema: SingleStandardVerdictSchema,
           schemaName: 'standard_verdict',
-          effort: 'low',
-          maxTokens: 600,
+          // 'high' (was 'low'): app-wide effort is a strict 'low'|'high' binary
+          // (router.ts), no 'medium' tier exists. A per-standard pass/fail is a
+          // genuine judgment call, and more deliberation cuts the reviewer noise
+          // the panel then AND-s nine-deep. Safe against doc 08's budget-
+          // starvation bug: gpt-oss/qwen are hard-capped at their own floor by
+          // reasoningEffortFor (router-shared.ts) regardless of what's requested
+          // here, so 'high' only actually changes anything when Gemini serves
+          // the call (low->none, high->low in reasoningEffortFor) — modest, but
+          // free and directionally correct everywhere else in the chain.
+          effort: 'high',
+          maxTokens: 800,
         })
         return [standard.id, verdict] as const
       } catch (err) {
@@ -79,12 +100,12 @@ export async function runReviewPanel(
     })
   )
   const standards = Object.fromEntries(entries) as ReviewPanelVerdict['standards']
-  const overall_pass = STANDARDS.every((s) => standards[s.id].pass)
+  const failing = STANDARDS.filter((s) => !standards[s.id].pass).map((s) => s.id)
+  const overall_pass = failing.length <= MAX_PANEL_FAILURES
   const result: ReviewPanelVerdict = { subject_id: subjectId, standards, overall_pass, degraded: false }
   // Defensive: catches a shape bug here rather than surfacing downstream.
   ReviewPanelVerdictSchema.parse(result)
 
-  const failing = STANDARDS.filter((s) => !standards[s.id].pass).map((s) => s.id)
-  log.info('ai/reasoning/panel', 'panel verdict', { stepId, subjectId, overall_pass, failing })
+  log.info('ai/reasoning/panel', 'panel verdict', { stepId, subjectId, overall_pass, failing, tolerated: MAX_PANEL_FAILURES })
   return result
 }

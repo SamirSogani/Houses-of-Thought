@@ -108,7 +108,11 @@ export function buildReviewerPrompt(
 Your assigned standard: ${standard.name}
 What that means at this stage: ${criterion}
 
-Be a firm, fair grader, not a cheerleader. pass:true only if the artifact genuinely holds up against the criterion above. notes must state the specific reason (quote a fragment of the artifact where useful) — never a generic compliment or complaint. Keep notes to 2-3 sentences, under 500 characters — specific and cited, not padded.`
+Division of labour — the other eight standards each own a concern below; do NOT fail YOUR standard for a shortcoming that is really one of theirs:
+· Clarity: readable, unambiguous phrasing · Accuracy: faithful to what was actually asked/claimed, no distortion · Precision: specific, exact detail · Relevance: stays on the question · Depth: engages the real range of considerations · Breadth: covers multiple genuine angles · Logic: reasoning follows without contradiction · Significance: focuses on what matters most · Fairness: even-handed, not one-sided.
+If your honest objection is really another standard's to make, leave it to them and judge only your own.
+
+Be a firm but fair grader — neither a cheerleader nor a nitpicker. pass:true unless the artifact genuinely and materially violates YOUR standard as defined above; do not fail it over a stylistic preference, a concern another standard owns, or something you are only mildly unsure about — when genuinely on the fence, pass. notes must state the specific reason (quote a fragment of the artifact where useful) — never a generic compliment or complaint. Keep notes to 2-3 sentences, under 500 characters — specific and cited, not padded.`
 
   const user = `## Question and context\n${context}\n\n## Artifact under review\n${JSON.stringify(artifact, null, 2)}`
   return { system, user }
@@ -118,16 +122,27 @@ Be a firm, fair grader, not a cheerleader. pass:true only if the artifact genuin
 // handling.md: "the regenerating agent... sees its own prior output plus the
 // panel's failing-standard notes... targeted repair, not independent
 // judgment"). Shared by every generate step that can be re-invoked after a
-// failed panel verdict — appends the prior artifact and exactly what failed.
+// failed panel verdict — appends the prior artifact, exactly what failed, AND
+// which standards already pass and must be preserved. The passing-standards
+// list is the fix for the "fix one, break another" oscillation: without it the
+// generator only ever hears what's currently wrong and freely regresses a
+// standard it silently already satisfied, so successive attempts ping-pong
+// between two standards in tension (e.g. clarity vs. accuracy on core_question)
+// instead of converging. The prior verdict already carries all nine standards'
+// pass/fail, so this needs no extra state — just stop hiding the passing ones.
 export function appendRegenerationFeedback(
   context: string,
   repair?: { priorArtifact: unknown; priorVerdict: ReviewPanelVerdict }
 ): string {
   if (!repair) return context
-  const failing = (Object.entries(repair.priorVerdict.standards) as [string, { pass: boolean; notes: string }][])
-    .filter(([, v]) => !v.pass)
+  const entries = Object.entries(repair.priorVerdict.standards) as [string, { pass: boolean; notes: string }][]
+  const failing = entries.filter(([, v]) => !v.pass)
+  const passing = entries.filter(([, v]) => v.pass).map(([id]) => id)
   const feedback = failing.map(([id, v]) => `- ${id}: ${v.notes}`).join('\n')
-  return `${context}\n\n## Your previous attempt (revise this — do not start over)\n${JSON.stringify(repair.priorArtifact, null, 2)}\n\n## Why it failed review — address this feedback specifically\n${feedback}`
+  const preserve = passing.length
+    ? `\n\n## Already meets the bar — keep these satisfied while you fix the above; do NOT regress them\n${passing.join(', ')}`
+    : ''
+  return `${context}\n\n## Your previous attempt (revise this — do not start over)\n${JSON.stringify(repair.priorArtifact, null, 2)}\n\n## Why it failed review — address ONLY this feedback\n${feedback}${preserve}`
 }
 
 // ── Serialization helpers — build the `user` context text for later steps ──
