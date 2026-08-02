@@ -149,8 +149,10 @@ describe('runPerspectivesGenerateDetails', () => {
     const criticalPromise = runPerspectivesGenerateDetails(frame, stances, false)
     await vi.runAllTimersAsync()
     await criticalPromise
-    // 'critical' widens it 2x.
-    expect(criticalSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 40_000, 80_000, 120_000]))
+    // 'critical' widens it 4x (real-verified 2026-08-02 that 2x still let
+    // Cerebras produce invalid JSON under sole-remaining-target load — see
+    // effectiveStaggerMs()).
+    expect(criticalSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 80_000, 160_000, 240_000]))
   })
 })
 

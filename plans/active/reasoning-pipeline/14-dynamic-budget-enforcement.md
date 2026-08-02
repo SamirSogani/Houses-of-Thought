@@ -29,9 +29,12 @@ enforcement" section spec'd this; Phase 1 shipped only
 1. Mid-run, reactive: `runPerspectivesGenerateDetails`
    ([orchestrator-perspectives.ts](../../../lib/ai/reasoning/orchestrator-perspectives.ts))
    computes stress once per call and widens `DRAFTER_STAGGER_MS` (1.5× under
-   `degraded`, 2× under `critical`) via `effectiveStaggerMs()` — same
-   flattened call schedule, spread further apart so the same request rate
-   lands on fewer live providers.
+   `degraded`, **4× under `critical`** — bumped from an initial 2× after real
+   verification showed 2× still wasn't enough, see below) via
+   `effectiveStaggerMs()` — same flattened call schedule, spread further
+   apart so the same request rate lands on fewer live providers. Samir's
+   explicit call: latency doesn't matter here, so lean hard into spacing
+   rather than hunt for a minimal-but-sufficient multiplier.
 2. Pre-flight: the `breadth-scoping` case in
    [route.ts](../../../app/api/admin/reasoning/route.ts) computes stress and
    runs `capN` through `clampNForStress()`
@@ -116,11 +119,30 @@ today an unusually severe compounded-provider day — same precedent as 13's
 
 **Conclusion:** both mechanisms verified working exactly as designed — the
 pre-flight clamp and the stagger widening both measurably reduce
-concentration on the fallback lane. But they're mitigations, not a
-guarantee: under sufficiently severe *simultaneous* multi-provider stress
-(not just Groq out, but the sole remaining live target itself heavily
-loaded), Cerebras can still occasionally produce invalid JSON on the first
-two attempts. A genuine residual gap, not a bug in this change — worth a
-separate decision (e.g., a third stagger tier, or a targeted extra retry on
-`ai-invalid-output` specifically under `critical` stress) rather than folding
-into this change silently.
+concentration on the fallback lane. But at 2× critical wasn't sufficient:
+under sufficiently severe *simultaneous* multi-provider stress (not just Groq
+out, but the sole remaining live target itself heavily loaded), Cerebras
+still produced invalid JSON on the first two attempts.
+
+## Follow-up tuning — same day
+
+On Samir's explicit direction ("space Cerebras out more, latency doesn't
+matter"), `critical`'s multiplier was bumped from 2× to **4×** (20s base →
+80s per step) — see the code comment on `effectiveStaggerMs()`. Not
+independently real-verified at 4× yet (would need another live critical-
+stress window); unit tests updated to pin the new schedule.
+
+**Also surfaced while making this change, not yet resolved:** the flattened
+stagger schedule for `perspectives-generate-details` already scheduled calls
+well past `app/api/admin/reasoning/route.ts`'s declared `maxDuration = 30`
+even at the pre-existing 20s base (up to 140s out for n=2) — 4× under
+`critical` pushes the worst case to ~560s. Every real verification in this
+plan (05's "Verification workflow", this doc's Run A/B) has run against
+`localhost:3000` via `next dev`, which doesn't enforce `maxDuration` at all —
+so this has never actually been exercised against Vercel's real serverless
+timeout. If this pipeline is ever run against a real Vercel deployment rather
+than local dev, a `perspectives-generate-details` call this long would get
+force-killed mid-flight by the platform before completing. Not fixed here —
+flagged for a separate decision once/if this moves toward real deployment
+(raise `maxDuration`, or restructure the step to not need one function
+invocation to outlive the whole staggered schedule).

@@ -69,8 +69,16 @@ const DRAFTER_STAGGER_MS = 20_000
 // motivated directly by the 2026-08-02 incident where Groq's daily
 // exhaustion left only Gemini+Cerebras absorbing the full drafter load
 // (plans/active/reasoning-pipeline/13-two-more-real-runs-and-a-grant-bug.md).
+//
+// 'critical' at 2x (40s) was real-verified live the same day (14-dynamic-
+// budget-enforcement.md) and still wasn't enough: with Groq out and Gemini
+// also saturated, Cerebras — by then the only target actually serving
+// drafter calls — still produced schema-invalid JSON under the load. Bumped
+// to 4x on Samir's explicit call: latency doesn't matter here (decision
+// 019's whole premise is slower-but-rigorous), so lean hard into spacing
+// rather than trying to find a minimal-but-sufficient multiplier.
 function effectiveStaggerMs(stress: DrafterLaneStress): number {
-  if (stress === 'critical') return DRAFTER_STAGGER_MS * 2
+  if (stress === 'critical') return DRAFTER_STAGGER_MS * 4
   if (stress === 'degraded') return DRAFTER_STAGGER_MS * 1.5
   return DRAFTER_STAGGER_MS
 }
