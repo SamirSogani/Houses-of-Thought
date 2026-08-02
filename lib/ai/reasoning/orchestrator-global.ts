@@ -126,7 +126,12 @@ export async function runConclusionsGenerate(
     schema: ConclusionsPacketSchema,
     schemaName: 'conclusions_packet',
     effort: 'high',
-    maxTokens: 900,
+    // 900 -> 1800 (real traffic 2026-08-02): ConclusionsPacketSchema's own
+    // bounds allow up to 4 conclusions + 8 supporting_chain items at 600 chars
+    // each - 900 tokens can't cover that even at typical (non-maxed) length.
+    // Confirmed live: Gemini's raw output truncated mid-JSON on the 3rd
+    // conclusion, twice in a row, at exactly this cap.
+    maxTokens: 1800,
   })
 }
 
