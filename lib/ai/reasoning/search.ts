@@ -94,8 +94,11 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
       effort: 'high',
       maxTokens: params.maxTokens,
     })
+    // Defensive: catches a shape bug here rather than crashing on it — real
+    // completeJSON calls always include search_queries (the schema requires
+    // it), but a test double or a future refactor might not.
     const { search_queries, ...rest } = out
-    if (!search_queries.length) return rest as Base
+    if (!search_queries?.length) return rest as Base
     const results = await runSearches(search_queries)
     searchContext = `\n\n## Real search results\n${results}\n\nGround your answer in these where relevant. Return search_queries empty unless you genuinely still need more (you have ${MAX_SEARCH_ROUNDS - round - 1} more chance(s) to ask).`
   }
