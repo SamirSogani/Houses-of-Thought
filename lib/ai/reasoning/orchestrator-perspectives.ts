@@ -8,7 +8,8 @@
 // marked degraded and passed forward only once those are exhausted, since the
 // other bundles still give downstream layers something to work with.
 
-import { completeJSON } from '@/lib/ai/router'
+import { completeJSON, drafterLaneStress, type DrafterLaneStress } from '@/lib/ai/router'
+import { log } from '@/lib/log'
 import {
   type FramePacket,
   type BreadthScopingPacket,
@@ -59,6 +60,20 @@ const StanceModelSchema = PerspectiveStanceSchema.omit({ perspective_id: true, s
 // rigorous answer, not a fast one — reliably finishing in minutes beats
 // finishing fast and failing.
 const DRAFTER_STAGGER_MS = 20_000
+
+// Widened under detected drafter-lane stress (Phase 2 dynamic budget
+// enforcement, 03-orchestration-and-failure-handling.md's "Budget
+// enforcement" spec) — same flattened call schedule, spread further apart so
+// the same total token/request rate lands on fewer live providers. See
+// drafterLaneStress() (lib/ai/router-state.ts) for what these levels mean;
+// motivated directly by the 2026-08-02 incident where Groq's daily
+// exhaustion left only Gemini+Cerebras absorbing the full drafter load
+// (plans/active/reasoning-pipeline/13-two-more-real-runs-and-a-grant-bug.md).
+function effectiveStaggerMs(stress: DrafterLaneStress): number {
+  if (stress === 'critical') return DRAFTER_STAGGER_MS * 2
+  if (stress === 'degraded') return DRAFTER_STAGGER_MS * 1.5
+  return DRAFTER_STAGGER_MS
+}
 
 export async function runPerspectivesGenerateStances(
   frame: FramePacket,
@@ -127,6 +142,14 @@ export async function runPerspectivesGenerateDetails(
   const frameText = serializeFrame(frame)
   const n = stances.length
 
+  // Checked once per call (not per bundle/element) — every element in this
+  // batch shares the same schedule, and stress state doesn't change mid-call.
+  const stress = drafterLaneStress()
+  const staggerMs = effectiveStaggerMs(stress)
+  if (stress !== 'none') {
+    log.warn('ai/reasoning/perspectives', 'drafter lane under stress — widening stagger', { stress, staggerMs })
+  }
+
   const bundles = await Promise.all(
     stances.map(async (stance, i) => {
       const authoredBy = stances[(i + 1) % n].perspective_id
@@ -143,7 +166,7 @@ export async function runPerspectivesGenerateDetails(
       // Flattened across bundles AND sub-elements (i*4+j), not just bundles —
       // see DRAFTER_STAGGER_MS above.
       const stagger = (j: number) =>
-        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * DRAFTER_STAGGER_MS))
+        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * staggerMs))
 
       const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
         stagger(0).then(() =>

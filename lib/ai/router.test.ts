@@ -9,6 +9,7 @@ import { z } from 'zod'
 import {
   completeJSON,
   dailyLimitsExhausted,
+  drafterLaneStress,
   probeTargets,
   __resetRouterState,
   __setClientFactory,
@@ -171,6 +172,33 @@ describe('daily airbag (per provider)', () => {
     calls.length = 0
     await expect(ask('drafter')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.model)).toEqual([MODELS.openrouter])
+  })
+})
+
+describe('drafter lane stress signal', () => {
+  const DAILY = 'You exceeded your requests per day quota'
+
+  it('is none with no daily exhaustion', () => {
+    expect(drafterLaneStress()).toBe('none')
+  })
+
+  it('is degraded once groq is daily-exhausted but fallbacks stay healthy', async () => {
+    script = (m) => (m === MODELS.groqOss ? (() => { throw makeErr(429, DAILY) })() : OK)
+    await ask('drafter')
+    expect(drafterLaneStress()).toBe('degraded')
+  })
+
+  it('is critical once groq is out and a fallback also shows elevated recent failures', async () => {
+    // Call 1: groq daily-exhausts, gemini serves.
+    script = (m) => (m === MODELS.groqOss ? (() => { throw makeErr(429, DAILY) })() : OK)
+    await ask('drafter')
+    expect(drafterLaneStress()).toBe('degraded')
+
+    // Call 2: groq now skipped (daily-exhausted); gemini rate-limits, cerebras serves —
+    // gemini's recent event ratio (1 rate-limited of 2) crosses the stress threshold.
+    script = (m) => (m === MODELS.gemini ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await ask('drafter')
+    expect(drafterLaneStress()).toBe('critical')
   })
 })
 

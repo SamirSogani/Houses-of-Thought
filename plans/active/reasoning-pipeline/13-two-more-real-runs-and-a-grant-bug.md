@@ -59,7 +59,8 @@ Phase 1.5 holds under different question shapes and higher fan-out. The one
 failed run is itself a useful data point for Phase 2's "dynamic budget
 enforcement" item (e.g., detecting multi-provider concurrent stress and
 shrinking `n` or widening the drafter stagger in response) — not a
-pipeline-correctness bug.
+pipeline-correctness bug. Built same day, see
+[14-dynamic-budget-enforcement.md](14-dynamic-budget-enforcement.md).
 
 Before more real testing: **apply 0029** (the grant fix) via the Supabase
 dashboard, and let today's provider quotas cool down — this session alone

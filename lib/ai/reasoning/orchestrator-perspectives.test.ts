@@ -12,7 +12,11 @@ import { STANDARD_IDS } from './contracts'
 import { MAX_REGENERATION_ATTEMPTS } from './budget'
 
 const completeJSONMock = vi.fn()
-vi.mock('@/lib/ai/router', () => ({ completeJSON: (...args: unknown[]) => completeJSONMock(...args) }))
+const drafterLaneStressMock = vi.fn<() => 'none' | 'degraded' | 'critical'>(() => 'none')
+vi.mock('@/lib/ai/router', () => ({
+  completeJSON: (...args: unknown[]) => completeJSONMock(...args),
+  drafterLaneStress: () => drafterLaneStressMock(),
+}))
 
 const runReviewPanelMock = vi.fn()
 vi.mock('./orchestrator-panel', () => ({ runReviewPanel: (...args: unknown[]) => runReviewPanelMock(...args) }))
@@ -51,6 +55,8 @@ function verdict(overall_pass: boolean, degraded = false): ReviewPanelVerdict {
 beforeEach(() => {
   completeJSONMock.mockReset()
   runReviewPanelMock.mockReset()
+  drafterLaneStressMock.mockReset()
+  drafterLaneStressMock.mockReturnValue('none')
   completeJSONMock.mockResolvedValue({})
   // runPerspectivesGenerateDetails staggers its calls via real setTimeout
   // (DRAFTER_STAGGER_MS, widened to 20s live to fit Groq's real TPM budget —
@@ -62,6 +68,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('runPerspectivesGenerateDetails', () => {
@@ -118,6 +125,32 @@ describe('runPerspectivesGenerateDetails', () => {
     expect(bundles[0]).toBe(priorBundles[0])
     expect(completeJSONMock).not.toHaveBeenCalled()
     expect(attempts).toEqual([MAX_REGENERATION_ATTEMPTS])
+  })
+
+  // Phase 2 dynamic budget enforcement (03-orchestration-and-failure-handling.md
+  // "Budget enforcement"): under detected drafter-lane stress, the same
+  // flattened schedule should spread further apart — see effectiveStaggerMs()
+  // in orchestrator-perspectives.ts.
+  it('widens the stagger under degraded stress, and further under critical', async () => {
+    const stances = [stance('p1', 'A')]
+    completeJSONMock.mockResolvedValue({ sub_questions: ['q'] })
+
+    drafterLaneStressMock.mockReturnValue('degraded')
+    const degradedSpy = vi.spyOn(global, 'setTimeout')
+    const degradedPromise = runPerspectivesGenerateDetails(frame, stances, false)
+    await vi.runAllTimersAsync()
+    await degradedPromise
+    // Base DRAFTER_STAGGER_MS is 20_000; 'degraded' widens it 1.5x.
+    expect(degradedSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 30_000, 60_000, 90_000]))
+    degradedSpy.mockRestore()
+
+    drafterLaneStressMock.mockReturnValue('critical')
+    const criticalSpy = vi.spyOn(global, 'setTimeout')
+    const criticalPromise = runPerspectivesGenerateDetails(frame, stances, false)
+    await vi.runAllTimersAsync()
+    await criticalPromise
+    // 'critical' widens it 2x.
+    expect(criticalSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 40_000, 80_000, 120_000]))
   })
 })
 

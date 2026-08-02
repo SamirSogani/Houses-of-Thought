@@ -12,11 +12,11 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { AiError } from '@/lib/ai/router'
+import { AiError, drafterLaneStress } from '@/lib/ai/router'
 import { isCallerAdmin } from '@/lib/auth/admin'
 import { log } from '@/lib/log'
 import { STEP_ORDER, type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
-import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
+import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
 import { serializeFrame } from '@/lib/ai/reasoning/prompts'
 import {
   ContextGatherVerdictSchema,
@@ -204,7 +204,21 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'breadth-scoping': {
         if (!run.frame) return missing('frame')
-        const scoping = await runBreadthScoping(run.frame, capN, dryRun)
+        // Phase 2 dynamic budget enforcement (03-orchestration-and-failure-
+        // handling.md "Budget enforcement"): shrink n below what the client
+        // requested when the drafter lane is already under detected live
+        // pressure, rather than starting a large fan-out into a lane that's
+        // cascading. See drafterLaneStress() (lib/ai/router-state.ts).
+        const stress = drafterLaneStress()
+        const effectiveN = clampNForStress(capN, stress)
+        if (effectiveN !== capN) {
+          log.warn('ai/reasoning/route', 'drafter lane under stress — shrinking n pre-flight', {
+            stress,
+            requestedN: capN,
+            effectiveN,
+          })
+        }
+        const scoping = await runBreadthScoping(run.frame, effectiveN, dryRun)
         return ok(step, { breadthScoping: scoping })
       }
 

@@ -119,8 +119,8 @@ results:
 
 1. Persist packets/verdicts (new table, or decide against once Phase 1.5's
    log volume shows whether it's actually needed).
-2. Dynamic budget enforcement — shrink `n` / tighten retries under live
-   pressure, directly motivated by today's real capacity limits.
+2. ~~Dynamic budget enforcement~~ — DONE (not yet real-verified), see
+   [14](14-dynamic-budget-enforcement.md).
 3. A/B the review panel (panels on vs. auto-pass) — decision 019 verification
    stage 3, confirms the 9-reviewer cost is earning better answers.
 

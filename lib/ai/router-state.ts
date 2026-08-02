@@ -238,6 +238,46 @@ export function eventsFor(name: string): LogEvent[] {
   return (events.get(name) ?? []).slice()
 }
 
+// ── Drafter-lane stress signal (Phase 2 dynamic budget enforcement) ───────────
+// A two-tier read of whether the drafter lane (router.ts draftAttempts()) can
+// currently sustain load, built entirely from signals already tracked above
+// for other reasons. Directly motivated by a real incident (2026-08-02,
+// plans/active/reasoning-pipeline/13-two-more-real-runs-and-a-grant-bug.md):
+// Groq went daily-exhausted, Gemini absorbed the full drafter load and started
+// rate-limiting itself, and Cerebras — the lane's last-resort target — then
+// received concentrated concurrent load and returned schema-invalid JSON that
+// failed even its own retry.
+//
+//   'none'     — Groq (drafter primary) is live; today's static scheduling holds.
+//   'degraded' — Groq is out (daily-exhausted, or in its 30s penalty box), so
+//                the lane is down to 2 live targets (Gemini, Cerebras), but
+//                neither fallback shows elevated recent failures yet.
+//   'critical' — Groq is out AND at least one fallback is ALSO showing
+//                elevated rate-limit/error events from real recent traffic —
+//                the exact shape of the incident above.
+export type DrafterLaneStress = 'none' | 'degraded' | 'critical'
+
+// How far back "recent" looks, and how bad counts as "elevated" — tuned to
+// catch a fallback that's visibly struggling right now without
+// false-triggering on one stray error, since a target's ring buffer
+// (EVENT_CAP above) mixes events from well before the current run.
+const STRESS_EVENT_WINDOW = 10
+const STRESS_FAILURE_RATIO = 0.4
+
+function targetUnderStress(t: Target): boolean {
+  const recent = eventsFor(targetName(t)).slice(-STRESS_EVENT_WINDOW)
+  if (recent.length === 0) return false
+  const failing = recent.filter((e) => e.kind === 'rate_limited' || e.kind === 'error').length
+  return failing / recent.length >= STRESS_FAILURE_RATIO
+}
+
+export function drafterLaneStress(): DrafterLaneStress {
+  const groqOut = providerDailyExhausted('groq') || groqCoolingDown()
+  if (!groqOut) return 'none'
+  const fallbackStressed = targetUnderStress(TARGETS.geminiFlash) || targetUnderStress(TARGETS.cerebrasGptOss120b)
+  return fallbackStressed ? 'critical' : 'degraded'
+}
+
 // Test-only: reset every piece of module-global routing state.
 export function __resetRoutingState(): void {
   groqPenaltyUntil = 0

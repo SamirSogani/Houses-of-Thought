@@ -133,6 +133,8 @@ export { __setClientFactory } from './router-config'
 export {
   dailyLimitsExhausted,
   dailyExhaustedProviders,
+  drafterLaneStress,
+  type DrafterLaneStress,
   type TargetStatus,
   type TargetHealth,
   type LogEvent,
