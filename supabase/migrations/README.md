@@ -57,6 +57,7 @@ safe to apply any time.
 | `0025_dashboard_index.sql` | houses | Partial index `(owner_id, updated_at desc) where is_strawman = false` — perf helper for the owner-scoped dashboard grid query (finding db-C1); no behavior change |
 | `0028_ai_daily_exhaustion.sql` | ai | `ai_daily_exhaustion` (deny-all RLS) — persists which provider tripped its daily quota so `lib/ai/router-state.ts` survives a dev-server restart (decision 019, reasoning pipeline) |
 | `0029_fix_ai_daily_exhaustion_grant.sql` | ai | **Functionality fix for 0028**: grant `select, insert` on `ai_daily_exhaustion` to `service_role` — RLS bypass alone doesn't grant base table access; confirmed live as a `permission denied for table` error the first time a real daily exhaustion occurred |
+| `0030_reasoning_runs.sql` | ai | `reasoning_runs` (deny-all RLS, `service_role` `insert, update` grant) — persists the reasoning pipeline's packets/verdicts, one JSONB row per run (decision 019 Phase 2 item 1, plans/active/reasoning-pipeline/15-persistence.md) |
 
 ## Applying to a fresh database
 

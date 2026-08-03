@@ -65,6 +65,11 @@ export function ReasoningPipelinePage() {
   const [dryRun, setDryRun] = useState(true)
   const [step, setStep] = useState<StepId | null>(null)
   const [run, setRun] = useState<RunState>({ originalQuery: '' })
+  // Generated fresh per run (start()), resent on every step call — the
+  // server's persistence key for reasoning_runs (Phase 2 item 1, decision
+  // 019). Not used for anything client-side; the run is still tracked here
+  // by React state exactly as before.
+  const runIdRef = useRef('')
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [haltReason, setHaltReason] = useState<string | null>(null)
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; waitMs: number } | null>(null)
@@ -100,7 +105,14 @@ export function ReasoningPipelinePage() {
           const res = await fetch('/api/admin/reasoning', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ step, capN: n, dryRun, attempt: layerAttemptRef.current, run: runRef.current }),
+            body: JSON.stringify({
+              step,
+              runId: runIdRef.current,
+              capN: n,
+              dryRun,
+              attempt: layerAttemptRef.current,
+              run: runRef.current,
+            }),
             signal: controller.signal,
           })
           if (cancelled) return
@@ -160,6 +172,7 @@ export function ReasoningPipelinePage() {
 
   function start() {
     if (!question.trim()) return
+    runIdRef.current = crypto.randomUUID()
     setRun({ originalQuery: question.trim() })
     setErrorCode(null)
     setHaltReason(null)

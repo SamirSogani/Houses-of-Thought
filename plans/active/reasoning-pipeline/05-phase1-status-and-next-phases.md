@@ -117,8 +117,9 @@ results:
 
 ## Phase 2
 
-1. Persist packets/verdicts (new table, or decide against once Phase 1.5's
-   log volume shows whether it's actually needed).
+1. ~~Persist packets/verdicts~~ — DONE (built, unit-tested, dry-run
+   verified), not yet real-verified live (migration needs applying first) —
+   see [15](15-persistence.md).
 2. ~~Dynamic budget enforcement~~ — DONE, real-verified 2026-08-02, see
    [14](14-dynamic-budget-enforcement.md) (including a real residual gap it
    surfaced: Cerebras can still produce invalid JSON under sufficiently

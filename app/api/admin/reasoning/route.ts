@@ -53,6 +53,7 @@ import {
   runImplicationsReview,
   runFinalComposition,
 } from '@/lib/ai/reasoning/orchestrator-global'
+import { persistRunStep, runStatusFrom } from '@/lib/ai/reasoning/persistence'
 
 export const maxDuration = 30
 
@@ -86,6 +87,11 @@ type RunState = z.infer<typeof RunStateSchema>
 
 const RequestSchema = z.object({
   step: z.enum(STEP_ORDER),
+  // Client-generated once per pipeline run (crypto.randomUUID(), see
+  // ReasoningPipelinePage.tsx's start()) and resent on every step call — the
+  // persistence key for reasoning_runs (Phase 2 item 1, decision 019). Not
+  // used for anything else; the route stays otherwise stateless per-request.
+  runId: z.string().uuid(),
   capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
   dryRun: z.boolean().optional(),
   // Which attempt (1-indexed) this is for the layer currently in flight — the
@@ -102,39 +108,6 @@ function failingStandardIds(verdict: ReviewPanelVerdict): string[] {
   return (Object.keys(verdict.standards) as (keyof ReviewPanelVerdict['standards'])[]).filter(
     (id) => !verdict.standards[id].pass
   )
-}
-
-function ok(step: StepId, patch: Record<string, unknown>): Response {
-  return NextResponse.json({ step, patch, nextStep: nextStepAfter(step), halted: false })
-}
-
-// A failed panel verdict with regenerations still available: loop the client
-// back to `generateStep` (NOT the linear nextStep) instead of halting. The
-// client just follows whatever `nextStep` a response carries, so looping
-// backward needs no special client-side case — but it DOES need `retry:
-// true` to know to increment its attempt counter rather than reset it (see
-// ReasoningPipelinePage.tsx) — two review steps in the same STEP_ORDER
-// position (a fresh pass vs. a loop-back) would otherwise be indistinguishable.
-function retryStep(step: StepId, generateStep: StepId, patch: Record<string, unknown>): Response {
-  return NextResponse.json({ step, patch, nextStep: generateStep, halted: false, retry: true })
-}
-
-// Only called for steps whose failure mode is 'hard-block' (steps.ts) once
-// MAX_REGENERATION_ATTEMPTS is exhausted; the dev-time check below guards
-// against a future edit adding a case here without updating
-// STEP_FAILURE_MODE, or vice versa.
-function halted(step: StepId, verdict: ReviewPanelVerdict, patch: Record<string, unknown>): Response {
-  if (STEP_FAILURE_MODE[step] !== 'hard-block') {
-    log.error('ai/reasoning/route', 'halted() called on a non-hard-block step', { step })
-  }
-  const failing = failingStandardIds(verdict)
-  return NextResponse.json({
-    step,
-    patch,
-    nextStep: null,
-    halted: true,
-    haltReason: `${step} failed review after ${MAX_REGENERATION_ATTEMPTS} attempts — ${failing.length}/9 standards still failing (${failing.join(', ')}).`,
-  })
 }
 
 function missing(what: string): Response {
@@ -162,10 +135,54 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
   }
-  const { step, run } = parsed.data
+  const { step, run, runId } = parsed.data
   const dryRun = parsed.data.dryRun ?? false
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
+
+  // Fire-and-forget persistence (Phase 2 item 1, decision 019): every real
+  // (non-dry-run) step response upserts the full merged run state — not just
+  // on completion, so a halted run is captured too. See
+  // lib/ai/reasoning/persistence.ts and 15-persistence.md. Nested (rather
+  // than module-level) so it closes over this request's `run`/`runId`/
+  // `dryRun` without threading them through every one of ok/retryStep/
+  // halted's ~15 call sites below.
+  function persist(patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string): void {
+    if (dryRun) return
+    void persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason)
+  }
+
+  function ok(step: StepId, patch: Record<string, unknown>): Response {
+    const nextStep = nextStepAfter(step)
+    persist(step, patch, nextStep, false)
+    return NextResponse.json({ step, patch, nextStep, halted: false })
+  }
+
+  // A failed panel verdict with regenerations still available: loop the client
+  // back to `generateStep` (NOT the linear nextStep) instead of halting. The
+  // client just follows whatever `nextStep` a response carries, so looping
+  // backward needs no special client-side case — but it DOES need `retry:
+  // true` to know to increment its attempt counter rather than reset it (see
+  // ReasoningPipelinePage.tsx) — two review steps in the same STEP_ORDER
+  // position (a fresh pass vs. a loop-back) would otherwise be indistinguishable.
+  function retryStep(step: StepId, generateStep: StepId, patch: Record<string, unknown>): Response {
+    persist(step, patch, generateStep, false)
+    return NextResponse.json({ step, patch, nextStep: generateStep, halted: false, retry: true })
+  }
+
+  // Only called for steps whose failure mode is 'hard-block' (steps.ts) once
+  // MAX_REGENERATION_ATTEMPTS is exhausted; the dev-time check below guards
+  // against a future edit adding a case here without updating
+  // STEP_FAILURE_MODE, or vice versa.
+  function halted(step: StepId, verdict: ReviewPanelVerdict, patch: Record<string, unknown>): Response {
+    if (STEP_FAILURE_MODE[step] !== 'hard-block') {
+      log.error('ai/reasoning/route', 'halted() called on a non-hard-block step', { step })
+    }
+    const failing = failingStandardIds(verdict)
+    const haltReason = `${step} failed review after ${MAX_REGENERATION_ATTEMPTS} attempts — ${failing.length}/9 standards still failing (${failing.join(', ')}).`
+    persist(step, patch, null, true, haltReason)
+    return NextResponse.json({ step, patch, nextStep: null, halted: true, haltReason })
+  }
 
   try {
     switch (step) {

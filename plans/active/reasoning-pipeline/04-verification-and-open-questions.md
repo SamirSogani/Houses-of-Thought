@@ -30,8 +30,9 @@ No code exists yet to run. Validate the design in stages as it's built.
   calls) — depends on the actual runtime.
 - Structured-output validation mechanism (schema library, tool-use enforced
   JSON, etc.) — depends on the LLM provider/SDK in use.
-- Whether packets and panel verdicts are persisted (for audit/replay), and
-  where.
+- ~~Whether packets and panel verdicts are persisted (for audit/replay), and
+  where.~~ Resolved: yes — see
+  [15-persistence.md](15-persistence.md) (Phase 2 item 1).
 - Whether the nine standard reviewers for a given panel run as nine separate
   agent calls or one agent producing nine scored fields. This plan assumes
   nine separate calls (true independence per standard, matching "nine-agent
