@@ -58,6 +58,7 @@ safe to apply any time.
 | `0028_ai_daily_exhaustion.sql` | ai | `ai_daily_exhaustion` (deny-all RLS) — persists which provider tripped its daily quota so `lib/ai/router-state.ts` survives a dev-server restart (decision 019, reasoning pipeline) |
 | `0029_fix_ai_daily_exhaustion_grant.sql` | ai | **Functionality fix for 0028**: grant `select, insert` on `ai_daily_exhaustion` to `service_role` — RLS bypass alone doesn't grant base table access; confirmed live as a `permission denied for table` error the first time a real daily exhaustion occurred |
 | `0030_reasoning_runs.sql` | ai | `reasoning_runs` (deny-all RLS, `service_role` `insert, update` grant) — persists the reasoning pipeline's packets/verdicts, one JSONB row per run (decision 019 Phase 2 item 1, plans/active/reasoning-pipeline/15-persistence.md) |
+| `0031_reasoning_runs_select_grant.sql` | ai | **Widens 0030**: grant `select` on `reasoning_runs` to `service_role`, for the "browse past runs" admin UI (`/admin/reasoning/runs`) — 0030 deliberately shipped without it |
 
 ## Applying to a fresh database
 

@@ -84,6 +84,89 @@ export async function persistRunStep(
   }
 }
 
+// ── Read side (browse-past-runs admin UI, 15-persistence.md) ──────────────────
+// Same service-role client as the write side above. Unlike persistRunStep,
+// these ARE awaited by their callers (the admin API routes) — a read has
+// nothing useful to "fire and forget" into — but still never throw: a `null`
+// return matches this app's existing admin-monitor read pattern
+// (lib/ai/limits.ts's getAiUsageSummary), so the UI can render "unavailable"
+// instead of a 500.
+
+export interface ReasoningRunSummary {
+  id: string
+  originalQuery: string
+  status: ReasoningRunStatus
+  lastStep: StepId
+  haltReason: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReasoningRunDetail extends ReasoningRunSummary {
+  runState: unknown
+}
+
+interface ReasoningRunRow {
+  id: string
+  original_query: string
+  status: string
+  last_step: string
+  halt_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
+function rowToSummary(row: ReasoningRunRow): ReasoningRunSummary {
+  return {
+    id: row.id,
+    originalQuery: row.original_query,
+    status: row.status as ReasoningRunStatus,
+    lastStep: row.last_step as StepId,
+    haltReason: row.halt_reason,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+// Most-recently-updated first, capped — this is a debugging/audit list, not a
+// paginated archive; nothing yet needs more than the most recent handful.
+const LIST_LIMIT = 50
+
+export async function listReasoningRuns(): Promise<ReasoningRunSummary[] | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .select('id, original_query, status, last_step, halt_reason, created_at, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(LIST_LIMIT)
+    if (error) throw error
+    return ((data ?? []) as ReasoningRunRow[]).map(rowToSummary)
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to list runs (non-fatal)', { error: (err as Error)?.message })
+    return null
+  }
+}
+
+export async function getReasoningRun(id: string): Promise<ReasoningRunDetail | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .select('id, original_query, status, last_step, halt_reason, created_at, updated_at, run_state')
+      .eq('id', id)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    return { ...rowToSummary(data as ReasoningRunRow), runState: (data as { run_state: unknown }).run_state }
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to load run (non-fatal)', { runId: id, error: (err as Error)?.message })
+    return null
+  }
+}
+
 // Test-only: drop the cached client so a test can force a fresh env re-read.
 export function __resetPersistenceClient(): void {
   service = null

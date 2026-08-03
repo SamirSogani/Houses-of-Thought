@@ -15,6 +15,7 @@ import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
 import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
+import { FinalAnswerCard } from './FinalAnswerCard'
 
 type Phase = 'form' | 'running' | 'paused' | 'halted' | 'done'
 
@@ -225,12 +226,20 @@ export function ReasoningPipelinePage() {
               A multi-agent reasoning pipeline, reviewed by a nine-standard panel at every gate — decision 019.
             </p>
           </div>
-          <Link
-            href="/admin"
-            style={{ ...mono, textTransform: 'uppercase', color: 'var(--ink-subtle)', textDecoration: 'underline', textUnderlineOffset: 3 }}
-          >
-            Monitor
-          </Link>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <Link
+              href="/admin/reasoning/runs"
+              style={{ ...mono, textTransform: 'uppercase', color: 'var(--ink-subtle)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              Past runs
+            </Link>
+            <Link
+              href="/admin"
+              style={{ ...mono, textTransform: 'uppercase', color: 'var(--ink-subtle)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              Monitor
+            </Link>
+          </div>
         </div>
 
         {phase === 'form' && (
@@ -363,24 +372,7 @@ export function ReasoningPipelinePage() {
               </div>
             )}
 
-            {phase === 'done' && run.finalAnswer && (
-              <div style={{ background: 'var(--white)', border: '1px solid var(--amber)', borderRadius: 11, padding: '16px 18px', marginTop: 12 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>Final answer</div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', marginTop: 8, lineHeight: 1.55 }}>{run.finalAnswer.answer}</div>
-                {run.finalAnswer.caveats.length > 0 && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--rule)' }}>
-                    <div style={mono}>CAVEATS</div>
-                    <ul style={{ marginTop: 4, paddingLeft: 18 }}>
-                      {run.finalAnswer.caveats.map((c, i) => (
-                        <li key={i} style={{ fontSize: 12.5, color: 'var(--ink-subtle)', lineHeight: 1.5 }}>
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
+            {phase === 'done' && run.finalAnswer && <FinalAnswerCard finalAnswer={run.finalAnswer} />}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
               {phase === 'running' && (
