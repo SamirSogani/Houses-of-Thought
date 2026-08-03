@@ -146,3 +146,42 @@ force-killed mid-flight by the platform before completing. Not fixed here —
 flagged for a separate decision once/if this moves toward real deployment
 (raise `maxDuration`, or restructure the step to not need one function
 invocation to outlive the whole staggered schedule).
+
+## Second follow-up — targeting Cerebras's specific failure shape
+
+Widening the stagger only reduces how concentrated the load is; it doesn't
+address *why* Cerebras's gpt-oss-120b produced invalid JSON in the first
+place. Investigating that turned up a real finding: `supportsJsonSchema()`
+([router-shared.ts](../../../lib/ai/router-shared.ts)) matches on the model
+name containing `'gpt-oss'`, which Cerebras's target satisfies — so Cerebras
+was already getting strict `response_format: json_schema`, same as Groq. The
+difference is enforcement: Groq 400s as `json_validate_failed` when its own
+generation doesn't conform (already cascaded cleanly); Cerebras returned a
+plain 200 with the correct object wrapped in a one-element array, which nothing
+but our own zod parse caught. "Switch Cerebras to schema mode" was therefore
+not an available fix — it was already on and evidently insufficient alone.
+
+Two targeted, code-level changes instead ([router.ts](../../../lib/ai/router.ts)):
+
+1. **`JSON_SHAPE_GUARDRAIL`** — a one-line instruction ("do not wrap it in an
+   array or add any extra nesting") appended to the system prompt specifically
+   in the `useJsonSchema` branch of `callProvider`, which previously sent no
+   extra shape guidance there at all (relying entirely on the API's own
+   enforcement). Unconditional rather than gated to Cerebras — costs nothing
+   on providers that already enforce the shape strictly.
+2. **Defensive unwrap in `completeJSON`'s `tryParse()`** — if the initial
+   `safeParse` fails and the parsed content is a one-element array, retries
+   `safeParse` against that single element before giving up. Narrowly scoped
+   to the exact observed shape (a genuinely malformed or multi-element array
+   still falls through to the normal retry-then-`ai-invalid-output` path) —
+   this is a targeted catch for one known failure mode, not a general JSON
+   repair tool.
+
+Unit-tested (`router.test.ts`, 5 new cases): the guardrail text is present for
+`json_schema`-mode calls and absent for `json_object`-mode calls (which
+already had different shape guidance in-prompt); a one-element-array response
+is accepted with no retry needed; a multi-element array and a one-element
+array whose *contents* also fail the schema both still fall through
+correctly. **Not yet real-verified** — would need another live critical-stress
+window with Cerebras actually producing a malformed response again, which
+isn't something to force by spending real quota on demand.

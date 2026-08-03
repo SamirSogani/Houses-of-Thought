@@ -342,6 +342,39 @@ describe('completeJSON self-correction', () => {
   })
 })
 
+describe('json shape guardrail and defensive unwrap', () => {
+  it('appends the shape guardrail to the system prompt for json_schema-mode models', async () => {
+    await ask('drafter') // groq gpt-oss-20b primary — supportsJsonSchema() = true
+    const systemContent = (calls[0].params.messages as { content: string }[])[0].content
+    expect(systemContent).toContain('do not wrap it in an array')
+  })
+
+  it('json_object-mode models get the schema described in-prompt instead (no guardrail line needed)', async () => {
+    await ask('coach') // mistral primary — supportsJsonSchema() = false
+    const systemContent = (calls[0].params.messages as { content: string }[])[0].content
+    expect(systemContent).toContain('Respond with a single JSON object and nothing else')
+    expect(systemContent).not.toContain('do not wrap it in an array')
+  })
+
+  it('unwraps a single-element array around an otherwise-valid object, no retry needed', async () => {
+    script = () => '[{"ok":true}]'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1) // accepted on the first attempt
+  })
+
+  it('does not unwrap a multi-element array — still fails through the normal retry path', async () => {
+    script = () => '[{"ok":true},{"ok":false}]'
+    await expect(ask('suggestor')).rejects.toMatchObject({ status: 502, message: 'ai-invalid-output' })
+    expect(calls.length).toBe(2)
+  })
+
+  it('does not unwrap a single-element array whose contents also fail the schema', async () => {
+    script = () => '[{"ok":"not-a-boolean"}]'
+    await expect(ask('suggestor')).rejects.toMatchObject({ status: 502, message: 'ai-invalid-output' })
+    expect(calls.length).toBe(2)
+  })
+})
+
 describe('reasoning_effort mapping', () => {
   it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss/qwen capped at their floor; mistral omits', async () => {
     // drafter now leads with Groq (gpt-oss-20b) — fail it so the chain reaches Gemini.

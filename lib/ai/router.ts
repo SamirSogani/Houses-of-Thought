@@ -393,6 +393,18 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
   throw new AiError(429, 'ai-rate-limited')
 }
 
+// supportsJsonSchema() matches on 'gpt-oss' model name, not provider — Groq's
+// and Cerebras's gpt-oss targets both get strict response_format: json_schema.
+// Confirmed live (2026-08-02, plans/active/reasoning-pipeline/14): Cerebras's
+// enforcement of that shape is weaker than Groq's — Groq 400s as
+// json_validate_failed when its own generation doesn't conform (cascades
+// cleanly, see isGroqJsonValidateFailed above); Cerebras returned a 200 with
+// the correct object wrapped in a one-element array, which only our own zod
+// parse below catches. This costs nothing on providers that already enforce
+// the shape strictly, so it's unconditional rather than gated per-provider.
+const JSON_SHAPE_GUARDRAIL =
+  'Respond with exactly one JSON object matching the schema — do not wrap it in an array or add any extra nesting.'
+
 async function callProvider(
   client: OpenAI,
   attempt: Attempt,
@@ -401,7 +413,7 @@ async function callProvider(
 ): Promise<string> {
   const useJsonSchema = supportsJsonSchema(attempt.model)
   const systemContent = useJsonSchema
-    ? opts.system
+    ? `${opts.system}\n\n${JSON_SHAPE_GUARDRAIL}`
     : `${opts.system}\n\nRespond with a single JSON object and nothing else. It must conform to this JSON Schema:\n${JSON.stringify(opts.jsonSchema)}`
   const response_format = useJsonSchema
     ? ({
@@ -512,7 +524,18 @@ export async function completeJSON<T>(opts: {
     } catch {
       return { ok: false, error: 'response was not valid JSON' }
     }
-    const result = opts.schema.safeParse(parsed)
+    let result = opts.schema.safeParse(parsed)
+    // Defensive unwrap (2026-08-02, plans/active/reasoning-pipeline/14):
+    // Cerebras's gpt-oss-120b, live, wrapped an otherwise-correct object in a
+    // one-element array despite strict json_schema mode (see
+    // JSON_SHAPE_GUARDRAIL above — a prompt-level ask, not a guarantee).
+    // Retried only on this exact observed shape, not a general JSON repair
+    // tool: if the array-of-one doesn't ALSO satisfy the schema, the original
+    // error is what's reported.
+    if (!result.success && Array.isArray(parsed) && parsed.length === 1) {
+      const unwrapped = opts.schema.safeParse(parsed[0])
+      if (unwrapped.success) result = unwrapped
+    }
     if (result.success) return { ok: true, value: result.data }
     // First issue only, capped: zod's full stringified issue array can run 1–3k
     // chars, and this text is appended to the retry prompt at full token price.
