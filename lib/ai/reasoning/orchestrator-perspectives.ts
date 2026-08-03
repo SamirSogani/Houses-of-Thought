@@ -251,14 +251,15 @@ export async function runPerspectivesReview(
   bundles: PerspectiveBundle[],
   priorVerdicts: ReviewPanelVerdict[] | null,
   attempts: number[] | null,
-  dryRun: boolean
+  dryRun: boolean,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict[]> {
   const context = serializeFrame(frame)
   return Promise.all(
     bundles.map(async (b, i) => {
       const prior = priorVerdicts?.[i]
       if (prior && !needsRegeneration(prior)) return prior
-      const verdict = await runReviewPanel(b.perspective_id, 'perspectives-review', b, context, dryRun)
+      const verdict = await runReviewPanel(b.perspective_id, 'perspectives-review', b, context, dryRun, panelsOff)
       if (verdict.overall_pass) return verdict
       const attemptsUsed = attempts?.[i] ?? 1
       return attemptsUsed >= MAX_REGENERATION_ATTEMPTS ? { ...verdict, degraded: true } : verdict

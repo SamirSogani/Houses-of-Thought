@@ -95,13 +95,14 @@ export async function runFrameGenerate(
   return { ...modelOut, original_query: originalQuery }
 }
 
-export async function runFrameReview(frame: FramePacket, dryRun: boolean): Promise<ReviewPanelVerdict> {
+export async function runFrameReview(frame: FramePacket, dryRun: boolean, panelsOff = false): Promise<ReviewPanelVerdict> {
   return runReviewPanel(
     frame.core_question,
     'frame-review',
     frame,
     `Original question: ${frame.original_query}`,
-    dryRun
+    dryRun,
+    panelsOff
   )
 }
 

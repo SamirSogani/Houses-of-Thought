@@ -94,6 +94,12 @@ const RequestSchema = z.object({
   runId: z.string().uuid(),
   capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
   dryRun: z.boolean().optional(),
+  // Decision 019 verification stage 3 (A/B the review panel,
+  // 04-verification-and-open-questions.md): unlike dryRun, generation stays
+  // real — only every runReviewPanel call is replaced with an auto-pass
+  // verdict (orchestrator-panel.ts). Lets the same real question be run twice
+  // (panels on vs. off) and compared for final-answer quality.
+  panelsOff: z.boolean().optional(),
   // Which attempt (1-indexed) this is for the layer currently in flight — the
   // client increments it only across a regenerate-then-re-review loop-back
   // (see `retry` on the response below) and resets it to 1 on any genuinely
@@ -137,6 +143,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   const { step, run, runId } = parsed.data
   const dryRun = parsed.data.dryRun ?? false
+  const panelsOff = parsed.data.panelsOff ?? false
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
 
@@ -202,7 +209,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'frame-review': {
         if (!run.frame) return missing('frame')
-        const verdict = await runFrameReview(run.frame, dryRun)
+        const verdict = await runFrameReview(run.frame, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) return retryStep(step, 'frame-generate', { frameVerdict: verdict })
           return halted(step, verdict, { frameVerdict: verdict })
@@ -270,7 +277,8 @@ export async function POST(req: Request): Promise<Response> {
           run.perspectives,
           run.perspectiveVerdicts ?? null,
           run.perspectiveAttempts ?? null,
-          dryRun
+          dryRun,
+          panelsOff
         )
         const stillRetrying = verdicts.some((v) => !v.overall_pass && !v.degraded)
         if (stillRetrying) return retryStep(step, 'perspectives-generate-details', { perspectiveVerdicts: verdicts })
@@ -289,7 +297,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'global-assumptions-review': {
         if (!run.frame || !run.perspectives || !run.globalAssumptions) return missing('frame/perspectives/globalAssumptions')
-        const verdict = await runGlobalAssumptionsReview(run.frame, run.perspectives, run.globalAssumptions, dryRun)
+        const verdict = await runGlobalAssumptionsReview(run.frame, run.perspectives, run.globalAssumptions, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-assumptions-generate', { globalAssumptionsVerdict: verdict })
@@ -311,7 +319,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'global-evidence-review': {
         if (!run.frame || !run.globalEvidence) return missing('frame/globalEvidence')
-        const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun)
+        const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-evidence-generate', { globalEvidenceVerdict: verdict })
@@ -342,7 +350,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'conclusions-review': {
         if (!run.frame || !run.conclusions) return missing('frame/conclusions')
-        const verdict = await runConclusionsReview(run.frame, run.conclusions, dryRun)
+        const verdict = await runConclusionsReview(run.frame, run.conclusions, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'conclusions-generate', { conclusionsVerdict: verdict })
@@ -365,7 +373,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'implications-review': {
         if (!run.frame || !run.implications) return missing('frame/implications')
-        const verdict = await runImplicationsReview(run.frame, run.implications, dryRun)
+        const verdict = await runImplicationsReview(run.frame, run.implications, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'implications-generate', { implicationsVerdict: verdict })

@@ -26,9 +26,13 @@ export const MIN_N = 2
 // before it degrades (perspectives) or halts the pipeline (everything else).
 export const MAX_REGENERATION_ATTEMPTS = 3
 
-export function estimatePipelineCost(n: number): { generators: number; reviewers: number; total: number } {
+// panelsOff (decision 019 verification stage 3, A/B the review panel): every
+// runReviewPanel call short-circuits to an auto-pass verdict instead of its 9
+// real reviewer calls (orchestrator-panel.ts's autoPassVerdict) — generation
+// is unaffected, only the 9n+45 reviewer cost disappears.
+export function estimatePipelineCost(n: number, panelsOff = false): { generators: number; reviewers: number; total: number } {
   const generators = 5 * n + 9
-  const reviewers = 9 * n + 45
+  const reviewers = panelsOff ? 0 : 9 * n + 45
   return { generators, reviewers, total: generators + reviewers }
 }
 

@@ -77,9 +77,10 @@ export async function runGlobalAssumptionsReview(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
   packet: GlobalAssumptionsPacket,
-  dryRun: boolean
+  dryRun: boolean,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'global-assumptions-review', packet, questionContext(frame, bundles), dryRun)
+  return runReviewPanel(frame.core_question, 'global-assumptions-review', packet, questionContext(frame, bundles), dryRun, panelsOff)
 }
 
 export async function runGlobalEvidenceGenerate(
@@ -111,9 +112,10 @@ export async function runGlobalEvidenceGenerate(
 export async function runGlobalEvidenceReview(
   frame: FramePacket,
   packet: GlobalEvidencePacket,
-  dryRun: boolean
+  dryRun: boolean,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'global-evidence-review', packet, serializeFrame(frame), dryRun)
+  return runReviewPanel(frame.core_question, 'global-evidence-review', packet, serializeFrame(frame), dryRun, panelsOff)
 }
 
 export async function runConclusionsGenerate(
@@ -145,9 +147,10 @@ export async function runConclusionsGenerate(
 export async function runConclusionsReview(
   frame: FramePacket,
   packet: ConclusionsPacket,
-  dryRun: boolean
+  dryRun: boolean,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'conclusions-review', packet, serializeFrame(frame), dryRun)
+  return runReviewPanel(frame.core_question, 'conclusions-review', packet, serializeFrame(frame), dryRun, panelsOff)
 }
 
 export async function runImplicationsGenerate(
@@ -188,9 +191,10 @@ export async function runImplicationsGenerate(
 export async function runImplicationsReview(
   frame: FramePacket,
   packet: ImplicationsPacket,
-  dryRun: boolean
+  dryRun: boolean,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'implications-review', packet, serializeFrame(frame), dryRun)
+  return runReviewPanel(frame.core_question, 'implications-review', packet, serializeFrame(frame), dryRun, panelsOff)
 }
 
 export async function runFinalComposition(

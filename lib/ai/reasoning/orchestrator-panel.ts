@@ -50,6 +50,19 @@ function dryRunVerdict(subjectId: string): ReviewPanelVerdict {
   return { subject_id: subjectId, standards, overall_pass: true, degraded: false }
 }
 
+// Decision 019 verification stage 3 (04-verification-and-open-questions.md):
+// A/B the review panel by running identical queries with panels on vs. off.
+// Unlike dryRunVerdict, this is NOT a stand-in for skipped generation — the
+// whole point is comparing real generated content with vs. without review
+// gating, so callers still make every real *-generate call. Only this
+// function's own panel call is replaced with an all-pass verdict.
+function autoPassVerdict(subjectId: string): ReviewPanelVerdict {
+  const standards = Object.fromEntries(
+    STANDARDS.map((s) => [s.id, { pass: true, notes: `[panels off] ${s.name} not actually graded.` }])
+  ) as ReviewPanelVerdict['standards']
+  return { subject_id: subjectId, standards, overall_pass: true, degraded: false }
+}
+
 // Runs all 9 standard-reviewer calls in parallel (Promise.all) and aggregates.
 // A batch's wall-clock time is bounded by its slowest single completeJSON call
 // (~26s worst case), not the sum — see the Phase 1 plan for why this is safe
@@ -59,9 +72,11 @@ export async function runReviewPanel(
   stepId: ReviewGateStep,
   artifact: unknown,
   context: string,
-  dryRun = false
+  dryRun = false,
+  panelsOff = false
 ): Promise<ReviewPanelVerdict> {
   if (dryRun) return dryRunVerdict(subjectId)
+  if (panelsOff) return autoPassVerdict(subjectId)
 
   const criteria = LAYER_STANDARD_CRITERIA[stepId]
   const entries = await Promise.all(

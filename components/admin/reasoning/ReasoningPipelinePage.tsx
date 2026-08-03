@@ -64,6 +64,12 @@ export function ReasoningPipelinePage() {
   const [question, setQuestion] = useState('')
   const [n, setN] = useState(MIN_N)
   const [dryRun, setDryRun] = useState(true)
+  // Decision 019 verification stage 3 (A/B the review panel): threaded
+  // alongside dryRun end-to-end, but generation stays real — only every
+  // review-gate call is replaced server-side with an auto-pass verdict (see
+  // route.ts, orchestrator-panel.ts). Lets the same real question be run
+  // twice (panels on vs. off) and compared via /admin/reasoning/runs.
+  const [panelsOff, setPanelsOff] = useState(false)
   const [step, setStep] = useState<StepId | null>(null)
   const [run, setRun] = useState<RunState>({ originalQuery: '' })
   // Generated fresh per run (start()), resent on every step call — the
@@ -111,6 +117,7 @@ export function ReasoningPipelinePage() {
               runId: runIdRef.current,
               capN: n,
               dryRun,
+              panelsOff,
               attempt: layerAttemptRef.current,
               run: runRef.current,
             }),
@@ -169,7 +176,7 @@ export function ReasoningPipelinePage() {
       cancelled = true
       controller.abort()
     }
-  }, [phase, step, n, dryRun])
+  }, [phase, step, n, dryRun, panelsOff])
 
   function start() {
     if (!question.trim()) return
@@ -206,7 +213,8 @@ export function ReasoningPipelinePage() {
     layerAttemptRef.current = 1
   }
 
-  const cost = estimatePipelineCost(n)
+  const cost = estimatePipelineCost(n, panelsOff)
+  const peakConcurrent = panelsOff ? 4 * n : 9 * n
   const nOptions = Array.from({ length: MAX_N_PHASE1 - MIN_N + 1 }, (_, i) => MIN_N + i)
 
   return (
@@ -288,7 +296,7 @@ export function ReasoningPipelinePage() {
                 </select>
               </label>
               <span style={{ ...mono, color: 'var(--ink-subtle)' }}>
-                ≈ {cost.total} calls ({cost.generators} generators + {cost.reviewers} reviewers), peak ~{9 * n} concurrent
+                ≈ {cost.total} calls ({cost.generators} generators + {cost.reviewers} reviewers), peak ~{peakConcurrent} concurrent
               </span>
             </div>
 
@@ -300,6 +308,16 @@ export function ReasoningPipelinePage() {
                 style={{ accentColor: 'var(--amber)', margin: 0 }}
               />
               Dry run (no real AI calls — exercises the 17-step state machine and UI for free)
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: 'var(--ink-subtle)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={panelsOff}
+                onChange={(e) => setPanelsOff(e.target.checked)}
+                style={{ accentColor: 'var(--amber)', margin: 0 }}
+              />
+              Panels off (auto-pass every review gate — real generation, no reviewer calls; for A/B comparison against a panels-on run)
             </label>
 
             {!dryRun && (
@@ -335,6 +353,9 @@ export function ReasoningPipelinePage() {
             <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px' }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink-subtle)', lineHeight: 1.5 }}>{run.originalQuery}</div>
               {dryRun && <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 4 }}>DRY RUN — no real AI calls</div>}
+              {!dryRun && panelsOff && (
+                <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 4 }}>PANELS OFF — auto-pass, no reviewer calls</div>
+              )}
             </div>
 
             <div style={{ marginTop: 12 }}>

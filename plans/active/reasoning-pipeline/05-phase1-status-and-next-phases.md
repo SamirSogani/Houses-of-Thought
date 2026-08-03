@@ -124,8 +124,12 @@ results:
    [14](14-dynamic-budget-enforcement.md) (including a real residual gap it
    surfaced: Cerebras can still produce invalid JSON under sufficiently
    severe simultaneous multi-provider stress).
-3. A/B the review panel (panels on vs. auto-pass) — decision 019 verification
-   stage 3, confirms the 9-reviewer cost is earning better answers.
+3. ~~A/B the review panel (panels on vs. auto-pass)~~ — DONE, real-verified
+   2026-08-03, see [16](16-ab-review-panel.md) (one real question run both
+   ways at n=2: same directional answer, panels-on surfaced explicit caveats
+   panels-off didn't, and Implications review genuinely failed 1/9 standards
+   under panels-on — real evidence the panel does fallible grading work,
+   not a rubber stamp).
 
 ## Phase 3
 
