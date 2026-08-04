@@ -156,7 +156,7 @@ export async function POST(req: Request): Promise<Response> {
   // halted's ~15 call sites below.
   function persist(patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string): void {
     if (dryRun) return
-    void persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason)
+    void persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason, panelsOff)
   }
 
   function ok(step: StepId, patch: Record<string, unknown>): Response {

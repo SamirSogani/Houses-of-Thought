@@ -28,7 +28,7 @@ describe('runStatusFrom', () => {
 describe('Supabase calls under the test runner', () => {
   it('persistRunStep resolves without throwing (no-op, VITEST-gated)', async () => {
     await expect(
-      persistRunStep('00000000-0000-0000-0000-000000000000', 'test query', {}, 'context-gather-pre', 'running', undefined)
+      persistRunStep('00000000-0000-0000-0000-000000000000', 'test query', {}, 'context-gather-pre', 'running', undefined, false)
     ).resolves.toBeUndefined()
   })
 

@@ -22,6 +22,7 @@ interface RunSummary {
   status: ReasoningRunStatus
   lastStep: StepId
   haltReason: string | null
+  panelsOff: boolean
   createdAt: string
   updatedAt: string
 }
@@ -55,6 +56,15 @@ function StatusPill({ status }: { status: ReasoningRunStatus }) {
       {status === 'running' && <span className="mini-spinner" aria-hidden="true" />}
       {status}
     </span>
+  )
+}
+
+// Deliberately not styled like StatusPill's amber "done" scheme (would read
+// as a second status) — plain mono text, matching the "PANELS OFF" /
+// "DRY RUN" run-state badges on the live pipeline page (ReasoningPipelinePage.tsx).
+function PanelsOffTag() {
+  return (
+    <span style={{ ...mono, color: 'var(--amber-text)', textTransform: 'uppercase', flex: '0 0 auto' }}>panels off</span>
   )
 }
 
@@ -190,6 +200,7 @@ export function ReasoningRunsBrowser() {
                   }}
                 >
                   <StatusPill status={r.status} />
+                  {r.panelsOff && <PanelsOffTag />}
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.originalQuery}
                   </span>
@@ -212,6 +223,7 @@ export function ReasoningRunsBrowser() {
                   <div style={{ fontSize: 12.5, color: 'var(--ink-subtle)', lineHeight: 1.5 }}>{detail.originalQuery}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                     <StatusPill status={detail.status} />
+                    {detail.panelsOff && <PanelsOffTag />}
                     <span style={{ ...mono, color: 'var(--ink-subtle)' }}>
                       created {formatTime(detail.createdAt)} · updated {formatTime(detail.updatedAt)}
                     </span>

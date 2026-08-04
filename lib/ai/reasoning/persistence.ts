@@ -57,7 +57,8 @@ export async function persistRunStep(
   runState: unknown,
   step: StepId,
   status: ReasoningRunStatus,
-  haltReason: string | undefined
+  haltReason: string | undefined,
+  panelsOff: boolean
 ): Promise<void> {
   const client = serviceClient()
   if (!client) return
@@ -70,6 +71,7 @@ export async function persistRunStep(
         last_step: step,
         halt_reason: haltReason ?? null,
         run_state: runState,
+        panels_off: panelsOff,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
@@ -98,6 +100,7 @@ export interface ReasoningRunSummary {
   status: ReasoningRunStatus
   lastStep: StepId
   haltReason: string | null
+  panelsOff: boolean
   createdAt: string
   updatedAt: string
 }
@@ -112,6 +115,7 @@ interface ReasoningRunRow {
   status: string
   last_step: string
   halt_reason: string | null
+  panels_off: boolean
   created_at: string
   updated_at: string
 }
@@ -123,6 +127,7 @@ function rowToSummary(row: ReasoningRunRow): ReasoningRunSummary {
     status: row.status as ReasoningRunStatus,
     lastStep: row.last_step as StepId,
     haltReason: row.halt_reason,
+    panelsOff: row.panels_off,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -138,7 +143,7 @@ export async function listReasoningRuns(): Promise<ReasoningRunSummary[] | null>
   try {
     const { data, error } = await client
       .from('reasoning_runs')
-      .select('id, original_query, status, last_step, halt_reason, created_at, updated_at')
+      .select('id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at')
       .order('updated_at', { ascending: false })
       .limit(LIST_LIMIT)
     if (error) throw error
@@ -155,7 +160,7 @@ export async function getReasoningRun(id: string): Promise<ReasoningRunDetail | 
   try {
     const { data, error } = await client
       .from('reasoning_runs')
-      .select('id, original_query, status, last_step, halt_reason, created_at, updated_at, run_state')
+      .select('id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at, run_state')
       .eq('id', id)
       .maybeSingle()
     if (error) throw error
