@@ -46,63 +46,17 @@ short-circuits the panel call itself.
   fan-out) to `4n` (the next-largest fan-out point, perspectives' own 4
   sub-calls per bundle) when panels are off.
 
-**No persistence-schema change.** A stored run doesn't need a separate
+~~**No persistence-schema change.** A stored run doesn't need a separate
 "was this panels-off" column — the auto-pass verdict's own `"[panels off]"`
 notes text already carries that signal into `reasoning_runs.run_state`,
 visible in the browsing UI's per-standard notes exactly like `dryRunVerdict`'s
-`"[dry run]"` text already does. Same reasoning as [15](15-persistence.md)'s
-JSONB-blob choice: don't add machinery a need hasn't shown up for.
-
-## Follow-up — runs-browser summary indicator
-
-Added same day, once actually requested (Samir, after the section above
-originally flagged it as a deliberate gap). The summary list at
-`/admin/reasoning/runs` previously distinguished two runs of the same
-question only by timestamp, once you opened each — the auto-pass verdicts'
-`"[panels off]"` notes text is only visible in the detail view.
-
-**A dedicated column, not a JSONB read** — unlike packet/verdict content
-([15](15-persistence.md)'s reasoning for keeping `run_state` a single JSONB
-blob), `panels_off` is run-level metadata fixed for that run's whole
-lifetime, the same tier as the existing `status`/`last_step` columns. Reading
-it out of `run_state` on every list row would mean pulling the full blob just
-to check one flag; a flat column matches how the adjacent metadata already
-works.
-
-- [`0032_reasoning_runs_panels_off.sql`](../../../supabase/migrations/0032_reasoning_runs_panels_off.sql) —
-  `panels_off boolean not null default false`, additive-only, no RLS/grant
-  change (same deny-all/service-role-only access as 0030/0031). Defaults
-  `false` so every pre-existing row reads correctly as panels-on.
-- `persistence.ts`: `persistRunStep` takes a `panelsOff` param, written on
-  every upsert; `ReasoningRunSummary`/`ReasoningRunDetail` and both selects
-  (`listReasoningRuns`, `getReasoningRun`) gained the field.
-- `route.ts`'s `persist()` helper passes the request's `panelsOff` through.
-- `ReasoningRunsBrowser.tsx`: a plain-mono-text `PANELS OFF` tag (matching
-  the live pipeline page's own run-state badge style, not `StatusPill`'s
-  amber "done" pill scheme — reusing that would read as a second status)
-  next to the status pill, in both the list row and the detail header.
-
-**Migration not yet applied — real-verified failure mode, not success.**
-Checked 2026-08-04: a minimal real run (n=2, panels off, stopped after 6
-cheap steps rather than let it run to completion) surfaced this in the server
-log on every single step, not just the panels-off ones:
-
-```
-{"level":"error","scope":"ai/reasoning/persistence","msg":"failed to persist run step (non-fatal)","step":"context-gather-pre","error":"Could not find the 'panels_off' column of 'reasoning_runs' in the schema cache"}
-```
-
-This confirms the write path is correctly wired (right column name, right
-value) and, more importantly, surfaces a real regression risk: until 0032 is
-applied, `persistRunStep`'s existing non-fatal try/catch
-([persistence.ts](../../../lib/ai/reasoning/persistence.ts)) silently
-swallows this error for **every** real run, not just panels-off ones — no
-`reasoning_runs` row gets written at all, with no visible failure anywhere
-except the server log. The pipeline itself is unaffected (persistence
-failures were always designed to be non-fatal to the run), but the audit
-trail [15](15-persistence.md) exists for goes dark until this migration
-lands. Once 0032 is applied, no further code change is needed — real
-verification then is just: trigger one real step, confirm the row (and its
-`PANELS OFF` tag, if applicable) appears in the browser.
+`"[dry run]"` text already does.~~ Revised the next day, once Samir actually
+wanted the summary list (not just the detail view) to show it — a dedicated
+`panels_off` column was added after all, see
+[17-panels-off-runs-browser-indicator.md](17-panels-off-runs-browser-indicator.md).
+The reasoning above still held for why `run_state` itself didn't need
+restructuring; it just undersold how cheap a flat metadata column is next to
+a JSONB read once a real need showed up.
 
 ## Real verification — 2026-08-03
 

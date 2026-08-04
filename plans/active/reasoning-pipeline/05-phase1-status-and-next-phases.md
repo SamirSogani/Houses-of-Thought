@@ -117,8 +117,9 @@ results:
 
 ## Phase 2
 
-1. ~~Persist packets/verdicts~~ — DONE (built, unit-tested, dry-run
-   verified), not yet real-verified live (migration needs applying first) —
+1. ~~Persist packets/verdicts~~ — DONE, real-verified live (0031's select
+   grant confirmed applied 2026-08-03; the browsing UI at
+   `/admin/reasoning/runs` has since rendered several real runs correctly) —
    see [15](15-persistence.md).
 2. ~~Dynamic budget enforcement~~ — DONE, real-verified 2026-08-02, see
    [14](14-dynamic-budget-enforcement.md) (including a real residual gap it
@@ -129,7 +130,10 @@ results:
    ways at n=2: same directional answer, panels-on surfaced explicit caveats
    panels-off didn't, and Implications review genuinely failed 1/9 standards
    under panels-on — real evidence the panel does fallible grading work,
-   not a rubber stamp).
+   not a rubber stamp) and [17](17-panels-off-runs-browser-indicator.md)
+   (follow-up: a `panels_off` column so the runs browser's summary list, not
+   just its detail view, shows which runs used it — migration applied and
+   real-verified 2026-08-04).
 
 ## Phase 3
 
