@@ -110,11 +110,14 @@ never given `frame-review`-style retry-aware treatment) and is purely
 cosmetic — the actual gating (whether the step loop advances) is correct
 regardless. Left as-is per scope.
 
-## Known side effect
+## Known side effect — cleaned up
 
 The real verification above left two test rows in `reasoning_runs`
 (`"Should our policy change?"`, both stuck at `status: running` since they
 were deliberately partial single-step calls, not full runs) — same category
 as [17](17-panels-off-runs-browser-indicator.md)'s leftover "Schema check"
-row. Harmless, left in place rather than attempting a DB delete outside this
-session's scope.
+row. Identified by ID via the app's own read-only runs API
+(`82892a7e-0719-425b-8d88-f348b9f615a0`, `351ba4fc-5b4c-4c8b-b3f2-caf4be261487`)
+and removed — Samir ran the scoped `delete ... where id in (...)` himself
+2026-08-05, since permanently deleting data isn't something this session
+performs even on request.
