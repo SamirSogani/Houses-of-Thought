@@ -12,6 +12,7 @@
 import { createClient as createServiceClient, type SupabaseClient } from '@supabase/supabase-js'
 import { log } from '@/lib/log'
 import type { StepId } from './steps'
+import type { ProConSynthesis, SynthesisChatTurn } from './synthesis'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/persistence.ts is server-only and must not run in the browser')
@@ -107,6 +108,13 @@ export interface ReasoningRunSummary {
 
 export interface ReasoningRunDetail extends ReasoningRunSummary {
   runState: unknown
+  // The house this run was materialized into ("View in house"), null until
+  // first linked. Cached synthesis (null until first generated) + its
+  // persisted ask-AI sidebar transcript (always an array — the column
+  // defaults to '[]', never null; see 0034_reasoning_runs_house_link_and_synthesis.sql).
+  houseId: string | null
+  synthesis: ProConSynthesis | null
+  synthesisChat: SynthesisChatTurn[]
 }
 
 interface ReasoningRunRow {
@@ -160,15 +168,108 @@ export async function getReasoningRun(id: string): Promise<ReasoningRunDetail | 
   try {
     const { data, error } = await client
       .from('reasoning_runs')
-      .select('id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at, run_state')
+      .select(
+        'id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at, run_state, house_id, synthesis, synthesis_chat'
+      )
       .eq('id', id)
       .maybeSingle()
     if (error) throw error
     if (!data) return null
-    return { ...rowToSummary(data as ReasoningRunRow), runState: (data as { run_state: unknown }).run_state }
+    const row = data as ReasoningRunRow & {
+      run_state: unknown
+      house_id: string | null
+      synthesis: ProConSynthesis | null
+      synthesis_chat: SynthesisChatTurn[]
+    }
+    return {
+      ...rowToSummary(row),
+      runState: row.run_state,
+      houseId: row.house_id,
+      synthesis: row.synthesis,
+      synthesisChat: row.synthesis_chat ?? [],
+    }
   } catch (err) {
     log.error('ai/reasoning/persistence', 'failed to load run (non-fatal)', { runId: id, error: (err as Error)?.message })
     return null
+  }
+}
+
+// ── House linking ("View in house") ─────────────────────────────────────────
+// Conditional on house_id still being null, so a double-click race (two
+// requests both trying to link the same fresh run) still converges on one
+// winning house id instead of the second write silently overwriting the
+// first. Returns the id that actually ended up on the row — the caller's own
+// houseId on a win, or the id that won the race on a loss — never null on
+// success, since a matching row is guaranteed to exist by the time this is
+// called (the route just loaded it).
+export async function linkReasoningRunToHouse(runId: string, houseId: string): Promise<string | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .update({ house_id: houseId })
+      .eq('id', runId)
+      .is('house_id', null)
+      .select('house_id')
+      .maybeSingle()
+    if (error) throw error
+    if (data) return data.house_id as string
+
+    // No row matched .is('house_id', null) — someone else's request already
+    // won the race. Read back whichever house_id landed.
+    const { data: existing, error: readErr } = await client
+      .from('reasoning_runs')
+      .select('house_id')
+      .eq('id', runId)
+      .maybeSingle()
+    if (readErr) throw readErr
+    return (existing?.house_id as string | null | undefined) ?? null
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to link run to house (non-fatal)', {
+      runId,
+      houseId,
+      error: (err as Error)?.message,
+    })
+    return null
+  }
+}
+
+// ── Synthesis ────────────────────────────────────────────────────────────
+export async function persistSynthesis(runId: string, synthesis: ProConSynthesis): Promise<boolean> {
+  const client = serviceClient()
+  if (!client) return false
+  try {
+    const { error } = await client.from('reasoning_runs').update({ synthesis }).eq('id', runId)
+    if (error) throw error
+    return true
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to persist synthesis (non-fatal)', { runId, error: (err as Error)?.message })
+    return false
+  }
+}
+
+// Appends one or more turns (the ask route calls this once per question, with
+// both the admin's turn and the assistant's answer together) — read-modify-
+// write, not a jsonb append RPC: this is a small internal admin tool with no
+// concurrent-writer scenario worth guarding against (unlike house linking
+// above, which a double-click genuinely can race).
+export async function appendSynthesisChat(runId: string, turns: SynthesisChatTurn[]): Promise<boolean> {
+  const client = serviceClient()
+  if (!client) return false
+  try {
+    const { data, error } = await client.from('reasoning_runs').select('synthesis_chat').eq('id', runId).maybeSingle()
+    if (error) throw error
+    const prior = (data?.synthesis_chat as SynthesisChatTurn[] | null) ?? []
+    const { error: updateErr } = await client
+      .from('reasoning_runs')
+      .update({ synthesis_chat: [...prior, ...turns] })
+      .eq('id', runId)
+    if (updateErr) throw updateErr
+    return true
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to append synthesis chat (non-fatal)', { runId, error: (err as Error)?.message })
+    return false
   }
 }
 

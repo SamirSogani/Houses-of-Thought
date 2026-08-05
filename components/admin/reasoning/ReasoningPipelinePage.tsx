@@ -18,6 +18,7 @@ import type { ContextGatherVerdict } from '@/lib/ai/reasoning/contracts'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 import { ContextGatherAnswerBox } from './ContextGatherAnswerBox'
 import { FinalAnswerCard } from './FinalAnswerCard'
+import { RunActions } from './RunActions'
 
 // 'awaiting-input' (Phase 3 item 1, decision 019) is distinct from both
 // 'paused' (the admin clicked Pause) and 'halted' (a hard-block review step
@@ -104,9 +105,12 @@ export function ReasoningPipelinePage() {
   const [adHocBusy, setAdHocBusy] = useState(false)
   // Generated fresh per run (start()), resent on every step call — the
   // server's persistence key for reasoning_runs (Phase 2 item 1, decision
-  // 019). Not used for anything client-side; the run is still tracked here
-  // by React state exactly as before.
+  // 019). Mirrored into runId state below for RunActions' prop (a ref must
+  // never be read during render — react-hooks/refs); the ref itself stays
+  // the source of truth read inside the step-loop effect, so that effect's
+  // own dependency array doesn't need to include it.
   const runIdRef = useRef('')
+  const [runId, setRunId] = useState('')
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [haltReason, setHaltReason] = useState<string | null>(null)
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; waitMs: number } | null>(null)
@@ -232,7 +236,9 @@ export function ReasoningPipelinePage() {
 
   function start() {
     if (!question.trim()) return
-    runIdRef.current = crypto.randomUUID()
+    const id = crypto.randomUUID()
+    runIdRef.current = id
+    setRunId(id)
     setRun({ originalQuery: question.trim() })
     setErrorCode(null)
     setHaltReason(null)
@@ -541,8 +547,12 @@ export function ReasoningPipelinePage() {
             )}
 
             {phase === 'done' && run.finalAnswer && <FinalAnswerCard finalAnswer={run.finalAnswer} />}
+            {/* Dry runs are never persisted (persistRunStep's dryRun early-return,
+                persistence.ts) — the PATCH this issues would have nothing to link
+                against, so both actions stay hidden for a dry run. */}
+            {phase === 'done' && run.finalAnswer && !dryRun && <RunActions runId={runId} run={run} />}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
               {phase === 'running' && (
                 <button type="button" onClick={pause} style={smallBtn}>
                   Pause

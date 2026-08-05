@@ -24,9 +24,7 @@ Main auto-deploys to production, so ordering is a correctness property:
    record of what production has actually run until the Supabase CLI workflow
    (analysis/operations-and-delivery-plan.md item 13) lands.
 
-**Applied through: 0024 (unconfirmed — assumed applied with commit 3142b8e;
-verify in the dashboard and update this line).** 0025 is a pending perf index,
-safe to apply any time.
+**Applied through: 0034** (confirmed by Samir 2026-08-05).
 
 | File | Area | Adds |
 |---|---|---|
@@ -59,6 +57,8 @@ safe to apply any time.
 | `0029_fix_ai_daily_exhaustion_grant.sql` | ai | **Functionality fix for 0028**: grant `select, insert` on `ai_daily_exhaustion` to `service_role` — RLS bypass alone doesn't grant base table access; confirmed live as a `permission denied for table` error the first time a real daily exhaustion occurred |
 | `0030_reasoning_runs.sql` | ai | `reasoning_runs` (deny-all RLS, `service_role` `insert, update` grant) — persists the reasoning pipeline's packets/verdicts, one JSONB row per run (decision 019 Phase 2 item 1, plans/active/reasoning-pipeline/15-persistence.md) |
 | `0031_reasoning_runs_select_grant.sql` | ai | **Widens 0030**: grant `select` on `reasoning_runs` to `service_role`, for the "browse past runs" admin UI (`/admin/reasoning/runs`) — 0030 deliberately shipped without it |
+| `0033_ai_token_usage.sql` | ai | `ai_token_usage` (deny-all RLS, `service_role` `insert, select` grant) + `ai_token_usage_summary(date)` group-by RPC + weekly 90-day retention cron — per-call token/cost ledger backing the admin "Token usage" panel (`/admin/usage`, decision 020) |
+| `0034_reasoning_runs_house_link_and_synthesis.sql` | ai | Adds `house_id` (FK to `houses`, nullable), `synthesis jsonb`, `synthesis_chat jsonb not null default '[]'` to `reasoning_runs` — backs "View in house" and the pro/con synthesis + ask-AI sidebar on a finished run. No grant change (service_role already has table-wide access from 0030/0031) |
 
 ## Applying to a fresh database
 

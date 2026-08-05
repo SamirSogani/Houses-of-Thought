@@ -254,7 +254,7 @@ export function AiMonitor() {
               Multi-LLM failover engine — providers, lanes, penalty box, and daily airbag.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link
               href="/admin/chat"
               style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
@@ -266,6 +266,12 @@ export function AiMonitor() {
               style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
             >
               Reasoning pipeline
+            </Link>
+            <Link
+              href="/admin/usage"
+              style={{ ...btn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+            >
+              Token usage
             </Link>
             <button style={btn} onClick={load} disabled={loading}>
               Refresh
@@ -293,7 +299,7 @@ export function AiMonitor() {
         ) : snap ? (
           <>
             {/* Router-wide state (lowercase "global" would read as an ESLint globals directive) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <Card>
                 <SectionLabel>Daily quotas · this instance</SectionLabel>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -423,7 +429,7 @@ export function AiMonitor() {
             </Card>
 
             {/* consumption detail: durable per-subject counts + this-instance route activity */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            <div className="acct-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
               <Card>
                 <SectionLabel>Top subjects today · all instances</SectionLabel>
                 {usage && usage.topSubjects.length > 0 ? (

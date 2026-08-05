@@ -106,11 +106,30 @@ export const BreadthScopingPacketSchema = z.object({
 export type BreadthScopingPacket = z.infer<typeof BreadthScopingPacketSchema>
 
 // ── Perspectives (the one fan-out layer) ────────────────────────────────────
+// Real, search-grounded evidence (2026-08-05, Samir's call): unlike the
+// global-evidence layer (still free to describe what a search WOULD need to
+// find, GLOBAL_EVIDENCE_BLOCK/prompts.ts) and Draft Mode's separate Evidence
+// tab (lib/ai/draft.ts, its own Brave-grounded stage), a perspective's own
+// evidence must cite a REAL source actually returned by search — `finding`
+// carries the concrete stat/study-result/quote itself (previously nowhere:
+// claim_id was only ever a slug like "homework_overwhelm", never the actual
+// evidentiary content), and `source_ref` is that source formatted as an MLA
+// 9 Works-Cited entry, not a generic description of a source category.
 export const PerspectiveEvidenceItemSchema = z.object({
   claim_id: str,
+  finding: str,
   source_ref: str,
   confidence: ConfidenceSchema,
   caveats: str.nullable(),
+})
+
+// A sub-question paired with its own working answer (2026-08-05) — previously
+// just the question, with no answer anywhere in the pipeline; the AI-drafted
+// answer is provisional/challengeable like everything else this layer
+// produces, not a final verdict, but it must never be empty.
+export const PerspectiveSubQuestionSchema = z.object({
+  question: str,
+  answer: str,
 })
 
 export const PerspectiveBundleSchema = z.object({
@@ -118,7 +137,7 @@ export const PerspectiveBundleSchema = z.object({
   stance_label: str,
   stance_summary: str,
   key_claims: z.array(str).min(1).max(8),
-  sub_questions: z.array(str).min(1).max(6),
+  sub_questions: z.array(PerspectiveSubQuestionSchema).min(1).max(6),
   assumptions: z.array(str).min(1).max(6),
   evidence: z.array(PerspectiveEvidenceItemSchema).max(6),
   counterargument: z.object({

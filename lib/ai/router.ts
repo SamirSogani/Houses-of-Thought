@@ -119,6 +119,7 @@ import {
   record,
   __resetRoutingState,
 } from './router-state'
+import { recordTokenUsage } from './token-usage'
 
 // Fail loudly if this module is ever pulled into a client bundle — the API keys
 // must never ship to the browser.
@@ -293,9 +294,18 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
       Math.min(ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now())
     )
     try {
-      const content = await callProvider(client, attempt, opts, timeoutMs)
+      const { content, usage } = await callProvider(client, attempt, opts, timeoutMs)
       if (attempt.provider === 'groq') clearGroqRecovering() // healthy again
       record(attempt, 'ok', undefined, Date.now() - started)
+      if (usage) {
+        recordTokenUsage({
+          provider: attempt.provider,
+          model: attempt.model,
+          role,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+        })
+      }
       return { content, target: attempt }
     } catch (err) {
       const latencyMs = Date.now() - started
@@ -365,8 +375,17 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
     if (client) {
       const timeoutMs = Math.max(1_000, Math.min(ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now()))
       try {
-        const content = await callProvider(client, { ...TARGETS.openrouterFree }, opts, timeoutMs)
+        const { content, usage } = await callProvider(client, { ...TARGETS.openrouterFree }, opts, timeoutMs)
         record(TARGETS.openrouterFree, 'ok')
+        if (usage) {
+          recordTokenUsage({
+            provider: TARGETS.openrouterFree.provider,
+            model: TARGETS.openrouterFree.model,
+            role,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+          })
+        }
         return { content, target: TARGETS.openrouterFree }
       } catch (err) {
         if (err instanceof AiError) throw err
@@ -405,12 +424,19 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
 const JSON_SHAPE_GUARDRAIL =
   'Respond with exactly one JSON object matching the schema — do not wrap it in an array or add any extra nesting.'
 
+interface ProviderResult {
+  content: string
+  // Absent when the provider's response omitted `usage` (not expected from
+  // any current target, but defensive — token-usage.ts is never fed a guess).
+  usage?: { inputTokens: number; outputTokens: number }
+}
+
 async function callProvider(
   client: OpenAI,
   attempt: Attempt,
   opts: ExecuteOpts,
   timeoutMs: number
-): Promise<string> {
+): Promise<ProviderResult> {
   const useJsonSchema = supportsJsonSchema(attempt.model)
   const systemContent = useJsonSchema
     ? `${opts.system}\n\n${JSON_SHAPE_GUARDRAIL}`
@@ -479,7 +505,11 @@ async function callProvider(
     })
     throw new AiError(502, 'ai-empty-output')
   }
-  return content
+  const u = completion.usage
+  return {
+    content,
+    usage: u ? { inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens } : undefined,
+  }
 }
 
 // ── Public facade ─────────────────────────────────────────────────────────────

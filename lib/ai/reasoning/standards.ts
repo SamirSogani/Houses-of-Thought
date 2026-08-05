@@ -76,7 +76,7 @@ export const LAYER_STANDARD_CRITERIA: Record<ReviewGateStep, Record<StandardId, 
     clarity:
       "Is the stance stated as one clear, committed position, not hedged or ambiguous about what it's actually arguing?",
     accuracy:
-      'Do the key_claims and evidence represent real, defensible claims rather than overstated or misrepresented certainty?',
+      "Do the key_claims and evidence represent real, defensible claims rather than overstated or misrepresented certainty? Evidence items must cite an MLA 9 source_ref and a finding that reads as a genuine result from real search — fail an item whose citation looks invented (a suspiciously perfect title/author/URL with no other grounding) rather than sourced.",
     precision:
       'Are key_claims and sub_questions specific to this exact question, not generic pro/con boilerplate that could apply to any debate?',
     relevance:

@@ -13,6 +13,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { useSignOut } from '@/components/useAuthedPage'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 import { FinalAnswerCard } from './FinalAnswerCard'
+import { RunActions } from './RunActions'
 import type { StepId } from '@/lib/ai/reasoning/steps'
 import type { ReasoningRunStatus } from '@/lib/ai/reasoning/persistence'
 
@@ -29,6 +30,7 @@ interface RunSummary {
 
 interface RunDetail extends RunSummary {
   runState: RunState
+  houseId: string | null
 }
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }
@@ -76,14 +78,21 @@ function formatTime(iso: string): string {
   }
 }
 
-export function ReasoningRunsBrowser() {
+export function ReasoningRunsBrowser({
+  // Deep-link support ("← Back to pipeline" from a materialized house,
+  // app/build/[id]/page.tsx) — app/admin/reasoning/runs/page.tsx reads
+  // ?run= and passes it through. Undefined on a plain visit to this page.
+  initialSelectedRunId,
+}: {
+  initialSelectedRunId?: string
+}) {
   const signOut = useSignOut()
   const [runs, setRuns] = useState<RunSummary[] | null>(null)
   const [listError, setListError] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedRunId ?? null)
   const [detail, setDetail] = useState<RunDetail | null>(null)
   const [detailError, setDetailError] = useState(false)
-  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(Boolean(initialSelectedRunId))
 
   useEffect(() => {
     let cancelled = false
@@ -190,7 +199,17 @@ export function ReasoningRunsBrowser() {
                     textAlign: 'left',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
+                    // wrap (no effect on every other row — they already fit on
+                    // one line, real-verified via mobile resize) is what lets
+                    // the timestamp drop to its own line on a PANELS OFF row:
+                    // that extra tag plus a full timestamp doesn't fit a
+                    // narrow phone width even once the query text (flex:1,
+                    // minWidth:0 below) has shrunk to nothing. rowGap/columnGap
+                    // (not the `gap` shorthand) — React warns on mixing the
+                    // shorthand with a longhand for the same value.
+                    flexWrap: 'wrap',
+                    rowGap: 4,
+                    columnGap: 12,
                     background: selected ? 'var(--amber-tint)' : 'var(--white)',
                     border: `1px solid ${selected ? 'var(--amber)' : 'var(--rule)'}`,
                     borderRadius: 9,
@@ -201,7 +220,12 @@ export function ReasoningRunsBrowser() {
                 >
                   <StatusPill status={r.status} />
                   {r.panelsOff && <PanelsOffTag />}
-                  <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {/* minWidth: 0 is required, not decorative — a flex item's default
+                      min-width is auto, which for nowrap text means its full unwrapped
+                      width; without this the ellipsis never actually engages and the
+                      timestamp column gets pushed off the right edge on narrow
+                      viewports (real-verified via mobile resize, 2026-08-05). */}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.originalQuery}
                   </span>
                   <span style={{ ...mono, color: 'var(--ink-subtle)', flex: '0 0 auto' }}>{formatTime(r.updatedAt)}</span>
@@ -221,7 +245,7 @@ export function ReasoningRunsBrowser() {
               <>
                 <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px' }}>
                   <div style={{ fontSize: 12.5, color: 'var(--ink-subtle)', lineHeight: 1.5 }}>{detail.originalQuery}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
                     <StatusPill status={detail.status} />
                     {detail.panelsOff && <PanelsOffTag />}
                     <span style={{ ...mono, color: 'var(--ink-subtle)' }}>
@@ -248,6 +272,9 @@ export function ReasoningRunsBrowser() {
                 </div>
 
                 {detail.runState.finalAnswer && <FinalAnswerCard finalAnswer={detail.runState.finalAnswer} />}
+                {detail.runState.finalAnswer && (
+                  <RunActions runId={detail.id} run={detail.runState} initialHouseId={detail.houseId} />
+                )}
               </>
             )}
           </div>

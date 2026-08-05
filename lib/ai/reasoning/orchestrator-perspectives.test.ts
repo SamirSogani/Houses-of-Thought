@@ -38,7 +38,7 @@ function stance(id: string, label: string): PerspectiveStance {
 function bundle(id: string, label: string): PerspectiveBundle {
   return {
     ...stance(id, label),
-    sub_questions: ['q'],
+    sub_questions: [{ question: 'q', answer: 'a' }],
     assumptions: ['a'],
     evidence: [],
     counterargument: { authored_by_perspective_id: 'other', target_claims: ['claim'], rebuttals: ['r'] },
@@ -74,7 +74,7 @@ afterEach(() => {
 describe('runPerspectivesGenerateDetails', () => {
   it('generates every bundle fresh when there is no prior verdict', async () => {
     const stances = [stance('p1', 'A'), stance('p2', 'B')]
-    completeJSONMock.mockResolvedValue({ sub_questions: ['q'] })
+    completeJSONMock.mockResolvedValue({ sub_questions: [{ question: 'q', answer: 'a' }] })
     const resultPromise = runPerspectivesGenerateDetails(frame, stances, false)
     await vi.runAllTimersAsync()
     const { bundles, attempts } = await resultPromise
@@ -89,7 +89,7 @@ describe('runPerspectivesGenerateDetails', () => {
     const priorVerdicts = [verdict(false), verdict(true)] // p1 failed, p2 already passed
     const priorAttempts = [1, 1]
 
-    completeJSONMock.mockResolvedValue({ sub_questions: ['regenerated'] })
+    completeJSONMock.mockResolvedValue({ sub_questions: [{ question: 'regenerated', answer: 'a' }] })
     const resultPromise = runPerspectivesGenerateDetails(frame, stances, false, {
       priorBundles,
       priorVerdicts,

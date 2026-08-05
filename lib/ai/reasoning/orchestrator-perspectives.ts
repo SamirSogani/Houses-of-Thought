@@ -120,7 +120,7 @@ export async function runPerspectivesGenerateStances(
 function dryRunBundle(stance: PerspectiveStance, authoredBy: string): PerspectiveBundle {
   return {
     ...stance,
-    sub_questions: [`[dry run] sub-question for ${stance.stance_label}.`],
+    sub_questions: [{ question: `[dry run] sub-question for ${stance.stance_label}.`, answer: '[dry run] working answer.' }],
     assumptions: [`[dry run] assumption for ${stance.stance_label}.`],
     evidence: [],
     counterargument: {
@@ -190,7 +190,12 @@ export async function runPerspectivesGenerateDetails(
             schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
             schemaName: 'perspective_subquestions',
             effort: 'high',
-            maxTokens: 1100,
+            // 1100 -> 2000 (2026-08-05): each sub-question now carries its own
+            // working answer alongside the question (contracts.ts's
+            // PerspectiveSubQuestionSchema) — roughly doubles the worst-case
+            // size of this schema (up to 6 items, question+answer at 600
+            // chars each), same headroom-for-growth pattern as evidence below.
+            maxTokens: 2000,
           })
         ),
         stagger(1).then(() =>
@@ -211,7 +216,12 @@ export async function runPerspectivesGenerateDetails(
             buildUser: (searchContext) => appendRegenerationFeedback(stanceText, feedback) + searchContext,
             baseSchema: PerspectiveBundleSchema.pick({ evidence: true }),
             schemaName: 'perspective_evidence',
-            maxTokens: 1800,
+            // 1800 -> 2600 (2026-08-05): each evidence item now also carries
+            // `finding` — the concrete stat/study/quote itself, not just a
+            // slug — on top of the existing claim_id/source_ref/caveats
+            // (600 chars each, up to 6 items); same truncation risk this
+            // schema has already hit twice before at smaller sizes.
+            maxTokens: 2600,
           })
         ),
         stagger(3).then(() =>

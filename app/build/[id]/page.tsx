@@ -15,10 +15,10 @@ export default function BuildHouseRoute({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ draft?: string }>
+  searchParams: Promise<{ draft?: string; fromReasoningRun?: string }>
 }) {
   const { id } = use(params)
-  const { draft: draftParam } = use(searchParams)
+  const { draft: draftParam, fromReasoningRun } = use(searchParams)
   const router = useRouter()
   const [loaded, setLoaded] = useState<State | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -118,6 +118,7 @@ export default function BuildHouseRoute({
       feedback={feedback}
       draftEligible={draftEligible}
       draftEntry={draftParam === '1'}
+      fromReasoningRun={fromReasoningRun}
       onSignOut={() => void signOut()}
       // Read-only view: skip persistence so a teacher's stray edit never fails a
       // write it was never allowed to make. Otherwise: guarded save presenting

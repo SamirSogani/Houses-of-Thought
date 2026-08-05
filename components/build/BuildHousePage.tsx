@@ -41,6 +41,7 @@ export function BuildHousePage({
   feedback = null,
   draftEligible = false,
   draftEntry = false,
+  fromReasoningRun,
   onSignOut,
   onSave,
 }: {
@@ -48,6 +49,10 @@ export function BuildHousePage({
   userEmail: string | null
   // The house id; needed to load/save teacher feedback. Null for local drafts.
   houseId?: string
+  // Set when this house was materialized from a reasoning-pipeline run
+  // ("View in house", RunActions.tsx) — the run's id, threaded down to
+  // AppBar as a "← Back to pipeline" link. Undefined on every other house.
+  fromReasoningRun?: string
   // When true (students), the Learn/Decide toggle is disabled and pinned.
   modeLocked?: boolean
   // When true (a teacher viewing a student's house), edits don't persist and the
@@ -312,7 +317,7 @@ export function BuildHousePage({
     <div className="vh-shell" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--parchment)' }}>
       {/* Header (app bar + context bar) */}
       <header style={{ flex: '0 0 auto' }}>
-        <AppBar userEmail={userEmail} onSignOut={() => void handleSignOut()} />
+        <AppBar userEmail={userEmail} onSignOut={() => void handleSignOut()} fromReasoningRun={fromReasoningRun} />
         {(readOnly || strawman) && (
           <div
             className="mono bhp-readonly-banner"

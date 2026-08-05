@@ -16,9 +16,14 @@ const monoLabel: React.CSSProperties = {
 export function AppBar({
   userEmail,
   onSignOut,
+  fromReasoningRun,
 }: {
   userEmail: string | null
   onSignOut: () => void
+  // Set when this house was materialized from a reasoning-pipeline run
+  // ("View in house") — renders a small mono link back to that run in the
+  // admin runs browser. Undefined on every other house.
+  fromReasoningRun?: string
 }) {
   return (
     <div style={{ background: 'var(--white)', borderBottom: '1px solid var(--rule)' }}>
@@ -34,6 +39,15 @@ export function AppBar({
             Houses of Thought
           </span>
         </Link>
+
+        {fromReasoningRun && (
+          <Link
+            href={`/admin/reasoning/runs?run=${fromReasoningRun}`}
+            style={{ ...monoLabel, color: 'var(--ink-subtle)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            ← Back to pipeline
+          </Link>
+        )}
 
         {/* Right cluster */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: 'auto' }}>

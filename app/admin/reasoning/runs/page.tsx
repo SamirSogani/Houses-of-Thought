@@ -8,7 +8,14 @@ import { ReasoningRunsBrowser } from '@/components/admin/reasoning/ReasoningRuns
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminReasoningRunsPage() {
+export default async function AdminReasoningRunsPage({
+  searchParams,
+}: {
+  // ?run= (app/build/[id]/page.tsx's "← Back to pipeline" link) deep-links
+  // straight to a run instead of landing on the bare list.
+  searchParams: Promise<{ run?: string }>
+}) {
   if (!(await isCallerAdmin())) notFound()
-  return <ReasoningRunsBrowser />
+  const { run } = await searchParams
+  return <ReasoningRunsBrowser initialSelectedRunId={run} />
 }

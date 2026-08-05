@@ -79,7 +79,10 @@ exists to locate the right file, not to invite broad exploration.
   `/dashboard`, `/build` (+ `/build/[id]`), `/house` (orphaned no-login
   builder), `/profile`, `/classes`, `/classroom` (+ `[classId]`,
   `[classId]/assignments/[assignmentId]`), `/join/[code]`, `/admin`
-  (+ `/admin/model`, `/admin/chat` — House Chat beta, decision 017).
+  (+ `/admin/model`, `/admin/chat` — House Chat beta, decision 017;
+  `/admin/reasoning` + `/admin/reasoning/runs` — multi-agent reasoning
+  pipeline, decision 019; `/admin/usage` — token usage & cost ledger,
+  decision 020).
 - **Metadata & crawl surface:** `app/robots.ts`, `app/sitemap.ts`,
   `app/llms.txt/route.ts`, `app/icon.svg`, `app/opengraph-image.tsx`, and
   `app/not-found.tsx`. Per-page metadata is built with `pageMetadata()` from

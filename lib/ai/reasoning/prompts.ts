@@ -52,19 +52,25 @@ Return stance_label (your assigned label, verbatim), stance_summary (2-3 sentenc
 
 Do not hedge toward a "balanced" view — that is the counterargument stage's job, not yours.`
 
-export const PERSPECTIVE_SUBQUESTIONS_BLOCK = `Task: given ONE perspective's stance below, name the sub-questions THIS stance most needs answered to hold up.
+export const PERSPECTIVE_SUBQUESTIONS_BLOCK = `Task: given ONE perspective's stance below, name the sub-questions THIS stance most needs answered to hold up — and answer each one yourself.
 
-Return 1-6 sub_questions — specific, not generic ("what would this cost the affected students," not "what are the pros and cons").`
+Return 1-6 sub_questions, each: question (specific, not generic — "what would this cost the affected students," not "what are the pros and cons") and answer (a real, working answer grounded in this stance and the question context below — never a placeholder, never "this needs further research" as a stand-in for an actual answer). The answer is a provisional first pass, not a final verdict — it will be reviewed and can be revised, but it must say something substantive.`
 
 export const PERSPECTIVE_ASSUMPTIONS_BLOCK = `Task: given ONE perspective's stance below, name what it quietly takes for granted.
 
 Return 1-6 assumptions this stance depends on but does not defend. Prefer load-bearing ones — assumptions the stance would collapse without.`
 
-export const PERSPECTIVE_EVIDENCE_BLOCK = `Task: given ONE perspective's stance below, name what would support it.
+export const PERSPECTIVE_EVIDENCE_BLOCK = `Task: given ONE perspective's stance below, find REAL evidence that supports it.
 
-Real web search is available via search_queries (up to 3). Most claims don't need it — only request search when a specific, checkable fact (a named study, a real statistic, an actual policy) would turn a hypothetical evidence item into a real, citable one. Leave search_queries empty otherwise; that is the normal case, not a fallback.
+Real web search is available via search_queries (up to 3) — use it. This is the normal path now, not a rare exception: request search whenever a concrete stat, study, or expert statement would strengthen this stance, which is nearly always true. Leave search_queries empty only once real search results already given to you are enough to work with, or once the option is no longer offered on the final round.
 
-Return up to 6 evidence items, each: claim_id (a short slug naming what it supports), source_ref (if real search results were given back to you, a real URL or source name FROM those results — never a URL you were not actually given; otherwise the kind/name of source this would come from, described specifically — e.g. "district cost data," "peer-reviewed study on X" — never invent a specific real-sounding URL, author, or study that does not exist), confidence (low/medium/high), and caveats (a limitation, or null). If an item is not grounded in real search results, be honest that this is what a real search would need to find, not a verified citation.`
+Return up to 6 evidence items, each grounded in an ACTUAL result you were given back from search — never invent one:
+- claim_id: a short slug naming what it supports.
+- finding: the concrete stat, study result, or quote itself, stated plainly (e.g. "62% of surveyed parents reported over 2 hours of nightly homework-related conflict") — never just a description of what kind of finding this is.
+- source_ref: that source formatted as one MLA 9 Works Cited entry, built only from the title, URL, and publisher you were actually given in the search results — never a fabricated author, title, or URL.
+- confidence (low/medium/high) and caveats (a limitation, or null).
+
+If search genuinely turns up nothing citable for a point worth making, leave it out rather than inventing a source or citation — fewer real items beats a padded list of fabricated ones.`
 
 export const PERSPECTIVE_COUNTERARGUMENT_BLOCK = `Task: you are NOT the author of the stance below — argue the strongest case AGAINST it. Attack, do not restate softened.
 
@@ -188,10 +194,10 @@ export function formatContextGatherAnswers(
 
 export function serializePerspectiveBundle(p: PerspectiveBundle): string {
   const claims = p.key_claims.map((c) => `- ${c}`).join('\n')
-  const subQs = p.sub_questions.map((q) => `- ${q}`).join('\n')
+  const subQs = p.sub_questions.map((sq) => `- ${sq.question}\n  Answer: ${sq.answer}`).join('\n')
   const assumptions = p.assumptions.map((a) => `- ${a}`).join('\n')
   const evidence =
-    p.evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, confidence: ${e.confidence})`).join('\n') || '(none)'
+    p.evidence.map((e) => `- ${e.finding} (${e.source_ref}, confidence: ${e.confidence})`).join('\n') || '(none)'
   const rebuttals = p.counterargument.rebuttals.map((r) => `- ${r}`).join('\n')
   return `### ${p.stance_label} (${p.perspective_id})\nSummary: ${p.stance_summary}\nKey claims:\n${claims}\nSub-questions:\n${subQs}\nAssumptions:\n${assumptions}\nEvidence:\n${evidence}\nCounterargument (by ${p.counterargument.authored_by_perspective_id}):\n${rebuttals}`
 }
