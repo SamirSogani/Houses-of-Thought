@@ -137,11 +137,16 @@ results:
 
 ## Phase 3
 
-1. Ad-hoc context-gather at arbitrary layer boundaries — a real UX feature
-   (pause pipeline, ask the user, resume). Note: even the two *fixed*
-   checkpoints don't currently act on `needs_user_input` today — the client
-   always proceeds regardless of what context-gather says. Worth fixing as
-   part of this phase, not before.
+1. ~~Ad-hoc context-gather at arbitrary layer boundaries~~ — DONE,
+   real-verified 2026-08-04, see
+   [18](18-context-gather-acts-on-input.md) (design + build) and
+   [19](19-context-gather-real-verification.md) (real verification). Both
+   fixed checkpoints now pause-and-ask with a structured, multiple-choice
+   question UI, plus a new admin-triggered ad-hoc control available at any
+   step boundary; answers re-contextualize downstream generation
+   (`context-gather-pre` → `frame-generate`'s prompt directly,
+   `context-gather-post`/ad-hoc → `serializeFrame`'s `extraContext`, reaching
+   everything after).
 2. Precise per-call cost metering (`increment_ai_usage_by` + migration).
 3. Product decision: attach to `/admin/chat`? Resolve decision 017's "the
    chat never answers directly" tension (decision 019's Deferred/open).

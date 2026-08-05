@@ -30,8 +30,28 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-setup.ts is server-only and must not run in the browser')
 }
 
-export async function runContextGather(context: string, dryRun: boolean): Promise<ContextGatherVerdict> {
+// forceNeedsInput (Phase 3 item 1, dev-testing only): dryRun's own branch
+// otherwise always returns needs_user_input: false, which left no free way to
+// exercise the pause/ask/resume UI end-to-end short of an actual real call
+// that happens to trigger it. Only ever honored inside the dryRun branch —
+// never threaded anywhere near a real completeJSON call.
+export async function runContextGather(
+  context: string,
+  dryRun: boolean,
+  forceNeedsInput = false
+): Promise<ContextGatherVerdict> {
   if (dryRun) {
+    if (forceNeedsInput) {
+      return {
+        needs_user_input: true,
+        questions_for_user: [
+          { question: '[dry run] Which age range does this apply to?', options: ['Elementary', 'Middle school', 'High school'] },
+          { question: '[dry run] District-wide or per-school?', options: ['District-wide', 'Per-school', 'Not sure'] },
+        ],
+        reason: '[dry run] simulated clarification need, for UI testing only.',
+        search_findings: null,
+      }
+    }
     return {
       needs_user_input: false,
       questions_for_user: [],
@@ -55,7 +75,7 @@ export async function runContextGather(context: string, dryRun: boolean): Promis
   if (!verdict.needs_user_input || verdict.questions_for_user.length === 0) {
     return { ...verdict, search_findings: null }
   }
-  const search_findings = await runSearches(verdict.questions_for_user)
+  const search_findings = await runSearches(verdict.questions_for_user.map((q) => q.question))
   return { ...verdict, search_findings }
 }
 
@@ -64,7 +84,12 @@ const FrameModelSchema = FramePacketSchema.omit({ original_query: true })
 export async function runFrameGenerate(
   originalQuery: string,
   dryRun: boolean,
-  repair?: { priorFrame: FramePacket; priorVerdict: ReviewPanelVerdict }
+  repair?: { priorFrame: FramePacket; priorVerdict: ReviewPanelVerdict },
+  // context-gather-pre's answers (Phase 3 item 1), already formatted by
+  // formatContextGatherAnswers (prompts.ts) — the ONE place pre-checkpoint
+  // answers get threaded in; everything downstream picks them up for free via
+  // the resulting frame, so they're never re-threaded again via extraContext.
+  userAnswers?: string | null
 ): Promise<FramePacket> {
   if (dryRun) {
     return {
@@ -75,11 +100,14 @@ export async function runFrameGenerate(
       scope_notes: '[dry run] scope notes',
     }
   }
+  const baseContext = userAnswers
+    ? `Original question: ${originalQuery}\n\n${userAnswers}`
+    : `Original question: ${originalQuery}`
   const modelOut = await completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${FRAME_BLOCK}`,
     user: appendRegenerationFeedback(
-      `Original question: ${originalQuery}`,
+      baseContext,
       repair && { priorArtifact: repair.priorFrame, priorVerdict: repair.priorVerdict }
     ),
     schema: FrameModelSchema,
@@ -118,7 +146,11 @@ function fitLabelsToN(labels: string[], n: number): string[] {
 export async function runBreadthScoping(
   frame: FramePacket,
   capN: number,
-  dryRun: boolean
+  dryRun: boolean,
+  // context-gather-post's (and any ad-hoc so far) answers, pre-formatted by
+  // route.ts's buildExtraContext — Phase 3 item 1's confirmed
+  // re-contextualization mechanism.
+  extraContext?: string | null
 ): Promise<BreadthScopingPacket> {
   if (dryRun) {
     const n = clampN(Math.min(2, capN))
@@ -131,7 +163,7 @@ export async function runBreadthScoping(
   const modelOut = await completeJSON({
     role: 'coach',
     system: `${REASONING_PERSONA}\n\n${BREADTH_SCOPING_BLOCK}`,
-    user: serializeFrame(frame),
+    user: serializeFrame(frame, extraContext),
     schema: BreadthScopingPacketSchema,
     schemaName: 'breadth_scoping_packet',
     effort: 'low',

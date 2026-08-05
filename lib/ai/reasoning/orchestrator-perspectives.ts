@@ -86,9 +86,12 @@ function effectiveStaggerMs(stress: DrafterLaneStress): number {
 export async function runPerspectivesGenerateStances(
   frame: FramePacket,
   scoping: BreadthScopingPacket,
-  dryRun: boolean
+  dryRun: boolean,
+  // Phase 3 item 1's re-contextualization mechanism (context-gather-post +
+  // any ad-hoc calls so far) — route.ts's buildExtraContext.
+  extraContext?: string | null
 ): Promise<PerspectiveStance[]> {
-  const frameText = serializeFrame(frame)
+  const frameText = serializeFrame(frame, extraContext)
   return Promise.all(
     scoping.candidate_viewpoint_labels.map(async (label, i) => {
       const perspective_id = `p${i + 1}`
@@ -145,9 +148,11 @@ export async function runPerspectivesGenerateDetails(
   // regenerates... one perspective's bundle failing doesn't touch any other
   // perspective"). Bundles whose prior verdict already settled (passed, or
   // exhausted retries and degraded) are returned unchanged, not re-asked for.
-  repair?: { priorBundles: PerspectiveBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] }
+  repair?: { priorBundles: PerspectiveBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] },
+  // Phase 3 item 1's re-contextualization mechanism — route.ts's buildExtraContext.
+  extraContext?: string | null
 ): Promise<{ bundles: PerspectiveBundle[]; attempts: number[] }> {
-  const frameText = serializeFrame(frame)
+  const frameText = serializeFrame(frame, extraContext)
   const n = stances.length
 
   // Checked once per call (not per bundle/element) — every element in this
@@ -252,9 +257,11 @@ export async function runPerspectivesReview(
   priorVerdicts: ReviewPanelVerdict[] | null,
   attempts: number[] | null,
   dryRun: boolean,
-  panelsOff = false
+  panelsOff = false,
+  // Phase 3 item 1's re-contextualization mechanism — route.ts's buildExtraContext.
+  extraContext?: string | null
 ): Promise<ReviewPanelVerdict[]> {
-  const context = serializeFrame(frame)
+  const context = serializeFrame(frame, extraContext)
   return Promise.all(
     bundles.map(async (b, i) => {
       const prior = priorVerdicts?.[i]

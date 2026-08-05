@@ -14,10 +14,30 @@ import { useSignOut } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
 import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
+import type { ContextGatherVerdict } from '@/lib/ai/reasoning/contracts'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
+import { ContextGatherAnswerBox } from './ContextGatherAnswerBox'
 import { FinalAnswerCard } from './FinalAnswerCard'
 
-type Phase = 'form' | 'running' | 'paused' | 'halted' | 'done'
+// 'awaiting-input' (Phase 3 item 1, decision 019) is distinct from both
+// 'paused' (the admin clicked Pause) and 'halted' (a hard-block review step
+// exhausted its retries) — a context-gather checkpoint or ad-hoc call
+// returned needs_user_input: true and is waiting on the admin's answer/skip
+// before the run can continue. See PendingGather below.
+type Phase = 'form' | 'running' | 'paused' | 'awaiting-input' | 'halted' | 'done'
+
+// Tracks the one context-gather verdict currently awaiting the admin's
+// response, regardless of where it came from:
+// - 'pre'/'post': one of the two fixed checkpoints, mid-step-loop — resolving
+//   it resumes the loop at `resumeStep` (the step that would have run next).
+// - 'adhoc': the admin manually asked (askClarifyingQuestion below) while
+//   already paused — resolving it returns to 'paused', not 'running'; the
+//   admin decides separately when to actually resume.
+interface PendingGather {
+  origin: 'pre' | 'post' | 'adhoc'
+  verdict: ContextGatherVerdict
+  resumeStep: StepId | null
+}
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em' }
 
@@ -70,8 +90,18 @@ export function ReasoningPipelinePage() {
   // route.ts, orchestrator-panel.ts). Lets the same real question be run
   // twice (panels on vs. off) and compared via /admin/reasoning/runs.
   const [panelsOff, setPanelsOff] = useState(false)
+  // Dev-testing only (Phase 3 item 1): forces a synthetic needs_user_input on
+  // every context-gather call while dryRun is on, so the pause/ask/resume UI
+  // can be exercised for free — dryRun's own runContextGather branch
+  // otherwise always returns needs_user_input: false (orchestrator-setup.ts).
+  // Has no effect at all outside dryRun (route.ts only reads it there).
+  const [devForceNeedsInput, setDevForceNeedsInput] = useState(false)
   const [step, setStep] = useState<StepId | null>(null)
   const [run, setRun] = useState<RunState>({ originalQuery: '' })
+  // The context-gather verdict currently awaiting the admin, if any — see
+  // PendingGather above. null whenever phase !== 'awaiting-input'.
+  const [pendingGather, setPendingGather] = useState<PendingGather | null>(null)
+  const [adHocBusy, setAdHocBusy] = useState(false)
   // Generated fresh per run (start()), resent on every step call — the
   // server's persistence key for reasoning_runs (Phase 2 item 1, decision
   // 019). Not used for anything client-side; the run is still tracked here
@@ -118,6 +148,7 @@ export function ReasoningPipelinePage() {
               capN: n,
               dryRun,
               panelsOff,
+              devForceNeedsInput,
               attempt: layerAttemptRef.current,
               run: runRef.current,
             }),
@@ -142,6 +173,27 @@ export function ReasoningPipelinePage() {
           setRetryInfo(null)
           const data = (await res.json()) as StepResponse
           setRun((prev) => ({ ...prev, ...data.patch }))
+
+          // Phase 3 item 1 (decision 019): a fixed checkpoint returning
+          // needs_user_input pauses the loop instead of auto-advancing to
+          // nextStep — resolvePendingGather (below) resumes at resumeStep
+          // once the admin answers or skips. See PendingGather above.
+          const gatherVerdict =
+            step === 'context-gather-pre'
+              ? data.patch.contextGatherPre
+              : step === 'context-gather-post'
+                ? data.patch.contextGatherPost
+                : undefined
+          if (gatherVerdict?.needs_user_input) {
+            setPendingGather({
+              origin: step === 'context-gather-pre' ? 'pre' : 'post',
+              verdict: gatherVerdict,
+              resumeStep: data.nextStep,
+            })
+            setPhase('awaiting-input')
+            return
+          }
+
           if (data.retry) {
             layerAttemptRef.current += 1
             setRegenerationInfo({ attempt: layerAttemptRef.current })
@@ -176,7 +228,7 @@ export function ReasoningPipelinePage() {
       cancelled = true
       controller.abort()
     }
-  }, [phase, step, n, dryRun, panelsOff])
+  }, [phase, step, n, dryRun, panelsOff, devForceNeedsInput])
 
   function start() {
     if (!question.trim()) return
@@ -186,6 +238,7 @@ export function ReasoningPipelinePage() {
     setHaltReason(null)
     setRetryInfo(null)
     setRegenerationInfo(null)
+    setPendingGather(null)
     layerAttemptRef.current = 1
     setStep('context-gather-pre')
     setPhase('running')
@@ -210,7 +263,83 @@ export function ReasoningPipelinePage() {
     setHaltReason(null)
     setRetryInfo(null)
     setRegenerationInfo(null)
+    setPendingGather(null)
     layerAttemptRef.current = 1
+  }
+
+  // Answering or skipping a pending gather (Phase 3 item 1): stores the
+  // answers in `run` (parallel to the verdict's questions_for_user — null
+  // entries are skipped questions) so the NEXT real step call both persists
+  // them (route.ts's persist()) and re-contextualizes generation with them
+  // (route.ts's buildExtraContext / frame-generate's userAnswers). A fixed
+  // checkpoint ('pre'/'post') then resumes the step loop at resumeStep; an
+  // ad-hoc ask just returns to 'paused' — the admin resumes separately,
+  // since they paused for their own reason, not because of this question.
+  function resolvePendingGather(answers: (string | null)[]) {
+    if (!pendingGather) return
+    const { origin, resumeStep } = pendingGather
+    setRun((prev) => {
+      if (origin === 'pre') return { ...prev, contextGatherPreAnswers: answers }
+      if (origin === 'post') return { ...prev, contextGatherPostAnswers: answers }
+      const list = [...(prev.adHocContextGathers ?? [])]
+      if (list.length > 0) list[list.length - 1] = { ...list[list.length - 1], answers }
+      return { ...prev, adHocContextGathers: list }
+    })
+    setPendingGather(null)
+    if (origin === 'adhoc') {
+      setPhase('paused')
+    } else {
+      setPhase('running')
+      setStep(resumeStep)
+    }
+  }
+
+  function skipPendingGather() {
+    if (!pendingGather) return
+    resolvePendingGather(pendingGather.verdict.questions_for_user.map(() => null))
+  }
+
+  // Admin-triggered ad-hoc context-gather (Phase 3 item 1's larger scope) —
+  // available only while paused, at whatever step is currently sitting in
+  // `step`. A one-off fetch outside the main step-loop effect: the pipeline
+  // stays 'paused' throughout (unless the call itself surfaces a question, in
+  // which case 'awaiting-input' takes over — see resolvePendingGather above).
+  async function askClarifyingQuestion() {
+    if (!step || adHocBusy) return
+    setAdHocBusy(true)
+    setErrorCode(null)
+    try {
+      const res = await fetch('/api/admin/reasoning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          step: 'context-gather-adhoc',
+          runId: runIdRef.current,
+          atStep: step,
+          dryRun,
+          devForceNeedsInput,
+          run: runRef.current,
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setErrorCode(body.error ?? 'ai-upstream-error')
+        return
+      }
+      const data = (await res.json()) as { patch: Partial<RunState> }
+      setRun((prev) => ({ ...prev, ...data.patch }))
+      const gathers = data.patch.adHocContextGathers
+      const last = gathers && gathers.length > 0 ? gathers[gathers.length - 1] : undefined
+      if (last?.verdict.needs_user_input) {
+        setPendingGather({ origin: 'adhoc', verdict: last.verdict, resumeStep: null })
+        setPhase('awaiting-input')
+      }
+      // Else: nothing needed asking — stay paused as-is, nothing more to show.
+    } catch {
+      setErrorCode('ai-network-error')
+    } finally {
+      setAdHocBusy(false)
+    }
   }
 
   const cost = estimatePipelineCost(n, panelsOff)
@@ -310,6 +439,20 @@ export function ReasoningPipelinePage() {
               Dry run (no real AI calls — exercises the 17-step state machine and UI for free)
             </label>
 
+            {dryRun && (
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, marginLeft: 22, fontSize: 12, color: 'var(--ink-subtle)', cursor: 'pointer' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={devForceNeedsInput}
+                  onChange={(e) => setDevForceNeedsInput(e.target.checked)}
+                  style={{ accentColor: 'var(--amber)', margin: 0 }}
+                />
+                Simulate a clarifying question (dev testing — every context-gather call, fixed or ad-hoc, returns a fake question)
+              </label>
+            )}
+
             <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: 'var(--ink-subtle)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -362,6 +505,10 @@ export function ReasoningPipelinePage() {
               <ReasoningStagesList run={run} currentStep={step} running={phase === 'running'} />
             </div>
 
+            {phase === 'awaiting-input' && pendingGather && (
+              <ContextGatherAnswerBox verdict={pendingGather.verdict} onSubmit={resolvePendingGather} onSkip={skipPendingGather} />
+            )}
+
             {retryInfo && (
               <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 12, textTransform: 'none', letterSpacing: 'normal' }}>
                 Upstream provider rate-limited — retrying automatically in {Math.round(retryInfo.waitMs / 1000)}s
@@ -406,7 +553,12 @@ export function ReasoningPipelinePage() {
                   {errorCode ? 'Retry' : 'Resume'}
                 </button>
               )}
-              {(phase === 'halted' || phase === 'done' || phase === 'paused') && (
+              {phase === 'paused' && (
+                <button type="button" onClick={() => void askClarifyingQuestion()} disabled={adHocBusy} style={smallBtn}>
+                  {adHocBusy ? 'Asking…' : 'Ask a clarifying question'}
+                </button>
+              )}
+              {(phase === 'halted' || phase === 'done' || phase === 'paused' || phase === 'awaiting-input') && (
                 <button type="button" onClick={reset} style={{ ...smallBtn, borderColor: 'var(--rule)', color: 'var(--ink-subtle)' }}>
                   New question
                 </button>

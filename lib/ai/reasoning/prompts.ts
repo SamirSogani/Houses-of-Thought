@@ -9,7 +9,7 @@
 // and generators are told this explicitly so they describe what evidence
 // would be needed rather than fabricating a specific, real-sounding source.
 
-import type { FramePacket, PerspectiveBundle, ReviewPanelVerdict } from './contracts'
+import type { ContextGatherVerdict, FramePacket, PerspectiveBundle, ReviewPanelVerdict } from './contracts'
 import type { StandardDef } from './standards'
 
 export const REASONING_PERSONA = `You are one stage in a multi-agent reasoning pipeline inside Houses of Thought's admin tools. The pipeline reasons through a hard question in strict sequence — frame, perspectives, assumptions, evidence, conclusions, implications — modeled on Paul & Elder's Elements of Reasoning. You are doing exactly ONE stage; you do not see, and must not try to redo, any other stage's job.
@@ -19,10 +19,15 @@ Hard rules:
 - Never invent facts, sources, or citations you cannot honestly ground in what you were given.
 - Plain, direct language — no lecturing, no hedging filler.`
 
-// ── Context-gather (two fixed checkpoints in Phase 1) ───────────────────────
+// ── Context-gather (the two fixed checkpoints, plus admin-triggered ad-hoc
+// calls at any layer boundary — Phase 3 item 1, decision 019) ───────────────
 export const CONTEXT_GATHER_BLOCK = `Task: decide whether there is enough information to proceed with this stage of the reasoning pipeline, or whether the person must be asked something first.
 
-Set needs_user_input=true only when something essential is genuinely missing or ambiguous — not merely because more detail would be nice. When true, questions_for_user holds at most 3 short, concrete questions. reason is one sentence explaining the call either way.`
+Set needs_user_input=true only when something essential is genuinely missing or ambiguous — not merely because more detail would be nice. When true, questions_for_user holds at most 3 items, each:
+- question: one short, concrete question.
+- options: up to 3 short, plausible answers to offer as quick picks (likely values, common interpretations) — the person can always type something else instead, so these are a convenience, not the only valid answers. Leave options empty if the question is too open-ended for a short pick-list to make sense.
+
+reason is one sentence explaining the call either way.`
 
 // ── Frame ───────────────────────────────────────────────────────────────────
 export const FRAME_BLOCK = `Task: frame the question this pipeline will reason through.
@@ -150,9 +155,35 @@ export function appendRegenerationFeedback(
 }
 
 // ── Serialization helpers — build the `user` context text for later steps ──
-export function serializeFrame(frame: FramePacket): string {
+// extraContext (Phase 3 item 1, decision 019) is the admin's context-gather
+// answers from context-gather-post and/or any ad-hoc calls so far (never
+// context-gather-pre — that already folds into the frame itself via
+// runFrameGenerate's own userAnswers param, orchestrator-setup.ts, so it's
+// already reflected in everything below by the time this runs). serializeFrame
+// is the one choke point nearly every downstream generate/review call already
+// goes through (route.ts), which is what makes appending it here reach the
+// whole rest of the run instead of needing a bespoke hook per layer.
+export function serializeFrame(frame: FramePacket, extraContext?: string | null): string {
   const defs = frame.definitions.map((d) => `- ${d.term}: ${d.definition}`).join('\n')
-  return `Core question: ${frame.core_question}\nPurpose: ${frame.purpose}\nScope: ${frame.scope_notes}\nDefinitions:\n${defs || '(none)'}`
+  const base = `Core question: ${frame.core_question}\nPurpose: ${frame.purpose}\nScope: ${frame.scope_notes}\nDefinitions:\n${defs || '(none)'}`
+  return extraContext ? `${base}\n\n${extraContext}` : base
+}
+
+// Folds a resolved context-gather verdict's questions + the admin's answers
+// into one text block for serializeFrame's extraContext (or frame-generate's
+// own userAnswers). Unanswered (skipped) questions are omitted entirely
+// rather than shown as blank — per Phase 3 item 1's confirmed "skippable"
+// call, skipping is a legitimate "nothing to add here," not missing data
+// worth flagging to the next generator.
+export function formatContextGatherAnswers(
+  verdict: ContextGatherVerdict | null | undefined,
+  answers: (string | null)[] | null | undefined
+): string | null {
+  if (!verdict?.needs_user_input || !answers) return null
+  const lines = verdict.questions_for_user
+    .map((q, i) => (answers[i] ? `- Q: ${q.question}\n  A: ${answers[i]}` : null))
+    .filter((x): x is string => x !== null)
+  return lines.length ? `## Answers the admin provided when asked for clarification\n${lines.join('\n')}` : null
 }
 
 export function serializePerspectiveBundle(p: PerspectiveBundle): string {

@@ -17,9 +17,11 @@ import { isCallerAdmin } from '@/lib/auth/admin'
 import { log } from '@/lib/log'
 import { STEP_ORDER, type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
 import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
-import { serializeFrame } from '@/lib/ai/reasoning/prompts'
+import { serializeFrame, serializePerspectives, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
 import {
   ContextGatherVerdictSchema,
+  ContextGatherAnswersSchema,
+  AdHocContextGatherSchema,
   FramePacketSchema,
   BreadthScopingPacketSchema,
   PerspectiveStanceSchema,
@@ -64,10 +66,29 @@ const MAX_BODY_BYTES = 300 * 1024
 const RunStateSchema = z.object({
   originalQuery: z.string().min(1).max(2000),
   contextGatherPre: ContextGatherVerdictSchema.nullish(),
+  // Phase 3 item 1 (decision 019): the admin's answers to contextGatherPre's
+  // questions_for_user, same index alignment. Threaded into frame-generate's
+  // prompt only (orchestrator-setup.ts's userAnswers param) — never
+  // re-threaded downstream via extraContext, since the resulting frame
+  // already reflects them for everything after.
+  contextGatherPreAnswers: ContextGatherAnswersSchema.nullish(),
   frame: FramePacketSchema.nullish(),
   frameVerdict: ReviewPanelVerdictSchema.nullish(),
   contextGatherPost: ContextGatherVerdictSchema.nullish(),
+  // Threaded into every downstream generate/review call's context via
+  // buildExtraContext below (serializeFrame's extraContext param) — the frame
+  // itself is already locked by this checkpoint, so there's no "regenerate
+  // frame" step for these to converge through the way contextGatherPreAnswers
+  // does.
+  contextGatherPostAnswers: ContextGatherAnswersSchema.nullish(),
   breadthScoping: BreadthScopingPacketSchema.nullish(),
+  // Admin-triggered, ad-hoc context-gather calls (Phase 3 item 1's larger
+  // scope — README's "any layer can trigger 'ask the user something'
+  // mid-pipeline," confirmed with Samir 2026-08-04). Append-only; each
+  // entry's `answers` starts null and is filled in once the admin resolves
+  // it. Capped generously — bounded by how many times an admin actually
+  // clicks the control, not a real limit.
+  adHocContextGathers: z.array(AdHocContextGatherSchema).max(20).nullish(),
   perspectiveStances: z.array(PerspectiveStanceSchema).nullish(),
   perspectives: z.array(PerspectiveBundleSchema).nullish(),
   perspectiveVerdicts: z.array(ReviewPanelVerdictSchema).nullish(),
@@ -85,8 +106,15 @@ const RunStateSchema = z.object({
 })
 type RunState = z.infer<typeof RunStateSchema>
 
+// 'context-gather-adhoc' (Phase 3 item 1) is deliberately NOT part of
+// STEP_ORDER — it's admin-triggered at whatever step the run is currently
+// paused at, not a fixed position in the linear sequence, so it must never
+// flow through nextStepAfter()/STEP_ORDER's indexOf-based advance logic the
+// way every other step does.
+const StepOrAdHocSchema = z.union([z.enum(STEP_ORDER), z.literal('context-gather-adhoc')])
+
 const RequestSchema = z.object({
-  step: z.enum(STEP_ORDER),
+  step: StepOrAdHocSchema,
   // Client-generated once per pipeline run (crypto.randomUUID(), see
   // ReasoningPipelinePage.tsx's start()) and resent on every step call — the
   // persistence key for reasoning_runs (Phase 2 item 1, decision 019). Not
@@ -94,6 +122,17 @@ const RequestSchema = z.object({
   runId: z.string().uuid(),
   capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
   dryRun: z.boolean().optional(),
+  // Required only for step === 'context-gather-adhoc': which real step the
+  // client was paused at/before when the admin triggered it — used both as
+  // the ad-hoc call's own context ("where in the pipeline is this") and as
+  // the `last_step` value persistRunStep records for it (persistence.ts
+  // requires a real StepId, and 'context-gather-adhoc' itself isn't one).
+  atStep: z.enum(STEP_ORDER).nullish(),
+  // Dev-testing only (Phase 3 item 1): forces runContextGather's dryRun
+  // branch to simulate needs_user_input: true instead of always false, so the
+  // pause/ask/resume UI can be exercised for free. Never has any effect
+  // outside dryRun — see orchestrator-setup.ts's runContextGather.
+  devForceNeedsInput: z.boolean().optional(),
   // Decision 019 verification stage 3 (A/B the review panel,
   // 04-verification-and-open-questions.md): unlike dryRun, generation stays
   // real — only every runReviewPanel call is replaced with an auto-pass
@@ -120,6 +159,45 @@ function missing(what: string): Response {
   return NextResponse.json({ error: 'invalid-request', detail: `missing ${what} in run state` }, { status: 400 })
 }
 
+// Phase 3 item 1 (decision 019): folds context-gather-post's + every ad-hoc
+// call's answers into one block for serializeFrame's extraContext param.
+// contextGatherPre's answers are deliberately excluded — those already fold
+// into frame-generate directly (see the frame-generate case below), so by the
+// time this runs the frame itself already reflects them.
+function buildExtraContext(run: RunState): string | null {
+  const parts: string[] = []
+  const post = formatContextGatherAnswers(run.contextGatherPost, run.contextGatherPostAnswers)
+  if (post) parts.push(post)
+  for (const gather of run.adHocContextGathers ?? []) {
+    const text = formatContextGatherAnswers(gather.verdict, gather.answers)
+    if (text) parts.push(`${text}\n(asked while paused at: ${gather.atStep})`)
+  }
+  return parts.length ? parts.join('\n\n') : null
+}
+
+// What an admin-triggered ad-hoc context-gather call (Phase 3 item 1) sees —
+// whatever's accumulated so far, richest-available first. Reuses the same
+// serialize* helpers every other step already calls; the closing line names
+// where in the pipeline the admin paused, since CONTEXT_GATHER_BLOCK
+// (prompts.ts) is otherwise layer-agnostic.
+function buildAdHocContext(run: RunState, atStep: StepId): string {
+  const parts = [`Original question: ${run.originalQuery}`]
+  if (run.frame) parts.push(serializeFrame(run.frame, buildExtraContext(run)))
+  if (run.perspectives) parts.push(`## Vetted perspectives\n${serializePerspectives(run.perspectives)}`)
+  if (run.globalAssumptions) {
+    parts.push(`## Global assumptions\n${run.globalAssumptions.question_level_assumptions.join('; ')}`)
+  }
+  if (run.globalEvidence) {
+    parts.push(`## Global evidence\n${run.globalEvidence.question_level_evidence.map((e) => e.claim_id).join('; ')}`)
+  }
+  if (run.conclusions) parts.push(`## Conclusions\n${run.conclusions.conclusions.join('; ')}`)
+  if (run.implications) parts.push(`## Implications\n${run.implications.implications.map((i) => i.text).join('; ')}`)
+  parts.push(
+    `The admin has manually paused the pipeline just before "${atStep}" to ask: is there anything essential still missing or ambiguous given everything produced so far?`
+  )
+  return parts.join('\n\n')
+}
+
 export async function POST(req: Request): Promise<Response> {
   if (!(await isCallerAdmin())) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
@@ -141,11 +219,18 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
   }
-  const { step, run, runId } = parsed.data
+  const { step, run, runId, atStep } = parsed.data
   const dryRun = parsed.data.dryRun ?? false
   const panelsOff = parsed.data.panelsOff ?? false
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
+  const devForceNeedsInput = parsed.data.devForceNeedsInput ?? false
+  // Phase 3 item 1's confirmed re-contextualization mechanism: context-gather-
+  // post's + any ad-hoc calls' answers so far, folded into one block threaded
+  // through every downstream generate/review call via serializeFrame's
+  // extraContext param. Computed once per request since it doesn't depend on
+  // which step is running.
+  const extraContext = buildExtraContext(run)
 
   // Fire-and-forget persistence (Phase 2 item 1, decision 019): every real
   // (non-dry-run) step response upserts the full merged run state — not just
@@ -192,9 +277,22 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
+    // Phase 3 item 1's ad-hoc path: admin-triggered, not part of STEP_ORDER's
+    // linear advance — handled before the switch below since it shares this
+    // route's error handling but not ok()/retryStep()/halted()'s nextStep
+    // semantics (there is no "next step" for an aside).
+    if (step === 'context-gather-adhoc') {
+      if (!atStep) return missing('atStep')
+      const context = buildAdHocContext(run, atStep)
+      const verdict = await runContextGather(context, dryRun, devForceNeedsInput)
+      const adHocContextGathers = [...(run.adHocContextGathers ?? []), { atStep, verdict, answers: null }]
+      persist(atStep, { adHocContextGathers }, atStep, false)
+      return NextResponse.json({ step, patch: { adHocContextGathers }, nextStep: null, halted: false })
+    }
+
     switch (step) {
       case 'context-gather-pre': {
-        const verdict = await runContextGather(`Original question: ${run.originalQuery}`, dryRun)
+        const verdict = await runContextGather(`Original question: ${run.originalQuery}`, dryRun, devForceNeedsInput)
         return ok(step, { contextGatherPre: verdict })
       }
 
@@ -203,7 +301,8 @@ export async function POST(req: Request): Promise<Response> {
           run.frame && run.frameVerdict && !run.frameVerdict.overall_pass
             ? { priorFrame: run.frame, priorVerdict: run.frameVerdict }
             : undefined
-        const frame = await runFrameGenerate(run.originalQuery, dryRun, repair)
+        const userAnswers = formatContextGatherAnswers(run.contextGatherPre, run.contextGatherPreAnswers)
+        const frame = await runFrameGenerate(run.originalQuery, dryRun, repair, userAnswers)
         return ok(step, { frame })
       }
 
@@ -220,8 +319,9 @@ export async function POST(req: Request): Promise<Response> {
       case 'context-gather-post': {
         if (!run.frame) return missing('frame')
         const verdict = await runContextGather(
-          `${serializeFrame(run.frame)}\n\nIs this frame complete enough to proceed?`,
-          dryRun
+          `${serializeFrame(run.frame, extraContext)}\n\nIs this frame complete enough to proceed?`,
+          dryRun,
+          devForceNeedsInput
         )
         return ok(step, { contextGatherPost: verdict })
       }
@@ -242,13 +342,13 @@ export async function POST(req: Request): Promise<Response> {
             effectiveN,
           })
         }
-        const scoping = await runBreadthScoping(run.frame, effectiveN, dryRun)
+        const scoping = await runBreadthScoping(run.frame, effectiveN, dryRun, extraContext)
         return ok(step, { breadthScoping: scoping })
       }
 
       case 'perspectives-generate-stances': {
         if (!run.frame || !run.breadthScoping) return missing('frame/breadthScoping')
-        const stances = await runPerspectivesGenerateStances(run.frame, run.breadthScoping, dryRun)
+        const stances = await runPerspectivesGenerateStances(run.frame, run.breadthScoping, dryRun, extraContext)
         return ok(step, { perspectiveStances: stances })
       }
 
@@ -262,7 +362,13 @@ export async function POST(req: Request): Promise<Response> {
                 priorAttempts: run.perspectiveAttempts ?? run.perspectives.map(() => 1),
               }
             : undefined
-        const { bundles, attempts } = await runPerspectivesGenerateDetails(run.frame, run.perspectiveStances, dryRun, repair)
+        const { bundles, attempts } = await runPerspectivesGenerateDetails(
+          run.frame,
+          run.perspectiveStances,
+          dryRun,
+          repair,
+          extraContext
+        )
         return ok(step, { perspectives: bundles, perspectiveAttempts: attempts })
       }
 
@@ -278,7 +384,8 @@ export async function POST(req: Request): Promise<Response> {
           run.perspectiveVerdicts ?? null,
           run.perspectiveAttempts ?? null,
           dryRun,
-          panelsOff
+          panelsOff,
+          extraContext
         )
         const stillRetrying = verdicts.some((v) => !v.overall_pass && !v.degraded)
         if (stillRetrying) return retryStep(step, 'perspectives-generate-details', { perspectiveVerdicts: verdicts })
@@ -291,13 +398,20 @@ export async function POST(req: Request): Promise<Response> {
           run.globalAssumptions && run.globalAssumptionsVerdict && !run.globalAssumptionsVerdict.overall_pass
             ? { priorArtifact: run.globalAssumptions, priorVerdict: run.globalAssumptionsVerdict }
             : undefined
-        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun, repair)
+        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun, repair, extraContext)
         return ok(step, { globalAssumptions: packet })
       }
 
       case 'global-assumptions-review': {
         if (!run.frame || !run.perspectives || !run.globalAssumptions) return missing('frame/perspectives/globalAssumptions')
-        const verdict = await runGlobalAssumptionsReview(run.frame, run.perspectives, run.globalAssumptions, dryRun, panelsOff)
+        const verdict = await runGlobalAssumptionsReview(
+          run.frame,
+          run.perspectives,
+          run.globalAssumptions,
+          dryRun,
+          panelsOff,
+          extraContext
+        )
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-assumptions-generate', { globalAssumptionsVerdict: verdict })
@@ -313,13 +427,13 @@ export async function POST(req: Request): Promise<Response> {
           run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
             ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
             : undefined
-        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair)
+        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair, extraContext)
         return ok(step, { globalEvidence: packet })
       }
 
       case 'global-evidence-review': {
         if (!run.frame || !run.globalEvidence) return missing('frame/globalEvidence')
-        const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun, panelsOff)
+        const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun, panelsOff, extraContext)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-evidence-generate', { globalEvidenceVerdict: verdict })
@@ -343,14 +457,15 @@ export async function POST(req: Request): Promise<Response> {
           run.globalAssumptions,
           run.globalEvidence,
           dryRun,
-          repair
+          repair,
+          extraContext
         )
         return ok(step, { conclusions: packet })
       }
 
       case 'conclusions-review': {
         if (!run.frame || !run.conclusions) return missing('frame/conclusions')
-        const verdict = await runConclusionsReview(run.frame, run.conclusions, dryRun, panelsOff)
+        const verdict = await runConclusionsReview(run.frame, run.conclusions, dryRun, panelsOff, extraContext)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'conclusions-generate', { conclusionsVerdict: verdict })
@@ -367,13 +482,13 @@ export async function POST(req: Request): Promise<Response> {
           run.implications && run.implicationsVerdict && !run.implicationsVerdict.overall_pass
             ? { priorArtifact: run.implications, priorVerdict: run.implicationsVerdict }
             : undefined
-        const packet = await runImplicationsGenerate(run.frame, run.conclusions, degradedNotes, dryRun, repair)
+        const packet = await runImplicationsGenerate(run.frame, run.conclusions, degradedNotes, dryRun, repair, extraContext)
         return ok(step, { implications: packet })
       }
 
       case 'implications-review': {
         if (!run.frame || !run.implications) return missing('frame/implications')
-        const verdict = await runImplicationsReview(run.frame, run.implications, dryRun, panelsOff)
+        const verdict = await runImplicationsReview(run.frame, run.implications, dryRun, panelsOff, extraContext)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'implications-generate', { implicationsVerdict: verdict })
@@ -385,7 +500,7 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'final-composition': {
         if (!run.frame || !run.implications) return missing('frame/implications')
-        const finalAnswer = await runFinalComposition(run.frame, run.implications, dryRun)
+        const finalAnswer = await runFinalComposition(run.frame, run.implications, dryRun, extraContext)
         return ok(step, { finalAnswer })
       }
 

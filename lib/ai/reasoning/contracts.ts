@@ -33,10 +33,24 @@ const searchFindingsStr = z.string().min(1).max(4000)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 const ConfidenceSchema = z.enum(['low', 'medium', 'high'])
 
-// ── Context-gather (callable at the two fixed checkpoints in Phase 1) ──────
+// ── Context-gather (Phase 3 item 1, decision 019: the two fixed checkpoints
+// PLUS admin-triggered ad-hoc calls at any point — see AdHocContextGatherSchema
+// below) ─────────────────────────────────────────────────────────────────────
+// One question + up to 3 quick-pick options, mirroring this app's own
+// AskUserQuestion-style UX (Samir's call, 2026-08-04): the admin can pick one
+// of the options or answer freely instead ("Other" is always available and is
+// never itself one of these — it's the UI's fallback, not a 4th option the
+// model writes). options may be empty when the question is too open-ended for
+// a short pick-list to make sense (CONTEXT_GATHER_BLOCK, prompts.ts).
+export const ContextGatherQuestionSchema = z.object({
+  question: str,
+  options: z.array(str).max(3),
+})
+export type ContextGatherQuestion = z.infer<typeof ContextGatherQuestionSchema>
+
 export const ContextGatherVerdictSchema = z.object({
   needs_user_input: z.boolean(),
-  questions_for_user: z.array(str).max(3),
+  questions_for_user: z.array(ContextGatherQuestionSchema).max(3),
   reason: str,
   // Populated by the orchestrator (runContextGather, orchestrator-setup.ts)
   // via real search on questions_for_user when needs_user_input is true — the
@@ -49,6 +63,29 @@ export type ContextGatherVerdict = z.infer<typeof ContextGatherVerdictSchema>
 
 // What the model actually produces — search_findings is added after the call.
 export const ContextGatherModelSchema = ContextGatherVerdictSchema.omit({ search_findings: true })
+
+// One free-text (or picked-option) answer per entry in a resolved verdict's
+// questions_for_user, same index alignment. null means the admin skipped that
+// specific question — Phase 3 item 1's confirmed "skippable" call (matches
+// the existing "search enriches, never substitutes" philosophy: an unanswered
+// question must never deadlock a run). Never empty string — skipping is
+// always represented as null, not ''.
+export const ContextGatherAnswersSchema = z.array(str.nullable()).max(3)
+export type ContextGatherAnswers = z.infer<typeof ContextGatherAnswersSchema>
+
+// An admin-triggered, ad-hoc context-gather call (Phase 3 item 1's larger
+// scope, confirmed with Samir 2026-08-04: "any layer can trigger 'ask the
+// user something' mid-pipeline," README's target architecture — not just the
+// two fixed checkpoints below). Unlike contextGatherPre/Post on RunState
+// (app/api/admin/reasoning/route.ts), there can be zero, one, or many of
+// these per run, at whatever step the admin happened to be paused on —
+// appended to, never mutated except to fill in `answers` once resolved.
+export const AdHocContextGatherSchema = z.object({
+  atStep: str, // a StepId (lib/ai/reasoning/steps.ts) — kept as a plain string here to avoid coupling this pure-contracts file to the step sequencer.
+  verdict: ContextGatherVerdictSchema,
+  answers: ContextGatherAnswersSchema.nullable(),
+})
+export type AdHocContextGather = z.infer<typeof AdHocContextGatherSchema>
 
 // ── Frame ───────────────────────────────────────────────────────────────────
 export const FramePacketSchema = z.object({

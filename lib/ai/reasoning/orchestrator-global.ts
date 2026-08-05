@@ -46,15 +46,21 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-global.ts is server-only and must not run in the browser')
 }
 
-function questionContext(frame: FramePacket, bundles: PerspectiveBundle[]): string {
-  return `${serializeFrame(frame)}\n\n## Vetted perspectives\n${serializePerspectives(bundles)}`
+// extraContext (Phase 3 item 1, decision 019): context-gather-post's + any
+// ad-hoc calls' answers so far, pre-formatted by route.ts's
+// buildExtraContext. Threaded through every function in this file that builds
+// a context string, so an answer re-contextualizes everything downstream of
+// wherever it was given, not just the very next call.
+function questionContext(frame: FramePacket, bundles: PerspectiveBundle[], extraContext?: string | null): string {
+  return `${serializeFrame(frame, extraContext)}\n\n## Vetted perspectives\n${serializePerspectives(bundles)}`
 }
 
 export async function runGlobalAssumptionsGenerate(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
   dryRun: boolean,
-  repair?: Repair<GlobalAssumptionsPacket>
+  repair?: Repair<GlobalAssumptionsPacket>,
+  extraContext?: string | null
 ): Promise<GlobalAssumptionsPacket> {
   if (dryRun) {
     return {
@@ -65,7 +71,7 @@ export async function runGlobalAssumptionsGenerate(
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_ASSUMPTIONS_BLOCK}`,
-    user: appendRegenerationFeedback(questionContext(frame, bundles), repair),
+    user: appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair),
     schema: GlobalAssumptionsPacketSchema,
     schemaName: 'global_assumptions_packet',
     effort: 'high',
@@ -78,16 +84,25 @@ export async function runGlobalAssumptionsReview(
   bundles: PerspectiveBundle[],
   packet: GlobalAssumptionsPacket,
   dryRun: boolean,
-  panelsOff = false
+  panelsOff = false,
+  extraContext?: string | null
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'global-assumptions-review', packet, questionContext(frame, bundles), dryRun, panelsOff)
+  return runReviewPanel(
+    frame.core_question,
+    'global-assumptions-review',
+    packet,
+    questionContext(frame, bundles, extraContext),
+    dryRun,
+    panelsOff
+  )
 }
 
 export async function runGlobalEvidenceGenerate(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
   dryRun: boolean,
-  repair?: Repair<GlobalEvidencePacket>
+  repair?: Repair<GlobalEvidencePacket>,
+  extraContext?: string | null
 ): Promise<GlobalEvidencePacket> {
   if (dryRun) {
     return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
@@ -95,7 +110,7 @@ export async function runGlobalEvidenceGenerate(
   return generateWithOptionalSearch({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles), repair) + searchContext,
+    buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair) + searchContext,
     baseSchema: GlobalEvidencePacketSchema,
     schemaName: 'global_evidence_packet',
     // 900 -> 1800, third instance of the exact same fix this session
@@ -113,9 +128,17 @@ export async function runGlobalEvidenceReview(
   frame: FramePacket,
   packet: GlobalEvidencePacket,
   dryRun: boolean,
-  panelsOff = false
+  panelsOff = false,
+  extraContext?: string | null
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'global-evidence-review', packet, serializeFrame(frame), dryRun, panelsOff)
+  return runReviewPanel(
+    frame.core_question,
+    'global-evidence-review',
+    packet,
+    serializeFrame(frame, extraContext),
+    dryRun,
+    panelsOff
+  )
 }
 
 export async function runConclusionsGenerate(
@@ -124,10 +147,11 @@ export async function runConclusionsGenerate(
   globalAssumptions: GlobalAssumptionsPacket,
   globalEvidence: GlobalEvidencePacket,
   dryRun: boolean,
-  repair?: Repair<ConclusionsPacket>
+  repair?: Repair<ConclusionsPacket>,
+  extraContext?: string | null
 ): Promise<ConclusionsPacket> {
   if (dryRun) return { conclusions: ['[dry run] conclusion.'], supporting_chain: ['[dry run] supporting step.'] }
-  const context = `${questionContext(frame, bundles)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
+  const context = `${questionContext(frame, bundles, extraContext)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${CONCLUSIONS_BLOCK}`,
@@ -148,9 +172,17 @@ export async function runConclusionsReview(
   frame: FramePacket,
   packet: ConclusionsPacket,
   dryRun: boolean,
-  panelsOff = false
+  panelsOff = false,
+  extraContext?: string | null
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'conclusions-review', packet, serializeFrame(frame), dryRun, panelsOff)
+  return runReviewPanel(
+    frame.core_question,
+    'conclusions-review',
+    packet,
+    serializeFrame(frame, extraContext),
+    dryRun,
+    panelsOff
+  )
 }
 
 export async function runImplicationsGenerate(
@@ -158,7 +190,8 @@ export async function runImplicationsGenerate(
   conclusions: ConclusionsPacket,
   degradedNotes: string[],
   dryRun: boolean,
-  repair?: Repair<ImplicationsPacket>
+  repair?: Repair<ImplicationsPacket>,
+  extraContext?: string | null
 ): Promise<ImplicationsPacket> {
   if (dryRun) {
     return {
@@ -170,7 +203,7 @@ export async function runImplicationsGenerate(
       caveats_from_degraded_layers: degradedNotes,
     }
   }
-  const context = `${serializeFrame(frame)}\n\n## Conclusions\n${conclusions.conclusions.map((c) => `- ${c}`).join('\n')}\n\n## Supporting chain\n${conclusions.supporting_chain.map((s) => `- ${s}`).join('\n')}${degradedNotes.length ? `\n\n## Degraded upstream layers\n${degradedNotes.map((d) => `- ${d}`).join('\n')}` : ''}`
+  const context = `${serializeFrame(frame, extraContext)}\n\n## Conclusions\n${conclusions.conclusions.map((c) => `- ${c}`).join('\n')}\n\n## Supporting chain\n${conclusions.supporting_chain.map((s) => `- ${s}`).join('\n')}${degradedNotes.length ? `\n\n## Degraded upstream layers\n${degradedNotes.map((d) => `- ${d}`).join('\n')}` : ''}`
   return completeJSON({
     role: 'drafter',
     system: `${REASONING_PERSONA}\n\n${IMPLICATIONS_BLOCK}`,
@@ -192,15 +225,24 @@ export async function runImplicationsReview(
   frame: FramePacket,
   packet: ImplicationsPacket,
   dryRun: boolean,
-  panelsOff = false
+  panelsOff = false,
+  extraContext?: string | null
 ): Promise<ReviewPanelVerdict> {
-  return runReviewPanel(frame.core_question, 'implications-review', packet, serializeFrame(frame), dryRun, panelsOff)
+  return runReviewPanel(
+    frame.core_question,
+    'implications-review',
+    packet,
+    serializeFrame(frame, extraContext),
+    dryRun,
+    panelsOff
+  )
 }
 
 export async function runFinalComposition(
   frame: FramePacket,
   implications: ImplicationsPacket,
-  dryRun: boolean
+  dryRun: boolean,
+  extraContext?: string | null
 ): Promise<FinalAnswer> {
   if (dryRun) {
     return {
@@ -209,7 +251,7 @@ export async function runFinalComposition(
       caveats: implications.caveats_from_degraded_layers,
     }
   }
-  const context = `${serializeFrame(frame)}\n\n## Implications\n${implications.implications.map((i) => `- (${i.ikind}) ${i.text} — ${i.who}, ${i.horizon}`).join('\n')}\n\nConfidence: ${implications.confidence}${implications.caveats_from_degraded_layers.length ? `\nDegraded upstream: ${implications.caveats_from_degraded_layers.join('; ')}` : ''}`
+  const context = `${serializeFrame(frame, extraContext)}\n\n## Implications\n${implications.implications.map((i) => `- (${i.ikind}) ${i.text} — ${i.who}, ${i.horizon}`).join('\n')}\n\nConfidence: ${implications.confidence}${implications.caveats_from_degraded_layers.length ? `\nDegraded upstream: ${implications.caveats_from_degraded_layers.join('; ')}` : ''}`
   return completeJSON({
     role: 'coach',
     system: `${REASONING_PERSONA}\n\n${FINAL_COMPOSITION_BLOCK}`,

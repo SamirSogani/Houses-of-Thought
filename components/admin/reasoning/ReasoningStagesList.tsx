@@ -11,6 +11,7 @@ import { LAYER_GROUPS, STEP_LABELS, type StepId } from '@/lib/ai/reasoning/steps
 import { ReviewPanelVerdictPanel } from './ReviewPanelVerdictPanel'
 import type {
   ContextGatherVerdict,
+  AdHocContextGather,
   FramePacket,
   ReviewPanelVerdict,
   BreadthScopingPacket,
@@ -28,10 +29,18 @@ import type {
 export interface RunState {
   originalQuery: string
   contextGatherPre?: ContextGatherVerdict | null
+  // Phase 3 item 1 (decision 019): the admin's answers to the checkpoint
+  // above/below, same index alignment as questions_for_user; null entries are
+  // skipped questions. See ReasoningPipelinePage.tsx for how these get filled.
+  contextGatherPreAnswers?: (string | null)[] | null
   frame?: FramePacket | null
   frameVerdict?: ReviewPanelVerdict | null
   contextGatherPost?: ContextGatherVerdict | null
+  contextGatherPostAnswers?: (string | null)[] | null
   breadthScoping?: BreadthScopingPacket | null
+  // Admin-triggered, ad-hoc context-gather calls (Phase 3 item 1's larger
+  // scope) — zero, one, or many, at whatever step the admin was paused on.
+  adHocContextGathers?: AdHocContextGather[] | null
   perspectiveStances?: PerspectiveStance[] | null
   perspectives?: PerspectiveBundle[] | null
   perspectiveVerdicts?: ReviewPanelVerdict[] | null
@@ -97,7 +106,21 @@ function stepDone(run: RunState, stepId: StepId): boolean {
 // reason, plus search_findings attached by the orchestrator, contracts.ts) —
 // so this is a small dedicated block rather than a new general-purpose panel.
 // Only rendered when there's something to show the user (needs_user_input).
-function ContextGatherNote({ verdict }: { verdict: ContextGatherVerdict | null | undefined }) {
+//
+// Read-only always, on both render paths this component serves (the live
+// pipeline page AND the historical /admin/reasoning/runs browser, via the
+// shared RunState this file defines) — `answers`, when present, is shown as
+// plain text under each question, never as editable input. The live page's
+// actual answer-collection UI is ContextGatherAnswerBox.tsx, a SEPARATE
+// component only ReasoningPipelinePage.tsx imports; a past, already-`done`
+// run has no one left to answer, so this file must never gain interactivity.
+function ContextGatherNote({
+  verdict,
+  answers,
+}: {
+  verdict: ContextGatherVerdict | null | undefined
+  answers?: (string | null)[] | null
+}) {
   if (!verdict?.needs_user_input || verdict.questions_for_user.length === 0) return null
   return (
     <div
@@ -115,9 +138,15 @@ function ContextGatherNote({ verdict }: { verdict: ContextGatherVerdict | null |
     >
       <div style={{ fontWeight: 600, marginBottom: 4 }}>{verdict.reason}</div>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
-        {verdict.questions_for_user.map((q, i) => (
-          <li key={i}>{q}</li>
-        ))}
+        {verdict.questions_for_user.map((q, i) => {
+          const answer = answers?.[i]
+          return (
+            <li key={i}>
+              {q.question}
+              {answer && <div style={{ color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 1 }}>→ {answer}</div>}
+            </li>
+          )
+        })}
       </ul>
       {verdict.search_findings && (
         <details style={{ marginTop: 6 }}>
@@ -125,6 +154,32 @@ function ContextGatherNote({ verdict }: { verdict: ContextGatherVerdict | null |
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10.5, marginTop: 4 }}>{verdict.search_findings}</pre>
         </details>
       )}
+    </div>
+  )
+}
+
+const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }
+
+// Read-only list of every admin-triggered, ad-hoc context-gather call so far
+// (Phase 3 item 1's larger scope) — rendered on both the live page and the
+// historical browser, same as everything else in this file. Not tied to any
+// LAYER_GROUPS row since an ad-hoc call can happen at any step boundary, so
+// it gets its own section below the main list instead.
+function AdHocContextGathersList({ gathers }: { gathers: AdHocContextGather[] | null | undefined }) {
+  if (!gathers || gathers.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ ...mono, color: 'var(--ink-subtle)' }}>Ad-hoc questions</div>
+      {gathers.map((g, i) => (
+        <div key={i} style={{ border: '1px solid var(--rule)', borderRadius: 9, padding: '9px 12px', background: 'var(--white)' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)' }}>Paused at: {g.atStep}</div>
+          {g.verdict.needs_user_input ? (
+            <ContextGatherNote verdict={g.verdict} answers={g.answers} />
+          ) : (
+            <div style={{ fontSize: 11.5, color: 'var(--ink-subtle)', marginTop: 4 }}>{g.verdict.reason}</div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -193,8 +248,12 @@ export function ReasoningStagesList({
               </span>
             </div>
 
-            {group.id === 'context-gather-pre' && <ContextGatherNote verdict={run.contextGatherPre} />}
-            {group.id === 'context-gather-post' && <ContextGatherNote verdict={run.contextGatherPost} />}
+            {group.id === 'context-gather-pre' && (
+              <ContextGatherNote verdict={run.contextGatherPre} answers={run.contextGatherPreAnswers} />
+            )}
+            {group.id === 'context-gather-post' && (
+              <ContextGatherNote verdict={run.contextGatherPost} answers={run.contextGatherPostAnswers} />
+            )}
             {group.id === 'frame' && run.frameVerdict && (
               <ReviewPanelVerdictPanel label="Frame review" verdict={run.frameVerdict} artifact={run.frame} />
             )}
@@ -253,6 +312,7 @@ export function ReasoningStagesList({
           </div>
         )
       })}
+      <AdHocContextGathersList gathers={run.adHocContextGathers} />
     </div>
   )
 }
