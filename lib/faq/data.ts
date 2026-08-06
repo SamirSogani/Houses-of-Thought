@@ -65,6 +65,11 @@ export const faqGroups: FaqGroup[] = [
         answer:
           "The conclusion is one you build, so trusting it is your call. House Strength shows how well it holds up across evidence, logic, and coverage, and the Stress Test points out where it's thin. Together they give you a clear read on how far your own reasoning goes.",
       },
+      {
+        question: 'What are the "nine standards of reasoning"?',
+        answer:
+          "Paul and Elder's Universal Intellectual Standards: clarity, accuracy, precision, relevance, depth, breadth, logic, significance, and fairness — the bar academics use to judge whether reasoning is good, independent of which conclusion it reaches. See the full breakdown on the Framework page. We're building an automated review panel that checks every layer against all nine before the next layer starts; it's in active testing, not yet part of the standard free builder.",
+      },
     ],
   },
   {
@@ -94,6 +99,11 @@ export const faqGroups: FaqGroup[] = [
         question: 'How much does it cost?',
         answer:
           "It's free to start, with no paywall in the way of trying it or building your first houses. Detailed plans for classrooms and heavier use will be published once they're finalized.",
+      },
+      {
+        question: 'Is this like Rationale or other paid AI decision tools?',
+        answer:
+          "Similar goal, different approach. Paid AI decision tools typically charge a monthly fee for one AI-generated verdict you can't inspect. Houses of Thought is free and shows the entire case behind a conclusion — every perspective, every piece of cited evidence, every assumption — built on a named critical-thinking framework (John Trapasso's House of Reason, derived from Paul-Elder) rather than a generic prompt.",
       },
       {
         question: 'Is my work saved before I sign up?',

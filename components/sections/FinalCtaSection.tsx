@@ -8,7 +8,7 @@ export default function FinalCtaSection() {
         className="container"
         style={{ maxWidth: '62ch', margin: '0 auto', textAlign: 'center' }}
       >
-        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 09 — Start</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 10 — Start</p>
 
         <h2
           style={{
@@ -49,8 +49,8 @@ export default function FinalCtaSection() {
             marginTop: 22,
           }}
         >
-          No sign-up to try. A free account unlocks the full builder, where
-          your houses autosave.
+          No sign-up to try. Completely free — no $10&ndash;$100/month tiers,
+          ever.
         </p>
       </div>
     </section>

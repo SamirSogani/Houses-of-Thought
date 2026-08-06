@@ -104,6 +104,24 @@ const elements: { id: string; name: string; layer: string; body: string; detail?
   },
 ]
 
+// The nine Universal Intellectual Standards (Paul–Elder) — the actual bar
+// academics use to judge whether reasoning is any good, independent of which
+// conclusion it reaches. Named here as credibility/roadmap content: an
+// automated review panel that grades every layer against all nine is a
+// deeper reasoning mode currently in testing, not yet part of the standard
+// free builder — see the closing note below.
+const standards: { id: string; name: string; body: string }[] = [
+  { id: 'std-clarity', name: 'Clarity', body: 'Could the point be stated more clearly? Reasoning that can’t be understood can’t be evaluated.' },
+  { id: 'std-accuracy', name: 'Accuracy', body: 'Is it actually true, and free of distortion? A clear claim can still be false.' },
+  { id: 'std-precision', name: 'Precision', body: 'Is it specific enough to be useful? "Better schools" is vague; a number or a mechanism is precise.' },
+  { id: 'std-relevance', name: 'Relevance', body: 'Does this actually bear on the question being asked, or is it a tangent that merely sounds related?' },
+  { id: 'std-depth', name: 'Depth', body: 'Does it address the real complexity here, or skate across the surface of a hard question?' },
+  { id: 'std-breadth', name: 'Breadth', body: 'Has another viewpoint or line of reasoning been genuinely considered, not just mentioned to dismiss?' },
+  { id: 'std-logic', name: 'Logic', body: 'Do the parts actually fit together? Does the conclusion follow from what came before it, or just sit next to it?' },
+  { id: 'std-significance', name: 'Significance', body: 'Is this the most important consideration, or a minor point standing in for one?' },
+  { id: 'std-fairness', name: 'Fairness', body: 'Is every viewpoint represented on its own terms, or is one side quietly stacked against the others?' },
+]
+
 const scoring: { id: string; name: string; body: string }[] = [
   {
     id: 'house-strength',
@@ -125,6 +143,7 @@ const scoring: { id: string; name: string; body: string }[] = [
 const tocItems = [
   { href: '#what-it-is', label: 'What the framework is' },
   ...elements.map((e) => ({ href: `#${e.id}`, label: e.name })),
+  { href: '#nine-standards', label: 'The nine standards of reasoning' },
   ...scoring.map((s) => ({ href: `#${s.id}`, label: s.name })),
 ]
 
@@ -136,7 +155,7 @@ const jsonLd = {
   name: 'Houses of Thought framework glossary',
   description:
     'Definitions of the elements of the Houses of Thought reasoning framework, based on John Trapasso’s House of Reason and the Paul–Elder model for critical thinking.',
-  hasDefinedTerm: [...elements, ...scoring].map((t) => ({
+  hasDefinedTerm: [...elements, ...standards, ...scoring].map((t) => ({
     '@type': 'DefinedTerm',
     name: t.name,
     description: t.body,
@@ -236,6 +255,38 @@ export default function FrameworkPage() {
                     {e.detail && <p style={blockBody}>{e.detail}</p>}
                   </section>
                 ))}
+
+                <hr style={{ border: 'none', borderTop: '1px solid var(--rule)', margin: '48px 0' }} />
+
+                <section id="nine-standards">
+                  <h2 style={blockTitle}>The nine standards of reasoning</h2>
+                  <p style={blockBody}>
+                    Paul and Elder don&rsquo;t just describe the elements reasoning is
+                    made of &mdash; they define the standards good reasoning is judged
+                    by, independent of which conclusion it reaches. A house can be
+                    well-formed and still fail one of these; naming the standard makes
+                    the failure specific instead of a vague feeling that something is
+                    off.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20, marginTop: 24 }}>
+                    {standards.map((s) => (
+                      <div key={s.id} id={s.id} style={{ border: '1px solid var(--rule)', borderRadius: 10, padding: 16, background: 'var(--white)' }}>
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 17, color: 'var(--ink)' }}>{s.name}</h3>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.55, color: 'var(--ink-mid)', marginTop: 6 }}>
+                          {s.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ ...blockBody, marginTop: 24 }}>
+                    These nine standards are also the grading rubric behind a deeper
+                    reasoning mode we&rsquo;re building: a review panel that checks each
+                    layer of a house against all nine before the next layer starts,
+                    rather than relying on one AI pass. It&rsquo;s in active testing, not
+                    yet part of the standard free builder above &mdash; this page will be
+                    updated when it ships more broadly.
+                  </p>
+                </section>
 
                 <hr style={{ border: 'none', borderTop: '1px solid var(--rule)', margin: '48px 0' }} />
 

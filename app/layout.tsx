@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: `%s — ${SITE_NAME}`,
   },
   description:
-    'A critical-thinking tool for classrooms. Turn a hard question into structured, defensible reasoning — perspectives, cited evidence, and assumptions — with AI that guides instead of deciding.',
+    'A free critical-thinking tool for classrooms. Turn a hard question into structured, defensible reasoning — perspectives, cited evidence, and assumptions — with AI that guides instead of deciding.',
   applicationName: SITE_NAME,
   alternates: { canonical: '/' },
   openGraph: {

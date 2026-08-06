@@ -4,7 +4,7 @@ export default function OriginQuoteSection() {
   return (
     <section style={{ background: 'var(--white)', paddingBlock: 'var(--section-py)' }}>
       <div className="container" style={{ maxWidth: '68ch', margin: '0 auto', textAlign: 'center' }}>
-        <p className="eyebrow">Section 08 — Where it comes from</p>
+        <p className="eyebrow">Section 09 — Where it comes from</p>
 
         <blockquote
           style={{

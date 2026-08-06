@@ -26,7 +26,7 @@ export const SITE_NAME = 'Houses of Thought'
 // llms.txt so answer engines see a single consistent entity description
 // (aeo M2).
 export const SITE_DESCRIPTION =
-  'Houses of Thought is a critical-thinking tool for students, teachers, and anyone facing a hard question. It turns a question into structured, defensible reasoning — concepts, perspectives, cited evidence, assumptions, and a conclusion you build yourself, with AI that guides instead of deciding.'
+  'Houses of Thought is a free critical-thinking tool for students, teachers, and anyone facing a hard question. It turns a question into structured, defensible reasoning — concepts, perspectives, cited evidence, assumptions, and a conclusion you build yourself, with AI that guides instead of deciding.'
 
 export const FOUNDER = 'Samir Sogani'
 

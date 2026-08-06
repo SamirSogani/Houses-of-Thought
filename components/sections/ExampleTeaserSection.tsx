@@ -18,7 +18,7 @@ export default function ExampleTeaserSection() {
       <div className="container">
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <p className="eyebrow">Section 07 — Example</p>
+            <p className="eyebrow">Section 08 — Example</p>
             <h2 className="h2" style={{ marginTop: 16 }}>See a completed house.</h2>
           </div>
           <Link href="/examples" className="text-link" style={{ whiteSpace: 'nowrap' }}>

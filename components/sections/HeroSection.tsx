@@ -134,9 +134,11 @@ export default function HeroSection() {
               marginTop: 22,
             }}
           >
-            For hard decisions and arguments that deserve more than a chat reply.
-            Houses of Thought turns a question into structured, defensible
-            reasoning, with AI that guides instead of deciding.
+            For hard decisions and arguments that deserve more than a paid
+            verdict. Houses of Thought turns a question into structured,
+            defensible reasoning — perspectives, evidence, assumptions — built
+            on a real teacher&rsquo;s framework for critical thinking, with AI
+            that guides instead of deciding.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 32 }}>
@@ -147,6 +149,18 @@ export default function HeroSection() {
               Read how it works
             </Link>
           </div>
+
+          <p
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              letterSpacing: '0.04em',
+              color: 'var(--ink-subtle)',
+              marginTop: 18,
+            }}
+          >
+            Free, always — no $10&ndash;$100/month tiers.
+          </p>
         </div>
 
         {/* Right — HouseDiagram card */}

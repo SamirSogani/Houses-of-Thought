@@ -7,6 +7,7 @@ import ProblemSection from '@/components/sections/ProblemSection'
 import InteractiveHouseSection from '@/components/sections/InteractiveHouseSection'
 import HowItWorksSection from '@/components/sections/HowItWorksSection'
 import DifferentiatorSection from '@/components/sections/DifferentiatorSection'
+import RationaleComparisonSection from '@/components/sections/RationaleComparisonSection'
 import EducatorsSection from '@/components/sections/EducatorsSection'
 import ExampleTeaserSection from '@/components/sections/ExampleTeaserSection'
 import OriginQuoteSection from '@/components/sections/OriginQuoteSection'
@@ -31,6 +32,7 @@ export default function Home() {
         <InteractiveHouseSection />
         <HowItWorksSection />
         <DifferentiatorSection />
+        <RationaleComparisonSection />
         <EducatorsSection />
         <ExampleTeaserSection />
         <OriginQuoteSection />

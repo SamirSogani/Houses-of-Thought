@@ -20,7 +20,7 @@ export default function EducatorsSection() {
       >
         {/* Left — text */}
         <div style={{ flex: '1 1 360px', minWidth: 'min(280px, 100%)' }}>
-          <p className="eyebrow">Section 06 — Built for classrooms</p>
+          <p className="eyebrow">Section 07 — Built for classrooms</p>
           <h2 className="h2" style={{ marginTop: 16 }}>
             Make critical thinking visible, and gradeable.
           </h2>
