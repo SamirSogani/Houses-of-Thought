@@ -15,17 +15,26 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  // The mobile sheet is a modal surface: trap Tab inside it and hand focus
+  // back to the hamburger on close (a11y C2). It previously had no dialog
+  // semantics and left focus behind the overlay entirely.
   const sheetRef = useFocusTrap<HTMLDivElement>(mobileOpen)
   const pathname = usePathname()
 
-  // Detect if we're on the homepage (dark hero) for transparent header
-  const isDarkHero = pathname === '/' || pathname === '/vs-rationale'
-  const [scrolled, setScrolled] = useState(false)
-
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60)
+    const header = document.getElementById('site-header')
+    if (!header) return
+    const onScroll = () => {
+      const past = window.scrollY > 24
+      header.style.paddingBlock = past ? '11px' : '18px'
+      header.style.borderBottom = past
+        ? '1px solid #AEB8C7'
+        : '1px solid transparent'
+      header.style.background = past
+        ? 'rgba(247,246,242,0.95)'
+        : 'rgba(247,246,242,0.82)'
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
-    onScroll() // check initial
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
@@ -43,57 +52,12 @@ export default function Header() {
 
   const closeMobile = () => setMobileOpen(false)
 
-  // On dark hero pages: transparent when at top, frosted on scroll
-  // On other pages: always frosted parchment
-  const headerBg = isDarkHero
-    ? scrolled
-      ? 'rgba(20, 33, 58, 0.95)'
-      : 'transparent'
-    : scrolled
-      ? 'rgba(247, 246, 242, 0.95)'
-      : 'rgba(247, 246, 242, 0.82)'
-
-  const textColor = isDarkHero && !scrolled ? 'var(--parchment)' : 'var(--ink)'
-  const textMid = isDarkHero && !scrolled ? 'var(--rule)' : 'var(--ink-mid)'
-  const borderColor = scrolled
-    ? isDarkHero
-      ? 'rgba(90, 107, 133, 0.4)'
-      : '#AEB8C7'
-    : 'transparent'
-  const logoStroke = isDarkHero && !scrolled ? '#F7F6F2' : '#14213A'
-
   return (
     <>
-      <header
-        id="site-header"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          background: headerBg,
-          backdropFilter: scrolled ? 'blur(10px)' : 'none',
-          WebkitBackdropFilter: scrolled ? 'blur(10px)' : 'none',
-          paddingBlock: scrolled ? 11 : 18,
-          borderBottom: `1px solid ${borderColor}`,
-          transition:
-            'padding-block 0.24s ease, border-bottom 0.24s ease, background 0.24s ease',
-        }}
-      >
-        <div
-          className="container"
-          style={{ display: 'flex', alignItems: 'center', gap: 24 }}
-        >
-          <Link
-            href="/"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <LogoMark stroke={logoStroke} />
+      <header id="site-header" className="site-header">
+        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <LogoMark />
             <span
               className="mk-header-brand-text"
               style={{
@@ -101,8 +65,7 @@ export default function Header() {
                 fontWeight: 600,
                 fontSize: 18,
                 letterSpacing: '-0.01em',
-                color: textColor,
-                transition: 'color 0.24s',
+                color: 'var(--ink)',
               }}
             >
               Houses of Thought
@@ -110,15 +73,7 @@ export default function Header() {
           </Link>
 
           {/* Desktop nav */}
-          <nav
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 28,
-              marginLeft: 'auto',
-            }}
-            className="desktop-only"
-          >
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 28, marginLeft: 'auto' }} className="desktop-only">
             {navLinks.map((l) => {
               const active = pathname === l.href
               return (
@@ -130,12 +85,16 @@ export default function Header() {
                     fontFamily: 'var(--font-body)',
                     fontWeight: 500,
                     fontSize: 15,
-                    color: active ? textColor : textMid,
-                    borderBottom: active
-                      ? '2px solid var(--amber)'
-                      : '2px solid transparent',
+                    color: active ? 'var(--ink)' : 'var(--ink-mid)',
+                    borderBottom: active ? '2px solid var(--amber)' : '2px solid transparent',
                     paddingBottom: 4,
                     transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) e.currentTarget.style.color = 'var(--ink)'
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) e.currentTarget.style.color = 'var(--ink-mid)'
                   }}
                 >
                   {l.label}
@@ -148,8 +107,7 @@ export default function Header() {
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
                 fontSize: 15,
-                color: textMid,
-                transition: 'color 0.15s',
+                color: 'var(--ink-mid)',
               }}
             >
               Log in
@@ -168,27 +126,15 @@ export default function Header() {
                 borderRadius: 8,
                 transition: 'background 0.2s',
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = 'var(--amber-hover)')
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = 'var(--amber)')
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--amber-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--amber)')}
             >
               Try it free
             </Link>
           </nav>
 
           {/* Mobile controls */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              marginLeft: 'auto',
-            }}
-            className="mobile-only"
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }} className="mobile-only">
             <Link
               href="/try"
               style={{
@@ -214,36 +160,16 @@ export default function Header() {
               style={{
                 width: 42,
                 height: 42,
-                border: `1px solid ${isDarkHero && !scrolled ? 'var(--ink-subtle)' : 'var(--rule)'}`,
+                border: '1px solid var(--rule)',
                 borderRadius: 8,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'border-color 0.24s',
               }}
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                aria-hidden="true"
-              >
-                <line
-                  x1="2"
-                  y1="5"
-                  x2="16"
-                  y2="5"
-                  stroke={textColor}
-                  strokeWidth="1.6"
-                />
-                <line
-                  x1="2"
-                  y1="13"
-                  x2="16"
-                  y2="13"
-                  stroke={textColor}
-                  strokeWidth="1.6"
-                />
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <line x1="2" y1="5" x2="16" y2="5" stroke="var(--ink)" strokeWidth="1.6" />
+                <line x1="2" y1="13" x2="16" y2="13" stroke="var(--ink)" strokeWidth="1.6" />
               </svg>
             </button>
           </div>
@@ -269,13 +195,7 @@ export default function Header() {
           aria-modal="true"
           aria-label="Menu"
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -302,29 +222,13 @@ export default function Header() {
                 color: 'var(--parchment)',
               }}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 3l10 10M13 3l-10 10"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                />
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 3l10 10M13 3l-10 10" stroke="currentColor" strokeWidth="1.6" />
               </svg>
             </button>
           </div>
 
-          <nav
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-              marginTop: 40,
-            }}
-          >
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 40 }}>
             {navLinks.map((l) => (
               <Link
                 key={l.href}
@@ -343,14 +247,7 @@ export default function Header() {
             ))}
           </nav>
 
-          <div
-            style={{
-              marginTop: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Link
               href="/try"
               onClick={closeMobile}
@@ -398,15 +295,9 @@ export default function Header() {
                 color: 'var(--rule)',
               }}
             >
-              <Link href="/framework" onClick={closeMobile}>
-                Framework
-              </Link>
-              <Link href="/story" onClick={closeMobile}>
-                Our story
-              </Link>
-              <Link href="/vs-rationale" onClick={closeMobile}>
-                vs Rationale
-              </Link>
+              <Link href="/framework" onClick={closeMobile}>Framework</Link>
+              <Link href="/story" onClick={closeMobile}>Our story</Link>
+              <Link href="/contact" onClick={closeMobile}>Contact</Link>
             </div>
           </div>
         </div>

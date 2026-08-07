@@ -1,337 +1,211 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowIcon } from '@/components/icons'
 
-const ghostQuestions = [
-  'Should I leave my job to start a company?',
-  'Is remote schooling better for my child?',
-  'Should we adopt AI grading in our district?',
-  'Is it ethical to use AI-generated art commercially?',
-  'Should I move abroad for a lower cost of living?',
-]
-
-function NineMarkHero() {
-  const [filled, setFilled] = useState(0)
-
+function HeroHouseSvg() {
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFilled((f) => (f >= 9 ? 0 : f + 1))
-    }, 320)
-    return () => clearInterval(interval)
+    const timer = setTimeout(() => {
+      document.querySelectorAll('.house-layer').forEach((el) => {
+        ;(el as SVGElement).style.animation = 'none'
+        ;(el as SVGElement).style.strokeDashoffset = '0'
+      })
+    }, 1700)
+    return () => clearTimeout(timer)
   }, [])
 
+  const layers: { d?: string; rect?: [number, number, number, number]; line?: [number, number, number, number]; sw?: number; delay: number }[] = [
+    { d: 'M44 414 H316 V432 H44 Z', delay: 0 },
+    { rect: [60, 370, 240, 44], delay: 60 },
+    { rect: [60, 326, 240, 44], delay: 140 },
+    { rect: [60, 282, 240, 44], delay: 220 },
+    { line: [140, 282, 140, 326], sw: 1.2, delay: 300 },
+    { line: [220, 282, 220, 326], sw: 1.2, delay: 300 },
+    { rect: [60, 238, 240, 44], delay: 300 },
+    { rect: [60, 194, 240, 44], delay: 380 },
+    { rect: [60, 150, 240, 44], delay: 460 },
+    { d: 'M44 150 L180 24 L316 150', delay: 540 },
+  ]
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 10px)',
-        gap: '4px',
-      }}
-      aria-hidden="true"
-    >
-      {Array.from({ length: 9 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: 2,
-            background: i < filled ? 'var(--amber)' : 'var(--ink-mid)',
-            transition: 'background 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-        />
-      ))}
-    </div>
+    <svg viewBox="0 0 360 452" style={{ width: '100%', height: 'auto' }}>
+      <defs>
+        <pattern id="bpgrid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" fill="#AEB8C7" opacity="0.5" />
+        </pattern>
+      </defs>
+      <rect width="360" height="452" fill="url(#bpgrid)" />
+      <rect x="60" y="150" width="240" height="44" fill="#F2B021" opacity="0.16" />
+      <rect x="174" y="60" width="12" height="12" fill="#F2B021" />
+      {layers.map((l, i) => {
+        const style = { animationDelay: `${l.delay}ms` }
+        if (l.d) {
+          return (
+            <path
+              key={i}
+              d={l.d}
+              stroke="#14213A"
+              strokeWidth="1.6"
+              fill="none"
+              pathLength={1}
+              className="house-layer"
+              style={style}
+            />
+          )
+        }
+        if (l.rect) {
+          const [x, y, w, h] = l.rect
+          return (
+            <rect
+              key={i}
+              x={x} y={y} width={w} height={h}
+              stroke="#14213A"
+              strokeWidth="1.6"
+              fill="none"
+              pathLength={1}
+              className="house-layer"
+              style={style}
+            />
+          )
+        }
+        if (l.line) {
+          const [x1, y1, x2, y2] = l.line
+          return (
+            <line
+              key={i}
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke="#14213A"
+              strokeWidth={l.sw ?? 1.6}
+              pathLength={1}
+              className="house-layer"
+              style={style}
+            />
+          )
+        }
+        return null
+      })}
+    </svg>
   )
 }
 
 export default function HeroSection() {
-  const router = useRouter()
-  const [value, setValue] = useState('')
-  const [ghostIdx, setGhostIdx] = useState(0)
-  const [ghostVisible, setGhostVisible] = useState(true)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const cycle = setInterval(() => {
-      setGhostVisible(false)
-      setTimeout(() => {
-        setGhostIdx((i) => (i + 1) % ghostQuestions.length)
-        setGhostVisible(true)
-      }, 400)
-    }, 4000)
-    return () => clearInterval(cycle)
-  }, [])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (value.trim()) {
-      router.push(`/try?q=${encodeURIComponent(value.trim())}`)
-    } else {
-      router.push('/try')
-    }
-  }
-
   return (
-    <section
-      className="ink-surface"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingBlock: 'clamp(80px, 15vh, 160px)',
-        paddingInline: 'var(--px)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Architectural grid background */}
-      <svg
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          opacity: 0.035,
-          pointerEvents: 'none',
-        }}
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="hero-grid"
-            width="60"
-            height="60"
-            patternUnits="userSpaceOnUse"
-          >
-            <line x1="60" y1="0" x2="60" y2="60" stroke="#F7F6F2" strokeWidth="0.5" />
-            <line x1="0" y1="60" x2="60" y2="60" stroke="#F7F6F2" strokeWidth="0.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#hero-grid)" />
-      </svg>
-
-      {/* Nine mark in corner */}
+    <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--hero-py)' }}>
       <div
+        className="container"
         style={{
-          position: 'absolute',
-          top: 'clamp(80px, 10vh, 120px)',
-          right: 'var(--px)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 'clamp(40px, 5vw, 72px)',
+          alignItems: 'center',
         }}
       >
-        <NineMarkHero />
-      </div>
+        {/* Left — Copy */}
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
+            <span className="eyebrow">Sheet 01 / Home</span>
+          </div>
 
-      {/* Main content */}
-      <div
-        style={{
-          maxWidth: '52ch',
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
-        {/* System annotation */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            marginBottom: 32,
-          }}
-        >
-          <span
+          <h1
             style={{
-              width: 24,
-              height: 1,
-              background: 'var(--amber)',
-              display: 'block',
-            }}
-          />
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'var(--rule)',
+              fontFamily: 'var(--font-display)',
+              fontWeight: 500,
+              fontSize: 'clamp(40px, 6vw, 72px)',
+              lineHeight: 1.04,
+              letterSpacing: '-0.015em',
+              marginTop: 20,
+              color: 'var(--ink)',
             }}
           >
-            8 layers · 9 standards · 47 reviewers
-          </span>
-          <span
-            style={{
-              width: 24,
-              height: 1,
-              background: 'var(--amber)',
-              display: 'block',
-            }}
-          />
-        </div>
+            Build the reasoning,
+            <br />
+            not just the answer.
+          </h1>
 
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 'clamp(36px, 7vw, 76px)',
-            lineHeight: 1.0,
-            letterSpacing: '-0.025em',
-            color: 'var(--parchment)',
-          }}
-        >
-          What are you
-          <br />
-          trying to{' '}
-          <span
+          <p
             style={{
-              color: 'var(--amber)',
-              fontStyle: 'italic',
+              fontFamily: 'var(--font-body)',
+              fontSize: 'clamp(17px, 1.6vw, 19px)',
+              lineHeight: 1.6,
+              color: 'var(--ink-mid)',
+              maxWidth: '36ch',
+              marginTop: 22,
             }}
           >
-            decide
-          </span>
-          ?
-        </h1>
+            For hard decisions and arguments that deserve more than a paid
+            verdict. Houses of Thought turns a question into structured,
+            defensible reasoning — perspectives, evidence, assumptions — built
+            on a real teacher&rsquo;s framework for critical thinking, with AI
+            that guides instead of deciding.
+          </p>
 
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 'clamp(16px, 1.5vw, 19px)',
-            lineHeight: 1.6,
-            color: 'var(--rule)',
-            maxWidth: '42ch',
-            margin: '28px auto 0',
-          }}
-        >
-          Don&rsquo;t pay $100/month for an AI verdict you can&rsquo;t inspect.
-          Build the reasoning yourself — perspectives, evidence, assumptions —
-          graded by nine intellectual standards. Free, always.
-        </p>
-
-        {/* The input box */}
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            marginTop: 44,
-            position: 'relative',
-          }}
-        >
-          <div
-            className="live-edge"
-            style={{
-              position: 'relative',
-              borderRadius: 12,
-              background: 'var(--ink-mid)',
-              border: '1px solid var(--ink-subtle)',
-              overflow: 'hidden',
-            }}
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              aria-label="Enter a question to reason about"
-              style={{
-                width: '100%',
-                padding: '20px 120px 20px 22px',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'clamp(16px, 1.3vw, 18px)',
-                color: 'var(--parchment)',
-                caretColor: 'var(--amber)',
-              }}
-            />
-            {/* Ghost placeholder */}
-            {!value && (
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 22,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 'clamp(16px, 1.3vw, 18px)',
-                  color: 'var(--ink-subtle)',
-                  pointerEvents: 'none',
-                  opacity: ghostVisible ? 0.6 : 0,
-                  transition: 'opacity 0.35s',
-                }}
-              >
-                {ghostQuestions[ghostIdx]}
-              </span>
-            )}
-            <button
-              type="submit"
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                padding: '10px 20px',
-                background: 'var(--amber)',
-                color: 'var(--ink)',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 600,
-                fontSize: 15,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--amber-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--amber)')}
-            >
-              Build →
-            </button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 32 }}>
+            <Link href="/try" className="btn-primary">
+              Try it free <ArrowIcon />
+            </Link>
+            <Link href="/how-it-works" className="btn-secondary">
+              Read how it works
+            </Link>
           </div>
 
           <p
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              color: 'var(--ink-subtle)',
-              marginTop: 14,
+              fontSize: 12,
               letterSpacing: '0.04em',
+              color: 'var(--ink-subtle)',
+              marginTop: 18,
             }}
           >
-            No sign-up required. No payment ever.
+            Free, always — no $10&ndash;$100/month tiers.
           </p>
-        </form>
-      </div>
+        </div>
 
-      {/* Bottom annotation */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 'clamp(24px, 4vh, 48px)',
-          left: 'var(--px)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'var(--ink-subtle)',
-        }}
-      >
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 1,
-            background: 'var(--amber)',
-            display: 'block',
-          }}
-        />
-        Trapasso / Paul–Elder framework · Rev. A
+        {/* Right — HouseDiagram card */}
+        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)', maxWidth: 440 }}>
+          <div
+            style={{
+              background: 'var(--white)',
+              border: '1px solid var(--rule)',
+              borderRadius: 12,
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--ink-subtle)',
+                marginBottom: 16,
+              }}
+            >
+              <span>House / Detail</span>
+              <span>Foundation → Roof</span>
+            </div>
+
+            <HeroHouseSvg />
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--ink-subtle)',
+                marginTop: 16,
+              }}
+            >
+              <span>7 layers</span>
+              <span>Draws in 900ms</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

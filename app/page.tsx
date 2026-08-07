@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
-import ScrollRevealInit from '@/components/ScrollReveal'
 import Header from '@/components/Header'
-import ProofStrip from '@/components/ProofStrip'
+import SheetStrip from '@/components/SheetStrip'
+import ScrollRevealInit from '@/components/ScrollReveal'
 import HeroSection from '@/components/sections/HeroSection'
 import ProblemSection from '@/components/sections/ProblemSection'
-import DifferentiatorSection from '@/components/sections/DifferentiatorSection'
 import InteractiveHouseSection from '@/components/sections/InteractiveHouseSection'
 import HowItWorksSection from '@/components/sections/HowItWorksSection'
-import ExampleTeaserSection from '@/components/sections/ExampleTeaserSection'
+import DifferentiatorSection from '@/components/sections/DifferentiatorSection'
 import RationaleComparisonSection from '@/components/sections/RationaleComparisonSection'
 import EducatorsSection from '@/components/sections/EducatorsSection'
+import ExampleTeaserSection from '@/components/sections/ExampleTeaserSection'
 import OriginQuoteSection from '@/components/sections/OriginQuoteSection'
 import FinalCtaSection from '@/components/sections/FinalCtaSection'
 import Footer from '@/components/sections/Footer'
@@ -25,16 +25,16 @@ export default function Home() {
     <>
       <ScrollRevealInit />
       <Header />
+      <SheetStrip />
       <main id="main">
         <HeroSection />
-        <ProofStrip />
         <ProblemSection />
-        <DifferentiatorSection />
         <InteractiveHouseSection />
         <HowItWorksSection />
-        <ExampleTeaserSection />
+        <DifferentiatorSection />
         <RationaleComparisonSection />
         <EducatorsSection />
+        <ExampleTeaserSection />
         <OriginQuoteSection />
         <FinalCtaSection />
       </main>
