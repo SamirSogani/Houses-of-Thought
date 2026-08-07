@@ -1,210 +1,205 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowIcon } from '@/components/icons'
 
-function HeroHouseSvg() {
+/* Animated counter that ticks up from 0 to `end` */
+function AnimCounter({ end, suffix = '' }: { end: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      document.querySelectorAll('.house-layer').forEach((el) => {
-        ;(el as SVGElement).style.animation = 'none'
-        ;(el as SVGElement).style.strokeDashoffset = '0'
-      })
-    }, 1700)
-    return () => clearTimeout(timer)
-  }, [])
+    const el = ref.current
+    if (!el) return
+    let frame = 0
+    const total = 36
+    const tick = () => {
+      frame++
+      const t = Math.min(frame / total, 1)
+      const eased = 1 - Math.pow(1 - t, 3) // ease-out cubic
+      el.textContent = `${Math.round(end * eased)}${suffix}`
+      if (t < 1) requestAnimationFrame(tick)
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { tick(); observer.disconnect() } },
+      { threshold: 0.3 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [end, suffix])
 
-  const layers: { d?: string; rect?: [number, number, number, number]; line?: [number, number, number, number]; sw?: number; delay: number }[] = [
-    { d: 'M44 414 H316 V432 H44 Z', delay: 0 },
-    { rect: [60, 370, 240, 44], delay: 60 },
-    { rect: [60, 326, 240, 44], delay: 140 },
-    { rect: [60, 282, 240, 44], delay: 220 },
-    { line: [140, 282, 140, 326], sw: 1.2, delay: 300 },
-    { line: [220, 282, 220, 326], sw: 1.2, delay: 300 },
-    { rect: [60, 238, 240, 44], delay: 300 },
-    { rect: [60, 194, 240, 44], delay: 380 },
-    { rect: [60, 150, 240, 44], delay: 460 },
-    { d: 'M44 150 L180 24 L316 150', delay: 540 },
-  ]
-
-  return (
-    <svg viewBox="0 0 360 452" style={{ width: '100%', height: 'auto' }}>
-      <defs>
-        <pattern id="bpgrid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="#AEB8C7" opacity="0.5" />
-        </pattern>
-      </defs>
-      <rect width="360" height="452" fill="url(#bpgrid)" />
-      <rect x="60" y="150" width="240" height="44" fill="#F2B021" opacity="0.16" />
-      <rect x="174" y="60" width="12" height="12" fill="#F2B021" />
-      {layers.map((l, i) => {
-        const style = { animationDelay: `${l.delay}ms` }
-        if (l.d) {
-          return (
-            <path
-              key={i}
-              d={l.d}
-              stroke="#14213A"
-              strokeWidth="1.6"
-              fill="none"
-              pathLength={1}
-              className="house-layer"
-              style={style}
-            />
-          )
-        }
-        if (l.rect) {
-          const [x, y, w, h] = l.rect
-          return (
-            <rect
-              key={i}
-              x={x} y={y} width={w} height={h}
-              stroke="#14213A"
-              strokeWidth="1.6"
-              fill="none"
-              pathLength={1}
-              className="house-layer"
-              style={style}
-            />
-          )
-        }
-        if (l.line) {
-          const [x1, y1, x2, y2] = l.line
-          return (
-            <line
-              key={i}
-              x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke="#14213A"
-              strokeWidth={l.sw ?? 1.6}
-              pathLength={1}
-              className="house-layer"
-              style={style}
-            />
-          )
-        }
-        return null
-      })}
-    </svg>
-  )
+  return <span ref={ref}>0{suffix}</span>
 }
+
+const stats: { value: number; suffix?: string; label: string }[] = [
+  { value: 47, label: 'AI review agents' },
+  { value: 9, label: 'Intellectual standards' },
+  { value: 8, label: 'Reasoning layers' },
+]
 
 export default function HeroSection() {
   return (
-    <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--hero-py)' }}>
-      <div
-        className="container"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'clamp(40px, 5vw, 72px)',
-          alignItems: 'center',
-        }}
+    <section
+      className="ink-surface"
+      style={{ background: 'var(--ink)', paddingBlock: 'var(--hero-py)', position: 'relative', overflow: 'hidden' }}
+    >
+      {/* Blueprint dot grid overlay */}
+      <svg
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.35 }}
+        aria-hidden="true"
       >
-        {/* Left — Copy */}
-        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
-            <span className="eyebrow">Sheet 01 / Home</span>
-          </div>
+        <defs>
+          <pattern id="hero-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.8" fill="#3E5C8A" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#hero-dots)" />
+      </svg>
 
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 500,
-              fontSize: 'clamp(40px, 6vw, 72px)',
-              lineHeight: 1.04,
-              letterSpacing: '-0.015em',
-              marginTop: 20,
-              color: 'var(--ink)',
-            }}
-          >
-            Build the reasoning,
-            <br />
-            not just the answer.
-          </h1>
-
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 'clamp(17px, 1.6vw, 19px)',
-              lineHeight: 1.6,
-              color: 'var(--ink-mid)',
-              maxWidth: '36ch',
-              marginTop: 22,
-            }}
-          >
-            For hard decisions and arguments that deserve more than a paid
-            verdict. Houses of Thought turns a question into structured,
-            defensible reasoning — perspectives, evidence, assumptions — built
-            on a real teacher&rsquo;s framework for critical thinking, with AI
-            that guides instead of deciding.
-          </p>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 32 }}>
-            <Link href="/try" className="btn-primary">
-              Try it free <ArrowIcon />
-            </Link>
-            <Link href="/how-it-works" className="btn-secondary">
-              Read how it works
-            </Link>
-          </div>
-
-          <p
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 12,
-              letterSpacing: '0.04em',
-              color: 'var(--ink-subtle)',
-              marginTop: 18,
-            }}
-          >
-            Free, always — no $10&ndash;$100/month tiers.
-          </p>
+      <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+        {/* Eyebrow */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+          <span style={{ display: 'block', width: 28, height: 1, background: 'var(--amber)' }} />
+          <span className="eyebrow" style={{ color: 'var(--rule)' }}>Sheet 01 / Home</span>
         </div>
 
-        {/* Right — HouseDiagram card */}
-        <div style={{ flex: '1 1 380px', minWidth: 'min(300px, 100%)', maxWidth: 440 }}>
-          <div
+        {/* Headline */}
+        <h1
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 500,
+            fontSize: 'clamp(38px, 6vw, 76px)',
+            lineHeight: 1.04,
+            letterSpacing: '-0.02em',
+            color: 'var(--parchment)',
+            maxWidth: '18ch',
+          }}
+        >
+          One question in.
+          <br />
+          <span style={{ color: 'var(--amber)' }}>Defensible reasoning</span> out.
+        </h1>
+
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 'clamp(17px, 1.6vw, 20px)',
+            lineHeight: 1.6,
+            color: 'var(--rule)',
+            maxWidth: '48ch',
+            marginTop: 24,
+          }}
+        >
+          Type a question. Add context if you want. Our pipeline deploys{' '}
+          <strong style={{ color: 'var(--parchment)' }}>47&nbsp;AI review agents</strong> across{' '}
+          <strong style={{ color: 'var(--parchment)' }}>8&nbsp;reasoning layers</strong>,
+          grading every claim against{' '}
+          <strong style={{ color: 'var(--parchment)' }}>9&nbsp;intellectual standards</strong>.
+          You get structured, cited, stress-tested reasoning you can actually defend.
+        </p>
+
+        {/* Fake input field — visual centerpiece */}
+        <div
+          style={{
+            marginTop: 40,
+            maxWidth: 560,
+            border: '1px solid var(--ink-mid)',
+            borderRadius: 10,
+            background: 'rgba(247,246,242,0.04)',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <span
             style={{
-              background: 'var(--white)',
-              border: '1px solid var(--rule)',
-              borderRadius: 12,
-              padding: 24,
+              fontFamily: 'var(--font-body)',
+              fontSize: 17,
+              color: 'var(--ink-subtle)',
+              flex: 1,
             }}
           >
+            Should I take the job offer or stay?
+          </span>
+          <Link
+            href="/try"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 42,
+              padding: '0 20px',
+              background: 'var(--amber)',
+              color: 'var(--ink)',
+              fontWeight: 600,
+              fontSize: 15,
+              borderRadius: 7,
+              whiteSpace: 'nowrap',
+              transition: 'background 0.2s',
+            }}
+          >
+            Build <ArrowIcon size={14} />
+          </Link>
+        </div>
+
+        <p
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            color: 'var(--ink-subtle)',
+            marginTop: 12,
+            letterSpacing: '0.04em',
+          }}
+        >
+          Free, always &mdash; no sign-up required to try.
+        </p>
+
+        {/* Stats bar */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 0,
+            marginTop: 52,
+            borderTop: '1px solid var(--ink-mid)',
+          }}
+        >
+          {stats.map((s, i) => (
             <div
+              key={s.label}
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: 'var(--ink-subtle)',
-                marginBottom: 16,
+                flex: '1 1 160px',
+                padding: '28px 0',
+                borderRight: i < stats.length - 1 ? '1px solid var(--ink-mid)' : 'none',
+                paddingRight: i < stats.length - 1 ? 32 : 0,
+                paddingLeft: i > 0 ? 32 : 0,
               }}
             >
-              <span>House / Detail</span>
-              <span>Foundation → Roof</span>
+              <div
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 'clamp(36px, 4vw, 52px)',
+                  color: 'var(--amber)',
+                  lineHeight: 1,
+                }}
+              >
+                <AnimCounter end={s.value} suffix={s.suffix} />
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  color: 'var(--rule)',
+                  marginTop: 8,
+                }}
+              >
+                {s.label}
+              </div>
             </div>
-
-            <HeroHouseSvg />
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--ink-subtle)',
-                marginTop: 16,
-              }}
-            >
-              <span>7 layers</span>
-              <span>Draws in 900ms</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

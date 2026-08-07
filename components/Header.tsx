@@ -15,6 +15,7 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [overDark, setOverDark] = useState(false)
   // The mobile sheet is a modal surface: trap Tab inside it and hand focus
   // back to the hamburger on close (a11y C2). It previously had no dialog
   // semantics and left focus behind the overlay entirely.
@@ -24,19 +25,31 @@ export default function Header() {
   useEffect(() => {
     const header = document.getElementById('site-header')
     if (!header) return
+    const isHome = pathname === '/'
     const onScroll = () => {
       const past = window.scrollY > 24
       header.style.paddingBlock = past ? '11px' : '18px'
-      header.style.borderBottom = past
-        ? '1px solid #AEB8C7'
-        : '1px solid transparent'
-      header.style.background = past
-        ? 'rgba(247,246,242,0.95)'
-        : 'rgba(247,246,242,0.82)'
+      if (isHome && !past) {
+        // Dark hero: transparent header with light text
+        header.style.background = 'transparent'
+        header.style.borderBottom = '1px solid transparent'
+        header.dataset.overDark = 'true'
+        setOverDark(true)
+      } else {
+        header.dataset.overDark = 'false'
+        setOverDark(false)
+        header.style.background = past
+          ? 'rgba(247,246,242,0.95)'
+          : 'rgba(247,246,242,0.82)'
+        header.style.borderBottom = past
+          ? '1px solid #AEB8C7'
+          : '1px solid transparent'
+      }
     }
+    onScroll() // run once on mount
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [pathname])
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
@@ -57,7 +70,7 @@ export default function Header() {
       <header id="site-header" className="site-header">
         <div className="container" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <LogoMark />
+            <LogoMark stroke={overDark ? '#F7F6F2' : '#14213A'} />
             <span
               className="mk-header-brand-text"
               style={{

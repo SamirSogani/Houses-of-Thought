@@ -1,17 +1,20 @@
 const columns = [
   {
-    title: 'Guided, not given',
-    body: 'You reason with the AI, not through it. The co-pilot asks the next question instead of handing you the answer.',
+    stat: '47',
+    title: 'Review agents',
+    body: 'Not one AI voice. A pipeline of specialized agents, each responsible for a different layer and standard. Every claim is cross-examined before it reaches you.',
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <circle cx="14" cy="14" r="10" stroke="#F2B021" strokeWidth="1.4" fill="none" />
-        <path d="M10 14h8M14 10v8" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="5" stroke="#F2B021" strokeWidth="1.4" fill="none" />
+        <circle cx="18" cy="10" r="5" stroke="#F2B021" strokeWidth="1.4" fill="none" />
+        <circle cx="14" cy="18" r="5" stroke="#F2B021" strokeWidth="1.4" fill="none" />
       </svg>
     ),
   },
   {
-    title: 'Grounded in evidence',
-    body: 'Research Mode cites real sources, so the reasoning rests on facts you can check instead of on hallucination.',
+    stat: '9',
+    title: 'Intellectual standards',
+    body: 'Clarity. Accuracy. Precision. Relevance. Depth. Breadth. Logic. Significance. Fairness. Every layer is graded against all nine, from the Paul–Elder model.',
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
         <rect x="6" y="4" width="16" height="20" rx="2" stroke="#F2B021" strokeWidth="1.4" fill="none" />
@@ -22,13 +25,15 @@ const columns = [
     ),
   },
   {
-    title: 'Stress-tested',
-    body: 'Challenge your conclusion before reality does. The AI attacks your weakest layer until the house holds.',
+    stat: '8',
+    title: 'Reasoning layers',
+    body: 'Concepts, question, perspectives, evidence, assumptions, conclusion, implications, stress test. Built bottom-up, each resting on the last. Nothing hidden.',
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <path d="M14 4 L24 22 H4 Z" stroke="#F2B021" strokeWidth="1.4" fill="none" strokeLinejoin="round" />
-        <line x1="14" y1="11" x2="14" y2="16" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
-        <circle cx="14" cy="19" r="0.8" fill="#FFFFFF" />
+        <rect x="6" y="20" width="16" height="4" stroke="#F2B021" strokeWidth="1.4" fill="none" />
+        <rect x="6" y="14" width="16" height="4" stroke="#F2B021" strokeWidth="1.4" fill="none" />
+        <rect x="6" y="8" width="16" height="4" stroke="#F2B021" strokeWidth="1.4" fill="none" />
+        <path d="M6 8 L14 2 L22 8" stroke="#F2B021" strokeWidth="1.4" fill="none" />
       </svg>
     ),
   },
@@ -36,14 +41,15 @@ const columns = [
 
 export default function DifferentiatorSection() {
   return (
-    <section style={{ background: 'var(--ink)', paddingBlock: 'var(--section-py)' }}>
+    <section className="ink-surface" style={{ background: 'var(--ink)', paddingBlock: 'var(--section-py)' }}>
       <div className="container">
-        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 05 — The difference</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 05 &mdash; The difference</p>
         <h2
           className="h2"
-          style={{ color: 'var(--parchment)', marginTop: 16 }}
+          style={{ color: 'var(--parchment)', marginTop: 16, maxWidth: '24ch' }}
         >
-          AI that guides, not decides.
+          Not a chatbot answer.
+          <br />A reasoning architecture.
         </h2>
 
         <div
@@ -66,13 +72,25 @@ export default function DifferentiatorSection() {
               }}
             >
               {col.icon}
+              <div
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 40,
+                  color: 'var(--amber)',
+                  marginTop: 14,
+                  lineHeight: 1,
+                }}
+              >
+                {col.stat}
+              </div>
               <h3
                 style={{
                   fontFamily: 'var(--font-display)',
                   fontWeight: 500,
                   fontSize: 21,
                   color: 'var(--parchment)',
-                  marginTop: 16,
+                  marginTop: 8,
                 }}
               >
                 {col.title}
