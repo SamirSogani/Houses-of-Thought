@@ -3,21 +3,18 @@ import Link from 'next/link'
 const steps = [
   {
     num: '01',
-    tag: 'You',
-    title: 'Type your question.',
-    body: 'A decision, a topic, a debate. The harder it is to answer in one line, the better it fits. Add context if you want — or don’t.',
+    title: 'Ask a question worth reasoning about.',
+    body: 'Bring a decision, a topic, or an essay. The harder it is to answer in one line, the better it fits.',
   },
   {
     num: '02',
-    tag: 'Pipeline',
-    title: '47 agents reason through it.',
-    body: 'Eight layers are constructed automatically: concepts, perspectives, cited evidence, assumptions, competing conclusions. Each layer is reviewed by a panel of nine specialized agents.',
+    title: 'Explore perspectives and evidence.',
+    body: 'AI guides with questions and cites real sources in Research Mode. It won’t write your conclusion for you.',
   },
   {
     num: '03',
-    tag: 'Result',
-    title: 'Get reasoning you can defend.',
-    body: 'See competing conclusions scored on evidence, logic, and coverage. Every claim links to its source. The stress test tells you where your house is weakest.',
+    title: 'Reach a conclusion you can defend.',
+    body: 'See a House Strength score across evidence, logic, and coverage, then stress-test it.',
   },
 ]
 
@@ -25,9 +22,9 @@ export default function HowItWorksSection() {
   return (
     <section style={{ background: 'var(--white)', paddingBlock: 'var(--section-py)' }}>
       <div className="container">
-        <p className="eyebrow">Section 04 &mdash; How it works</p>
+        <p className="eyebrow">Section 04 — How it works</p>
         <h2 className="h2" style={{ marginTop: 16 }}>
-          You do one thing. We do everything else.
+          Three steps from question to defensible answer.
         </h2>
 
         <div
@@ -48,33 +45,16 @@ export default function HowItWorksSection() {
                 paddingTop: 22,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 13,
-                    letterSpacing: '0.08em',
-                    color: 'var(--amber-text)',
-                  }}
-                >
-                  {s.num}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    color: s.tag === 'You' ? 'var(--ink)' : 'var(--ink-subtle)',
-                    background: s.tag === 'You' ? 'var(--amber-tint)' : 'transparent',
-                    border: `1px solid ${s.tag === 'You' ? 'var(--amber)' : 'var(--rule)'}`,
-                    borderRadius: 4,
-                    padding: '2px 7px',
-                  }}
-                >
-                  {s.tag}
-                </span>
-              </div>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 13,
+                  letterSpacing: '0.08em',
+                  color: 'var(--amber-text)',
+                }}
+              >
+                {s.num}
+              </span>
               <h3
                 style={{
                   fontFamily: 'var(--font-display)',
@@ -103,7 +83,7 @@ export default function HowItWorksSection() {
 
         <div style={{ marginTop: 36 }}>
           <Link href="/how-it-works" className="text-link">
-            Read the full walkthrough &rarr;
+            Read how it works →
           </Link>
         </div>
       </div>

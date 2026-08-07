@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Header from '@/components/Header'
+import SheetStrip from '@/components/SheetStrip'
 import ScrollRevealInit from '@/components/ScrollReveal'
 import HeroSection from '@/components/sections/HeroSection'
 import ProblemSection from '@/components/sections/ProblemSection'
@@ -24,6 +25,7 @@ export default function Home() {
     <>
       <ScrollRevealInit />
       <Header />
+      <SheetStrip />
       <main id="main">
         <HeroSection />
         <ProblemSection />

@@ -1,15 +1,15 @@
-// Direct comparison against paid AI decision-support tools (e.g. Rationale).
-// Every claim here must stay true of the product as shipped today — no
-// promising a live capability that isn't reachable.
+// New section (repositioning experiment): a direct, honest comparison against
+// paid AI decision-support tools (e.g. Rationale). Every claim here must stay
+// true of the product as shipped today — no promising a live capability that
+// isn't actually reachable (see the 2026-07-19 audit's C1-C2 on dead-route /
+// overclaim damage before this repo fixed it).
 
 const rows: { label: string; them: string; us: string }[] = [
-  { label: 'Price', them: '$9.99–$99.99/month', us: 'Free, always' },
-  { label: 'Your effort', them: 'Type a question, get a verdict', us: 'Type a question — get an 8-layer architecture' },
-  { label: 'Shows its work', them: 'One AI opinion, no inspection', us: 'Every layer visible: perspectives, evidence, assumptions, conclusions' },
-  { label: 'Cited evidence', them: 'Not shown', us: 'Research Mode cites real, checkable sources' },
-  { label: 'Competing conclusions', them: 'Single answer', us: '2–4 genuinely disagreeing conclusions, scored' },
-  { label: 'Quality control', them: 'Not disclosed', us: '47 agents × 9 intellectual standards' },
+  { label: 'Price', them: '$9.99–$99.99/month', us: 'Free' },
+  { label: 'Shows its work', them: 'One AI opinion, no way to inspect it', us: 'Every layer visible — perspectives, evidence, assumptions' },
   { label: 'Built on', them: 'A generic prompt', us: 'A named critical-thinking framework, taught by a real teacher' },
+  { label: 'Cited evidence', them: 'Not shown', us: 'Research Mode cites real, checkable sources' },
+  { label: 'Graded rigor', them: 'Not disclosed', us: 'Held to the nine standards of reasoning — see the framework' },
 ]
 
 export default function RationaleComparisonSection() {
@@ -17,18 +17,20 @@ export default function RationaleComparisonSection() {
     <section style={{ background: 'var(--parchment)', borderTop: '1px solid var(--rule)', paddingBlock: 'var(--section-py)' }}>
       <div className="container" data-reveal>
         <div style={{ maxWidth: '62ch' }}>
-          <p className="eyebrow">Section 06 &mdash; Why not pay for it?</p>
+          <p className="eyebrow">Section 06 — Looking for an alternative?</p>
           <h2 className="h2" style={{ marginTop: 16 }}>
-            Same low effort. Radically better output.
+            The free alternative to paid AI decision tools.
           </h2>
           <p className="body-text" style={{ marginTop: 20 }}>
-            Tools like Rationale charge a monthly fee for an AI verdict you
-            can&rsquo;t inspect. Houses of Thought gives you the same minimal-effort
-            experience &mdash; type a question, get structured reasoning &mdash;
-            but what comes back is an entire architecture: cited sources, multiple
-            perspectives, competing conclusions scored on nine standards, and a
-            stress test that tells you where the reasoning is weakest.
-            All free.
+            Tools like Rationale charge a monthly fee for an AI to hand you a
+            pros-and-cons verdict you can&rsquo;t inspect. Houses of Thought does
+            the same job better, for free: you see every perspective, every
+            piece of cited evidence, and every assumption the case rests on,
+            built on{' '}
+            <a href="/story" className="text-link">
+              John Trapasso&rsquo;s House of Reason
+            </a>{' '}
+            &mdash; not a generic AI wrapper.
           </p>
         </div>
 

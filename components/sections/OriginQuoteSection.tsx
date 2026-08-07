@@ -4,7 +4,7 @@ export default function OriginQuoteSection() {
   return (
     <section style={{ background: 'var(--white)', paddingBlock: 'var(--section-py)' }}>
       <div className="container" style={{ maxWidth: '68ch', margin: '0 auto', textAlign: 'center' }}>
-        <p className="eyebrow">Section 09 &mdash; Where it comes from</p>
+        <p className="eyebrow">Section 09 — Where it comes from</p>
 
         <blockquote
           style={{
@@ -20,7 +20,7 @@ export default function OriginQuoteSection() {
         >
           &ldquo;Built by a student, around a framework his teacher chose to
           share: John Trapasso&rsquo;s House of Reason, derived from the
-          Paul&ndash;Elder model for critical thinking.&rdquo;
+          Paul–Elder model for critical thinking.&rdquo;
         </blockquote>
 
         <p
@@ -33,14 +33,13 @@ export default function OriginQuoteSection() {
             margin: '24px auto 0',
           }}
         >
-          Not another AI wrapper. A real method, automated with care &mdash;
-          47&nbsp;agents enforcing nine standards that a real teacher uses in real
-          classrooms.
+          Not another AI wrapper. A real method, adapted with care into
+          something students and thinkers can actually build with.
         </p>
 
         <div style={{ marginTop: 24 }}>
           <Link href="/story" className="text-link">
-            Our story &rarr;
+            Our story →
           </Link>
         </div>
       </div>

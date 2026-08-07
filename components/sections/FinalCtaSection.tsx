@@ -3,12 +3,12 @@ import { ArrowIcon } from '@/components/icons'
 
 export default function FinalCtaSection() {
   return (
-    <section className="ink-surface" style={{ background: 'var(--ink)', paddingBlock: 'clamp(56px, 9vw, 104px)' }}>
+    <section style={{ background: 'var(--ink)', paddingBlock: 'clamp(56px, 9vw, 104px)' }}>
       <div
         className="container"
         style={{ maxWidth: '62ch', margin: '0 auto', textAlign: 'center' }}
       >
-        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 10 &mdash; Start</p>
+        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 10 — Start</p>
 
         <h2
           style={{
@@ -21,23 +21,8 @@ export default function FinalCtaSection() {
             marginTop: 16,
           }}
         >
-          One question. That&rsquo;s all it takes.
+          Pick a question you can&rsquo;t crack.
         </h2>
-
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 17,
-            lineHeight: 1.6,
-            color: 'var(--rule)',
-            maxWidth: '44ch',
-            margin: '20px auto 0',
-          }}
-        >
-          Type your hardest question. 47&nbsp;agents build the reasoning.
-          Nine standards grade it. You get a defensible answer with every
-          layer visible.
-        </p>
 
         <div
           style={{
@@ -64,7 +49,8 @@ export default function FinalCtaSection() {
             marginTop: 22,
           }}
         >
-          No sign-up to try. Free &mdash; no $10&ndash;$100/month tiers, ever.
+          No sign-up to try. Completely free — no $10&ndash;$100/month tiers,
+          ever.
         </p>
       </div>
     </section>

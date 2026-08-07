@@ -18,11 +18,11 @@ export default function ExampleTeaserSection() {
       <div className="container">
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <p className="eyebrow">Section 08 &mdash; Example</p>
-            <h2 className="h2" style={{ marginTop: 16 }}>See what one question produces.</h2>
+            <p className="eyebrow">Section 08 — Example</p>
+            <h2 className="h2" style={{ marginTop: 16 }}>See a completed house.</h2>
           </div>
           <Link href="/examples" className="text-link" style={{ whiteSpace: 'nowrap' }}>
-            Browse all examples &rarr;
+            Browse all examples →
           </Link>
         </div>
 
@@ -49,16 +49,16 @@ export default function ExampleTeaserSection() {
               }}
             >
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {['Education', '8 / 8 layers', 'Auto-built'].map((tag) => (
+                {['Education', '7 / 7 layers'].map((tag) => (
                   <span
                     key={tag}
                     style={{
-                      border: `1px solid ${tag === 'Auto-built' ? 'var(--green-strong)' : 'var(--rule)'}`,
+                      border: '1px solid var(--rule)',
                       borderRadius: 4,
                       padding: '3px 8px',
                       fontFamily: 'var(--font-mono)',
                       fontSize: 11,
-                      color: tag === 'Auto-built' ? 'var(--green-text)' : 'var(--ink-subtle)',
+                      color: 'var(--ink-subtle)',
                     }}
                   >
                     {tag}
@@ -85,9 +85,8 @@ export default function ExampleTeaserSection() {
                   lineHeight: 1.5,
                 }}
               >
-                One question typed. 47&nbsp;agents produced three stakeholder
-                perspectives, six cited sources, and a conclusion that survived
-                a stress test.
+                Three stakeholder perspectives, six cited sources, and a
+                conclusion that survived a stress test.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
@@ -209,7 +208,7 @@ export default function ExampleTeaserSection() {
                   color: 'var(--ink)',
                 }}
               >
-                Open this house &rarr;
+                Open this house →
               </span>
             </div>
           </div>

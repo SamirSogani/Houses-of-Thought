@@ -92,8 +92,8 @@ export default function Footer() {
                 marginTop: 14,
               }}
             >
-              Defensible reasoning from a single question &mdash; 47&nbsp;agents,
-              9&nbsp;standards, free.
+              Structured, defensible reasoning, with AI that guides instead of
+              deciding.
             </p>
           </div>
 

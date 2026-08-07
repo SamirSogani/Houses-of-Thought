@@ -2,63 +2,138 @@
 
 import { useState } from 'react'
 
-/* The pipeline visualization: show the 8 layers and what each one does
-   automatically — the user provided nothing except a question. */
+type LayerKey = 'concepts' | 'question' | 'perspectives' | 'evidence' | 'assumptions' | 'conclusion' | 'implications'
 
-type LayerKey = 'concepts' | 'question' | 'perspectives' | 'evidence' | 'assumptions' | 'conclusion' | 'implications' | 'stress'
-
-const layerDefs: Record<LayerKey, { num: string; name: string; agents: number; definition: string }> = {
+const layerDefs: Record<LayerKey, { num: string; name: string; definition: string }> = {
   concepts: {
     num: '01',
     name: 'Concepts',
-    agents: 5,
-    definition: 'The system defines every key term so reasoning starts from shared vocabulary, not ambiguity.',
+    definition: 'The key terms that frame the topic, defined before you reason so everyone shares the same vocabulary.',
   },
   question: {
     num: '02',
     name: 'Overarching Question',
-    agents: 4,
-    definition: 'Your question is refined into the single central question the entire house answers.',
+    definition: 'The single central question the whole house is built to answer.',
   },
   perspectives: {
     num: '03',
     name: 'Perspectives',
-    agents: 7,
-    definition: 'Three lenses (Self, Group, Ideas) are generated so the reasoning sees past a single point of view.',
+    definition: 'Three lenses on the question (Self, Group, and Ideas), so you reason past your own point of view.',
   },
   evidence: {
     num: '04',
     name: 'Evidence',
-    agents: 8,
-    definition: 'Research Mode finds and cites real sources. Every fact is checkable, not hallucinated.',
+    definition: 'Facts gathered from real, cited sources. Research Mode grounds the house and resists hallucination.',
   },
   assumptions: {
     num: '05',
     name: 'Assumptions',
-    agents: 5,
-    definition: 'Hidden beliefs are surfaced — including the unknown unknowns you would miss on your own.',
+    definition: 'Beliefs taken as true without direct evidence, including the unknown unknowns you might miss.',
   },
   conclusion: {
     num: '06',
     name: 'Conclusion',
-    agents: 7,
-    definition: 'Multiple genuinely disagreeing conclusions are generated, then scored on evidence, logic, and coverage.',
+    definition: 'The synthesized answer, scored across Evidence, Logic, and Coverage.',
   },
   implications: {
     num: '07',
     name: 'Implications',
-    agents: 6,
-    definition: 'Positive, negative, and uncertain consequences are mapped so nothing catches you off guard.',
-  },
-  stress: {
-    num: '08',
-    name: 'Stress Test',
-    agents: 5,
-    definition: 'The weakest layer is attacked. If the house survives, it’s defensible. If not, it tells you where.',
+    definition: 'What follows from the conclusion, sorted into positive, negative, and uncertain.',
   },
 }
 
-const layerOrder: LayerKey[] = ['concepts', 'question', 'perspectives', 'evidence', 'assumptions', 'conclusion', 'implications', 'stress']
+function InteractiveHouseSvg({
+  activeLayer,
+  onSelect,
+}: {
+  activeLayer: LayerKey
+  onSelect: (k: LayerKey) => void
+}) {
+  const amberFill = 'rgba(242,176,33,0.18)'
+  const noFill = 'transparent'
+  const fill = (k: LayerKey) => (activeLayer === k ? amberFill : noFill)
+
+  // Each clickable layer is a toggle button in a group (a11y C4):
+  //   - aria-pressed exposes the selected layer, which was previously conveyed
+  //     by fill colour alone (WCAG 1.4.1 / 4.1.2);
+  //   - an explicit aria-label replaces the accessible name computed from child
+  //     <text> ("SELF GROUP IDEAS" for Perspectives);
+  //   - the outline is no longer suppressed, so the global :focus-visible ring
+  //     from globals.css applies.
+  const layerProps = (k: LayerKey) => {
+    const def = layerDefs[k]
+    return {
+      role: 'button' as const,
+      tabIndex: 0,
+      'aria-pressed': activeLayer === k,
+      'aria-label': `${def.name}, layer ${Number(def.num)} of 7`,
+      style: { cursor: 'pointer' as const },
+      onClick: () => onSelect(k),
+      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(k) } },
+      onMouseEnter: () => onSelect(k),
+    }
+  }
+
+  return (
+    <svg viewBox="0 0 360 452" style={{ width: '100%', maxWidth: 420 }} role="group" aria-label="The seven layers of a house — select one to read its definition">
+      <defs>
+        <pattern id="bpgrid2" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" fill="#AEB8C7" opacity="0.5" />
+        </pattern>
+      </defs>
+      <rect width="360" height="452" fill="url(#bpgrid2)" aria-hidden="true" />
+
+      {/* Foundation slab (not interactive) */}
+      <path d="M44 414 H316 V432 H44 Z" stroke="#14213A" strokeWidth="1.6" fill="none" />
+
+      {/* Concepts */}
+      <g {...layerProps('concepts')}>
+        <rect x="60" y="370" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('concepts')} />
+        <text x="180" y="397" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>CONCEPTS</text>
+      </g>
+
+      {/* Question */}
+      <g {...layerProps('question')}>
+        <rect x="60" y="326" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('question')} />
+        <text x="180" y="353" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>QUESTION</text>
+      </g>
+
+      {/* Perspectives */}
+      <g {...layerProps('perspectives')}>
+        <rect x="60" y="282" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('perspectives')} />
+        <line x1="140" y1="282" x2="140" y2="326" stroke="#14213A" strokeWidth="1.2" />
+        <line x1="220" y1="282" x2="220" y2="326" stroke="#14213A" strokeWidth="1.2" />
+        <text x="100" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>SELF</text>
+        <text x="180" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>GROUP</text>
+        <text x="260" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>IDEAS</text>
+      </g>
+
+      {/* Evidence */}
+      <g {...layerProps('evidence')}>
+        <rect x="60" y="238" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('evidence')} />
+        <text x="180" y="265" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>EVIDENCE</text>
+      </g>
+
+      {/* Assumptions */}
+      <g {...layerProps('assumptions')}>
+        <rect x="60" y="194" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('assumptions')} />
+        <text x="180" y="221" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>ASSUMPTIONS</text>
+      </g>
+
+      {/* Conclusion */}
+      <g {...layerProps('conclusion')}>
+        <rect x="60" y="150" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('conclusion')} />
+        <text x="180" y="177" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>CONCLUSION</text>
+      </g>
+
+      {/* Roof / Implications */}
+      <g {...layerProps('implications')}>
+        <path d="M44 150 L180 24 L316 150" stroke="#14213A" strokeWidth="1.6" fill={fill('implications')} />
+        <text x="180" y="120" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="11" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>IMPLICATIONS</text>
+      </g>
+    </svg>
+  )
+}
 
 export default function InteractiveHouseSection() {
   const [activeLayer, setActiveLayer] = useState<LayerKey>('evidence')
@@ -68,15 +143,11 @@ export default function InteractiveHouseSection() {
     <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--section-py)' }}>
       <div className="container">
         <div style={{ maxWidth: '60ch' }}>
-          <p className="eyebrow">Section 03 &mdash; What gets built</p>
-          <h2 className="h2" style={{ marginTop: 16 }}>
-            You type one question.
-            <br />47 agents build this.
-          </h2>
+          <p className="eyebrow">Section 03 — What a house is</p>
+          <h2 className="h2" style={{ marginTop: 16 }}>Reasoning, built one layer at a time.</h2>
           <p className="body-text" style={{ marginTop: 16 }}>
-            Each layer is constructed automatically by a team of specialized AI
-            agents, then reviewed against nine intellectual standards. Tap a
-            layer to see what it does.
+            Every house is built from the foundation up, each layer resting on
+            the ones below it. Hover or tap a layer to see what it holds.
           </p>
         </div>
 
@@ -84,96 +155,18 @@ export default function InteractiveHouseSection() {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            alignItems: 'flex-start',
-            gap: 'clamp(24px, 4vw, 48px)',
+            alignItems: 'center',
+            gap: 'clamp(32px, 5vw, 64px)',
             marginTop: 44,
           }}
         >
-          {/* Left — layer list (pipeline) */}
           <div style={{ flex: '1 1 340px', minWidth: 'min(280px, 100%)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {layerOrder.map((key, i) => {
-                const l = layerDefs[key]
-                const isActive = activeLayer === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setActiveLayer(key)}
-                    onMouseEnter={() => setActiveLayer(key)}
-                    aria-pressed={isActive}
-                    aria-label={`${l.name}, layer ${i + 1} of 8`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 14,
-                      padding: '14px 16px',
-                      background: isActive ? 'var(--white)' : 'transparent',
-                      border: isActive ? '1px solid var(--amber)' : '1px solid transparent',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      transition: 'background 0.15s, border-color 0.15s',
-                      textAlign: 'left',
-                      width: '100%',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        color: isActive ? 'var(--amber-text)' : 'var(--ink-subtle)',
-                        minWidth: 22,
-                      }}
-                    >
-                      {l.num}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: 15,
-                        fontWeight: isActive ? 600 : 400,
-                        color: 'var(--ink)',
-                        flex: 1,
-                      }}
-                    >
-                      {l.name}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 10,
-                        color: 'var(--ink-subtle)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                      }}
-                    >
-                      {l.agents} agents
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-            <div
-              style={{
-                marginTop: 16,
-                padding: '10px 16px',
-                borderTop: '1px solid var(--rule)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--ink-subtle)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-              }}
-            >
-              <span>Total agents</span>
-              <span style={{ color: 'var(--ink)', fontWeight: 600 }}>47</span>
-            </div>
+            <InteractiveHouseSvg activeLayer={activeLayer} onSelect={setActiveLayer} />
           </div>
 
-          {/* Right — definition card */}
           <div style={{ flex: '1 1 300px', minWidth: 'min(280px, 100%)' }}>
+            {/* aria-live: selecting a layer swaps this panel's contents, which
+                was previously a silent change for screen-reader users (a11y C4). */}
             <div
               aria-live="polite"
               style={{
@@ -181,7 +174,7 @@ export default function InteractiveHouseSection() {
                 border: '1px solid var(--rule)',
                 borderRadius: 12,
                 padding: 28,
-                minHeight: 200,
+                minHeight: 180,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -212,7 +205,7 @@ export default function InteractiveHouseSection() {
                     color: 'var(--ink-subtle)',
                   }}
                 >
-                  Layer {def.num} of 08
+                  Layer {def.num} of 07
                 </span>
               </div>
               <h3
@@ -237,33 +230,6 @@ export default function InteractiveHouseSection() {
               >
                 {def.definition}
               </p>
-              <div
-                style={{
-                  marginTop: 20,
-                  padding: '10px 14px',
-                  background: 'var(--parchment)',
-                  borderRadius: 6,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="8" cy="8" r="6.5" stroke="var(--green-strong)" strokeWidth="1.2" fill="none" />
-                  <path d="M5.5 8l2 2 3.5-3.5" stroke="var(--green-strong)" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'var(--green-text)',
-                  }}
-                >
-                  Reviewed by {def.agents} agents against 9 standards
-                </span>
-              </div>
             </div>
             <p
               style={{
@@ -275,7 +241,7 @@ export default function InteractiveHouseSection() {
                 marginTop: 14,
               }}
             >
-              Your input: one question &middot; Everything else: automatic
+              Built bottom-up · each layer rests on the one below
             </p>
           </div>
         </div>

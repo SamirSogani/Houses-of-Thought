@@ -28,27 +28,6 @@
    them a taller hit area inside the sheet. */
 .mk-mobile-foot-links a { padding-block: 10px; }
 
-/* ── Header: dark-hero variant ───────────────────────────────────────────
-   When the header sits over the dark hero (homepage, top of page) we swap
-   logo/text/controls to light. The header component sets
-   background: transparent when at the top of /, so we need to make
-   the contents light until they scroll past and the parchment background
-   kicks in. The JS toggles data-theme-header on #site-header. */
-.site-header[data-over-dark="true"] .mk-header-brand-text { color: var(--parchment) !important; }
-.site-header[data-over-dark="true"] .desktop-only a { color: var(--rule) !important; }
-.site-header[data-over-dark="true"] .desktop-only a:hover { color: var(--parchment) !important; }
-.site-header[data-over-dark="true"] .mobile-only button {
-  border-color: var(--ink-mid) !important;
-}
-.site-header[data-over-dark="true"] .mobile-only button svg line {
-  stroke: var(--parchment) !important;
-}
-
-/* Stats bar: wrap gracefully on small screens */
-@media (max-width: 599px) {
-  .hero-stats-bar > div { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; }
-}
-
 /* ── Footer ──────────────────────────────────────────────────────────────
    15px links in tight columns: widen the tap area on touch layouts without
    changing the desktop rhythm. */
