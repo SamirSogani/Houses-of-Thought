@@ -3,7 +3,7 @@ import Link from 'next/link'
 const students = [
   { name: 'A. Rivera', topic: 'Should AI be used in schools?', score: 82, color: '#3F8F5B' },
   { name: 'J. Okafor', topic: 'Should AI be used in schools?', score: 61, color: '#8A7A3F' },
-  { name: 'M. Chen', topic: 'In progress · 5 / 8 layers', score: null, color: '#AEB8C7' },
+  { name: 'M. Chen', topic: 'In progress &middot; 4 / 7 layers', score: null, color: '#AEB8C7' },
 ]
 
 export default function EducatorsSection() {
@@ -22,14 +22,13 @@ export default function EducatorsSection() {
         <div style={{ flex: '1 1 360px', minWidth: 'min(280px, 100%)' }}>
           <p className="eyebrow">Section 07 &mdash; Built for classrooms</p>
           <h2 className="h2" style={{ marginTop: 16 }}>
-            Students ask the question.
-            <br />The pipeline does the heavy lifting.
+            Make critical thinking visible, and gradeable.
           </h2>
           <p className="body-text" style={{ marginTop: 16, maxWidth: '48ch' }}>
-            Teachers assign a topic. Students type a question. The 47-agent
-            pipeline builds an 8-layer house automatically, and teachers see
-            every layer &mdash; scored, cited, and open to feedback. No black-box
-            essays. No copy-paste from ChatGPT.
+            Teachers use Houses of Thought to follow how students reason their
+            way to an answer, layer by layer. Every layer is visible, scored,
+            and open to feedback, so a black-box essay becomes a transparent
+            structure you can discuss, grade, and improve.
           </p>
           <div style={{ marginTop: 24 }}>
             <Link href="/educators" className="text-link">
