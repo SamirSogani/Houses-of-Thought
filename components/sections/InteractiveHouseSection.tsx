@@ -1,236 +1,379 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-type LayerKey = 'concepts' | 'question' | 'perspectives' | 'evidence' | 'assumptions' | 'conclusion' | 'implications'
-
-const layerDefs: Record<LayerKey, { num: string; name: string; definition: string }> = {
-  concepts: {
+const layers = [
+  {
     num: '01',
     name: 'Concepts',
-    definition: 'The key terms that frame the topic, defined before you reason so everyone shares the same vocabulary.',
+    desc: 'Define the key terms before reasoning begins.',
+    color: 'var(--rule)',
   },
-  question: {
+  {
     num: '02',
-    name: 'Overarching Question',
-    definition: 'The single central question the whole house is built to answer.',
+    name: 'Question',
+    desc: 'Frame the single overarching question.',
+    color: 'var(--rule)',
   },
-  perspectives: {
+  {
     num: '03',
     name: 'Perspectives',
-    definition: 'Three lenses on the question (Self, Group, and Ideas), so you reason past your own point of view.',
+    desc: 'Self, Group, and Ideas — three lenses, not one.',
+    color: 'var(--blueprint)',
+    triple: true,
   },
-  evidence: {
+  {
     num: '04',
     name: 'Evidence',
-    definition: 'Facts gathered from real, cited sources. Research Mode grounds the house and resists hallucination.',
+    desc: 'Cited sources from Research Mode. Checkable facts.',
+    color: 'var(--verdict-pass)',
   },
-  assumptions: {
+  {
     num: '05',
     name: 'Assumptions',
-    definition: 'Beliefs taken as true without direct evidence, including the unknown unknowns you might miss.',
+    desc: 'Surface what you’re taking for granted.',
+    color: 'var(--verdict-uncertain)',
   },
-  conclusion: {
+  {
     num: '06',
     name: 'Conclusion',
-    definition: 'The synthesized answer, scored across Evidence, Logic, and Coverage.',
+    desc: 'Synthesize. Scored across evidence, logic, coverage.',
+    color: 'var(--amber)',
   },
-  implications: {
+  {
     num: '07',
     name: 'Implications',
-    definition: 'What follows from the conclusion, sorted into positive, negative, and uncertain.',
+    desc: 'What follows — positive, negative, uncertain.',
+    color: 'var(--ink)',
   },
-}
-
-function InteractiveHouseSvg({
-  activeLayer,
-  onSelect,
-}: {
-  activeLayer: LayerKey
-  onSelect: (k: LayerKey) => void
-}) {
-  const amberFill = 'rgba(242,176,33,0.18)'
-  const noFill = 'transparent'
-  const fill = (k: LayerKey) => (activeLayer === k ? amberFill : noFill)
-
-  // Each clickable layer is a toggle button in a group (a11y C4):
-  //   - aria-pressed exposes the selected layer, which was previously conveyed
-  //     by fill colour alone (WCAG 1.4.1 / 4.1.2);
-  //   - an explicit aria-label replaces the accessible name computed from child
-  //     <text> ("SELF GROUP IDEAS" for Perspectives);
-  //   - the outline is no longer suppressed, so the global :focus-visible ring
-  //     from globals.css applies.
-  const layerProps = (k: LayerKey) => {
-    const def = layerDefs[k]
-    return {
-      role: 'button' as const,
-      tabIndex: 0,
-      'aria-pressed': activeLayer === k,
-      'aria-label': `${def.name}, layer ${Number(def.num)} of 7`,
-      style: { cursor: 'pointer' as const },
-      onClick: () => onSelect(k),
-      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(k) } },
-      onMouseEnter: () => onSelect(k),
-    }
-  }
-
-  return (
-    <svg viewBox="0 0 360 452" style={{ width: '100%', maxWidth: 420 }} role="group" aria-label="The seven layers of a house — select one to read its definition">
-      <defs>
-        <pattern id="bpgrid2" width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="#AEB8C7" opacity="0.5" />
-        </pattern>
-      </defs>
-      <rect width="360" height="452" fill="url(#bpgrid2)" aria-hidden="true" />
-
-      {/* Foundation slab (not interactive) */}
-      <path d="M44 414 H316 V432 H44 Z" stroke="#14213A" strokeWidth="1.6" fill="none" />
-
-      {/* Concepts */}
-      <g {...layerProps('concepts')}>
-        <rect x="60" y="370" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('concepts')} />
-        <text x="180" y="397" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>CONCEPTS</text>
-      </g>
-
-      {/* Question */}
-      <g {...layerProps('question')}>
-        <rect x="60" y="326" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('question')} />
-        <text x="180" y="353" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>QUESTION</text>
-      </g>
-
-      {/* Perspectives */}
-      <g {...layerProps('perspectives')}>
-        <rect x="60" y="282" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('perspectives')} />
-        <line x1="140" y1="282" x2="140" y2="326" stroke="#14213A" strokeWidth="1.2" />
-        <line x1="220" y1="282" x2="220" y2="326" stroke="#14213A" strokeWidth="1.2" />
-        <text x="100" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>SELF</text>
-        <text x="180" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>GROUP</text>
-        <text x="260" y="308" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="9" fill="#5A6B85" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>IDEAS</text>
-      </g>
-
-      {/* Evidence */}
-      <g {...layerProps('evidence')}>
-        <rect x="60" y="238" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('evidence')} />
-        <text x="180" y="265" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>EVIDENCE</text>
-      </g>
-
-      {/* Assumptions */}
-      <g {...layerProps('assumptions')}>
-        <rect x="60" y="194" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('assumptions')} />
-        <text x="180" y="221" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>ASSUMPTIONS</text>
-      </g>
-
-      {/* Conclusion */}
-      <g {...layerProps('conclusion')}>
-        <rect x="60" y="150" width="240" height="44" stroke="#14213A" strokeWidth="1.6" fill={fill('conclusion')} />
-        <text x="180" y="177" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="12" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>CONCLUSION</text>
-      </g>
-
-      {/* Roof / Implications */}
-      <g {...layerProps('implications')}>
-        <path d="M44 150 L180 24 L316 150" stroke="#14213A" strokeWidth="1.6" fill={fill('implications')} />
-        <text x="180" y="120" textAnchor="middle" fontFamily="var(--font-mono)" fontSize="11" fill="#2C3A57" style={{ textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none' }}>IMPLICATIONS</text>
-      </g>
-    </svg>
-  )
-}
+]
 
 export default function InteractiveHouseSection() {
-  const [activeLayer, setActiveLayer] = useState<LayerKey>('evidence')
-  const def = layerDefs[activeLayer]
+  const sectionRef = useRef<HTMLElement>(null)
+  const [visibleLayers, setVisibleLayers] = useState(0)
+  const [selectedLayer, setSelectedLayer] = useState<number | null>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          // Start building the stack
+          let count = 0
+          const interval = setInterval(() => {
+            count++
+            setVisibleLayers(count)
+            if (count >= layers.length) clearInterval(interval)
+          }, 200)
+          observer.disconnect()
+          return () => clearInterval(interval)
+        }
+      },
+      { threshold: 0.25 }
+    )
+    if (sectionRef.current) observer.observe(sectionRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--section-py)' }}>
+    <section
+      ref={sectionRef}
+      className="ink-surface"
+      data-surface="ink"
+      style={{ paddingBlock: 'var(--section-py-lg)' }}
+    >
       <div className="container">
-        <div style={{ maxWidth: '60ch' }}>
-          <p className="eyebrow">Section 03 — What a house is</p>
-          <h2 className="h2" style={{ marginTop: 16 }}>Reasoning, built one layer at a time.</h2>
-          <p className="body-text" style={{ marginTop: 16 }}>
-            Every house is built from the foundation up, each layer resting on
-            the ones below it. Hover or tap a layer to see what it holds.
-          </p>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          <span
+            style={{
+              width: 24,
+              height: 1,
+              background: 'var(--amber)',
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--amber)',
+            }}
+          >
+            The house
+          </span>
         </div>
 
+        <h2
+          className="h2"
+          style={{
+            color: 'var(--parchment)',
+            fontSize: 'clamp(28px, 4vw, 48px)',
+            maxWidth: '26ch',
+          }}
+        >
+          Reasoning, built one layer at a time.
+        </h2>
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 17,
+            lineHeight: 1.6,
+            color: 'var(--rule)',
+            maxWidth: '48ch',
+            marginTop: 14,
+          }}
+        >
+          Every house rises from the foundation up. Each layer rests on the ones
+          below it. The amber edge marks what&rsquo;s being reviewed right now.
+        </p>
+
+        {/* The stack */}
         <div
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            alignItems: 'center',
             gap: 'clamp(32px, 5vw, 64px)',
-            marginTop: 44,
+            marginTop: 56,
+            alignItems: 'flex-end',
           }}
         >
-          <div style={{ flex: '1 1 340px', minWidth: 'min(280px, 100%)' }}>
-            <InteractiveHouseSvg activeLayer={activeLayer} onSelect={setActiveLayer} />
+          {/* Visual stack */}
+          <div
+            style={{
+              flex: '1 1 320px',
+              minWidth: 'min(280px, 100%)',
+              display: 'flex',
+              flexDirection: 'column-reverse',
+              gap: 4,
+            }}
+          >
+            {layers.map((layer, i) => {
+              const visible = i < visibleLayers
+              const isActive =
+                i === visibleLayers - 1 && visibleLayers < layers.length
+              const isSelected = selectedLayer === i
+
+              return (
+                <button
+                  key={layer.num}
+                  onClick={() =>
+                    setSelectedLayer(isSelected ? null : i)
+                  }
+                  onMouseEnter={() => setSelectedLayer(i)}
+                  aria-pressed={isSelected}
+                  aria-label={`${layer.name}, layer ${layer.num}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: layer.triple ? '14px 16px' : '12px 16px',
+                    borderRadius: 6,
+                    border: isActive
+                      ? '1px solid var(--amber)'
+                      : isSelected
+                        ? '1px solid var(--rule)'
+                        : '1px solid var(--ink-mid)',
+                    background: isActive
+                      ? 'rgba(242, 176, 33, 0.08)'
+                      : isSelected
+                        ? 'rgba(247, 246, 242, 0.06)'
+                        : 'rgba(247, 246, 242, 0.02)',
+                    opacity: visible ? 1 : 0,
+                    transform: visible
+                      ? 'translateY(0)'
+                      : 'translateY(16px)',
+                    transition:
+                      'opacity 0.44s cubic-bezier(0.16, 1, 0.3, 1), transform 0.44s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, background 0.2s',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    color: 'var(--parchment)',
+                    boxShadow: isActive
+                      ? '0 0 16px rgba(242, 176, 33, 0.15)'
+                      : 'none',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10,
+                      color: isActive
+                        ? 'var(--amber)'
+                        : 'var(--ink-subtle)',
+                      minWidth: 18,
+                    }}
+                  >
+                    {layer.num}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      fontSize: 14,
+                    }}
+                  >
+                    {layer.name}
+                  </span>
+                  {layer.triple && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 9,
+                        color: 'var(--rule)',
+                        marginLeft: 'auto',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      SELF · GROUP · IDEAS
+                    </span>
+                  )}
+                  {isActive && (
+                    <span
+                      style={{
+                        marginLeft: layer.triple ? 0 : 'auto',
+                        width: 6,
+                        height: 6,
+                        borderRadius: 1,
+                        background: 'var(--amber)',
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+
+            {/* Roof */}
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '8px 0',
+                opacity: visibleLayers >= layers.length ? 1 : 0,
+                transform:
+                  visibleLayers >= layers.length
+                    ? 'translateY(0)'
+                    : 'translateY(16px)',
+                transition:
+                  'opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            >
+              <svg
+                width="60"
+                height="30"
+                viewBox="0 0 60 30"
+                aria-hidden="true"
+                style={{ margin: '0 auto' }}
+              >
+                <path
+                  d="M2 28 L30 4 L58 28"
+                  stroke="var(--parchment)"
+                  strokeWidth="1.6"
+                  fill="none"
+                />
+              </svg>
+            </div>
           </div>
 
-          <div style={{ flex: '1 1 300px', minWidth: 'min(280px, 100%)' }}>
-            {/* aria-live: selecting a layer swaps this panel's contents, which
-                was previously a silent change for screen-reader users (a11y C4). */}
+          {/* Description panel */}
+          <div
+            style={{
+              flex: '1 1 300px',
+              minWidth: 'min(280px, 100%)',
+            }}
+          >
             <div
               aria-live="polite"
               style={{
-                background: 'var(--white)',
-                border: '1px solid var(--rule)',
+                border: '1px solid var(--ink-mid)',
                 borderRadius: 12,
-                padding: 28,
-                minHeight: 180,
+                padding: 'clamp(24px, 3vw, 36px)',
+                minHeight: 200,
+                background: 'rgba(247, 246, 242, 0.03)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
+              {selectedLayer !== null ? (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--amber)',
+                        color: 'var(--ink)',
+                        borderRadius: 4,
+                        minWidth: 26,
+                        height: 22,
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        padding: '0 6px',
+                      }}
+                    >
+                      {layers[selectedLayer].num}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        color: 'var(--ink-subtle)',
+                      }}
+                    >
+                      Layer {layers[selectedLayer].num} of 07
+                    </span>
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 500,
+                      fontSize: 28,
+                      marginTop: 18,
+                      color: 'var(--parchment)',
+                    }}
+                  >
+                    {layers[selectedLayer].name}
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 17,
+                      lineHeight: 1.6,
+                      color: 'var(--rule)',
+                      marginTop: 12,
+                    }}
+                  >
+                    {layers[selectedLayer].desc}
+                  </p>
+                </>
+              ) : (
+                <p
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'var(--amber)',
-                    color: 'var(--ink)',
-                    borderRadius: 4,
-                    minWidth: 26,
-                    height: 22,
-                    fontWeight: 500,
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 11,
-                    padding: '0 6px',
-                  }}
-                >
-                  {def.num}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 11,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 16,
                     color: 'var(--ink-subtle)',
+                    fontStyle: 'italic',
                   }}
                 >
-                  Layer {def.num} of 07
-                </span>
-              </div>
-              <h3
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 500,
-                  fontSize: 28,
-                  marginTop: 16,
-                  color: 'var(--ink)',
-                }}
-              >
-                {def.name}
-              </h3>
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 17,
-                  lineHeight: 1.6,
-                  color: 'var(--ink-mid)',
-                  marginTop: 12,
-                }}
-              >
-                {def.definition}
-              </p>
+                  Hover or tap a layer to learn what it holds.
+                </p>
+              )}
             </div>
+
             <p
               style={{
                 fontFamily: 'var(--font-mono)',
@@ -238,7 +381,7 @@ export default function InteractiveHouseSection() {
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
                 color: 'var(--ink-subtle)',
-                marginTop: 14,
+                marginTop: 16,
               }}
             >
               Built bottom-up · each layer rests on the one below

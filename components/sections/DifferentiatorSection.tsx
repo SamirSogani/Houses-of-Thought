@@ -1,95 +1,119 @@
-const columns = [
+import Link from 'next/link'
+
+const steps = [
   {
-    title: 'Guided, not given',
-    body: 'You reason with the AI, not through it. The co-pilot asks the next question instead of handing you the answer.',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <circle cx="14" cy="14" r="10" stroke="#F2B021" strokeWidth="1.4" fill="none" />
-        <path d="M10 14h8M14 10v8" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    ),
+    num: '01',
+    title: 'You ask. The AI questions back.',
+    body: 'Bring a decision, a dilemma, or a debate topic. Instead of answering, the co-pilot asks what it needs to build a defensible house.',
+    accent: 'var(--amber)',
   },
   {
-    title: 'Grounded in evidence',
-    body: 'Research Mode cites real sources, so the reasoning rests on facts you can check instead of on hallucination.',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <rect x="6" y="4" width="16" height="20" rx="2" stroke="#F2B021" strokeWidth="1.4" fill="none" />
-        <line x1="10" y1="10" x2="18" y2="10" stroke="#FFFFFF" strokeWidth="1.2" />
-        <line x1="10" y1="14" x2="18" y2="14" stroke="#FFFFFF" strokeWidth="1.2" />
-        <line x1="10" y1="18" x2="15" y2="18" stroke="#FFFFFF" strokeWidth="1.2" />
-      </svg>
-    ),
+    num: '02',
+    title: 'Perspectives fan out. Evidence grounds them.',
+    body: 'Three lenses — Self, Group, Ideas — expand the question past your own viewpoint. Research Mode cites real, checkable sources.',
+    accent: 'var(--verdict-pass)',
   },
   {
-    title: 'Stress-tested',
-    body: 'Challenge your conclusion before reality does. The AI attacks your weakest layer until the house holds.',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <path d="M14 4 L24 22 H4 Z" stroke="#F2B021" strokeWidth="1.4" fill="none" strokeLinejoin="round" />
-        <line x1="14" y1="11" x2="14" y2="16" stroke="#FFFFFF" strokeWidth="1.4" strokeLinecap="round" />
-        <circle cx="14" cy="19" r="0.8" fill="#FFFFFF" />
-      </svg>
-    ),
+    num: '03',
+    title: 'You conclude. Nine standards grade it.',
+    body: 'The house scores your conclusion across evidence, logic, and coverage. Stress-test it before reality does.',
+    accent: 'var(--verdict-challenge)',
   },
 ]
 
 export default function DifferentiatorSection() {
   return (
-    <section style={{ background: 'var(--ink)', paddingBlock: 'var(--section-py)' }}>
+    <section style={{ background: 'var(--white)', paddingBlock: 'var(--section-py-lg)' }}>
       <div className="container">
-        <p className="eyebrow-amber eyebrow-amber-on-ink">Section 05 — The difference</p>
-        <h2
-          className="h2"
-          style={{ color: 'var(--parchment)', marginTop: 16 }}
-        >
-          AI that guides, not decides.
-        </h2>
+        <div style={{ maxWidth: '52ch' }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--amber-text)',
+            }}
+          >
+            How it works
+          </span>
+          <h2
+            className="h2"
+            style={{
+              marginTop: 14,
+              fontSize: 'clamp(28px, 4vw, 48px)',
+            }}
+          >
+            Three steps from question
+            <br />
+            to defensible answer.
+          </h2>
+        </div>
 
         <div
           style={{
             display: 'flex',
             flexWrap: 'wrap',
             gap: 0,
-            marginTop: 44,
+            marginTop: 52,
           }}
         >
-          {columns.map((col, i) => (
+          {steps.map((s, i) => (
             <div
-              key={col.title}
+              key={s.num}
+              data-reveal
               style={{
                 flex: '1 1 280px',
-                padding: 28,
-                borderTop: '1px solid var(--ink-mid)',
-                paddingLeft: i === 0 ? 0 : 28,
-                paddingRight: i === columns.length - 1 ? 0 : 28,
+                minWidth: 260,
+                padding: 'clamp(20px, 3vw, 32px)',
+                paddingLeft: i === 0 ? 0 : undefined,
+                paddingRight: i === steps.length - 1 ? 0 : undefined,
+                borderTop: `3px solid ${s.accent}`,
               }}
             >
-              {col.icon}
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 32,
+                  fontWeight: 500,
+                  letterSpacing: '-0.02em',
+                  color: s.accent,
+                  display: 'block',
+                }}
+              >
+                {s.num}
+              </span>
               <h3
                 style={{
                   fontFamily: 'var(--font-display)',
                   fontWeight: 500,
-                  fontSize: 21,
-                  color: 'var(--parchment)',
+                  fontSize: 'clamp(20px, 2vw, 24px)',
                   marginTop: 16,
+                  color: 'var(--ink)',
+                  maxWidth: '22ch',
                 }}
               >
-                {col.title}
+                {s.title}
               </h3>
               <p
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize: 16,
+                  fontSize: 15,
                   lineHeight: 1.6,
-                  color: 'var(--rule)',
-                  marginTop: 10,
+                  color: 'var(--ink-mid)',
+                  marginTop: 12,
                 }}
               >
-                {col.body}
+                {s.body}
               </p>
             </div>
           ))}
+        </div>
+
+        <div style={{ marginTop: 40 }}>
+          <Link href="/how-it-works" className="text-link">
+            Read how it works in depth →
+          </Link>
         </div>
       </div>
     </section>

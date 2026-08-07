@@ -1,14 +1,19 @@
 import Link from 'next/link'
 
 const students = [
-  { name: 'A. Rivera', topic: 'Should AI be used in schools?', score: 82, color: '#3F8F5B' },
-  { name: 'J. Okafor', topic: 'Should AI be used in schools?', score: 61, color: '#8A7A3F' },
-  { name: 'M. Chen', topic: 'In progress · 4 / 7 layers', score: null, color: '#AEB8C7' },
+  { name: 'A. Rivera', status: 'Strength 82', color: 'var(--verdict-pass)', layers: '7/7' },
+  { name: 'J. Okafor', status: 'Strength 61', color: 'var(--verdict-uncertain)', layers: '7/7' },
+  { name: 'M. Chen', status: 'Building…', color: 'var(--rule)', layers: '4/7' },
 ]
 
 export default function EducatorsSection() {
   return (
-    <section style={{ background: 'var(--white)', paddingBlock: 'var(--section-py)' }}>
+    <section
+      style={{
+        background: 'var(--white)',
+        paddingBlock: 'var(--section-py)',
+      }}
+    >
       <div
         className="container"
         style={{
@@ -20,15 +25,34 @@ export default function EducatorsSection() {
       >
         {/* Left — text */}
         <div style={{ flex: '1 1 360px', minWidth: 'min(280px, 100%)' }}>
-          <p className="eyebrow">Section 07 — Built for classrooms</p>
-          <h2 className="h2" style={{ marginTop: 16 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--amber-text)',
+            }}
+          >
+            For classrooms
+          </span>
+          <h2
+            className="h2"
+            style={{
+              marginTop: 14,
+              fontSize: 'clamp(28px, 4vw, 44px)',
+            }}
+          >
             Make critical thinking visible, and gradeable.
           </h2>
-          <p className="body-text" style={{ marginTop: 16, maxWidth: '48ch' }}>
-            Teachers use Houses of Thought to follow how students reason their
-            way to an answer, layer by layer. Every layer is visible, scored,
-            and open to feedback, so a black-box essay becomes a transparent
-            structure you can discuss, grade, and improve.
+          <p
+            className="body-text"
+            style={{ marginTop: 16, maxWidth: '46ch' }}
+          >
+            Teachers follow how students reason their way to an answer, layer by
+            layer. Every layer is visible, scored, and open to feedback — a
+            black-box essay becomes a transparent structure you can discuss,
+            grade, and improve.
           </p>
           <div style={{ marginTop: 24 }}>
             <Link href="/educators" className="text-link">
@@ -40,11 +64,12 @@ export default function EducatorsSection() {
         {/* Right — classroom mock */}
         <div style={{ flex: '1 1 360px', minWidth: 'min(280px, 100%)' }}>
           <div
+            data-reveal
             style={{
               border: '1px solid var(--rule)',
               borderRadius: 12,
               background: 'var(--parchment)',
-              padding: 22,
+              padding: 'clamp(18px, 2vw, 24px)',
             }}
           >
             <div
@@ -77,46 +102,71 @@ export default function EducatorsSection() {
                     padding: '12px 14px',
                   }}
                 >
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--ink)', minWidth: 70 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: 'var(--ink)',
+                      minWidth: 70,
+                    }}
+                  >
                     {s.name}
                   </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--ink-subtle)', flex: 1 }}>
-                    {s.topic}
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10,
+                      color: 'var(--ink-subtle)',
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    {s.layers}
                   </span>
-                  {s.score !== null ? (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 11,
+                      color: s.color,
+                    }}
+                  >
                     <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        color: s.color,
+                        width: 6,
+                        height: 6,
+                        borderRadius: 1,
+                        background: s.color,
                       }}
-                    >
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 2,
-                          background: s.color,
-                        }}
-                      />
-                      {s.score}
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        color: s.color,
-                      }}
-                    >
-                      —
-                    </span>
-                  )}
+                    />
+                    {s.status}
+                  </span>
                 </div>
               ))}
+            </div>
+
+            {/* Bottom classroom stat */}
+            <div
+              style={{
+                marginTop: 14,
+                padding: '10px 14px',
+                background: 'var(--white)',
+                border: '1px solid var(--rule)',
+                borderRadius: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                color: 'var(--ink-subtle)',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span>Avg. strength: 71</span>
+              <span>18 completed · 6 in progress</span>
             </div>
           </div>
         </div>

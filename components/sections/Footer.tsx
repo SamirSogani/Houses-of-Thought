@@ -10,6 +10,7 @@ const linkGroups = [
       { label: 'Try it', href: '/try' },
       { label: 'Examples', href: '/examples' },
       { label: 'Framework', href: '/framework' },
+      { label: 'vs Rationale', href: '/vs-rationale' },
     ],
   },
   {
@@ -88,28 +89,51 @@ export default function Footer() {
                 fontSize: 15,
                 lineHeight: 1.6,
                 color: 'var(--rule)',
-                maxWidth: '34ch',
+                maxWidth: '36ch',
                 marginTop: 14,
               }}
             >
-              Structured, defensible reasoning, with AI that guides instead of
-              deciding.
+              Structured, defensible reasoning — perspectives, evidence,
+              assumptions — with AI that guides instead of deciding. Free, always.
             </p>
+
+            {/* Nine mark */}
+            <div
+              className="section-nine-mark"
+              style={{ marginTop: 20, marginLeft: 0, marginRight: 'auto' }}
+            >
+              {Array.from({ length: 9 }).map((_, i) => (
+                <span key={i} />
+              ))}
+            </div>
           </div>
 
           {/* Link columns */}
-          <div className="mk-footer-links" style={{ display: 'flex', flexWrap: 'wrap', gap: 48 }}>
+          <div
+            className="mk-footer-links"
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 48 }}
+          >
             {linkGroups.map((g) => (
               <div key={g.heading}>
                 <p style={colHeadStyle}>{g.heading}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 11,
+                  }}
+                >
                   {g.links.map((l) => (
                     <Link
                       key={l.href}
                       href={l.href}
                       style={linkStyle}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#F2B021')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--parchment)')}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = '#F2B021')
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = 'var(--parchment)')
+                      }
                     >
                       {l.label}
                     </Link>
@@ -137,7 +161,9 @@ export default function Footer() {
             color: 'var(--ink-subtle)',
           }}
         >
-          <span>Sheet 99 / Footer</span>
+          <span>
+            8 layers · 9 standards · Trapasso / Paul–Elder
+          </span>
           <span>© 2026 Houses of Thought</span>
         </div>
       </div>
