@@ -14,33 +14,32 @@ foundations, doors, windows, weather.
 This isn't decoration. Every element of reasoning gets a physical
 counterpart a visitor already understands before reading a word of copy.
 
-## The seven rooms
+## The seven layers
 
-> Corrected twice now. First pass: the real model is **seven** elements,
-> not eight. Second pass, checked directly against the real builder's
-> code (`components/build/layers/`, `BlueprintRail.tsx`), with your
-> permission: two of the seven room names were wrong, not just the count.
-> "Wiring" isn't a real concept anywhere in the product — and "Blueprint"
-> is already the real name for the *whole* house/rail in the builder, not
-> one room in it, so reusing it for a single room would collide with
-> real product vocabulary. Both fixed below. See
-> [10-open-questions.md](10-open-questions.md).
+> Corrected three times now. First pass: the real model is **seven**
+> elements, not eight. Second pass: two of my invented room names
+> weren't grounded in anything real ("Wiring") or collided with real
+> product vocabulary ("Blueprint" is already the name of the whole
+> house/rail in the builder, not one room). Third pass, and the one that
+> should have happened first: **stop inventing room names at all.** The
+> diagram uses exactly what the real builder calls each layer — Frame,
+> Perspectives, Evidence, Assumptions, Conclusion, Implications, Review
+> — nothing cuter than that. See [10-open-questions.md](10-open-questions.md).
 
-| Element of reasoning | Architectural counterpart | Why it fits |
-|---|---|---|
-| Frame (purpose, concepts, the question) | The Site Plan | The survey and scope, staked out before the blueprint gets drawn |
-| Perspectives (sub-questions, points of view) | The Windows | Same house, a different view from each |
-| Evidence | The Materials Yard | Raw material before it's shaped |
-| Assumptions | The Foundation | Load-bearing, usually invisible |
-| Conclusion (inference, sub-conclusions) | The Ridge Beam | Where the perspectives and evidence actually carry into one statement |
-| Implications & Consequences | The Weather | Does it survive a real storm? |
-| Review | The Inspection | Checked nine ways, stress-tested, sent back until it holds |
+| # | Layer | What it does | Where it sits on the drawing |
+|---|---|---|---|
+| 1 | Frame | Concepts, purpose, and the one question the house answers — staked out before anything argues | the roof peak |
+| 2 | Perspectives | Sub-questions and points of view — the same house, a different view from each | a window |
+| 3 | Evidence | What's actually known, cited, before it's shaped into an answer | the material stack |
+| 4 | Assumptions | What the whole thing rests on, usually out of sight | the foundation |
+| 5 | Conclusion | Where the perspectives and evidence actually carry into one statement | a beam near the roofline |
+| 6 | Implications | What happens when this meets the real world | the roofline weather |
+| 7 | Review | Checked nine ways, stress-tested, sent back until it holds | the front door |
 
-The nine standards (clarity, accuracy, precision, relevance, depth,
-breadth, logic, significance, fairness) live inside that seventh room —
-**the Inspection** — as a recurring pass, not a static checklist, that can
-send any room back for another framing pass before the house is signed
-off. Not a loop bolted on outside the sequence; it's the last room.
+The physical placement on the drawing is still mine to propose —
+assumptions at the foundation, implications in the weather above the
+roof — but the *label* on each callout is exactly what the real builder
+calls that layer. No more invented names layered on top.
 
 ## Visual system
 

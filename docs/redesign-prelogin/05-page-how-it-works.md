@@ -18,7 +18,7 @@ pillar ("real methodology, not a prompt trick").
    what that element interrogates, plus the room's small illustration.
    Order corrected from an earlier eight-room draft; see
    [open questions](10-open-questions.md) for what changed.
-3. **The Inspection, in full.** How the nine standards work as a loop,
+3. **Review, in full.** How the nine standards work as a loop,
    not a single pass — this is where the "keeps looping until it's
    robust enough to survive reality" idea gets its real explanation,
    matching how the product is actually described.

@@ -22,10 +22,10 @@ Evidence → Assumptions → Conclusion → Implications → Review**
 "canonical product vocabulary"). Updated throughout
 [02](02-creative-concept.md), [05](05-page-how-it-works.md), and
 [06](06-page-live-demo.md), and in the mockup's elevation diagram and demo
-progress strip. The room *names* (Blueprint, Windows, Materials Yard,
-Foundation, Wiring, Weather, Inspection) are still my proposal, not
-confirmed Trapasso pedagogy — just the count and grouping were the actual
-error.
+progress strip. (An earlier version of this note said the *room names*
+were still my proposal, separate from the count — that turned out to be
+wrong too. See item 7 below: the names are no longer a proposal at all,
+they're just the real layer names.)
 
 ## 2. Competitor name: Jina AI, not Gina AI
 
@@ -62,19 +62,19 @@ sample) — still a mockup, still not calling a real AI, but worth
 restating: a real version of this needs rate-limiting and abuse-prevention
 engineering before it's built. Not something this design pass resolves.
 
-## 7. Room-to-element mapping — checked against the real builder
+## 7. Room-to-element mapping — resolved, no invented names
 
-The Site Plan / Windows / Materials Yard / Foundation / Ridge Beam /
-Weather / Inspection mapping in [02](02-creative-concept.md) is still my
-proposal for the visual system, but two names in it were wrong, not just
-proposed-and-pending: "Wiring" wasn't grounded in anything real, and
-"Blueprint" is already the real name for the whole rail/house in the
-actual builder (`components/build/BlueprintRail.tsx`), not one room —
-reusing it for a single room would've collided with real product
-vocabulary the moment this ships next to the real app. Fixed with your
-permission to check `components/build/layers/` and `BlueprintRail.tsx`
-directly. The remaining five room names have no such collision and are
-still just my proposal, open to your reaction.
+Took three passes to land. First: wrong count (eight, not seven).
+Second: two invented names were themselves wrong ("Wiring" wasn't
+grounded in anything real; "Blueprint" collided with the real builder's
+name for the whole rail). Third, and this is the actual fix: **stop
+naming rooms at all.** The diagram now labels each of the seven callouts
+with exactly what the real builder calls it — Frame, Perspectives,
+Evidence, Assumptions, Conclusion, Implications, Review — confirmed
+against `components/build/layers/` directly. Only the *physical
+placement* on the drawing (assumptions at the foundation, implications
+in the weather) is still a proposal; the names themselves are just the
+real ones now, nothing left to react to on that front.
 
 ## 8. Hero question box
 
@@ -82,3 +82,15 @@ The `/try`-style text box now sits directly in the homepage hero, not
 just on `/try` — a visitor can type and press Build without an
 intermediate "try it free" click. Same box, same behavior, in two
 places. See [04](04-page-landing.md) and [06](06-page-live-demo.md).
+
+## 9. Animation brainstorm — mobile/distraction read
+
+Asked to assess [11-animation-brainstorm.md](11-animation-brainstorm.md)
+for whether each idea (besides the easter egg) is pliable without
+distracting the user, especially on mobile. Full reasoning added inline
+in that doc; short version: the closing hand-written question and the
+dark-mode atmosphere are low-risk almost anywhere. The scroll-transform,
+hover-explode, ink-bleed transitions, drafting cursor, and pannable
+diorama all have a specific, real mobile problem (no hover on touch,
+scroll/pan gesture conflicts, or per-navigation friction) and need a
+mobile-specific fallback, not just a smaller version of the desktop idea.

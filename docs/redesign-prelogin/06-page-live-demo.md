@@ -16,7 +16,7 @@ demo" direction you chose over a scripted or marketing-only version.
    "free."
 2. **In progress.** The question moves through the seven houses in
    sequence, each room's output streaming in as it's reasoned through.
-   The Inspection room appears last, meaningfully — not replayed in full
+   Review appears last, meaningfully — not replayed in full
    for all seven elements, which would turn a strength into tedium.
    Consider an optional "show full inspection" expandable for visitors
    who want the detail.

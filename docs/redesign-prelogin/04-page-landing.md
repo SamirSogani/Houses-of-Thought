@@ -19,7 +19,7 @@
    concept](02-creative-concept.md), shown as a horizontal (desktop) or
    stacked (mobile) strip. Hover/tap reveals one line per room — this is
    a teaser for `/method`, not the full explainer.
-4. **The Inspection, briefly.** One short beat showing the nine-standard
+4. **Review, briefly.** One short beat showing the nine-standard
    review loop conceptually — enough to communicate "it checks its own
    work repeatedly," not an exhaustive walkthrough.
 5. **Sample output.** A real-looking (labeled as sample) result: a
