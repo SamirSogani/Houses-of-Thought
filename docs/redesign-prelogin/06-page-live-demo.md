@@ -7,10 +7,13 @@ demo" direction you chose over a scripted or marketing-only version.
 
 ## Flow
 
-1. **Entry.** Two or three curated sample questions (varied: personal,
-   career, civic) for a zero-typing instant taste, or type your own,
-   character-limited. Framed as *one free run* rather than a hard
-   paywall, to stay honest about "free."
+1. **Entry.** A real text box, character-limited, pre-filled with a
+   sample question you can just run as-is or overwrite. **This box
+   lives on the homepage hero too** — not just on `/try` — so a visitor
+   never has to click a "try it free" button before they see somewhere
+   to type. Landing on `/try` directly gets the same box. Framed as
+   *one free run* rather than a hard paywall, to stay honest about
+   "free."
 2. **In progress.** The question moves through the seven houses in
    sequence, each room's output streaming in as it's reasoned through.
    The Inspection room appears last, meaningfully — not replayed in full

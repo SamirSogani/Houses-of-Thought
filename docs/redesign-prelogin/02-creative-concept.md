@@ -16,18 +16,23 @@ counterpart a visitor already understands before reading a word of copy.
 
 ## The seven rooms
 
-> Corrected: the real model is **seven** elements, not eight — an earlier
-> draft of this table guessed wrong. The room names/metaphor are unchanged
-> and still mine to react to; only the count and grouping were wrong. See
+> Corrected twice now. First pass: the real model is **seven** elements,
+> not eight. Second pass, checked directly against the real builder's
+> code (`components/build/layers/`, `BlueprintRail.tsx`), with your
+> permission: two of the seven room names were wrong, not just the count.
+> "Wiring" isn't a real concept anywhere in the product — and "Blueprint"
+> is already the real name for the *whole* house/rail in the builder, not
+> one room in it, so reusing it for a single room would collide with
+> real product vocabulary. Both fixed below. See
 > [10-open-questions.md](10-open-questions.md).
 
 | Element of reasoning | Architectural counterpart | Why it fits |
 |---|---|---|
-| Frame (purpose, concepts, the question) | The Blueprint | Framing what you're building, and why, before anything argues |
+| Frame (purpose, concepts, the question) | The Site Plan | The survey and scope, staked out before the blueprint gets drawn |
 | Perspectives (sub-questions, points of view) | The Windows | Same house, a different view from each |
 | Evidence | The Materials Yard | Raw material before it's shaped |
 | Assumptions | The Foundation | Load-bearing, usually invisible |
-| Conclusion (inference, sub-conclusions) | The Wiring | The connections that make "therefore" hold |
+| Conclusion (inference, sub-conclusions) | The Ridge Beam | Where the perspectives and evidence actually carry into one statement |
 | Implications & Consequences | The Weather | Does it survive a real storm? |
 | Review | The Inspection | Checked nine ways, stress-tested, sent back until it holds |
 

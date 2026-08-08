@@ -5,10 +5,12 @@
 ## Structure, top to bottom
 
 1. **Hero.** Headline leads with the differentiator, not "AI decision
-   tool." Subhead names the mechanism in plain language (eight angles on
+   tool." Subhead names the mechanism in plain language (seven angles on
    your question, checked nine ways, until it would hold up in reality).
-   Primary CTA: *Ask your question, free.* Secondary: *See how it works.*
-   No account required for either.
+   **The question box itself sits in the hero** — a visitor can type and
+   go without an intermediate "try it free" click; the box doubles as
+   the primary CTA. Secondary link: *See how it's built.* No account
+   required for either.
 2. **The house draws itself.** On load (or scroll-in), a blueprint-line
    illustration of the house sketches into place — foundation up through
    roof — as a stroke-draw animation. Skippable/instant for

@@ -215,6 +215,10 @@
   .hero-title { font-size: clamp(2.6rem, 6.4vw, 4.6rem); line-height: 1.03; margin: 1rem 0 1.4rem; max-width: 18ch; }
   .hero-sub { font-size: 1.12rem; color: var(--ink-soft); max-width: 40em; margin-bottom: 2.1rem; }
   .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: clamp(2.5rem, 6vw, 4rem); }
+  .hero-input-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+  .hero-input { font-size: 1.2rem; padding: 0.9rem 1.1rem; }
+  .hero-input-note { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: clamp(2.5rem, 6vw, 4rem); }
+  .hero-input-note a { color: var(--ink); text-decoration: underline; white-space: nowrap; }
   .hero-figure { display: flex; justify-content: center; }
   .hero-figure svg { width: min(560px, 100%); height: auto; overflow: visible; }
   .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1s ease forwards; animation-delay: var(--d, 0s); }
@@ -413,10 +417,11 @@
       <p class="eyebrow" style="margin-top:2.2rem;">A free method for harder decisions</p>
       <h1 class="hero-title">Reasoning, built<br>to hold weight.</h1>
       <p class="hero-sub">Houses of Thought runs your question through seven rooms of critical thinking, checks the work against nine standards, and keeps rebuilding until it would survive contact with reality — not just look good in the moment. Free, always.</p>
-      <div class="hero-ctas">
-        <a class="btn btn--primary" href="#demo">Ask your question — free</a>
-        <a class="btn btn--ghost" href="#elevation">See how it's built</a>
+      <div class="hero-input-row">
+        <input type="text" id="demoQuestion" class="demo-input hero-input" value="Should I take the new job offer?" maxlength="140" placeholder="Ask a real decision you're stuck on…" aria-label="Ask a real decision you're stuck on" />
+        <button class="btn btn--primary" id="runDemoHero" type="button">Build it — free</button>
       </div>
+      <p class="hero-input-note">Right here, no click to get to a text box first. No sign-up. <a href="#elevation">See how it's built →</a></p>
       <div class="hero-figure" aria-hidden="true">
         <svg viewBox="0 0 400 260" role="presentation">
           <line class="draw diagram-line" style="--d:.05s" x1="20" y1="222" x2="380" y2="222" pathLength="1"/>
@@ -471,7 +476,7 @@
           <line class="diagram-soft" x1="190" y1="145" x2="190" y2="285"/>
           <line class="diagram-soft" x1="260" y1="145" x2="260" y2="285"/>
           <line class="diagram-soft" x1="330" y1="145" x2="330" y2="285"/>
-          <!-- wiring -->
+          <!-- cross-bracing (decorative, unlabeled) -->
           <polyline class="diagram-soft" points="195,195 225,175 255,205 285,175 325,195" fill="none"/>
           <!-- windows -->
           <rect class="diagram-line" x="176" y="163" width="34" height="34" fill="none"/>
@@ -503,17 +508,17 @@
           <g class="pin" data-pin="2"><circle cx="193" cy="180" r="10"/><text x="193" y="184" text-anchor="middle">2</text></g>
           <g class="pin" data-pin="3"><circle cx="101" cy="248" r="10"/><text x="101" y="252" text-anchor="middle">3</text></g>
           <g class="pin" data-pin="4"><circle cx="260" cy="309" r="10"/><text x="260" y="313" text-anchor="middle">4</text></g>
-          <g class="pin" data-pin="5"><circle cx="255" cy="188" r="10"/><text x="255" y="192" text-anchor="middle">5</text></g>
+          <g class="pin" data-pin="5"><circle cx="260" cy="95" r="10"/><text x="260" y="99" text-anchor="middle">5</text></g>
           <g class="pin" data-pin="6"><circle cx="260" cy="18" r="10"/><text x="260" y="22" text-anchor="middle">6</text></g>
           <g class="pin" data-pin="7"><circle cx="260" cy="255" r="10"/><text x="260" y="259" text-anchor="middle">7</text></g>
         </svg>
 
         <ol class="legend" aria-label="The seven rooms of the house">
-          <li class="legend__item" data-pin="1"><span class="legend__num">1</span><div><div class="legend__room">The Blueprint</div><div class="legend__element">Frame</div><p class="legend__desc">Concepts, purpose, and the one question the house exists to answer — decided before anything argues.</p></div></li>
+          <li class="legend__item" data-pin="1"><span class="legend__num">1</span><div><div class="legend__room">The Site Plan</div><div class="legend__element">Frame</div><p class="legend__desc">Concepts, purpose, and the one question the house exists to answer — staked out before anything argues.</p></div></li>
           <li class="legend__item" data-pin="2"><span class="legend__num">2</span><div><div class="legend__room">The Windows</div><div class="legend__element">Perspectives</div><p class="legend__desc">Sub-questions and points of view — the same house, a different view from each.</p></div></li>
           <li class="legend__item" data-pin="3"><span class="legend__num">3</span><div><div class="legend__room">The Materials Yard</div><div class="legend__element">Evidence</div><p class="legend__desc">What's actually known, cited, before it gets shaped into an answer.</p></div></li>
           <li class="legend__item" data-pin="4"><span class="legend__num">4</span><div><div class="legend__room">The Foundation</div><div class="legend__element">Assumptions</div><p class="legend__desc">What the whole thing rests on, usually out of sight.</p></div></li>
-          <li class="legend__item" data-pin="5"><span class="legend__num">5</span><div><div class="legend__room">The Wiring</div><div class="legend__element">Conclusion</div><p class="legend__desc">The inference that connects evidence and assumptions into a claim.</p></div></li>
+          <li class="legend__item" data-pin="5"><span class="legend__num">5</span><div><div class="legend__room">The Ridge Beam</div><div class="legend__element">Conclusion</div><p class="legend__desc">Where the perspectives and evidence actually carry into one statement — the beam every wall below is holding up.</p></div></li>
           <li class="legend__item" data-pin="6"><span class="legend__num">6</span><div><div class="legend__room">The Weather</div><div class="legend__element">Implications &amp; Consequences</div><p class="legend__desc">What happens when this meets the real world.</p></div></li>
           <li class="legend__item" data-pin="7"><span class="legend__num">7</span><div><div class="legend__room">The Inspection</div><div class="legend__element">Review</div><p class="legend__desc">Checked nine ways, stress-tested, and sent back until it holds.</p></div></li>
         </ol>
@@ -561,16 +566,13 @@
       <div class="sheet__head">
         <p class="eyebrow">Try it, before you sign up</p>
         <h2>Watch it get built, live.</h2>
-        <p>A real run of the live demo, on a sample question. No account needed to see the full result.</p>
+        <p>Already typed a question up in the hero? Press Build below. Landed here straight from a link — the sample works just as well.</p>
       </div>
 
       <div class="demo-panel">
         <div class="demo-panel__top">
-          <label class="demo-input-label" for="demoQuestion">Enter a real decision you're stuck on</label>
-          <div class="demo-input-row">
-            <input type="text" id="demoQuestion" class="demo-input" value="Should I take the new job offer?" maxlength="140" />
-          </div>
-          <p class="demo-input-note">This concept mockup always builds the same sample house below — the real thing would reason through whatever you actually type.</p>
+          <p class="demo-input-label">Building on</p>
+          <p class="demo-question" id="demoQuestionEcho">&ldquo;Should I take the new job offer?&rdquo;</p>
         </div>
         <div class="demo-panel__body">
           <div class="run-row">
@@ -578,7 +580,7 @@
             <span class="status-line" id="statusLine">Idle — type a question above, then press Build (or hit Enter).</span>
           </div>
           <div class="progress-strip" aria-hidden="true">
-            <div class="progress-node" data-room="1"><div class="progress-node__dot">1</div><div class="progress-node__label">Blueprint</div></div>
+            <div class="progress-node" data-room="1"><div class="progress-node__dot">1</div><div class="progress-node__label">Site Plan</div></div>
             <div class="progress-track"></div>
             <div class="progress-node" data-room="2"><div class="progress-node__dot">2</div><div class="progress-node__label">Windows</div></div>
             <div class="progress-track"></div>
@@ -586,7 +588,7 @@
             <div class="progress-track"></div>
             <div class="progress-node" data-room="4"><div class="progress-node__dot">4</div><div class="progress-node__label">Foundation</div></div>
             <div class="progress-track"></div>
-            <div class="progress-node" data-room="5"><div class="progress-node__dot">5</div><div class="progress-node__label">Wiring</div></div>
+            <div class="progress-node" data-room="5"><div class="progress-node__dot">5</div><div class="progress-node__label">Ridge Beam</div></div>
             <div class="progress-track"></div>
             <div class="progress-node" data-room="6"><div class="progress-node__dot">6</div><div class="progress-node__label">Weather</div></div>
             <div class="progress-track"></div>
@@ -714,21 +716,38 @@
       item.addEventListener('blur', function () { setActive(id, false); });
     });
 
-    // Live-demo simulation
+    // Live-demo simulation — question box lives in the hero; Sheet 03 just
+    // echoes it and shows the build.
     var runBtn = document.getElementById('runDemo');
+    var runBtnHero = document.getElementById('runDemoHero');
+    var heroInput = document.getElementById('demoQuestion');
+    var questionEcho = document.getElementById('demoQuestionEcho');
     var statusLine = document.getElementById('statusLine');
     var resultEl = document.getElementById('demoResult');
     var nodes = document.querySelectorAll('.progress-node');
-    var roomNames = ['Blueprint', 'Windows', 'Materials Yard', 'Foundation', 'Wiring', 'Weather', 'Inspection'];
+    var roomNames = ['Site Plan', 'Windows', 'Materials Yard', 'Foundation', 'Ridge Beam', 'Weather', 'Inspection'];
+
+    function syncEcho() {
+      var q = (heroInput && heroInput.value.trim()) || 'Should I take the new job offer?';
+      if (questionEcho) questionEcho.textContent = '“' + q + '”';
+    }
+    if (heroInput) heroInput.addEventListener('input', syncEcho);
+    syncEcho();
 
     function resetDemo() {
       nodes.forEach(function (n) { n.classList.remove('is-active', 'is-done'); });
       resultEl.classList.remove('is-visible');
     }
 
+    function setRunning(isRunning) {
+      if (runBtn) runBtn.disabled = isRunning;
+      if (runBtnHero) runBtnHero.disabled = isRunning;
+    }
+
     function runDemo() {
+      syncEcho();
       resetDemo();
-      runBtn.disabled = true;
+      setRunning(true);
       var stepDelay = prefersReduced ? 40 : 260;
 
       nodes.forEach(function (node, i) {
@@ -746,16 +765,24 @@
       setTimeout(function () {
         statusLine.textContent = 'Passed inspection. Result ready below.';
         resultEl.classList.add('is-visible');
-        runBtn.disabled = false;
+        setRunning(false);
         resultEl.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'nearest' });
       }, totalDelay + (prefersReduced ? 60 : 500));
     }
 
+    // Jump straight from the hero: scroll to the build sheet and start,
+    // in one motion — no intermediate "try it free" click required.
+    function startFromHero() {
+      var demoSection = document.getElementById('demo');
+      if (demoSection) demoSection.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+      runDemo();
+    }
+
     if (runBtn) runBtn.addEventListener('click', runDemo);
-    var demoInput = document.getElementById('demoQuestion');
-    if (demoInput) {
-      demoInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); runDemo(); }
+    if (runBtnHero) runBtnHero.addEventListener('click', startFromHero);
+    if (heroInput) {
+      heroInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); startFromHero(); }
       });
     }
   })();

@@ -62,10 +62,23 @@ sample) — still a mockup, still not calling a real AI, but worth
 restating: a real version of this needs rate-limiting and abuse-prevention
 engineering before it's built. Not something this design pass resolves.
 
-## 7. Room-to-element mapping
+## 7. Room-to-element mapping — checked against the real builder
 
-The Blueprint / Windows / Materials Yard / Foundation / Wiring / Weather /
-Inspection mapping in [02](02-creative-concept.md) is still my proposal
-for the visual system — now correctly covering seven elements instead of
-eight, but the metaphor choices themselves are still worth your reaction,
-especially before any of it becomes a permanent logo or asset.
+The Site Plan / Windows / Materials Yard / Foundation / Ridge Beam /
+Weather / Inspection mapping in [02](02-creative-concept.md) is still my
+proposal for the visual system, but two names in it were wrong, not just
+proposed-and-pending: "Wiring" wasn't grounded in anything real, and
+"Blueprint" is already the real name for the whole rail/house in the
+actual builder (`components/build/BlueprintRail.tsx`), not one room —
+reusing it for a single room would've collided with real product
+vocabulary the moment this ships next to the real app. Fixed with your
+permission to check `components/build/layers/` and `BlueprintRail.tsx`
+directly. The remaining five room names have no such collision and are
+still just my proposal, open to your reaction.
+
+## 8. Hero question box
+
+The `/try`-style text box now sits directly in the homepage hero, not
+just on `/try` — a visitor can type and press Build without an
+intermediate "try it free" click. Same box, same behavior, in two
+places. See [04](04-page-landing.md) and [06](06-page-live-demo.md).
