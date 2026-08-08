@@ -2,35 +2,52 @@
 
 [← Back to index](README.md) · [Creative concept](02-creative-concept.md)
 
-## Structure, top to bottom
+A real, detailed spec for this page already exists at
+`plans/active/pre-login-ux/page-home.md` (10 sections, tradeoffs included).
+This doc doesn't repeat it — it confirms what to keep, flags the one section
+order question, and adds the execution layer ("exotic but not confusing")
+the original spec didn't fully spec out.
 
-1. **Hero.** Headline leads with the differentiator, not "AI decision
-   tool." Subhead names the mechanism in plain language (eight angles on
-   your question, checked nine ways, until it would hold up in reality).
-   Primary CTA: *Ask your question, free.* Secondary: *See how it works.*
-   No account required for either.
-2. **The house draws itself.** On load (or scroll-in), a blueprint-line
-   illustration of the house sketches into place — foundation up through
-   roof — as a stroke-draw animation. Skippable/instant for
-   reduced-motion users; see [motion rules](09-motion-and-accessibility.md).
-3. **Walk the house (condensed).** The eight rooms from the [creative
-   concept](02-creative-concept.md), shown as a horizontal (desktop) or
-   stacked (mobile) strip. Hover/tap reveals one line per room — this is
-   a teaser for `/method`, not the full explainer.
-4. **The Inspection, briefly.** One short beat showing the nine-standard
-   review loop conceptually — enough to communicate "it checks its own
-   work repeatedly," not an exhaustive walkthrough.
-5. **Sample output.** A real-looking (labeled as sample) result: a
-   diagram, a pro-con snapshot, one "what follows" implication. Show,
-   don't just tell — this is the single highest-leverage block on the
-   page for a skeptical visitor.
-6. **Credibility strip.** Paul-Elder framework + Trapasso attribution +
-   a "free" badge. Understated — a paragraph and two names, not a wall of
-   logos or a garish comparison table (that belongs on
-   `/switch-from-rationale`, not here).
-7. **Closing CTA.** Repeat *Ask your question, free.*
+## Keep, as designed
 
-## Tone
+The existing 10-section structure is sound and I'd build on it, not replace
+it: **Hero → the problem (chatbot vs. house) → the shift (interactive 7-layer
+diagram) → how it works (3 steps) → differentiator band (guided/grounded/
+stress-tested) → classroom band → real example teaser → origin credibility →
+final CTA → footer.** Hero headline stays *"Build the reasoning, not just the
+answer"* — it's already exactly right, don't replace it with something
+invented.
 
-Confident, warm, plain-spoken. The intellectual weight is real; the copy
-doesn't need to perform seriousness to prove it.
+Two corrections against my first pass: the interactive diagram in section 3
+shows the real seven layers (Frame, Perspectives, Evidence, Assumptions,
+Conclusion, Implications, Review), not eight invented rooms — and the "real
+example teaser" should use the real data shape (perspectives + sub-questions +
+a `StrengthMeter`), not a generic pro/con card.
+
+## The one open call: section order
+
+The existing spec sequences the classroom band (section 6) *after* how-it-
+works and the differentiator band — i.e., education gets a real, dedicated
+band, but consumer-facing proof leads. That already matches the
+consumer-leads-hero direction flagged in
+[01-positioning-and-goals.md](01-positioning-and-goals.md). Nothing to change
+here unless the audience-emphasis answer comes back the other way — if
+education should lead instead, the classroom band likely needs to move up
+toward the hero, not just stay as band 6.
+
+## Where "exotic but not confusing" earns its keep
+
+The real design-language doc asks for restraint — one signature animation per
+page, hairlines over shadow, a tight palette. That's not in tension with
+"exotic": it means concentrating novelty into a few high-craft moments instead
+of scattering effects. On this page, that's the hero house draw-in (already
+specified, 900ms, foundation→roof) and the interactive layer diagram in
+section 3. Everything else should be calm by comparison — the restraint is
+what makes those two moments actually land as memorable instead of one more
+thing among many.
+
+## Responsive & performance notes (already specified, worth restating)
+
+Lazy-load below-fold diagrams; inline-critical the hero; house SVG as paths,
+not raster; mobile collapses the two-column hero to headline → diagram
+(capped height) → CTAs.
