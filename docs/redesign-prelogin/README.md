@@ -1,50 +1,46 @@
 # Pre-Login Redesign — Design Spec
 
 Design-only proposal for a full redesign of Houses of Thought's pre-login
-experience. No code has been written against the real app; nothing
-post-login or under `/educators` is touched anywhere in this proposal.
+experience: everything an unauthenticated visitor sees. No code has been
+written against the real app; nothing post-login or under
+`/for-educators` is touched anywhere in this proposal.
 
-**Status: revised.** The first pass was built from the product brief alone,
-deliberately without reading the repo. This pass reads `context/`,
-`decisions/`, and the existing `plans/active/pre-login-ux/` spec (with
-explicit permission) and corrects everything that turned out to be wrong —
-the house order most of all. Where the two genuinely conflict rather than
-just needing a fact fixed, this version wins per instruction, but the one
-real strategic tension (audience emphasis) is flagged, not silently decided.
-
-**Read [10-open-questions.md](10-open-questions.md) first.** Two items are
-now resolved (house order, the `housesofthought.org` mystery), two are still
-open (Jina AI naming, the shutdown claim), and two are new — most
-importantly, **which audience the homepage should visually lead with.**
+**Read [10-open-questions.md](10-open-questions.md) first.** It flags a
+competitor-name correction and an unverified claim, and notes what was
+fixed vs. reverted this round.
 
 **Interactive mockup:** [Houses of Thought — Pre-Login Redesign Concept](https://claude.ai/code/artifact/c12b1d39-a47d-4e41-817a-80111ffb6075)
-— now using the real 7-layer house, the real color/type tokens, and the real
-Mini House result shape instead of my first pass's invented versions. Same
-link as before; content has been substantially revised in place. Source:
-`mockup.html` in this folder.
+— a clickable companion to these docs showing the visual direction, the
+house/inspection diagrams, and a live-typed run of the demo. Sample
+content only; not wired to the real product. Source: `mockup.html` in
+this folder.
+
+**New:** [11 — a brainstorm of bold animation/design ideas](11-animation-brainstorm.md),
+explicitly not built into anything yet.
 
 ## Contents
 
-1. [Positioning & goals](01-positioning-and-goals.md) — why, for whom
-   (**the audience flag lives here**), what "done" looks like.
-2. [Creative concept: Architecture of Thought](02-creative-concept.md) — now
-   reconciled with the real `design-language.md` / `design-tokens.md`.
-3. [Sitemap & routes](03-sitemap-and-routes.md) — the real route list.
+1. [Positioning & goals](01-positioning-and-goals.md) — why, for whom,
+   what "done" looks like.
+2. [Creative concept: Architecture of Thought](02-creative-concept.md) —
+   the visual/brand direction.
+3. [Sitemap & routes](03-sitemap-and-routes.md) — the full route list.
 4. [Page: Home](04-page-landing.md)
-5. [Pages: How it works & Framework](05-page-how-it-works.md)
-6. [The live demo is `/try`](06-page-live-demo.md) — already real
+5. [Page: Method](05-page-how-it-works.md)
+6. [Page: Live demo](06-page-live-demo.md)
 7. [Pages: Auth & legal](07-page-auth-and-legal.md)
-8. [Pages: Our Story & switch-from-Rationale](08-page-about-and-switch.md)
-9. [Motion & accessibility principles](09-motion-and-accessibility.md) —
-   real tokens
+8. [Pages: About & switch-from-Rationale](08-page-about-and-switch.md)
+9. [Motion & accessibility principles](09-motion-and-accessibility.md)
 10. [Open questions & flags](10-open-questions.md)
+11. [Brainstorm: bold animation/design ideas](11-animation-brainstorm.md) — not executed
 
-## Two things only you can resolve
+## Status
 
-- **Audience emphasis** — lead the homepage with the consumer pitch (this
-  session's brief) or keep education visually first (the settled strategy)?
-  Full context in doc 01 and doc 10, item 8.
-- **Where this should live** — this folder overlaps heavily with the
-  pre-existing `plans/active/pre-login-ux/`, which the repo's own convention
-  says is the right location (`docs/` is repo-docs only, not product specs).
-  Doc 10, item 9.
+The creative direction (palette, type, sitemap, positioning) is the
+original first pass — unchanged. A later revision briefly swapped in the
+real product's existing design system after reading the repo; that
+over-reached what "fix what's inaccurate" meant and has been reverted.
+The one thing that actually was wrong — the house diagram's element count
+and order — is fixed throughout and in the mockup. The mockup's demo now
+takes a typed question instead of only a fixed sample. See doc 10 for the
+full account.

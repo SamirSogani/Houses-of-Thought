@@ -2,94 +2,66 @@
 
 [← Back to index](README.md)
 
-> This direction turned out to already exist, almost exactly, as
-> `plans/active/pre-login-ux/design-language.md`'s **"Architectural Blueprint ×
-> Editorial"** system — down to sheet marks and a single amber accent. This doc
-> now defers to that one as the source of truth and just applies it correctly
-> to the real 7-layer house instead of the 8 rooms I'd guessed at blind.
-
 ## The idea in one line
 
-The product is *literally* about building houses of reasoning, and the
-existing brand already leans into that ("INTELLECTUAL BLUEPRINT · EST. 2026",
-`SheetStrip`'s sheet marks). Reasoning gets rendered as architecture —
-blueprints, framing, foundations, windows, weather — instead of the
-glowing-orb/purple-gradient look most AI tools default to.
+The product is *literally* named after houses. Almost every competing
+AI-decision tool reaches for the same visual language — glowing orbs,
+purple-to-blue gradients, particle fields, chat bubbles. Houses of Thought
+should look like nothing else in the category by taking its own name
+seriously: **reasoning rendered as architecture** — blueprints, framing,
+foundations, doors, windows, weather.
 
-## The real seven rooms (corrected)
+This isn't decoration. Every element of reasoning gets a physical
+counterpart a visitor already understands before reading a word of copy.
 
-The product's canonical vocabulary is **seven layers**, not eight or twelve:
-**Frame → Perspectives → Evidence → Assumptions → Conclusion → Implications →
-Review** (`app/framework/page.tsx`). The 12-layer breakdown in
-`context/framework/trapasso-model.md` is the finer-grained concept map that
-folds into these seven; the nine standards (Clarity, Accuracy, Precision,
-Relevance, Depth, Breadth, Logic, Significance, Fairness) are the AI's
-internal review-panel mechanism inside **Review**, not a separate room.
+## The seven rooms
 
-| Layer | Contains | Room | Why |
-|---|---|---|---|
-| Frame | Concepts, Purpose, Overarching Question | The Blueprint | What's being built, and why, defined before anything argues |
-| Perspectives | Sub-Questions, Points of View (+ Personal Foundational POV) | The Windows | Same house, a different view from each |
-| Evidence | Information & Facts | The Materials Yard | Sourced, cited material before it's built in |
-| Assumptions | Assumptions (incl. Unknown Unknowns) | The Foundation | Load-bearing, usually invisible |
-| Conclusion | Logical Inference, Sub-Conclusions, Overarching Conclusion | The Wiring | The connections that make "therefore" hold |
-| Implications | Implications vs. Consequences | The Weather | What happens when this meets the real world |
-| Review | Iterative Thinking, House Strength, Stress Test | The Inspection | Scored, attacked, sent back until it holds |
+> Corrected: the real model is **seven** elements, not eight — an earlier
+> draft of this table guessed wrong. The room names/metaphor are unchanged
+> and still mine to react to; only the count and grouping were wrong. See
+> [10-open-questions.md](10-open-questions.md).
 
-Review sits last because it *is* last in the real sequence — and because that's
-where House Strength (Evidence / Logic / Coverage, 0–100 each) and the Stress
-Test actually live, not as a bolted-on loop outside the house.
+| Element of reasoning | Architectural counterpart | Why it fits |
+|---|---|---|
+| Frame (purpose, concepts, the question) | The Blueprint | Framing what you're building, and why, before anything argues |
+| Perspectives (sub-questions, points of view) | The Windows | Same house, a different view from each |
+| Evidence | The Materials Yard | Raw material before it's shaped |
+| Assumptions | The Foundation | Load-bearing, usually invisible |
+| Conclusion (inference, sub-conclusions) | The Wiring | The connections that make "therefore" hold |
+| Implications & Consequences | The Weather | Does it survive a real storm? |
+| Review | The Inspection | Checked nine ways, stress-tested, sent back until it holds |
 
-## What must not be implied (the one real mechanical fix)
+The nine standards (clarity, accuracy, precision, relevance, depth,
+breadth, logic, significance, fairness) live inside that seventh room —
+**the Inspection** — as a recurring pass, not a static checklist, that can
+send any room back for another framing pass before the house is signed
+off. Not a loop bolted on outside the sequence; it's the last room.
 
-The AI never authors the finished result — it never even hands out a verdict.
-`decisions/007`'s posture dial (`Mirror → Coach → Sparring partner →
-Co-analyst → Author`) puts **Author permanently off-limits as real output**; a
-prior feature that let the AI draft the whole house was removed specifically
-for contradicting this. The real Mini House (`components/try/MiniHouseResult.tsx`)
-proves it: three perspectives explored through sub-questions, cited evidence,
-a synthesis — and it ends on a **reflective question**, never a lean or a
-verdict. My first pass at the live-demo mockup got this wrong (a pro/con list
-ending in "leans toward: take it, 63/37" — exactly the pattern the team
-already killed once). Fixed in [06](06-page-live-demo.md) and the mockup.
+## Visual system
 
-## Visual system (now the real tokens)
+**Palette** — warm drafting-paper base (not stark white), blueprint
+cyan/indigo as the primary "structure" ink, a brass/copper accent for
+"passed inspection" moments, a terracotta for warmth. Deliberately not
+another purple-blue AI gradient.
 
-**Color** — Ink Navy (`#14213A`) for primary text/dark grounds, warm Paper
-(`#F7F6F2`, not stark white) for page background, one accent **Amber**
-(`#F2B021`) for primary actions and marks only, Graphite/Slate (`#5A6B85`) for
-secondary text and mono labels, Blueprint Blue (`#3E5C8A`) as a sparing
-secondary/diagram accent. Semantic success/warn/uncertain colors are reserved
-for the strength meter and implications, not general decoration.
-**Contrast rule, stated explicitly in the real spec:** amber is for fills,
-marks, and large/bold type only — never small body text on paper. Use ink or
-slate for that.
+**Type** — a confident slab-serif or architectural sans for headlines
+(drafting-stencil energy), paired with a warm, highly legible humanist
+sans for body copy. Nothing that reads sci-fi or generic-SaaS.
 
-**Type** — three roles, not two: **Display serif** ("Fraunces", "Newsreader")
-for headlines — editorial, not architectural-slab (my first pass used a slab
-serif; wrong register). **Body sans** ("Inter Tight", "Geist") — deliberately
-quiet, so serif + mono carry the personality. **Mono** ("Geist Mono", "IBM
-Plex Mono") for eyebrows, sheet marks, short uppercase labels only, never body
-copy.
+**Illustration** — isometric, hand-drafted line art; SVG stroke-draw
+animation (lines appear as if being drawn). No 3D-render gloss, no stock
+photography, no chat-bubble hero imagery.
 
-**Sheet marks** — reuse the real `SheetStrip` convention verbatim: `Project ·
-Houses of Thought / Method · Trapasso / Paul–Elder / Rev. A` on the left,
-`Sheet NN / Page name` on the right. Don't invent a parallel version.
-
-**Motion** — the hero house draws itself foundation-up, 900ms, one signature
-animation per page; everything else is a short eased fade + 12px translate,
-staggered 60ms. No bounce, no parallax, no autoplay carousels. Full rules in
-[09](09-motion-and-accessibility.md).
-
-**Layout** — 12-column grid, ~1200px max width, hairline rules over shadow,
-asymmetric section rhythm (alternate text/visual sides, alternate light/dark
-bands) so it never reads as stacked identical slabs. No pill-shaped cards or
-buttons (radius caps at 12px).
+**Motion** — every animation maps to a physical action a visitor already
+understands: a door opening, a line being drawn, a stamp coming down, a
+foundation settling, a storm passing over a structure that holds. That's
+the resolution to "exotic but not confusing": the *subject matter* is
+novel, the *physics* of the motion is always familiar. Full rules in
+[09-motion-and-accessibility.md](09-motion-and-accessibility.md).
 
 ## Explicitly not this
 
-Glassmorphism. Glowing particle fields. Purple-blue gradients. Stock photos.
-A chatbot bubble as the hero image. Five competing accent colors. Emoji as
-iconography. Uniform `rounded-2xl` cards with soft shadows everywhere. All
-already banned by the real design-language doc, for the same reason I'd have
-banned them blind: it's the wallpaper of the category.
+Glassmorphism. Glowing particle fields. Purple-blue gradients. Stock
+photos of people pointing at whiteboards. A chatbot bubble as the hero
+image. Anything that would look at home on a generic "AI tool" landing
+page — if it's the wallpaper of the category, it's off the table here.

@@ -1,41 +1,35 @@
-# Pages: How It Works & Framework
+# Page: Method (`/method`)
 
 [← Back to index](README.md) · [Creative concept](02-creative-concept.md)
 
-Two real, distinct pages, per `plans/active/pre-login-ux/pages-content.md` —
-don't collapse them into my originally-invented single `/method` page.
+## Purpose
 
-## `/how-it-works` — the approachable version
+The deep explainer for visitors who want to understand before they trust
+it with a real question — and the page that carries the credibility
+pillar ("real methodology, not a prompt trick").
 
-**Job:** convert, not educate exhaustively. Three steps, already well-specced:
+## Structure
 
-1. **Ask a question worth reasoning about.** A decision, a topic, an essay.
-2. **Explore perspectives and evidence.** AI guides with questions and cites
-   real sources (Research Mode) — it won't write your conclusion.
-3. **Reach a conclusion you can defend.** A House Strength score across
-   Evidence / Logic / Coverage; stress-test it before reality does.
+1. **Short framing.** Two or three sentences: this is Paul and Elder's
+   critical-thinking framework, structured by a working teacher's
+   classroom model, run automatically against your question.
+2. **The seven houses, in sequence.** One block per element, using the
+   [room mapping](02-creative-concept.md) — plain-language explanation of
+   what that element interrogates, plus the room's small illustration.
+   Order corrected from an earlier eight-room draft; see
+   [open questions](10-open-questions.md) for what changed.
+3. **The Inspection, in full.** How the nine standards work as a loop,
+   not a single pass — this is where the "keeps looping until it's
+   robust enough to survive reality" idea gets its real explanation,
+   matching how the product is actually described.
+4. **Attribution section.** Clear, respectful credit to Richard Paul and
+   Linda Elder's framework and to John Trapasso's classroom model. Good
+   practice, and it reinforces credibility.
+5. **CTA.** *See it work on a real question* → `/try`.
 
-Ends with a CTA into `/try`. Keep this page short — its whole job is to move
-people to the real thing, not to be the exhaustive reference.
+## Presentation approach
 
-## `/framework` — the exhaustive version (already written, genuinely good)
-
-`app/framework/page.tsx` already has complete, well-written copy for all
-seven layers plus House Strength, Research Mode, and Learn/Decide — sticky
-table-of-contents, `DefinedTermSet` JSON-LD for AEO, attributed to Trapasso
-and Paul-Elder, credited to Samir Sogani. **This doesn't need new content,
-just the visual system applied consistently** (sheet mark, type system,
-hairline rules, one small inline diagram highlight per layer as the spec
-already calls for).
-
-One line worth keeping verbatim, already on the page and better than anything
-I'd draft new: *"In Houses of Thought the conclusion is always yours: the AI
-can question it and stress-test it, but it never writes it."*
-
-## Design notes for both
-
-- Long-form reading column ≤68ch, sticky ToC ≥`lg`, top accordion below it.
-- Mono eyebrow per section names the layer ("Layer 4 · Assumptions") — reuse
-  this pattern, don't invent a parallel labeling scheme.
-- If `/framework` copy ever exceeds ~200 lines, split per the constitution —
-  not a concern yet.
+Content should stand alone as plain, scannable, crawlable text (good for
+SEO and reduced-motion users) with scroll-triggered animation layered on
+top for visitors with motion enabled — never the reverse. Nobody should
+need JavaScript-driven motion to read this page.

@@ -2,43 +2,43 @@
 
 [← Back to index](README.md)
 
-Corrected to the real routes (`app/` in `docs/repository/file-structure.md`).
-**`/educators` is listed only for nav context — unchanged, per instruction.**
+Every route below is new or redesigned. **`/for-educators` is listed only
+for nav context — its design and content are unchanged, per instruction.**
+Nothing here alters it.
 
-| Route | Purpose | Status |
-|---|---|---|
-| `/` | Home — the 10-second pitch; see [04](04-page-landing.md). | Redesign |
-| `/how-it-works` | Approachable 3-step explainer. | Redesign |
-| `/framework` | Exhaustive, SEO/AEO-carrying glossary of all 7 layers — content already strong; see [05](05-page-how-it-works.md). | Mostly keep, restyle |
-| `/try` | The real no-login builder — already live, already free. See [06](06-page-live-demo.md). | Marketing around it, not the feature itself |
-| `/examples` (+ `/examples/[slug]`) | Real published houses — replaced a dead "Guides" nav item on purpose. | Keep, restyle |
-| `/story` | Origin narrative. See [08](08-page-about-and-switch.md). | Redesign |
-| `/faq` | Also carries pricing ("free to start") — no separate pricing page. | Keep, restyle |
-| `/contact` | Form + info cards. | Keep, restyle |
-| `/educators` | **Unchanged.** Untouched. | Do not touch |
-| `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/welcome` | Auth. See [07](07-page-auth-and-legal.md). | Light touch |
-| `/terms`, `/privacy` | Legal. See [07](07-page-auth-and-legal.md). | Light touch |
-| `/switch-from-rationale` | **New — not in the original plan.** See [08](08-page-about-and-switch.md) and open question about the underlying claim. | New proposal |
+| Route | Purpose |
+|---|---|
+| `/` | Home. The 10-second pitch; see [04](04-page-landing.md). |
+| `/method` | The methodology explained house-by-house; see [05](05-page-how-it-works.md). |
+| `/try` | The real, live interactive demo; see [06](06-page-live-demo.md). |
+| `/why-free` | Addresses "how is this free" directly and honestly. |
+| `/switch-from-rationale` | Timely migration-angle page — **placeholder content only until open questions #2/#3 are resolved.** |
+| `/about` | Origin story, Trapasso + Paul-Elder credit; see [08](08-page-about-and-switch.md). |
+| `/for-educators` | **Unchanged.** Linked from nav for the right audience, not redesigned. |
+| `/login`, `/signup`, `/reset-password` | Auth; see [07](07-page-auth-and-legal.md). |
+| `/privacy`, `/terms` | Legal; see [07](07-page-auth-and-legal.md). |
 
-Dropped from my first pass: an invented `/method` (the real split of
-`/how-it-works` + `/framework` is better than my single page), an invented
-`/about` (the real page is `/story`, with existing strong copy), an invented
-`/why-free` (folded into `/faq` already).
+## Proposed addition: shareable results
+
+A visitor who runs `/try` gets a shareable result (e.g.
+`/try/r/<id>` or similar) — a clean, static "completed house" view of
+their diagrams/pro-con/implications output, shareable by link. This is a
+growth lever (SEO + social sharing) as much as a UX nicety. Flagging it as
+a proposal, not a commitment — it has real backend/storage implications
+beyond this design pass.
 
 ## Global nav
 
-The real spec caps top nav at four items to control weight. Proposed,
-consumer-forward ordering (see the audience flag in
-[01](01-positioning-and-goals.md) — this order is the thing to confirm):
-Logo → `/` · How it works · Try it free · For educators · Log in ·
-**Sign up free** (primary).
+Logo → `/` · Method · Try it free · Why free · For educators · Log in ·
+**Sign up free** (primary button)
 
-Footer: full route list, plus a credit line to Paul-Elder / the Foundation for
-Critical Thinking and John Trapasso.
+Footer repeats the nav plus About, Privacy, Terms, and a small credit
+line to Paul-Elder / the Foundation for Critical Thinking.
 
 ## Navigation principle
 
-Unchanged from my first pass and confirmed by the real UX principles doc:
-**"Show, don't tell"** — every page should make `/try` the path of least
-resistance, since it's not a mockup of the product, it *is* the product,
-already free, already no-login.
+Two calls to action compete for primacy everywhere: **understand it**
+(`/method`) and **try it** (`/try`). Every page should make "try it" the
+path of least resistance — the live demo is the strongest asset this site
+has, and the design should keep surfacing it rather than making visitors
+read their way to it.
