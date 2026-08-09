@@ -6,10 +6,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
-import Footer from '@/components/sections/Footer'
-import CTASection from '@/components/sections/CTASection'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
+import MarketingCTASection from '@/components/marketing/CTASection'
 import { Avatar } from '@/components/build/Avatar'
 import { examples, getExample } from '@/lib/examples/data'
 import { layers, axisMeasures, type PerspectiveDetail } from '@/lib/build/content'
@@ -109,27 +108,26 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <>
-      <Header />
-      <SheetStrip sheet="Sheet 07 / Examples" />
+    <div className="dusk-page">
+      <MarketingHeader />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <main id="main">
-        <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(28px, 4vw, 48px)' }}>
+        <section style={{ paddingBlock: 'clamp(28px, 4vw, 48px)' }}>
           <div className="container">
             <Link
               href="/examples"
               className="mono"
-              style={{ fontSize: 12, color: 'var(--ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ fontSize: 12, color: 'var(--dusk-ink-subtle)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               ← All examples
             </Link>
 
             {/* Title band */}
             <div style={{ marginTop: 18 }}>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)', border: '1px solid var(--rule)', borderRadius: 5, padding: '3px 9px' }}>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--dusk-ink-subtle)', border: '1px solid var(--dusk-rule)', borderRadius: 5, padding: '3px 9px' }}>
                 {example.domain}
               </span>
               <h1
@@ -138,14 +136,14 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
                   fontWeight: 500,
                   fontSize: 'clamp(28px, 4vw, 44px)',
                   letterSpacing: '-0.015em',
-                  color: 'var(--ink)',
+                  color: 'var(--dusk-ink)',
                   lineHeight: 1.15,
                   marginTop: 14,
                 }}
               >
                 {h.title}
               </h1>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: 'var(--ink-mid)', marginTop: 12, lineHeight: 1.5, maxWidth: '60ch' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: 'var(--dusk-ink-mid)', marginTop: 12, lineHeight: 1.5, maxWidth: '60ch' }}>
                 {example.summary}
               </p>
             </div>
@@ -155,10 +153,10 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
                   where .mk-example-aside makes it static so it can't slide
                   over the article) */}
               <aside className="mk-example-aside" style={{ flex: '1 1 190px', maxWidth: 220, position: 'sticky', top: 84 }}>
-                <p style={monoLabel}>On this house</p>
+                <p style={{ ...monoLabel, color: 'var(--dusk-ink-subtle)' }}>On this house</p>
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 12 }}>
                   {jumpLinks.map((l) => (
-                    <a key={l.id} href={`#${l.id}`} style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink-mid)', padding: '4px 0' }}>
+                    <a key={l.id} href={`#${l.id}`} style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--dusk-ink-mid)', padding: '4px 0' }}>
                       {l.label}
                     </a>
                   ))}
@@ -304,7 +302,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
           </div>
         </section>
 
-        <CTASection
+        <MarketingCTASection
           eyebrow="Start"
           heading="Build a house like this one."
           primaryLabel="Try it free"
@@ -314,8 +312,8 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
           note="No sign-up needed to try it. Create a free account when you want to build and save full houses."
         />
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }
 
@@ -324,14 +322,14 @@ function LayerSection({ id, step, children }: { id: string; step: number; childr
   return (
     <section id={id} style={{ scrollMarginTop: 84 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="mono" style={{ fontSize: 11, color: 'var(--amber-text)' }}>Layer {step} / 7</span>
-        <span style={{ width: 16, height: 1, background: 'var(--rule)' }} />
-        <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>{layer.kicker}</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--amber)' }}>Layer {step} / 7</span>
+        <span style={{ width: 16, height: 1, background: 'var(--dusk-rule)' }} />
+        <span className="mono" style={{ fontSize: 11, color: 'var(--dusk-ink-subtle)' }}>{layer.kicker}</span>
       </div>
-      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(22px, 2.8vw, 30px)', letterSpacing: '-0.015em', color: 'var(--ink)', marginTop: 10 }}>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(22px, 2.8vw, 30px)', letterSpacing: '-0.015em', color: 'var(--dusk-ink)', marginTop: 10 }}>
         {layer.title}
       </h2>
-      <p style={{ fontSize: 15, color: 'var(--ink-mid)', lineHeight: 1.55, marginTop: 8, marginBottom: 18, maxWidth: '60ch' }}>{layer.blurb}</p>
+      <p style={{ fontSize: 15, color: 'var(--dusk-ink-mid)', lineHeight: 1.55, marginTop: 8, marginBottom: 18, maxWidth: '60ch' }}>{layer.blurb}</p>
       {children}
     </section>
   )

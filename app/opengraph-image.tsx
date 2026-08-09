@@ -62,16 +62,18 @@ export default function OpengraphImage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 24, color: RULE }}>
-          <span>Concepts</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 22, color: RULE, flexWrap: 'wrap' }}>
+          <span>Frame</span>
           <span style={{ color: AMBER }}>·</span>
           <span>Perspectives</span>
           <span style={{ color: AMBER }}>·</span>
-          <span>Evidence</span>
+          <span>Global Assumptions</span>
           <span style={{ color: AMBER }}>·</span>
-          <span>Assumptions</span>
+          <span>Global Evidence</span>
           <span style={{ color: AMBER }}>·</span>
-          <span>Conclusion</span>
+          <span>Conclusions</span>
+          <span style={{ color: AMBER }}>·</span>
+          <span>Implications</span>
         </div>
       </div>
     ),

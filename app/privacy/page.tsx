@@ -6,9 +6,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/site'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
-import Footer from '@/components/sections/Footer'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
 import { LegalArticle, DraftNotice } from '@/components/legal/LegalArticle'
 
 export const metadata: Metadata = pageMetadata({
@@ -21,18 +20,17 @@ export const metadata: Metadata = pageMetadata({
 export default function PrivacyPage() {
   const markdown = fs.readFileSync(path.join(process.cwd(), 'legal', 'PRIVACY_POLICY.md'), 'utf8')
   return (
-    <>
-      <Header />
-      <SheetStrip sheet="Sheet 99 / Privacy" />
+    <div className="dusk-page">
+      <MarketingHeader />
       <main id="main">
-        <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(36px, 5vw, 64px)' }}>
+        <section style={{ paddingBlock: 'clamp(36px, 5vw, 64px)' }}>
           <div className="container">
             <DraftNotice />
             <LegalArticle markdown={markdown} />
           </div>
         </section>
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }

@@ -54,6 +54,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]
   },
+  async redirects() {
+    return [
+      // /framework described the House Builder's own layer model (Frame,
+      // Perspectives, Evidence, Assumptions, Conclusion, Implications,
+      // Review) — a different, real feature from the automated reasoning
+      // pipeline this redesign's How It Works page now explains in full
+      // (lib/ai/reasoning/steps.ts's Frame → Breadth Scoping → Perspectives →
+      // Global Assumptions → Global Evidence → Conclusions → Implications).
+      // Keeping both live under separate nav items would present visitors
+      // with two different "the 7 layers" claims. Permanent redirect so any
+      // existing links/citations still land on the current explainer.
+      { source: '/framework', destination: '/how-it-works', permanent: true },
+    ]
+  },
 }
 
 export default nextConfig

@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/site'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
+import MarketingCTASection from '@/components/marketing/CTASection'
 import ScrollRevealInit from '@/components/ScrollReveal'
 import FaqIntroSection from '@/components/sections/FaqIntroSection'
 import FaqGroupsSection from '@/components/sections/FaqGroupsSection'
-import CTASection from '@/components/sections/CTASection'
-import Footer from '@/components/sections/Footer'
 import { faqGroups } from '@/lib/faq/data'
 
 export const metadata: Metadata = {
@@ -41,10 +40,9 @@ const faqJsonLd = {
 
 export default function FaqPage() {
   return (
-    <>
+    <div className="dusk-page">
       <ScrollRevealInit />
-      <Header />
-      <SheetStrip sheet="Sheet 08 / FAQ" />
+      <MarketingHeader />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
@@ -52,7 +50,7 @@ export default function FaqPage() {
       <main id="main">
         <FaqIntroSection />
         <FaqGroupsSection />
-        <CTASection
+        <MarketingCTASection
           eyebrow="Still curious?"
           heading="The fastest answer is to build one."
           primaryLabel="Try it free"
@@ -62,7 +60,7 @@ export default function FaqPage() {
           note="No sign-up needed to try it. Create a free account when you want to build and save full houses."
         />
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }

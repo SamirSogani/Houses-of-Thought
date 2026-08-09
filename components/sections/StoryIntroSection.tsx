@@ -1,10 +1,10 @@
 export default function StoryIntroSection() {
   return (
-    <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--hero-py)' }}>
+    <section style={{ paddingBlock: 'var(--hero-py)' }}>
       <div className="container" style={{ maxWidth: 720, margin: '0 auto' }} data-reveal>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
-          <span className="eyebrow">Sheet 07 / Our story</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--amber)' }}>Our story</span>
         </div>
 
         <h1
@@ -16,7 +16,7 @@ export default function StoryIntroSection() {
             letterSpacing: '-0.015em',
             maxWidth: '16ch',
             marginTop: 20,
-            color: 'var(--ink)',
+            color: 'var(--dusk-ink)',
           }}
         >
           A short story about how this started.
@@ -27,7 +27,7 @@ export default function StoryIntroSection() {
             fontFamily: 'var(--font-body)',
             fontSize: 'clamp(18px, 1.7vw, 20px)',
             lineHeight: 1.6,
-            color: 'var(--ink-mid)',
+            color: 'var(--dusk-ink-mid)',
             maxWidth: '56ch',
             marginTop: 20,
           }}

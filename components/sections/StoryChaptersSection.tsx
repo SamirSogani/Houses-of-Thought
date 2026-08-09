@@ -49,16 +49,10 @@ function PullQuote({ children }: { children: React.ReactNode }) {
 
 export default function StoryChaptersSection() {
   return (
-    <section
-      style={{
-        background: 'var(--white)',
-        borderTop: '1px solid var(--rule)',
-        paddingBlock: 'var(--section-py)',
-      }}
-    >
+    <section style={{ paddingBlock: '0 var(--section-py)' }}>
       <div
-        className="container"
-        style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 64 }}
+        className="container paper-card"
+        style={{ maxWidth: 720, padding: 'clamp(28px, 4vw, 48px)', display: 'flex', flexDirection: 'column', gap: 64 }}
       >
         <article data-reveal>
           <p style={chapterLabelStyle}>01 / The spark</p>

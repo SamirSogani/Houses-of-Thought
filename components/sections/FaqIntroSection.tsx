@@ -1,10 +1,10 @@
 export default function FaqIntroSection() {
   return (
-    <section style={{ background: 'var(--parchment)', paddingBlock: 'var(--hero-py)' }}>
+    <section style={{ paddingBlock: 'var(--hero-py)' }}>
       <div className="container" style={{ maxWidth: 820, margin: '0 auto' }} data-reveal>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
-          <span className="eyebrow">Sheet 08 / FAQ</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--amber)' }}>FAQ</span>
         </div>
 
         <h1
@@ -16,7 +16,7 @@ export default function FaqIntroSection() {
             letterSpacing: '-0.015em',
             maxWidth: '14ch',
             marginTop: 20,
-            color: 'var(--ink)',
+            color: 'var(--dusk-ink)',
           }}
         >
           Questions, answered.
@@ -27,7 +27,7 @@ export default function FaqIntroSection() {
             fontFamily: 'var(--font-body)',
             fontSize: 'clamp(17px, 1.6vw, 19px)',
             lineHeight: 1.6,
-            color: 'var(--ink-mid)',
+            color: 'var(--dusk-ink-mid)',
             maxWidth: '52ch',
             marginTop: 20,
           }}

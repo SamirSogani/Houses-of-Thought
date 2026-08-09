@@ -1,10 +1,14 @@
 import type { ReactNode } from 'react'
-import Header from '@/components/Header'
+import MarketingHeader from '@/components/marketing/Header'
 
 // Shared scaffold for the auth pages (login, forgot-password, reset-password):
-// the site header, the centered parchment stage, the eyebrow + display heading,
-// and the white card that holds the form. `children` render inside the card;
-// `belowCard` renders in the column beneath it (login's footer note).
+// the site header, the centered dusk stage, the eyebrow + display heading, and
+// a "paper" card that holds the form. Login/signup is a genuinely pre-login
+// surface, so this uses the new marketing header — but the form CARD itself
+// stays on the light --white/--ink tokens the form fields and
+// AccountTypeSelector already assume (AccountTypeSelector is also rendered,
+// read-only, on the post-login Profile page — it isn't safe to recolor).
+// `children` render inside the card; `belowCard` renders beneath it.
 export function AuthCard({
   eyebrow,
   heading,
@@ -17,14 +21,13 @@ export function AuthCard({
   belowCard?: ReactNode
 }) {
   return (
-    <>
-      <Header />
+    <div className="dusk-page">
+      <MarketingHeader />
 
       {/* acct-vh-header = dvh-safe `calc(100vh - 73px)` (account-responsive.css). */}
       <main
         className="acct-vh-header"
         style={{
-          background: 'var(--parchment)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -35,7 +38,7 @@ export function AuthCard({
           {/* Eyebrow */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <span style={{ display: 'block', width: 24, height: 1, background: 'var(--amber)' }} />
-            <span className="eyebrow">{eyebrow}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--amber)' }}>{eyebrow}</span>
           </div>
 
           {/* Heading */}
@@ -46,7 +49,7 @@ export function AuthCard({
               fontSize: 'clamp(32px, 5vw, 44px)',
               lineHeight: 1.08,
               letterSpacing: '-0.015em',
-              color: 'var(--ink)',
+              color: 'var(--dusk-ink)',
               marginBottom: 32,
             }}
           >
@@ -54,21 +57,14 @@ export function AuthCard({
           </h1>
 
           {/* Card */}
-          <div
-            style={{
-              background: 'var(--white)',
-              border: '1px solid var(--rule)',
-              borderRadius: 'var(--radius-card)',
-              padding: 'clamp(24px, 4vw, 36px)',
-            }}
-          >
+          <div className="paper-card" style={{ padding: 'clamp(24px, 4vw, 36px)' }}>
             {children}
           </div>
 
           {belowCard}
         </div>
       </main>
-    </>
+    </div>
   )
 }
 

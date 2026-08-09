@@ -122,7 +122,7 @@ export default function LoginPage() {
             fontSize: 11,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            color: 'var(--rule)',
+            color: 'var(--dusk-ink-subtle)',
           }}
         >
           Your reasoning stays yours

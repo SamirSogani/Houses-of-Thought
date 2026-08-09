@@ -1,27 +1,25 @@
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/site'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
-import Footer from '@/components/sections/Footer'
-import TryItFlow from '@/components/try/TryItFlow'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
+import TryFlow from '@/components/marketing/TryFlow'
 
 export const metadata: Metadata = pageMetadata({
   title: 'Try It Free — no account needed',
   description:
-    'Run a free Mini House on any real question. Structured, sourced, and surprisingly clarifying — no account required.',
+    'See what a Houses of Thought reasoning run does with your question — no account required.',
   path: '/try',
   ogTitle: 'Try Houses of Thought free — no account needed',
 })
 
 export default function TryPage() {
   return (
-    <>
-      <Header />
-      <SheetStrip sheet="Sheet 00 / Try it" />
+    <div className="dusk-page">
+      <MarketingHeader />
       <main id="main">
-        <TryItFlow />
+        <TryFlow />
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }

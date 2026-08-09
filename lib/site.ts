@@ -65,6 +65,45 @@ export function pageMetadata({
   }
 }
 
+// Pre-login nav, shared by components/marketing/Header.tsx and Footer.tsx so
+// the header and footer (and the mobile sheet) can never drift out of sync
+// with each other. This is the VISIBLE sitemap only — /compare and its
+// per-competitor pages are deliberately reachable by direct URL alone (see
+// their own page files), so they are never listed here.
+export const MARKETING_NAV_LINKS = [
+  { label: 'How it works', href: '/how-it-works' },
+  { label: 'Examples', href: '/examples' },
+  { label: 'For Educators', href: '/educators' },
+  { label: 'FAQ', href: '/faq' },
+] as const
+
+export const MARKETING_FOOTER_GROUPS = [
+  {
+    heading: 'Product',
+    links: [
+      { label: 'Try it', href: '/try' },
+      { label: 'How it works', href: '/how-it-works' },
+      { label: 'Examples', href: '/examples' },
+    ],
+  },
+  {
+    heading: 'Learn',
+    links: [
+      { label: 'For Educators', href: '/educators' },
+      { label: 'Our Story', href: '/story' },
+      { label: 'FAQ', href: '/faq' },
+    ],
+  },
+  {
+    heading: 'Legal',
+    links: [
+      { label: 'Terms', href: '/terms' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Contact', href: '/contact' },
+    ],
+  },
+] as const
+
 // Routes that must never be indexed: the authenticated app, auth surfaces, and
 // anything that would compete with a marketing page as a thin duplicate.
 export const NOINDEX_PREFIXES = [

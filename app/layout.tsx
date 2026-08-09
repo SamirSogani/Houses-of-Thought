@@ -6,6 +6,7 @@ import './globals.css'
 import './styles/build-responsive.css'
 import './styles/marketing-responsive.css'
 import './styles/account-responsive.css'
+import './styles/dusk-theme.css'
 
 const fraunces = Fraunces({
   subsets: ['latin'],

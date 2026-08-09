@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/site'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
+import MarketingCTASection from '@/components/marketing/CTASection'
 import ScrollRevealInit from '@/components/ScrollReveal'
 import StoryIntroSection from '@/components/sections/StoryIntroSection'
 import StoryChaptersSection from '@/components/sections/StoryChaptersSection'
-import CTASection from '@/components/sections/CTASection'
-import Footer from '@/components/sections/Footer'
 
 export const metadata: Metadata = pageMetadata({
   title: 'Our Story',
@@ -19,24 +18,23 @@ export const metadata: Metadata = pageMetadata({
 
 export default function StoryPage() {
   return (
-    <>
+    <div className="dusk-page">
       <ScrollRevealInit />
-      <Header />
-      <SheetStrip sheet="Sheet 07 / Our story" />
+      <MarketingHeader />
       <main id="main">
         <StoryIntroSection />
         <StoryChaptersSection />
-        <CTASection
+        <MarketingCTASection
           eyebrow="Your turn"
           heading="Build your first house."
           primaryLabel="Try it instantly"
           primaryHref="/try"
-          secondaryLabel="Read the framework"
-          secondaryHref="/framework"
+          secondaryLabel="How it works"
+          secondaryHref="/how-it-works"
           note="Try it on a real decision you've been putting off."
         />
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }

@@ -1,0 +1,124 @@
+/* The "dusk constellation" visual system for the pre-login redesign. Scoped by
+   convention (only components under components/marketing/** and the redesigned
+   pre-login pages use these classes) rather than by CSS selector, matching the
+   existing per-concern stylesheet split (build-responsive.css, marketing-
+   responsive.css, account-responsive.css). Tokens live in globals.css :root
+   alongside the parchment palette — see the comment there for why this is
+   additive, not a retheme of the shared tokens.
+
+   CONTAINMENT NOTE (mirrors marketing-responsive.css): styling here pairs with
+   inline styles in components/marketing/**; keep the two in sync by hand. */
+
+/* ── Page-level surfaces ─────────────────────────────────────────────────── */
+.dusk-page {
+  background: var(--dusk-950);
+  background-image: var(--dusk-bg-gradient);
+  color: var(--dusk-ink);
+  min-height: 100vh;
+}
+
+/* A "paper" island for content that assumes a light surface and isn't safe to
+   recolor piecemeal (evidence rows, strength bars, legal prose, form fields —
+   all pull dark-on-light colors from shared, unmodified tokens/components).
+   Floating these as lit sheets on the dusk background keeps that content
+   exactly as designed while still reading as part of the new system. */
+.paper-card {
+  background: var(--white);
+  border: 1px solid var(--dusk-rule);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px -24px rgba(2, 4, 12, 0.65);
+}
+
+/* A dark elevated surface for NEW dusk-native components (nav sheet, footer,
+   CTA band, diagram card, contact cards, auth card). */
+.dusk-card {
+  background: var(--dusk-card);
+  border: 1px solid var(--dusk-rule);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dusk-rule-line {
+  border-color: var(--dusk-rule) !important;
+}
+
+/* ── Constellation diagram ───────────────────────────────────────────────
+   One consistent transition grammar reused everywhere (design brief): a node
+   "opens" the same way whether it's the compressed teaser or the interactive
+   diagram, a standard mark "resolves" the same way whether it passes first
+   try or after a retry pulse. */
+
+@keyframes constellation-path-draw {
+  from { stroke-dashoffset: var(--path-len, 1000); }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes node-glow-in {
+  0% { opacity: 0; transform: scale(0.82); filter: drop-shadow(0 0 0 rgba(242, 176, 33, 0)); }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 10px var(--node-glow, rgba(242, 176, 33, 0.55))); }
+}
+
+@keyframes mark-resolve-in {
+  0% { opacity: 0.22; transform: scale(0.6); fill: var(--dusk-rule); }
+  100% { opacity: 1; transform: scale(1); fill: var(--standard-cool); }
+}
+
+/* A failed standard redoing the work: pulses the retry color before settling
+   into the same resolved state every mark ends in — the loop is visible, the
+   ending is identical either way. */
+@keyframes mark-retry-pulse {
+  0% { opacity: 0.3; transform: scale(0.6); fill: var(--dusk-rule); }
+  35% { opacity: 1; transform: scale(1.25); fill: var(--dusk-retry); }
+  55% { opacity: 0.55; transform: scale(0.85); fill: var(--dusk-retry); }
+  80% { opacity: 1; transform: scale(1.2); fill: var(--dusk-retry); }
+  100% { opacity: 1; transform: scale(1); fill: var(--standard-cool); }
+}
+
+@keyframes breadth-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+.constellation-path {
+  animation: constellation-path-draw 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.constellation-node {
+  animation: node-glow-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.constellation-mark-resolve {
+  animation: mark-resolve-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.constellation-mark-retry {
+  animation: mark-retry-pulse 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.constellation-breadth-pulse {
+  animation: breadth-pulse 1.8s ease-in-out infinite;
+}
+
+/* Reduced-motion mode: real, not cosmetic. Every animated element jumps to
+   its resolved end state — nothing stays hidden or mid-transition. Driven by
+   BOTH the OS preference and the in-app toggle (components/marketing/
+   Constellation.tsx sets data-motion="reduced" once a visitor opts in). */
+@media (prefers-reduced-motion: reduce) {
+  .constellation-path,
+  .constellation-node,
+  .constellation-mark-resolve,
+  .constellation-mark-retry,
+  .constellation-breadth-pulse {
+    animation: none !important;
+  }
+}
+[data-motion='reduced'] .constellation-path,
+[data-motion='reduced'] .constellation-node,
+[data-motion='reduced'] .constellation-mark-resolve,
+[data-motion='reduced'] .constellation-mark-retry,
+[data-motion='reduced'] .constellation-breadth-pulse {
+  animation: none !important;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .dusk-nav-links { display: none !important; }
+}

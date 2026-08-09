@@ -6,10 +6,9 @@
 
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/site'
-import Header from '@/components/Header'
-import SheetStrip from '@/components/SheetStrip'
-import Footer from '@/components/sections/Footer'
-import CTASection from '@/components/sections/CTASection'
+import MarketingHeader from '@/components/marketing/Header'
+import MarketingFooter from '@/components/marketing/Footer'
+import MarketingCTASection from '@/components/marketing/CTASection'
 
 export const metadata: Metadata = pageMetadata({
   title: 'Contact',
@@ -40,13 +39,12 @@ const cards = [
 
 export default function ContactPage() {
   return (
-    <>
-      <Header />
-      <SheetStrip sheet="Sheet 10 / Contact" />
+    <div className="dusk-page">
+      <MarketingHeader />
       <main id="main">
-        <section style={{ background: 'var(--parchment)', paddingBlock: 'clamp(40px, 6vw, 80px)' }}>
+        <section style={{ paddingBlock: 'clamp(40px, 6vw, 80px)' }}>
           <div className="container">
-            <p className="eyebrow">Contact</p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--amber)' }}>Contact</p>
             <h1
               style={{
                 fontFamily: 'var(--font-display)',
@@ -54,37 +52,36 @@ export default function ContactPage() {
                 fontSize: 'clamp(32px, 5vw, 52px)',
                 letterSpacing: '-0.015em',
                 lineHeight: 1.12,
-                color: 'var(--ink)',
+                color: 'var(--dusk-ink)',
                 marginTop: 16,
                 maxWidth: '22ch',
               }}
             >
               Talk to the person who builds it.
             </h1>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--ink-mid)', marginTop: 16, maxWidth: '52ch' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 16, maxWidth: '52ch' }}>
               Houses of Thought is independently built, so mail lands with the
               founder, not a ticket queue. Every message gets read.
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginTop: 44 }}>
               {cards.map((c) => (
-                <div key={c.label} style={{ flex: '1 1 280px', background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: 24 }}>
+                <div key={c.label} className="dusk-card" style={{ flex: '1 1 280px', padding: 24 }}>
                   <p
                     style={{
                       fontFamily: 'var(--font-mono)',
                       fontSize: 11,
                       textTransform: 'uppercase',
                       letterSpacing: '0.1em',
-                      color: 'var(--ink-subtle)',
+                      color: 'var(--dusk-ink-subtle)',
                       marginBottom: 8,
                     }}
                   >
                     {c.label}
                   </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--ink-mid)' }}>{c.body}</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--dusk-ink-mid)' }}>{c.body}</p>
                   <a
-                    className="text-link"
-                    style={{ display: 'inline-block', marginTop: 14, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14 }}
+                    style={{ display: 'inline-block', marginTop: 14, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: 'var(--amber)', borderBottom: '1px solid var(--amber)', paddingBottom: 2 }}
                     href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(c.subject)}`}
                   >
                     Email us →
@@ -93,13 +90,16 @@ export default function ContactPage() {
               ))}
             </div>
 
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-subtle)', marginTop: 28 }}>
-              Direct address: <a className="text-link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--dusk-ink-subtle)', marginTop: 28 }}>
+              Direct address:{' '}
+              <a style={{ color: 'var(--amber)', borderBottom: '1px solid var(--amber)', paddingBottom: 2 }} href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
+              </a>
             </p>
           </div>
         </section>
 
-        <CTASection
+        <MarketingCTASection
           eyebrow="Or just try it"
           heading="The product answers most questions."
           primaryLabel="Try it free"
@@ -109,7 +109,7 @@ export default function ContactPage() {
           note="No sign-up needed to try it."
         />
       </main>
-      <Footer />
-    </>
+      <MarketingFooter />
+    </div>
   )
 }
