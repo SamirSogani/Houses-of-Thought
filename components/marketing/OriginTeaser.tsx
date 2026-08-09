@@ -18,9 +18,9 @@ export default function OriginTeaser() {
               information. What was missing was structure.&rdquo;
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
-              Houses of Thought is built on John Trapasso&rsquo;s House of Reason model,
-              taught in his classroom for years before it was ever software, and
-              derived from the Paul&ndash;Elder framework for critical thinking.
+              Houses of Thought is built on John Trapasso&rsquo;s classroom model,
+              taught for years before it was ever software, and derived from the
+              Paul&ndash;Elder framework for critical thinking.
             </p>
           </div>
           <Link href="/story" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 15, color: 'var(--amber)', whiteSpace: 'nowrap' }}>

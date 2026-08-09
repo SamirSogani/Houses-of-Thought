@@ -52,9 +52,8 @@ export default function StoryChaptersSection() {
           <p style={chapterBodyStyle}>
             My teacher, John Trapasso, had spent years teaching a framework for
             exactly this: work a question all the way through, one layer at a time,
-            grounded in the Paul&ndash;Elder model for critical thinking. He called
-            it the House of Reason. When he shared it with me, the gap I kept
-            running into finally had a name.
+            grounded in the Paul&ndash;Elder model for critical thinking. When he
+            shared it with me, the gap I kept running into finally made sense.
           </p>
         </article>
 
@@ -76,7 +75,7 @@ export default function StoryChaptersSection() {
               marginTop: 20,
             }}
           >
-            Created by Samir Sogani. Based on John Trapasso&rsquo;s House of Reason
+            Created by Samir Sogani. Based on John Trapasso&rsquo;s classroom
             model, derived from the Paul&ndash;Elder model for critical thinking.
           </p>
         </article>

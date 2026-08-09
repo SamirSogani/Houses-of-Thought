@@ -8,6 +8,7 @@
 
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, FOUNDER, absoluteUrl } from '@/lib/site'
 import { examples } from '@/lib/examples/data'
+import { CONSTELLATION_LAYERS } from '@/lib/marketing/constellation'
 
 export const dynamic = 'force-static'
 
@@ -16,21 +17,25 @@ export function GET(): Response {
 
 > ${SITE_DESCRIPTION}
 
-${SITE_NAME} is built on John Trapasso's House of Reason model, itself derived
-from the Paul-Elder framework for critical thinking. It was created by ${FOUNDER}.
+${SITE_NAME} is built on John Trapasso's classroom model, itself derived from
+the Paul-Elder framework for critical thinking. It was created by ${FOUNDER}.
 
 ## What it does
 
-A user brings a hard question and builds it into a "house" — a layered
-reasoning structure. The seven layers, in order:
+A user asks a real question, and the reasoning pipeline works it through
+seven layers, in order:
 
-1. Frame — purpose, the overarching question, and the key concepts defined
-2. Perspectives — each stakeholder reasoned from in turn
-3. Evidence — claims with citations that link to the original source
-4. Assumptions — what must be true for the reasoning to hold
-5. Conclusion — the answer, plus the reasoning that carries the perspectives into it
-6. Implications — what follows, sorted positive / negative / uncertain
-7. Review — House Strength scoring and an AI stress test
+${CONSTELLATION_LAYERS.map((l, i) => `${i + 1}. ${l.name} — ${l.job}`).join('\n')}
+
+Six of the seven layers are checked by a panel of nine independent reviewers
+(the Paul-Elder Universal Intellectual Standards) before the run continues;
+Breadth Scoping is a single judgment call with no panel.
+
+The product also has a separate, post-login collaborative "House Builder"
+where a signed-in user builds a house by hand with AI assistance across its
+own seven layers (Frame, Perspectives, Evidence, Assumptions, Conclusion,
+Implications, Review) — a different, human-driven feature from the automated
+run described above.
 
 ## Key terms
 
@@ -55,13 +60,12 @@ prompt instruction.
 ## Key pages
 
 - [Home](${SITE_URL}/): what the product is
-- [The Framework](${absoluteUrl('/framework')}): full definitions of every element of the model
-- [How It Works](${absoluteUrl('/how-it-works')}): the build flow, step by step
+- [How It Works](${absoluteUrl('/how-it-works')}): the seven-layer reasoning model, layer by layer, plus the nine-standard review panel
 - [For Educators](${absoluteUrl('/educators')}): classroom use, student accounts, teacher tools
 - [FAQ](${absoluteUrl('/faq')}): direct answers to common questions
 - [Examples](${absoluteUrl('/examples')}): complete worked houses
 - [Our Story](${absoluteUrl('/story')}): origin and intellectual lineage
-- [Try It Free](${absoluteUrl('/try')}): build a Mini House with no account
+- [Try It Instantly](${absoluteUrl('/try')}): build a Mini House with no account
 
 ## Worked examples
 

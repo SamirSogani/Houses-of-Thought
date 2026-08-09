@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   ...pageMetadata({
     title: 'The Framework',
     description:
-      'Every element of the Houses of Thought framework: concepts, purpose, the overarching question, perspectives, evidence, assumptions, inference, conclusions, and implications — based on John Trapasso\u2019s House of Reason, derived from the Paul\u2013Elder model for critical thinking.',
+      'Every element of the Houses of Thought framework: concepts, purpose, the overarching question, perspectives, evidence, assumptions, inference, conclusions, and implications — based on John Trapasso\u2019s classroom model, derived from the Paul\u2013Elder model for critical thinking.',
     path: '/framework',
     ogTitle: 'The Houses of Thought Framework',
   }),
@@ -135,7 +135,7 @@ const jsonLd = {
   '@type': 'DefinedTermSet',
   name: 'Houses of Thought framework glossary',
   description:
-    'Definitions of the elements of the Houses of Thought reasoning framework, based on John Trapasso’s House of Reason and the Paul–Elder model for critical thinking.',
+    'Definitions of the elements of the Houses of Thought reasoning framework, based on John Trapasso’s classroom model and the Paul–Elder model for critical thinking.',
   hasDefinedTerm: [...elements, ...scoring].map((t) => ({
     '@type': 'DefinedTerm',
     name: t.name,
@@ -186,7 +186,7 @@ export default function FrameworkPage() {
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--ink-mid)', marginTop: 16, maxWidth: '62ch' }}>
               This is the exhaustive companion to{' '}
               <Link href="/how-it-works" className="text-link">How it works</Link>. Based on John
-              Trapasso&rsquo;s House of Reason, derived from the Paul&ndash;Elder framework for
+              Trapasso&rsquo;s classroom model, derived from the Paul&ndash;Elder framework for
               critical thinking; built into software by Samir Sogani.
             </p>
 
