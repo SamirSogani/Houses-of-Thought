@@ -67,7 +67,7 @@ export default function ExamplesPage() {
         <MarketingCTASection
           eyebrow="Start"
           heading="Start your own house."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="How it works"
           secondaryHref="/how-it-works"

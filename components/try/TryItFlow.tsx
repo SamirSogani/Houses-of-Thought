@@ -27,9 +27,9 @@ const STAGE_ICONS = [CompassIcon, BrainIcon, LightbulbIcon, BookOpenIcon, Sparkl
 
 const READING_MAX = 760
 
-export default function TryItFlow() {
+export default function TryItFlow({ initialQuestion = '' }: { initialQuestion?: string }) {
   const [phase, setPhase] = useState<Phase>('input')
-  const [question, setQuestion] = useState('')
+  const [question, setQuestion] = useState(initialQuestion)
   const [activeStage, setActiveStage] = useState(0)
   const [result, setResult] = useState<MiniHouse | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -38,6 +38,14 @@ export default function TryItFlow() {
 
   const trimmed = question.trim()
   const canSubmit = trimmed.length >= MINI_HOUSE_MIN_CHARS && phase !== 'loading'
+
+  // A question arriving via the Home hero's try-it box (?q=, passed down as
+  // initialQuestion) should start building immediately rather than making the
+  // visitor retype and resubmit what they already typed once.
+  useEffect(() => {
+    if (initialQuestion.trim().length >= MINI_HOUSE_MIN_CHARS) build(initialQuestion)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Advance the checklist while loading; cap at the final stage (the spinner
   // holds there until the fetch resolves or fails).

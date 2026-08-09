@@ -110,7 +110,7 @@ export default function MarketingHeader() {
                 borderRadius: 8,
               }}
             >
-              Try it free
+              Try it instantly
             </Link>
           </nav>
 
@@ -120,7 +120,7 @@ export default function MarketingHeader() {
               href="/try"
               style={{ display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 16px', background: 'var(--amber)', color: 'var(--ink)', fontWeight: 600, fontSize: 14, borderRadius: 8 }}
             >
-              Try it free
+              Try it instantly
             </Link>
             <button
               onClick={() => setMobileOpen(true)}
@@ -172,7 +172,7 @@ export default function MarketingHeader() {
 
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Link href="/try" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 52, background: 'var(--amber)', color: 'var(--ink)', fontWeight: 600, fontSize: 16, borderRadius: 8 }}>
-              Try it free
+              Try it instantly
             </Link>
             <Link href="/login" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 52, border: '1px solid var(--dusk-rule)', color: 'var(--dusk-ink)', fontWeight: 600, fontSize: 16, borderRadius: 8 }}>
               Log in

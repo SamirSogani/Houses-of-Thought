@@ -91,7 +91,7 @@
   animation: mark-resolve-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .constellation-mark-retry {
-  animation: mark-retry-pulse 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: mark-retry-pulse 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .constellation-breadth-pulse {
   animation: breadth-pulse 1.8s ease-in-out infinite;

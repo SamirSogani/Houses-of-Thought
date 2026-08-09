@@ -102,7 +102,7 @@ export default function ContactPage() {
         <MarketingCTASection
           eyebrow="Or just try it"
           heading="The product answers most questions."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="How it works"
           secondaryHref="/how-it-works"

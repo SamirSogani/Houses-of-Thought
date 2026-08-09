@@ -71,7 +71,7 @@ export function CompareTemplate({ competitor }: { competitor: Competitor }) {
         <MarketingCTASection
           eyebrow="Bring your decisions here"
           heading="Free forever. Start now."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="How it works"
           secondaryHref="/how-it-works"

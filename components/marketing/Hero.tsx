@@ -117,7 +117,7 @@ export default function Hero() {
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 16px', borderTop: '1px solid var(--dusk-rule)' }}>
             <button type="submit" className="btn-primary">
-              Try it free <ArrowIcon />
+              Try it instantly <ArrowIcon />
             </button>
           </div>
         </form>

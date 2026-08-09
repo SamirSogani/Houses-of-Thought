@@ -99,7 +99,7 @@ export default function ComparePage() {
         <MarketingCTASection
           eyebrow="See for yourself"
           heading="Free forever. Start now."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="How it works"
           secondaryHref="/how-it-works"

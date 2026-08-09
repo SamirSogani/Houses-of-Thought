@@ -53,7 +53,7 @@ export default function FaqPage() {
         <MarketingCTASection
           eyebrow="Still curious?"
           heading="The fastest answer is to build one."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="How it works"
           secondaryHref="/how-it-works"

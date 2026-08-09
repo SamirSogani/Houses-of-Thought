@@ -13,12 +13,24 @@
 //   - 'sweep'       — /try's pre-confirmation beat. Plays once, faster, then
 //                     calls onSweepComplete. No labels, no interaction.
 //
-// Animation approach mirrors HeroSection.tsx's HeroHouseSvg exactly: CSS
-// keyframes with a per-element animationDelay computed in JS, frozen to a
-// static end state after the sequence finishes (a `setTimeout` matching the
-// total duration) rather than a persistent JS timer loop.
+// Animation approach: CSS keyframes with a per-element animationDelay
+// computed in JS, frozen to a static end state after the sequence finishes.
+//
+// The sequence is gated behind an IntersectionObserver (same mechanism as
+// components/ScrollReveal.tsx), NOT mount time. It used to key off mount
+// directly, which raced page load: by the time hydration + fonts + the rest
+// of the route finished, most of a ~2.8s mount-timed sequence had already
+// played out off-screen, so a visitor only ever caught the tail end — one
+// mark still mid-retry-pulse on the first node — and it read as stalled.
+// Starting the clock only once the diagram is actually visible removes that
+// race entirely.
+//
+// A small comet travels the connecting path over the same window (an
+// SVG <animateMotion>, mounted fresh exactly when the sequence starts), so
+// "the reasoning moving through the sequence" has one unambiguous, literal
+// visual instead of relying on a viewer to track nine tiny marks per node.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CONSTELLATION_LAYERS, CONSTELLATION_STANDARDS, type LayerId } from '@/lib/marketing/constellation'
 import type { StandardId } from '@/lib/ai/reasoning/contracts'
@@ -64,9 +76,13 @@ function retryMarkIndex(layerIndex: number): number {
   return (layerIndex * 3 + 2) % 9
 }
 
-const SWEEP_STAGGER_MS = 110
-const NORMAL_STAGGER_MS = 220
-const MARK_STAGGER_MS = 55
+const SWEEP_STAGGER_MS = 130
+const NORMAL_STAGGER_MS = 260
+const MARK_STAGGER_MS = 45
+// The slowest possible mark animation (a retry pulse) — used as the buffer
+// before freezing on the end state. Keep in sync with .constellation-mark-
+// retry's duration in app/styles/dusk-theme.css.
+const RETRY_DURATION_MS = 900
 
 interface ConstellationProps {
   variant: 'compressed' | 'interactive' | 'sweep'
@@ -74,35 +90,69 @@ interface ConstellationProps {
 }
 
 export default function Constellation({ variant, onSweepComplete }: ConstellationProps) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
   const [settled, setSettled] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [selected, setSelected] = useState<LayerId>('frame')
 
   const stagger = variant === 'sweep' ? SWEEP_STAGGER_MS : NORMAL_STAGGER_MS
-  const totalMs = useMemo(() => {
-    const lastNode = (CONSTELLATION_LAYERS.length - 1) * stagger
-    const marksAfter = 9 * MARK_STAGGER_MS + 700
-    return lastNode + marksAfter + 300
-  }, [stagger])
+  const lastNodeDelay = (CONSTELLATION_LAYERS.length - 1) * stagger
+  const totalMs = useMemo(
+    () => lastNodeDelay + 260 + 8 * MARK_STAGGER_MS + RETRY_DURATION_MS + 250,
+    [lastNodeDelay]
+  )
+  // The comet's own travel time — arrives at the last node right around when
+  // that node's entrance fires, so its motion and the nodes lighting up read
+  // as the same event.
+  const travelMs = lastNodeDelay + 500
 
+  // Reduced motion: OS preference OR the explicit in-app toggle. Resolved
+  // immediately — no observer, no timer, straight to the settled end state.
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const savedToggle = window.localStorage.getItem('hot-reduced-motion') === '1'
-    setReducedMotion(prefersReduced || savedToggle)
+    const reduced = prefersReduced || savedToggle
+    setReducedMotion(reduced)
+    if (reduced) setSettled(true)
+  }, [])
 
-    const delay = prefersReduced || savedToggle ? 0 : totalMs
+  // Start the sequence only once the diagram is actually on screen.
+  useEffect(() => {
+    if (reducedMotion) return
+    const el = wrapRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true)
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.35 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [reducedMotion])
+
+  // Freeze on the resolved end state once the sequence has actually run its
+  // course, measured from when it actually started (visible), not from mount.
+  useEffect(() => {
+    if (!visible || reducedMotion) return
     const t = setTimeout(() => {
       setSettled(true)
       if (variant === 'sweep') onSweepComplete?.()
-    }, delay)
+    }, totalMs)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [visible, reducedMotion, totalMs, variant, onSweepComplete])
 
   function toggleReducedMotion() {
     setReducedMotion((prev) => {
       const next = !prev
       window.localStorage.setItem('hot-reduced-motion', next ? '1' : '0')
+      if (next) setSettled(true)
       return next
     })
   }
@@ -110,8 +160,15 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
   const activeLayer = CONSTELLATION_LAYERS.find((l) => l.id === selected) ?? CONSTELLATION_LAYERS[0]
   const interactive = variant === 'interactive'
 
+  // 'pending' = on screen but not yet visible / not yet started — renders the
+  // same dim look the animations' own 0% keyframe starts from, so there's no
+  // flash when 'animating' begins. 'animating' only exists in the render
+  // between visible and settled, so a CSS animation-delay is always counted
+  // from a real, on-screen start. 'resolved' is the permanent end state.
+  const phase: 'pending' | 'animating' | 'resolved' = settled ? 'resolved' : visible ? 'animating' : 'pending'
+
   return (
-    <div data-motion={reducedMotion ? 'reduced' : undefined}>
+    <div ref={wrapRef} data-motion={reducedMotion ? 'reduced' : undefined}>
       <svg
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         style={{ width: '100%', height: 'auto', overflow: 'visible' }}
@@ -129,13 +186,30 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
           strokeWidth={1.6}
           strokeLinecap="round"
           pathLength={1}
-          className={settled || reducedMotion ? undefined : 'constellation-path'}
+          className={phase === 'animating' ? 'constellation-path' : undefined}
           style={{
             strokeDasharray: 1,
-            strokeDashoffset: settled || reducedMotion ? 0 : 1,
+            strokeDashoffset: phase === 'pending' ? 1 : 0,
             opacity: 0.55,
           }}
         />
+
+        {/* The comet: a literal traveling light for "reasoning moving through
+            the sequence" — mounted fresh only once animating starts, so its
+            SMIL timing is never subject to the same page-load race the CSS
+            delays used to fall into. */}
+        {phase === 'animating' && (
+          <circle r={5.5} fill="var(--amber)" style={{ filter: 'drop-shadow(0 0 7px var(--amber))' }}>
+            <animateMotion dur={`${travelMs}ms`} path={nodePath()} fill="freeze" calcMode="linear" />
+            <animate
+              attributeName="opacity"
+              values="0;1;1;0"
+              keyTimes="0;0.06;0.92;1"
+              dur={`${travelMs}ms`}
+              fill="freeze"
+            />
+          </circle>
+        )}
 
         {CONSTELLATION_LAYERS.map((layer, i) => {
           const cx = NODE_X[i]
@@ -176,13 +250,9 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
                       cx={m.x}
                       cy={m.y}
                       r={MARK_R}
-                      fill={settled || reducedMotion ? resolvedFill : 'var(--dusk-rule)'}
+                      fill={phase === 'resolved' ? resolvedFill : 'var(--dusk-rule)'}
                       className={
-                        settled || reducedMotion
-                          ? undefined
-                          : isRetry
-                            ? 'constellation-mark-retry'
-                            : 'constellation-mark-resolve'
+                        phase === 'animating' ? (isRetry ? 'constellation-mark-retry' : 'constellation-mark-resolve') : undefined
                       }
                       style={{ animationDelay: `${markDelay}ms` }}
                     />
@@ -198,15 +268,13 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
                 stroke={isSelected ? 'var(--standard-cool)' : 'var(--amber)'}
                 strokeWidth={isSelected ? 2.4 : 1.8}
                 className={
-                  layer.hasPanel
-                    ? settled || reducedMotion
-                      ? undefined
-                      : 'constellation-node'
-                    : settled || reducedMotion
-                      ? 'constellation-breadth-pulse'
-                      : 'constellation-node'
+                  phase === 'resolved' && !layer.hasPanel
+                    ? 'constellation-breadth-pulse'
+                    : phase === 'animating'
+                      ? 'constellation-node'
+                      : undefined
                 }
-                style={{ animationDelay: layer.hasPanel ? `${nodeDelay}ms` : undefined, transition: 'fill 0.2s, stroke 0.2s' }}
+                style={{ animationDelay: phase === 'animating' ? `${nodeDelay}ms` : undefined, transition: 'fill 0.2s, stroke 0.2s' }}
               />
               <text
                 x={cx}

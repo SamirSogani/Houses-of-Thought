@@ -162,7 +162,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
                   ))}
                 </nav>
                 <Link href="/try" className="btn-primary" style={{ marginTop: 22, display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
-                  Try it free
+                  Try it instantly
                 </Link>
               </aside>
 
@@ -305,7 +305,7 @@ export default async function ExampleDetailPage({ params }: { params: Promise<{ 
         <MarketingCTASection
           eyebrow="Start"
           heading="Build a house like this one."
-          primaryLabel="Try it free"
+          primaryLabel="Try it instantly"
           primaryHref="/try"
           secondaryLabel="Browse more examples"
           secondaryHref="/examples"
