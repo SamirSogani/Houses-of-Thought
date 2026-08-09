@@ -174,7 +174,7 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
         role={interactive ? 'group' : 'img'}
         aria-label={
           interactive
-            ? 'The seven layers of a reasoning run — select one to read what it does'
+            ? 'The seven layers of a reasoning run: select one to read what it does'
             : 'The seven layers of a Houses of Thought reasoning run: Frame, Breadth Scoping, Perspectives, Global Assumptions, Global Evidence, Conclusions, Implications'
         }
       >

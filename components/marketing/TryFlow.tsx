@@ -25,7 +25,7 @@ type Phase = 'input' | 'sweep' | 'confirmation'
 const WHAT_A_FULL_RUN_DOES = [
   {
     title: 'Frame it',
-    body: 'Pin down exactly what’s being decided, define the terms that matter, and set the scope — before arguing anything.',
+    body: 'Pin down exactly what’s being decided, define the terms that matter, and set the scope, before arguing anything.',
   },
   {
     title: 'Build real perspectives',
@@ -33,7 +33,7 @@ const WHAT_A_FULL_RUN_DOES = [
   },
   {
     title: 'Stress-test the assumptions and evidence',
-    body: 'Everything is checked by a review panel of nine independent standards — clarity, accuracy, precision, relevance, depth, breadth, logic, significance, fairness — before it counts.',
+    body: 'Everything is checked by a review panel of nine independent standards (clarity, accuracy, precision, relevance, depth, breadth, logic, significance, fairness) before it counts.',
   },
   {
     title: 'Show what follows',
@@ -120,7 +120,7 @@ function TryFlowInner() {
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 16, maxWidth: '60ch' }}>
           That&rsquo;s a real question worth reasoning through properly. Wiring your
           question into the live reasoning pipeline is coming in a future
-          update — here&rsquo;s exactly what a full run does with it.
+          update. Here&rsquo;s exactly what a full run does with it.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginTop: 32 }}>

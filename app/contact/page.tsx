@@ -13,7 +13,7 @@ import MarketingCTASection from '@/components/marketing/CTASection'
 export const metadata: Metadata = pageMetadata({
   title: 'Contact',
   description:
-    'Get in touch with Houses of Thought — questions, bug reports, account and data requests, or classroom pilots for your school.',
+    'Get in touch with Houses of Thought: questions, bug reports, account and data requests, or classroom pilots for your school.',
   path: '/contact',
 })
 
@@ -23,17 +23,17 @@ const cards = [
   {
     label: 'Questions & feedback',
     body: 'Anything about the product, the framework, or where it is heading. Short questions welcome.',
-    subject: 'Houses of Thought — question',
+    subject: 'Houses of Thought: question',
   },
   {
     label: 'Educators & classrooms',
     body: 'Interested in running Houses of Thought with a class? Tell us your subject, grade level, and class size.',
-    subject: 'Houses of Thought — classroom pilot',
+    subject: 'Houses of Thought: classroom pilot',
   },
   {
     label: 'Bugs & account requests',
     body: 'Something broken, or an account or data-deletion request (see the Privacy Policy). Include the email on the account.',
-    subject: 'Houses of Thought — support',
+    subject: 'Houses of Thought: support',
   },
 ]
 

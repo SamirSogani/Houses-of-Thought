@@ -37,7 +37,7 @@ export default function MarketingFooter() {
               </span>
             </div>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--dusk-ink-subtle)', maxWidth: '34ch', marginTop: 14 }}>
-              Free, structured reasoning built on a real classroom framework — and free for good, not just for now.
+              Free, structured reasoning built on a real classroom framework, and free for good, not just for now.
             </p>
           </div>
 

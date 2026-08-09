@@ -29,7 +29,7 @@ export interface Competitor {
 export const HUB_ROWS: { dimension: string; houses: string; rationaleStyle: string; chatbot: string; paidTools: string }[] = [
   {
     dimension: 'Price',
-    houses: 'Free — no paid tier, ever',
+    houses: 'Free: no paid tier, ever',
     rationaleStyle: 'Free apps have shut down before',
     chatbot: 'Free, but not built for this',
     paidTools: 'Usually subscription-gated',
@@ -45,7 +45,7 @@ export const HUB_ROWS: { dimension: string; houses: string; rationaleStyle: stri
     dimension: 'Review rigor',
     houses: 'Nine independent standards per gated layer',
     rationaleStyle: 'None disclosed',
-    chatbot: 'None — one pass, no self-check',
+    chatbot: 'None: one pass, no self-check',
     paidTools: 'Rarely disclosed',
   },
   {
@@ -59,7 +59,7 @@ export const HUB_ROWS: { dimension: string; houses: string; rationaleStyle: stri
     dimension: 'Source framework',
     houses: "A named, real classroom model (Trapasso / Paul–Elder)",
     rationaleStyle: 'Proprietary, undisclosed',
-    chatbot: 'None — general-purpose chat',
+    chatbot: 'None: general-purpose chat',
     paidTools: 'Usually proprietary',
   },
   {
@@ -80,12 +80,12 @@ export const COMPETITORS: Record<string, Competitor> = {
     eyebrow: 'Rationale is shutting down',
     headline: "Rationale is shutting down. Here's where to take your decisions next.",
     intro:
-      'If you used Rationale to think through decisions, Houses of Thought is built to do the same job with more rigor underneath it — and it isn’t going anywhere. There is no paid tier to migrate to and no subscription to start: it’s free, and it stays free.',
+      'If you used Rationale to think through decisions, Houses of Thought is built to do the same job with more rigor underneath it, and it isn’t going anywhere. There is no paid tier to migrate to and no subscription to start: it’s free, and it stays free.',
     rows: [
-      { dimension: 'Price', houses: 'Free — no paid tier, ever', them: 'Free, but the app is shutting down' },
+      { dimension: 'Price', houses: 'Free: no paid tier, ever', them: 'Free, but the app is shutting down' },
       {
         dimension: 'How a decision gets reasoned through',
-        houses: 'Seven fixed layers — Frame, Breadth Scoping, Perspectives, Global Assumptions, Global Evidence, Conclusions, Implications',
+        houses: 'Seven fixed layers: Frame, Breadth Scoping, Perspectives, Global Assumptions, Global Evidence, Conclusions, Implications',
         them: 'A single pass over pros, cons, and a chosen framework',
       },
       {
@@ -100,7 +100,7 @@ export const COMPETITORS: Record<string, Competitor> = {
       },
       {
         dimension: 'Where the method comes from',
-        houses: "A named classroom framework — John Trapasso's model, derived from Paul–Elder's Universal Intellectual Standards",
+        houses: "A named classroom framework: John Trapasso's model, derived from Paul–Elder's Universal Intellectual Standards",
         them: 'Proprietary, undisclosed methodology',
       },
       { dimension: 'What happens next', houses: 'Actively developed, free forever', them: 'Shutting down' },

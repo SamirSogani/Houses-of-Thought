@@ -10,7 +10,7 @@ import StoryChaptersSection from '@/components/sections/StoryChaptersSection'
 export const metadata: Metadata = pageMetadata({
   title: 'Our Story',
   description:
-    'Why Houses of Thought exists: a student watching smart people make messy decisions, and a teacher — John Trapasso — whose House of Reason model, derived from Paul–Elder, gave the missing structure.',
+    'Why Houses of Thought exists: a student watching smart people make messy decisions, and a teacher, John Trapasso, whose House of Reason model, derived from Paul–Elder, gave the missing structure.',
   path: '/story',
   ogTitle: 'The story behind Houses of Thought',
   type: 'article',

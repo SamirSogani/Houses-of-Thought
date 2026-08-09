@@ -70,7 +70,7 @@ export default function ResetPasswordPage() {
             }}
           >
             This reset link is invalid or has expired. Reset links last one hour and can only be used
-            once — request a fresh one to continue.
+            once. Request a fresh one to continue.
           </p>
           <Link
             href="/forgot-password"

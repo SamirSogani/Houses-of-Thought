@@ -118,7 +118,7 @@ export default function MiniHouseResult({
 
           {/* 02 · Sub-conclusions */}
           <Fade delay={400}>
-            <SectionHead num="02" label="Sub-conclusions" sub="What each perspective concludes — on its own" />
+            <SectionHead num="02" label="Sub-conclusions" sub="What each perspective concludes on its own" />
             <div className="mh-cols-3">
               {perspectives.map((p, i) => (
                 <article key={i} style={{ ...card(POV_ACCENT[i]), background: 'var(--parchment)' }}>
@@ -243,7 +243,7 @@ export default function MiniHouseResult({
                           position: 'relative',
                         }}
                       >
-                        <span style={{ position: 'absolute', left: 0, color: 'var(--amber-text)' }}>—</span>
+                        <span style={{ position: 'absolute', left: 0, color: 'var(--amber-text)' }}>•</span>
                         {t}
                       </li>
                     ))}

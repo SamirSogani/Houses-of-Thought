@@ -5,7 +5,7 @@
 const PILLARS = [
   {
     title: 'It reasons in the open',
-    body: 'Every layer and every verdict is visible while it happens — not a single answer with the thinking hidden behind it.',
+    body: 'Every layer and every verdict is visible while it happens, not a single answer with the thinking hidden behind it.',
   },
   {
     title: 'It checks its own work',
@@ -13,7 +13,7 @@ const PILLARS = [
   },
   {
     title: 'It won’t decide for you',
-    body: 'It frames the question, builds the perspectives, and stress-tests the evidence. The conclusion — and the choice — stays yours.',
+    body: 'It frames the question, builds the perspectives, and stress-tests the evidence. The conclusion, and the choice, stays yours.',
   },
 ]
 

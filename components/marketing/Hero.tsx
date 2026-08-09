@@ -51,7 +51,7 @@ export default function Hero() {
             color: 'var(--amber)',
           }}
         >
-          Free, always — no paid tier
+          Always free, no paid tier
         </span>
 
         <h1
@@ -82,7 +82,7 @@ export default function Hero() {
         >
           Ask a real question. Houses of Thought frames it, builds independent
           perspectives, stress-tests the assumptions and evidence, and reaches
-          a conclusion — every step checked by an independent review panel.
+          a conclusion, with every step checked by an independent review panel.
         </p>
 
         <form

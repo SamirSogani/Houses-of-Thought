@@ -5,11 +5,11 @@ import MarketingFooter from '@/components/marketing/Footer'
 import TryItFlow from '@/components/try/TryItFlow'
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Try It Instantly — no account needed',
+  title: 'Try It Instantly: no account needed',
   description:
-    'Run a free Mini House on any real question. Structured, sourced, and surprisingly clarifying — no account required.',
+    'Run a free Mini House on any real question. Structured, sourced, and surprisingly clarifying. No account required.',
   path: '/try',
-  ogTitle: 'Try Houses of Thought instantly — no account needed',
+  ogTitle: 'Try Houses of Thought instantly: no account needed',
 })
 
 export default async function TryPage({

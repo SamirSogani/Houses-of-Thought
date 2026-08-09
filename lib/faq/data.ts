@@ -23,7 +23,7 @@ export const faqGroups: FaqGroup[] = [
       {
         question: 'Do I need an account to try it?',
         answer:
-          "No. You can build a Mini House free with no login. Mini House results aren't saved, though — create a free account when you want the full builder, where every house autosaves to your dashboard.",
+          "No. You can build a Mini House free with no login. Mini House results aren't saved, though. Create a free account when you want the full builder, where every house autosaves to your dashboard.",
       },
     ],
   },
@@ -38,7 +38,7 @@ export const faqGroups: FaqGroup[] = [
       {
         question: 'What is House Strength?',
         answer:
-          'A structural score across three axes: evidence, logic, and coverage. It measures how complete each layer of the house is — sourced evidence, surfaced assumptions, range of perspectives — and rolls up into one overall number. Use it to find the thin spots and decide where to strengthen.',
+          'A structural score across three axes: evidence, logic, and coverage. It measures how complete each layer of the house is (sourced evidence, surfaced assumptions, range of perspectives) and rolls up into one overall number. Use it to find the thin spots and decide where to strengthen.',
       },
       {
         question: 'What is Research Mode?',
@@ -58,7 +58,7 @@ export const faqGroups: FaqGroup[] = [
       {
         question: 'How do you prevent hallucinated sources?',
         answer:
-          'Research Mode only cites sources it actually retrieved in the same search — the AI cannot attach a URL it did not just find — and every citation links to the original so you can read it yourself. AI output can still be wrong, which is why every claim stays inspectable instead of taken on faith.',
+          'Research Mode only cites sources it actually retrieved in the same search (the AI cannot attach a URL it did not just find), and every citation links to the original so you can read it yourself. AI output can still be wrong, which is why every claim stays inspectable instead of taken on faith.',
       },
       {
         question: 'Can I trust the conclusions?',
@@ -98,7 +98,7 @@ export const faqGroups: FaqGroup[] = [
       {
         question: 'Is my work saved before I sign up?',
         answer:
-          "Mini House results from the free try page aren't saved — they live only in that browser session. A free account unlocks the full builder, where every house autosaves to your dashboard as you work.",
+          "Mini House results from the free try page aren't saved; they live only in that browser session. A free account unlocks the full builder, where every house autosaves to your dashboard as you work.",
       },
       {
         question: "What's the minimum age?",

@@ -18,7 +18,7 @@ export default function OriginTeaser() {
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
               Houses of Thought is built on John Trapasso&rsquo;s classroom model, derived
-              from the Paul&ndash;Elder framework for critical thinking — taught in a real
+              from the Paul&ndash;Elder framework for critical thinking, taught in a real
               classroom before it was ever software.
             </p>
           </div>

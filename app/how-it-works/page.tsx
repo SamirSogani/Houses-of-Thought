@@ -25,12 +25,12 @@ import { CONSTELLATION_LAYERS, CONSTELLATION_STANDARDS } from '@/lib/marketing/c
 export const metadata: Metadata = pageMetadata({
   title: 'How It Works: the seven-layer reasoning model',
   description:
-    'How a Houses of Thought run works, layer by layer: Frame, Breadth Scoping, Perspectives, Global Assumptions, Global Evidence, Conclusions, and Implications — six of them checked by a nine-standard independent review panel.',
+    'How a Houses of Thought run works, layer by layer: Frame, Breadth Scoping, Perspectives, Global Assumptions, Global Evidence, Conclusions, and Implications. Six of them are checked by a nine-standard independent review panel.',
   path: '/how-it-works',
 })
 
 const FAILURE_MODE: Record<string, { label: string; body: string }> = {
-  'hard-block': { label: 'Hard-blocks', body: 'Loops until it passes — the run cannot continue on a failed version of this layer.' },
+  'hard-block': { label: 'Hard-blocks', body: 'Loops until it passes; the run cannot continue on a failed version of this layer.' },
   degrade: { label: 'Drops the failing stance', body: 'The other independent perspectives already provide redundancy, so only the one that failed is dropped.' },
   none: { label: 'No panel', body: 'A single judgment call, made once.' },
 }
@@ -84,8 +84,8 @@ export default function HowItWorksPage() {
                 A Houses of Thought run walks the same seven layers every time, based on
                 John Trapasso&rsquo;s classroom model, derived from the Paul&ndash;Elder
                 framework for critical thinking. Six of the seven are checked by a panel
-                of nine independent reviewers — one per standard, each blind to the
-                others — before the run is allowed to move on. Select a layer below for a
+                of nine independent reviewers, one per standard, each blind to the
+                others, before the run is allowed to move on. Select a layer below for a
                 quick summary, or jump straight to the full write-up further down the page.
               </p>
             </div>
@@ -106,17 +106,17 @@ export default function HowItWorksPage() {
               Standards, the same nine a critical-thinking classroom would apply by hand.
               Each one is graded by its own independent reviewer, seeing only its own
               question, so a strong score on one standard can never paper over a weak
-              one on another. What each standard actually means changes by layer — a
+              one on another. What each standard actually means changes by layer, since a
               layer can only fairly be graded against what it is actually trying to do.
               The full glossary, including that per-layer nuance, is below.
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
-              A layer that fails a standard doesn&rsquo;t quietly pass anyway — it loops and
+              A layer that fails a standard doesn&rsquo;t quietly pass anyway. It loops and
               redoes the work. Frame, Global Assumptions, Global Evidence, Conclusions,
               and Implications hold the whole run until they pass, since nothing else
               backs them up. Perspectives instead drops just the one stance that failed,
               since the other independent perspectives already provide redundancy.
-              Breadth Scoping is the one layer with no panel at all — a single judgment
+              Breadth Scoping is the one layer with no panel at all: a single judgment
               call about how many perspectives the question deserves, made once.
             </p>
           </div>
@@ -177,7 +177,7 @@ export default function HowItWorksPage() {
               </h2>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 12 }}>
                 Paul and Elder&rsquo;s Universal Intellectual Standards. Six of the seven
-                layers get graded against all nine — open a standard below to see what it
+                layers get graded against all nine. Open a standard below to see what it
                 specifically means at each of those six layers.
               </p>
             </div>
@@ -189,8 +189,7 @@ export default function HowItWorksPage() {
                       {s.name}
                     </span>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 14.5, lineHeight: 1.5, color: 'var(--dusk-ink-mid)' }}>
-                      {' '}
-                      — {s.definition}
+                      : {s.definition}
                     </span>
                   </summary>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, marginTop: 16 }}>
@@ -294,7 +293,7 @@ export default function HowItWorksPage() {
                   The seven layers are John Trapasso&rsquo;s classroom framework; the nine
                   standards each layer is checked against are Richard Paul and Linda
                   Elder&rsquo;s Universal Intellectual Standards for critical thinking.
-                  Houses of Thought is one particular implementation of both — not the
+                  Houses of Thought is one particular implementation of both, not the
                   other way around.
                 </p>
               </div>

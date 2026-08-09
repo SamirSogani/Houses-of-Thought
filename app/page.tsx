@@ -31,7 +31,7 @@ export default function Home() {
           primaryHref="/login?mode=signup"
           secondaryLabel="Browse examples"
           secondaryHref="/examples"
-          note="Every layer, every verdict, visible to you — free for good."
+          note="Every layer, every verdict, visible to you. Free for good."
         />
       </main>
       <MarketingFooter />

@@ -16,7 +16,7 @@ import { pageMetadata } from '@/lib/site'
 export const metadata: Metadata = pageMetadata({
   title: 'Examples: finished houses you can inspect',
   description:
-    'Complete worked examples of structured reasoning — classroom debates, career decisions, ethics and policy questions. Open any to read the perspectives, cited evidence, assumptions, and House Strength.',
+    'Complete worked examples of structured reasoning: classroom debates, career decisions, ethics and policy questions. Open any to read the perspectives, cited evidence, assumptions, and House Strength.',
   path: '/examples',
   ogTitle: 'Worked examples of structured reasoning',
 })

@@ -47,9 +47,9 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
   {
     id: 'frame',
     name: 'Frame',
-    job: 'Pins down exactly what is being decided, defines the terms that matter, and sets the scope — without arguing for any side yet.',
+    job: 'Pins down exactly what is being decided, defines the terms that matter, and sets the scope, without arguing for any side yet.',
     detail:
-      'Frame is checked twice: once before the rest of the run to confirm the question is actually answerable, and once after framing to confirm nothing essential was missed. Everything downstream — every perspective, every piece of evidence — inherits whatever gets decided here, so a vague or quietly slanted frame turns the rest of the run into work built on an unstable foundation.',
+      'Frame is checked twice: once before the rest of the run to confirm the question is actually answerable, and once after framing to confirm nothing essential was missed. Everything downstream, including every perspective and every piece of evidence, inherits whatever gets decided here, so a vague or quietly slanted frame turns the rest of the run into work built on an unstable foundation.',
     hasPanel: true,
     standardMeanings: {
       clarity: 'Is the question stated plainly enough that you would instantly know what is being decided?',
@@ -66,9 +66,9 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
   {
     id: 'breadth-scoping',
     name: 'Breadth Scoping',
-    job: 'A single judgment call: how many genuinely distinct, worthwhile perspectives does this question deserve? Made once — no review panel, no redundancy to fall back on for this step.',
+    job: 'A single judgment call: how many genuinely distinct, worthwhile perspectives does this question deserve? Made once, with no review panel and no redundancy to fall back on for this step.',
     detail:
-      'Some questions genuinely split two ways; others have four or five defensible angles worth building out. This layer sets that count before a single perspective is drafted, so the run builds exactly as many independent stances as the question supports — no padding to hit a round number, and no flattening a genuinely multi-sided question down to a simple for/against.',
+      'Some questions genuinely split two ways; others have four or five defensible angles worth building out. This layer sets that count before a single perspective is drafted, so the run builds exactly as many independent stances as the question supports, with no padding to hit a round number and no flattening a genuinely multi-sided question down to a simple for/against.',
     hasPanel: false,
   },
   {
@@ -76,7 +76,7 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
     name: 'Perspectives',
     job: 'Builds several independent, honestly-argued stances, each with its own claims, sub-questions, assumptions, evidence, and a real counterargument against itself.',
     detail:
-      'Building a perspective happens in two rounds: every stance stakes out its position independently first, then each one is fleshed out with sub-questions, assumptions, evidence, and a counterargument against itself. Because each stance is reviewed on its own, one weak perspective doesn’t stall the run — it’s dropped, and the other independent stances carry the weight instead.',
+      'Building a perspective happens in two rounds: every stance stakes out its position independently first, then each one is fleshed out with sub-questions, assumptions, evidence, and a counterargument against itself. Because each stance is reviewed on its own, one weak perspective doesn’t stall the run. It’s dropped, and the other independent stances carry the weight instead.',
     hasPanel: true,
     standardMeanings: {
       clarity: 'Does the stance commit to one clear position, instead of hedging about what it even argues?',
@@ -87,15 +87,15 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
       breadth: 'Does it draw on a genuine range of angles, rather than one point repeated?',
       logic: 'Does the reasoning hold together, and does the counterargument actually land on the real claims?',
       significance: 'Does it focus on what would matter most to someone who actually holds this view?',
-      fairness: 'Is the counterargument a real, honest attack — not a strawman — and are opposing views represented fairly?',
+      fairness: 'Is the counterargument a real, honest attack rather than a strawman, and are opposing views represented fairly?',
     },
   },
   {
     id: 'global-assumptions',
     name: 'Global Assumptions',
-    job: 'Surfaces the assumptions sitting underneath the whole question — not just one stance’s.',
+    job: 'Surfaces the assumptions sitting underneath the whole question, not just one stance’s.',
     detail:
-      'These are different from the assumptions inside any one perspective. A perspective’s assumptions only need to hold for that stance’s own argument; a global assumption is the kind of premise that would change the shape of every stance at once if it turned out false — the ones easy to miss precisely because no single perspective is responsible for naming them.',
+      'These are different from the assumptions inside any one perspective. A perspective’s assumptions only need to hold for that stance’s own argument; a global assumption is the kind of premise that would change the shape of every stance at once if it turned out false, the kind that is easy to miss precisely because no single perspective is responsible for naming it.',
     hasPanel: true,
     standardMeanings: {
       clarity: 'Is each assumption stated as one clear claim, not a vague generality?',
@@ -114,7 +114,7 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
     name: 'Global Evidence',
     job: 'Gathers evidence that bears on the question itself, not just one stance’s case.',
     detail:
-      'Where a perspective gathers evidence to support its own case, this layer gathers whatever bears on the question directly — including evidence that cuts against wherever the run eventually lands. It is the layer most likely to complicate a tidy story.',
+      'Where a perspective gathers evidence to support its own case, this layer gathers whatever bears on the question directly, including evidence that cuts against wherever the run eventually lands. It is the layer most likely to complicate a tidy story.',
     hasPanel: true,
     standardMeanings: {
       clarity: 'Is it plain what each piece of evidence would actually show?',
@@ -133,7 +133,7 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
     name: 'Conclusions',
     job: 'Draws the verdict(s) that actually follow from everything that passed review.',
     detail:
-      'A conclusion here isn’t a vote among the perspectives, and it isn’t required to land in the middle. It’s whatever the vetted global assumptions and global evidence actually support — which can mean siding closer to one perspective than another, as long as the reasoning that gets there is shown.',
+      'A conclusion here isn’t a vote among the perspectives, and it isn’t required to land in the middle. It’s whatever the vetted global assumptions and global evidence actually support, which can mean siding closer to one perspective than another, as long as the reasoning that gets there is shown.',
     hasPanel: true,
     standardMeanings: {
       clarity: 'Is the verdict direct and committed, not hedge-everything mush?',
@@ -150,7 +150,7 @@ export const CONSTELLATION_LAYERS: ConstellationLayer[] = [
   {
     id: 'implications',
     name: 'Implications',
-    job: 'Maps what follows if the conclusion is adopted — positive, negative, and uncertain — who is affected, and on what timeline.',
+    job: 'Maps what follows if the conclusion is adopted: positive, negative, and uncertain effects, who is affected, and on what timeline.',
     detail:
       'A conclusion that helps one group and costs another isn’t neutral just because it’s correct. This layer is what makes that visible: it sorts what follows by who bears it and on what timeline, rather than stopping at whether the conclusion itself holds up.',
     hasPanel: true,

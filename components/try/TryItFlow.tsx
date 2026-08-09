@@ -162,7 +162,7 @@ export default function TryItFlow({ initialQuestion = '' }: { initialQuestion?: 
           </h1>
 
           <p className="body-text" style={{ marginTop: 20, maxWidth: '62ch' }}>
-            We&rsquo;ll build a <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Mini House</strong> —
+            We&rsquo;ll build a <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Mini House</strong>,
             a compact, structured reasoning view of your question. Three perspectives, real
             assumptions, sourced evidence, and a final synthesis. About 20 seconds.
           </p>

@@ -40,7 +40,7 @@ export default function ComparePage() {
                 marginTop: 16,
               }}
             >
-              Free, reviewed reasoning — against the field.
+              Free, reviewed reasoning, weighed against the field.
             </h1>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 18 }}>
               A structural look at how Houses of Thought differs from ad-hoc chatbot use,

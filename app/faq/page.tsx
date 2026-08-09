@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   // Question-shaped for answer engines (aeo C3); `absolute` opts out of the
   // layout's "%s — Houses of Thought" template because the brand name is
   // already inside the question.
-  title: { absolute: 'What is Houses of Thought? — FAQ' },
+  title: { absolute: 'What is Houses of Thought? · FAQ' },
 }
 
 // FAQPage JSON-LD (seo #9, aeo H2) built from the same array the accordion
