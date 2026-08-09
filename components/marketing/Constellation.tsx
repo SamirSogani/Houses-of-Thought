@@ -32,8 +32,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { CONSTELLATION_LAYERS, CONSTELLATION_STANDARDS, type LayerId } from '@/lib/marketing/constellation'
-import type { StandardId } from '@/lib/ai/reasoning/contracts'
+import { CONSTELLATION_LAYERS, type LayerId } from '@/lib/marketing/constellation'
 import { ArrowIcon } from '@/components/icons'
 
 // Node centers along a gentle arc — a sequence, not a scattered cloud (design
@@ -297,35 +296,28 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--dusk-ink-subtle)' }}>
             Seven layers · six reviewed by nine independent standards each · one plain judgment call.
           </p>
-          <Link
-            href="/how-it-works"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 15, color: 'var(--amber)' }}
-          >
-            See how it works <ArrowIcon />
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Same toggle as the interactive diagram, and same localStorage key
+                (app/styles/dusk-theme.css / this component's own effect above):
+                "reduce motion" is a sitewide preference, so a visitor who set it
+                on How It Works needs to be able to see and undo it here too,
+                rather than finding a silently non-animating diagram with no
+                explanation. */}
+            <ReducedMotionToggle reducedMotion={reducedMotion} onToggle={toggleReducedMotion} />
+            <Link
+              href="/how-it-works"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 15, color: 'var(--amber)', whiteSpace: 'nowrap' }}
+            >
+              See how it works <ArrowIcon />
+            </Link>
+          </div>
         </div>
       )}
 
       {interactive && (
         <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={toggleReducedMotion}
-              aria-pressed={reducedMotion}
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--dusk-ink-subtle)',
-                border: '1px solid var(--dusk-rule)',
-                borderRadius: 999,
-                padding: '6px 12px',
-              }}
-            >
-              {reducedMotion ? 'Motion: reduced' : 'Reduce motion'}
-            </button>
+            <ReducedMotionToggle reducedMotion={reducedMotion} onToggle={toggleReducedMotion} />
           </div>
 
           <LayerDetail layer={activeLayer} index={CONSTELLATION_LAYERS.indexOf(activeLayer)} />
@@ -335,6 +327,34 @@ export default function Constellation({ variant, onSweepComplete }: Constellatio
   )
 }
 
+function ReducedMotionToggle({ reducedMotion, onToggle }: { reducedMotion: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={reducedMotion}
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'var(--dusk-ink-subtle)',
+        border: '1px solid var(--dusk-rule)',
+        borderRadius: 999,
+        padding: '6px 12px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {reducedMotion ? 'Motion: reduced' : 'Reduce motion'}
+    </button>
+  )
+}
+
+// The diagram's click panel is deliberately a summary, not a duplicate of the
+// in-depth write-up: it names what the layer does and whether it has a panel,
+// then links to the full section. What each of the nine standards means —
+// including the per-layer nuance — lives ONLY in How It Works's "Meet the
+// nine standards" section (app/how-it-works/page.tsx), never repeated here.
 function LayerDetail({ layer, index }: { layer: (typeof CONSTELLATION_LAYERS)[number]; index: number }) {
   return (
     <div
@@ -373,20 +393,12 @@ function LayerDetail({ layer, index }: { layer: (typeof CONSTELLATION_LAYERS)[nu
         {layer.job}
       </p>
 
-      {layer.hasPanel && layer.standardMeanings && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginTop: 24 }}>
-          {CONSTELLATION_STANDARDS.map((s) => (
-            <div key={s.id} style={{ border: '1px solid var(--dusk-rule)', borderRadius: 10, padding: '13px 15px' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--standard-cool)' }}>
-                {s.name}
-              </span>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13.5, lineHeight: 1.5, color: 'var(--dusk-ink-mid)', marginTop: 6 }}>
-                {layer.standardMeanings![s.id as StandardId]}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+      <a
+        href={`#layer-${layer.id}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14, color: 'var(--amber)' }}
+      >
+        Read the full write-up ↓
+      </a>
     </div>
   )
 }

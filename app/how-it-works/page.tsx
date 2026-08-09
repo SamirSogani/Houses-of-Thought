@@ -4,6 +4,14 @@
 // redirect here, see next.config.ts). This page explains the automated
 // reasoning pipeline instead: ground truth is lib/ai/reasoning/steps.ts and
 // standards.ts, read but never edited (hard constraint).
+//
+// Page order (deliberate, per review): diagram + why-a-panel context first,
+// then the comparison table, then the standards glossary, then a full
+// in-depth write-up per layer — each table row and each diagram click links
+// down to its matching write-up. Standards content (both the generic
+// definitions and the per-layer nuance) lives ONLY in "Meet the nine
+// standards" — it is not duplicated into the diagram's click panel or into
+// each layer's own write-up.
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -27,17 +35,19 @@ const FAILURE_MODE: Record<string, { label: string; body: string }> = {
   none: { label: 'No panel', body: 'A single judgment call, made once.' },
 }
 
-// At-a-glance data for the non-interactive summary table below the diagram —
-// the same seven layers, readable without clicking through each node.
-const LAYER_SUMMARY: { id: string; failureMode: keyof typeof FAILURE_MODE }[] = [
-  { id: 'frame', failureMode: 'hard-block' },
-  { id: 'breadth-scoping', failureMode: 'none' },
-  { id: 'perspectives', failureMode: 'degrade' },
-  { id: 'global-assumptions', failureMode: 'hard-block' },
-  { id: 'global-evidence', failureMode: 'hard-block' },
-  { id: 'conclusions', failureMode: 'hard-block' },
-  { id: 'implications', failureMode: 'hard-block' },
-]
+// Failure mode per layer — paired with CONSTELLATION_LAYERS by id in both the
+// comparison table and the in-depth write-ups below, so the two never drift.
+const FAILURE_MODE_BY_LAYER: Record<string, keyof typeof FAILURE_MODE> = {
+  frame: 'hard-block',
+  'breadth-scoping': 'none',
+  perspectives: 'degrade',
+  'global-assumptions': 'hard-block',
+  'global-evidence': 'hard-block',
+  conclusions: 'hard-block',
+  implications: 'hard-block',
+}
+
+const PANELED_LAYERS = CONSTELLATION_LAYERS.filter((l) => l.hasPanel)
 
 // DefinedTermSet JSON-LD (aeo H1) — carries forward the citation surface the
 // old /framework page provided, now describing the model this page actually
@@ -75,8 +85,8 @@ export default function HowItWorksPage() {
                 John Trapasso&rsquo;s classroom model, derived from the Paul&ndash;Elder
                 framework for critical thinking. Six of the seven are checked by a panel
                 of nine independent reviewers — one per standard, each blind to the
-                others — before the run is allowed to move on. Select a layer below to
-                see exactly what it does and what its panel checks for.
+                others — before the run is allowed to move on. Select a layer below for a
+                quick summary, or jump straight to the full write-up further down the page.
               </p>
             </div>
 
@@ -86,12 +96,38 @@ export default function HowItWorksPage() {
           </div>
         </section>
 
-        {/* At a glance — the same seven layers, readable without clicking
-            through each node (completeness for scanners and a11y alike). */}
-        <section style={{ paddingBlock: '0 var(--section-py)' }}>
+        <section style={{ paddingBlock: 'var(--section-py)', borderTop: '1px solid var(--dusk-rule)' }}>
+          <div className="container" style={{ maxWidth: '68ch' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(24px, 3vw, 32px)', color: 'var(--dusk-ink)' }}>
+              Why a panel, and why nine standards?
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
+              The nine standards are Paul and Elder&rsquo;s Universal Intellectual
+              Standards, the same nine a critical-thinking classroom would apply by hand.
+              Each one is graded by its own independent reviewer, seeing only its own
+              question, so a strong score on one standard can never paper over a weak
+              one on another. What each standard actually means changes by layer — a
+              layer can only fairly be graded against what it is actually trying to do.
+              The full glossary, including that per-layer nuance, is below.
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
+              A layer that fails a standard doesn&rsquo;t quietly pass anyway — it loops and
+              redoes the work. Frame, Global Assumptions, Global Evidence, Conclusions,
+              and Implications hold the whole run until they pass, since nothing else
+              backs them up. Perspectives instead drops just the one stance that failed,
+              since the other independent perspectives already provide redundancy.
+              Breadth Scoping is the one layer with no panel at all — a single judgment
+              call about how many perspectives the question deserves, made once.
+            </p>
+          </div>
+        </section>
+
+        {/* The comparison table — every layer name links to its own in-depth
+            write-up further down the page. */}
+        <section id="layer-table" style={{ paddingBlock: '0 var(--section-py)', scrollMarginTop: 84 }}>
           <div className="container">
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--dusk-ink-subtle)', marginBottom: 16 }}>
-              At a glance
+              The seven layers, compared
             </p>
             <div className="table-scroll">
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
@@ -103,13 +139,14 @@ export default function HowItWorksPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {LAYER_SUMMARY.map((row, i) => {
-                    const layer = CONSTELLATION_LAYERS.find((l) => l.id === row.id)!
-                    const mode = FAILURE_MODE[row.failureMode]
+                  {CONSTELLATION_LAYERS.map((layer, i) => {
+                    const mode = FAILURE_MODE[FAILURE_MODE_BY_LAYER[layer.id]]
                     return (
-                      <tr key={row.id}>
-                        <td style={{ ...howTdStyle, color: 'var(--dusk-ink)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {i + 1}. {layer.name}
+                      <tr key={layer.id}>
+                        <td style={{ ...howTdStyle, whiteSpace: 'nowrap' }}>
+                          <a href={`#layer-${layer.id}`} style={{ color: 'var(--dusk-ink)', fontWeight: 600, borderBottom: '1px solid var(--dusk-rule)' }}>
+                            {i + 1}. {layer.name}
+                          </a>
                         </td>
                         <td style={howTdStyle}>{layer.hasPanel ? 'Nine independent standards' : 'None'}</td>
                         <td style={howTdStyle}>
@@ -124,11 +161,12 @@ export default function HowItWorksPage() {
           </div>
         </section>
 
-        {/* Meet the nine standards — generic, layer-agnostic definitions
-            (lib/ai/reasoning/standards.ts's own documentation gloss), so the
-            standards are legible on their own before the per-layer nuance in
-            the interactive diagram above. */}
-        <section style={{ paddingBlock: '0 var(--section-py)', borderTop: '1px solid var(--dusk-rule)' }}>
+        {/* Meet the nine standards — the SOLE home for standards content on
+            this page, both the generic definition (standards.ts's own
+            documentation gloss) and the per-layer nuance (LAYER_STANDARD_
+            CRITERIA, paraphrased) — neither is repeated in the diagram's
+            click panel or in the in-depth layer write-ups below. */}
+        <section id="standards" style={{ paddingBlock: '0 var(--section-py)', borderTop: '1px solid var(--dusk-rule)', scrollMarginTop: 84 }}>
           <div className="container">
             <div style={{ maxWidth: '62ch' }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--dusk-ink-subtle)' }}>
@@ -138,51 +176,103 @@ export default function HowItWorksPage() {
                 Meet the nine standards.
               </h2>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 12 }}>
-                Paul and Elder&rsquo;s Universal Intellectual Standards, in general. Six of
-                the seven layers get graded against all nine — what each one means at
-                that specific layer is in the diagram above.
+                Paul and Elder&rsquo;s Universal Intellectual Standards. Six of the seven
+                layers get graded against all nine — open a standard below to see what it
+                specifically means at each of those six layers.
               </p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14, marginTop: 28 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 28 }}>
               {CONSTELLATION_STANDARDS.map((s) => (
-                <div key={s.id} className="dusk-card" style={{ padding: '16px 18px' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--standard-cool)' }}>
-                    {s.name}
-                  </span>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.5, color: 'var(--dusk-ink-mid)', marginTop: 6 }}>
-                    {s.definition}
-                  </p>
-                </div>
+                <details key={s.id} className="dusk-card" style={{ padding: '16px 18px' }}>
+                  <summary style={{ cursor: 'pointer', listStyle: 'none' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--standard-cool)' }}>
+                      {s.name}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 14.5, lineHeight: 1.5, color: 'var(--dusk-ink-mid)' }}>
+                      {' '}
+                      — {s.definition}
+                    </span>
+                  </summary>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10, marginTop: 16 }}>
+                    {PANELED_LAYERS.map((layer) => (
+                      <div key={layer.id} style={{ borderLeft: '2px solid var(--dusk-rule)', paddingLeft: 12 }}>
+                        <a href={`#layer-${layer.id}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--dusk-ink-subtle)' }}>
+                          {layer.name}
+                        </a>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: 13.5, lineHeight: 1.5, color: 'var(--dusk-ink-mid)', marginTop: 4 }}>
+                          {layer.standardMeanings?.[s.id]}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               ))}
             </div>
           </div>
         </section>
 
+        {/* In-depth, one section per layer — anchors matched by the table
+            above and by the diagram's click panel. No standards content here
+            by design (it lives solely in "Meet the nine standards" above). */}
         <section style={{ paddingBlock: 'var(--section-py)', borderTop: '1px solid var(--dusk-rule)' }}>
-          <div className="container" style={{ maxWidth: '68ch' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(24px, 3vw, 32px)', color: 'var(--dusk-ink)' }}>
-              Why a panel, and why nine standards?
-            </h2>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
-              The nine standards — {CONSTELLATION_STANDARDS.map((s) => s.name).join(', ')} — are
-              Paul and Elder&rsquo;s Universal Intellectual Standards, the same nine a
-              critical-thinking classroom would apply by hand. Each one is graded by its
-              own independent reviewer, seeing only its own question, so a strong score
-              on one standard can never paper over a weak one on another. What each
-              standard actually means changes by layer — &ldquo;depth&rdquo; at Frame asks how many
-              considerations the framing accounts for; at Perspectives it asks whether a
-              stance engages its strongest form — because a layer can only fairly be
-              graded against what it is actually trying to do.
+          <div className="container">
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--dusk-ink-subtle)', marginBottom: 8 }}>
+              In depth
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
-              A layer that fails a standard doesn&rsquo;t quietly pass anyway — it loops and
-              redoes the work. Frame, Global Assumptions, Global Evidence, Conclusions,
-              and Implications hold the whole run until they pass, since nothing else
-              backs them up. Perspectives instead drops just the one stance that failed,
-              since the other independent perspectives already provide redundancy.
-              Breadth Scoping is the one layer with no panel at all — a single judgment
-              call about how many perspectives the question deserves, made once.
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+              {CONSTELLATION_LAYERS.map((layer, i) => {
+                const mode = FAILURE_MODE[FAILURE_MODE_BY_LAYER[layer.id]]
+                return (
+                  <article key={layer.id} id={`layer-${layer.id}`} style={{ scrollMarginTop: 84, maxWidth: '68ch' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--amber)',
+                          color: 'var(--ink)',
+                          borderRadius: 4,
+                          minWidth: 26,
+                          height: 22,
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11,
+                          padding: '0 6px',
+                        }}
+                      >
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--dusk-ink-subtle)' }}>
+                        Layer {i + 1} of 7
+                      </span>
+                    </div>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 26, color: 'var(--dusk-ink)', marginTop: 12 }}>
+                      {layer.name}
+                    </h3>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 10 }}>
+                      {layer.job}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, lineHeight: 1.65, color: 'var(--dusk-ink-mid)', marginTop: 12 }}>
+                      {layer.detail}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.55, color: 'var(--dusk-ink-subtle)', marginTop: 14 }}>
+                      {layer.hasPanel ? (
+                        <>
+                          Checked by the nine-standard panel (see{' '}
+                          <a href="#standards" style={{ color: 'var(--amber)' }}>Meet the nine standards</a>). <strong style={{ color: 'var(--dusk-ink-mid)' }}>{mode.label}.</strong> {mode.body}
+                        </>
+                      ) : (
+                        <>No review panel. {mode.body}</>
+                      )}
+                    </p>
+                  </article>
+                )
+              })}
+            </div>
+            <a href="#main" style={{ display: 'inline-flex', marginTop: 32, fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--dusk-ink-subtle)' }}>
+              ↑ Back to top
+            </a>
           </div>
         </section>
 
