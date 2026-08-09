@@ -14,12 +14,13 @@ export default function OriginTeaser() {
               Not invented for an app
             </p>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 500, fontSize: 'clamp(20px, 2.6vw, 28px)', lineHeight: 1.35, color: 'var(--dusk-ink)', marginTop: 12 }}>
-              &ldquo;Not a lack of intelligence. Not a lack of information. A lack of structure.&rdquo;
+              &ldquo;It was never a lack of intelligence, and it was never a lack of
+              information. What was missing was structure.&rdquo;
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, lineHeight: 1.6, color: 'var(--dusk-ink-mid)', marginTop: 14 }}>
-              Houses of Thought is built on John Trapasso&rsquo;s classroom model, derived
-              from the Paul&ndash;Elder framework for critical thinking, taught in a real
-              classroom before it was ever software.
+              Houses of Thought is built on John Trapasso&rsquo;s House of Reason model,
+              taught in his classroom for years before it was ever software, and
+              derived from the Paul&ndash;Elder framework for critical thinking.
             </p>
           </div>
           <Link href="/story" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 15, color: 'var(--amber)', whiteSpace: 'nowrap' }}>

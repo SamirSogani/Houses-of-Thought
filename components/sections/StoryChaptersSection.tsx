@@ -23,30 +23,6 @@ const chapterBodyStyle: React.CSSProperties = {
   marginTop: 16,
 }
 
-function PullQuote({ children }: { children: React.ReactNode }) {
-  return (
-    <figure
-      style={{
-        borderLeft: '3px solid var(--amber)',
-        paddingLeft: 26,
-      }}
-      data-reveal
-    >
-      <blockquote
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 500,
-          fontSize: 'clamp(24px, 3.2vw, 32px)',
-          lineHeight: 1.25,
-          color: 'var(--ink)',
-        }}
-      >
-        {children}
-      </blockquote>
-    </figure>
-  )
-}
-
 export default function StoryChaptersSection() {
   return (
     <section style={{ paddingBlock: '0 var(--section-py)' }}>
@@ -58,32 +34,27 @@ export default function StoryChaptersSection() {
           <p style={chapterLabelStyle}>01 / The spark</p>
           <h2 style={chapterHeadingStyle}>I kept watching smart people make messy decisions.</h2>
           <p style={chapterBodyStyle}>
-            I&rsquo;ve spent a lot of time watching people I respect get stuck on
-            decisions that didn&rsquo;t have to be that hard. Friends agonizing over
-            jobs. Classmates arguing past each other. Myself, going in circles for
-            weeks before realizing I&rsquo;d been asking the wrong question the whole
-            time.
+            Friends would agonize over a job offer for weeks and still second-guess
+            it after taking it. Classmates would win an argument by talking the
+            loudest, not by making the better case. I did the same thing to myself
+            more than once, circling a decision for days before realizing I&rsquo;d
+            never actually pinned down what I was deciding.
           </p>
           <p style={chapterBodyStyle}>
-            The pattern was almost always the same. It wasn&rsquo;t intelligence they
-            were short on, and it wasn&rsquo;t information. It was structure.
+            It was never a lack of intelligence, and it was never a lack of
+            information. What was missing, every time, was structure.
           </p>
         </article>
 
-        <PullQuote>
-          &ldquo;Not a lack of intelligence. Not a lack of information. A lack of
-          structure.&rdquo;
-        </PullQuote>
-
         <article data-reveal>
           <p style={chapterLabelStyle}>02 / The framework</p>
-          <h2 style={chapterHeadingStyle}>The structure I needed already existed.</h2>
+          <h2 style={chapterHeadingStyle}>The structure already existed. I just hadn&rsquo;t seen it yet.</h2>
           <p style={chapterBodyStyle}>
-            The part I was missing already had a shape. My teacher, John Trapasso,
-            had built a model for working a question all the way through, layer by
-            layer, drawn from the Paul&ndash;Elder Model for critical thinking. He
-            chose to share it. That model is the framework Houses of Thought is
-            built on.
+            My teacher, John Trapasso, had spent years teaching a framework for
+            exactly this: work a question all the way through, one layer at a time,
+            grounded in the Paul&ndash;Elder model for critical thinking. He called
+            it the House of Reason. When he shared it with me, the gap I kept
+            running into finally had a name.
           </p>
         </article>
 
@@ -91,11 +62,11 @@ export default function StoryChaptersSection() {
           <p style={chapterLabelStyle}>03 / The build</p>
           <h2 style={chapterHeadingStyle}>So I built it.</h2>
           <p style={chapterBodyStyle}>
-            I turned that framework into a tool. Houses of Thought is an AI-powered
-            reasoning system built on John Trapasso&rsquo;s model. The AI walks the
-            structure with you and pressure-tests your thinking, while the reasoning
-            itself stays yours. I made it as a student, because the framework helped
-            me and I wanted other people to be able to pick it up too.
+            Houses of Thought is that framework, built into software. It walks the
+            same structure Trapasso teaches: the AI pushes on your thinking at every
+            layer, but it never writes the conclusion for you. I built it as a
+            student because the method changed how I made decisions, and there
+            wasn&rsquo;t a good reason to keep it to myself.
           </p>
           <p
             style={{
@@ -105,8 +76,8 @@ export default function StoryChaptersSection() {
               marginTop: 20,
             }}
           >
-            Created by Samir Sogani. Based on John Trapasso&rsquo;s model, derived
-            from the Paul&ndash;Elder Model for critical thinking.
+            Created by Samir Sogani. Based on John Trapasso&rsquo;s House of Reason
+            model, derived from the Paul&ndash;Elder model for critical thinking.
           </p>
         </article>
       </div>

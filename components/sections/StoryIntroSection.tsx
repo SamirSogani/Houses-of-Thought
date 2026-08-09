@@ -32,8 +32,8 @@ export default function StoryIntroSection() {
             marginTop: 20,
           }}
         >
-          Houses of Thought wasn&rsquo;t built by a company. It was built by a
-          student, around a framework his teacher chose to share.
+          Houses of Thought started as a student project, built around a framework
+          his teacher was willing to share.
         </p>
       </div>
     </section>
