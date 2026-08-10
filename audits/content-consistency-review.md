@@ -74,6 +74,8 @@ Scope reviewed: all marketing pages under `app/` (home, how-it-works, educators,
 
 **M6. Framework naming — mostly resolved, one nit.** "House of Reason" survives only in `OriginQuoteSection.tsx:22` as an attributed lineage credit, which `context/vision/product-strategy.md:75` explicitly permits ("Retire 'House of Reason' except as a…"). Intentional and explained — no action. Nit: "Paul–Elder **model**" (OriginQuote) vs "Paul–Elder **Model**" (StoryChaptersSection lines 90, 115); pick one casing.
 
+> **Correction (2026-08-10):** this finding's premise was wrong, not just its "no action" verdict. "House of Reason" was never a real name to begin with — it was a hallucination from an earlier migration tool that this audit (and the docs it cites, `context/vision/product-strategy.md`) mistook for an intentional, permitted lineage credit. It has since been removed everywhere on the pre-login surface, not reduced to one credit. See decisions/001 §10.
+
 **M7. Pricing tone mismatch (not a contradiction, but drift).** ToS §3: flatly free, "no paid tiers." FAQ `:96`: "free **to start** … Detailed plans for classrooms and heavier use will be published once they're finalized" — implies imminent pricing; educators CTA "Free to start." Also MiniHouse CTA "Create a free account to … **unlock the AI tools**" undersells that anonymous users already get rate-limited AI (ToS §5). Align on "free, with notice before anything becomes paid" (ToS language).
 
 **M8. FAQ overpromises AI honesty.** `FaqGroupsSection.tsx:61`: "When the AI is unsure, it flags that rather than stating it as fact." ToS §5 disclaimer: output "may be inaccurate … **even when it cites sources**." The FAQ makes a behavioral guarantee the Terms disclaim; soften the FAQ.

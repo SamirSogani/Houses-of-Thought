@@ -23,8 +23,10 @@ The **reasoning method** the product is built on — the Houses of Thought model
 its concepts, layers, and terminology. Stable conceptual knowledge of how the method
 works. (Raw source material for the method lives in `references/trapasso/`.)
 
-- [trapasso-model.md](framework/trapasso-model.md) — the 12-layer House of Reason
-  model, how each layer maps to product features.
+- [trapasso-model.md](framework/trapasso-model.md) — the 12-layer version of
+  Trapasso's model, how each layer maps to product features. (Its own header
+  carries a correction note: an earlier version of this file called the
+  model "House of Reason," which is not a real name — see decisions/001 §10.)
 
 ## `features/`
 

@@ -4,9 +4,23 @@ Extracted from `references/trapasso/Migration_v2_Framework.pdf`. This is the
 **conceptual model** the product is built on. The raw PDF is the source of truth;
 this is the working summary.
 
+> **Correction (2026-08-10):** this file used to call the model "House of
+> Reason" in its title and origin section. That name is not real — it does
+> not appear in Trapasso's actual material. It was hallucinated by an
+> earlier migration tool (Lovable) during an early pass over the source PDF,
+> written into this file as if it were fact, and then cited from here by
+> decisions/001, context/index.md, context/vision/product-strategy.md, and
+> eventually a pre-login marketing rewrite — until the product owner caught
+> it. The model and the product both go by "Houses of Thought," full stop.
+> The 12-layer structure below is a separate claim from the naming and
+> hasn't been independently re-verified against the source PDF since this
+> was caught; per the pre-login redesign brief, don't use it as a copy
+> source without checking it against what's actually implemented
+> (`lib/build/content.ts`, `lib/ai/reasoning/steps.ts`).
+
 ## Origin
 
-John Trapasso's "House of Reason" model, derived from the Paul–Elder framework for
+John Trapasso's classroom model, derived from the Paul–Elder framework for
 critical thinking. Adapted into the Houses of Thought product by Samir Sogani.
 
 ## The 12 layers (foundation → roof)

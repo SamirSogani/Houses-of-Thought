@@ -72,6 +72,9 @@ house into the new account. Monetization (likely educator/classroom seats) is TB
 
 ## Brand
 
-Canonical name: **Houses of Thought**. Retire "House of Reason" except as a
-one-line historical reference to the originating framework. Tagline:
-"INTELLECTUAL BLUEPRINT · EST. 2026". Creator: Samir Sogani.
+Canonical name: **Houses of Thought** — the product and Trapasso's model share
+this one name. "House of Reason" is not a real term: it was a hallucination
+from an earlier migration tool (Lovable) that made it into early docs and was
+mistakenly treated as fact by later sessions (decisions/001 §10). If you see
+it anywhere, it's wrong. Tagline: "INTELLECTUAL BLUEPRINT · EST. 2026".
+Creator: Samir Sogani.

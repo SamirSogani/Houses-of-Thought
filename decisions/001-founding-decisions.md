@@ -67,5 +67,15 @@
 - Original migration folder deleted (empty after moves, approved by user).
 
 ### 10. Canonical brand name: "Houses of Thought"
-- **Choice:** retire "House of Reason" except as a historical reference to
-  Trapasso's originating framework.
+- **Choice:** "Houses of Thought" is the product's only name, for the product
+  and for Trapasso's model alike.
+- **Correction (2026-08-10):** this entry originally read "retire 'House of
+  Reason' except as a historical reference to Trapasso's originating
+  framework" — i.e. it treated "House of Reason" as a real prior name being
+  phased out. It never was one. "House of Reason" does not appear in
+  Trapasso's actual material; it was a hallucination introduced by an
+  earlier migration tool (Lovable) that made it into this project's own docs
+  and was then taken as fact by later sessions, including a Claude session
+  that wrote it into pre-login marketing copy, until the product owner
+  caught it. If you find "House of Reason" anywhere in this repo, it is
+  wrong — correct it, do not cite it as historical fact.
