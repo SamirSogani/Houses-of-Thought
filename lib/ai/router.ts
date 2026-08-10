@@ -1,9 +1,11 @@
 // Multi-LLM API Routing Engine (server-only) — the execution core and public
-// facade. One controller owns provider selection, structured-output plumbing,
-// the Groq 30-second penalty box, the daily-blackout airbag, and error mapping.
-// Every AI route calls `completeJSON` with a `role`; the role decides which
-// failover lane the request rides. See decisions/006 (model choice), 012
-// (failover), 013 (multi-provider).
+// facade. One controller owns structured-output plumbing, the daily-blackout
+// airbag, and error mapping. Every AI route calls `completeJSON` with a
+// `role`; the role decides which failover lane the request rides — see
+// router-lanes.ts for the five lanes and why each is ordered the way it is
+// (decisions/006 model choice, 012 failover, 013 multi-provider, and 013's
+// 2026-08-10 addendum for swarm/synthesis, the reasoning pipeline's own
+// DeepInfra-led lanes).
 //
 // The module is split to honor the repo's 600-LOC rule; this file re-exports
 // the whole public API so callers import only '@/lib/ai/router':
@@ -11,56 +13,7 @@
 //   router-config.ts  — providers, targets, client construction (+ test seam)
 //   router-state.ts   — penalty box, per-provider daily map, health/event log
 //   router-monitor.ts — admin snapshot, probes, per-model detail
-//
-// Two lanes, keyed by role:
-//
-//   SIDEBAR SUGGESTIONS  (suggestor)
-//   The most latency-sensitive surface, so it leads with Cerebras' ultra-fast
-//   custom hardware, then falls onto the real-time resilience tail.
-//     1. Cerebras  gpt-oss-120b           (primary — ultra-fast)
-//     2. Mistral   ministral-8b-latest    (on Cerebras 429)
-//     3. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
-//     4. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
-//
-//   REAL-TIME BACKGROUND  (coach | critic)
-//   Latency-sensitive background events fired by user activity. Kept off the big
-//   models to preserve the shared Mistral 50k TPM budget.
-//     1. Mistral   ministral-8b-latest    (primary)
-//     2. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
-//     3. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
-//     4. Cerebras  gpt-oss-120b           (multi-throttle bridge, on Google 429)
-//
-//   ON-DEMAND COMPLEX  (drafter)
-//   Heavy framework generation. Leads with Groq (Samir's call, 2026-07-31: no
-//   prior-project history of Groq itself failing — a problem here points at
-//   this app's setup, not the provider), then falls back to Gemini's large
-//   context and Cerebras. Mistral was tried here too and deliberately dropped
-//   (2026-07-31): under real drafter traffic it reproducibly returned
-//   malformed JSON on this role's more complex structured-output schemas
-//   (perspectives' multi-field packets) — wrapping array items in stray
-//   objects, or degenerating into repeated whitespace instead of finishing
-//   valid JSON — not a rate-limit or token-budget problem, just this model
-//   class under-provisioned for what drafter role actually asks of it.
-//   Mistral stays primary/fallback in the suggestor and real-time lanes,
-//   where the ask is simpler. Gemini stays in the chain (not primary) as the
-//   large-context escape hatch: size-aware routing already skips Groq/
-//   Cerebras's 128k windows for anything too big, landing on Gemini's ~1M
-//   regardless of nominal order.
-//
-//   Drafter's Groq attempt deliberately pins gpt-oss-20b, NOT the qwen model
-//   the other two lanes default to (currentGroqTarget()) — confirmed live
-//   (2026-07-31) the very first real run after Groq went primary here:
-//   supportsJsonSchema() (router-shared.ts) already documents that Groq's
-//   strict json_schema structured output "is only reliable on the gpt-oss
-//   family"; qwen gets the looser json_object mode (schema hinted in the
-//   prompt, not enforced), and Groq's own API-side validation in that mode
-//   400s with json_validate_failed when the model's freeform output doesn't
-//   parse. Exactly what hit perspectives-generate-stances immediately. Not a
-//   Groq reliability problem — a model-choice bug in what this lane asked
-//   Groq for.
-//     1. Groq      gpt-oss-20b            (primary — strict json_schema)
-//     2. Google    gemini-2.5-flash       (on Groq cooling / 429)
-//     3. Cerebras  gpt-oss-120b           (on Google 429)
+//   router-lanes.ts   — per-role failover order + the reasoning behind it
 //
 // Groq is special. A Groq 429 is read as an *org-wide* block, so we do NOT
 // immediately hop to gpt-oss-20b on the same account. Instead we open a strict
@@ -111,14 +64,13 @@ import {
 import { clientFor, TARGETS, targetName, __resetClients, type Target } from './router-config'
 import {
   clearGroqRecovering,
-  currentGroqTarget,
-  groqCoolingDown,
   markDailyExhausted,
   openGroqPenalty,
   providerDailyExhausted,
   record,
   __resetRoutingState,
 } from './router-state'
+import { ATTEMPT_TIMEOUT_MS, attemptsForRole, type Attempt } from './router-lanes'
 
 // Fail loudly if this module is ever pulled into a client bundle — the API keys
 // must never ship to the browser.
@@ -157,80 +109,9 @@ export {
 // no-status error and cascades like any transient failure — so the penalty box
 // and health log still see it, unlike a platform kill. The chain-wide deadline
 // is shared across completeJSON's parse-retry too, leaving ~4s headroom for
-// response serialization.
-const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
-  suggestor: 8_000,
-  coach: 8_000,
-  critic: 8_000,
-  drafter: 20_000,
-}
+// response serialization. Per-role attempt budgets (ATTEMPT_TIMEOUT_MS) and the
+// failover order itself (attemptsForRole/Attempt) live in router-lanes.ts.
 const CHAIN_DEADLINE_MS = 26_000
-
-// ── Failover plans ────────────────────────────────────────────────────────────
-
-interface Attempt extends Target {
-  // Real-time Groq attempts open the penalty box on a (non-daily) 429 instead of
-  // hopping straight to another Groq model.
-  penaltyOnRateLimit?: boolean
-}
-
-// Real-time background lane (coach | critic): Mistral primary, then the Groq
-// penalty-aware bridge to Google / Cerebras.
-function realtimeAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.mistral8b }]
-  if (groqCoolingDown()) {
-    // Shock absorber: Groq penalty is open — skip it entirely.
-    attempts.push({ ...TARGETS.geminiFlash })
-    attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  } else {
-    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
-    // On a Groq 429 we do not chain to another Groq model; we bridge to Google
-    // then Cerebras while the freshly-opened penalty box holds.
-    attempts.push({ ...TARGETS.geminiFlash })
-    attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  }
-  return attempts
-}
-
-// Sidebar suggestions ride an ultra-fast Cerebras-first lane — its custom hardware
-// is the lowest-latency target, and suggestions are the most latency-sensitive
-// surface. On a Cerebras 429 it falls onto the standard real-time resilience tail
-// (Mistral → Groq → Google), sharing the same Groq penalty box.
-function suggestorAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.cerebrasGptOss120b }, { ...TARGETS.mistral8b }]
-  if (groqCoolingDown()) {
-    attempts.push({ ...TARGETS.geminiFlash })
-  } else {
-    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
-    attempts.push({ ...TARGETS.geminiFlash })
-  }
-  return attempts
-}
-
-// On-demand complex generation (drafter): Groq leads (Samir's call, see the
-// header comment above), sharing the same Groq penalty box as the other two
-// lanes — while it's open, drafter traffic skips Groq entirely and leads
-// with Gemini instead, same as realtimeAttempts()/suggestorAttempts().
-// Pins gpt-oss-20b specifically (NOT currentGroqTarget()'s qwen default) —
-// see the header comment above for why. Mistral deliberately excluded, also
-// see the header comment above.
-function draftAttempts(): Attempt[] {
-  if (groqCoolingDown()) {
-    return [{ ...TARGETS.geminiFlash }, { ...TARGETS.cerebrasGptOss120b }]
-  }
-  return [
-    { ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true },
-    { ...TARGETS.geminiFlash },
-    { ...TARGETS.cerebrasGptOss120b },
-  ]
-}
-
-// Built fresh per request so it reflects current penalty-box / recovery state.
-function attemptsForRole(role: AiRole): Attempt[] {
-  if (role === 'drafter') return draftAttempts()
-  if (role === 'suggestor') return suggestorAttempts()
-  return realtimeAttempts() // coach | critic
-}
 
 // ── Execution ─────────────────────────────────────────────────────────────────
 

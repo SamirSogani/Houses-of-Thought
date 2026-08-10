@@ -46,6 +46,8 @@ export interface RouterSnapshot {
     suggestor: LaneStep[] // sidebar suggestions — Cerebras-first
     realtime: LaneStep[] // coach | critic
     drafter: LaneStep[]
+    swarm: LaneStep[] // reasoning pipeline only — DeepInfra-first
+    synthesis: LaneStep[] // reasoning pipeline only — final composition
   }
   groq: {
     coolingDown: boolean
@@ -62,7 +64,13 @@ export interface RouterSnapshot {
 
 // The intended failover chains (nominal order). Single source of truth reused by
 // both the snapshot and the per-model detail (so neighbours/transitions line up).
-function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: LaneStep[] } {
+function buildLanes(): {
+  suggestor: LaneStep[]
+  realtime: LaneStep[]
+  drafter: LaneStep[]
+  swarm: LaneStep[]
+  synthesis: LaneStep[]
+} {
   return {
     suggestor: [
       laneStep('Primary — ultra-fast', TARGETS.cerebrasGptOss120b),
@@ -72,7 +80,8 @@ function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: L
     ],
     realtime: [
       laneStep('Primary', TARGETS.mistral8b),
-      laneStep('Secondary (Mistral 429)', TARGETS.groqQwen, 'post-cooldown → gpt-oss-20b'),
+      laneStep('Paid relief valve (Mistral 429)', TARGETS.deepinfra),
+      laneStep('Secondary (DeepInfra failure)', TARGETS.groqQwen, 'post-cooldown → gpt-oss-20b'),
       laneStep('Shock absorber (Groq cooling)', TARGETS.geminiFlash),
       laneStep('Multi-throttle bridge (Google 429)', TARGETS.cerebrasGptOss120b),
     ],
@@ -80,6 +89,24 @@ function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: L
       laneStep('Primary — strict json_schema', TARGETS.groqGptOss20b),
       laneStep('Fallback (Groq cooling / 429) — large context', TARGETS.geminiFlash),
       laneStep('Fallback (Gemini 429)', TARGETS.cerebrasGptOss120b),
+    ],
+    // Reasoning pipeline only (lib/ai/reasoning/*) — every generate/review call
+    // except final composition. See router.ts's swarmAttempts().
+    swarm: [
+      laneStep('Primary — paid, highest-volume traffic', TARGETS.deepinfra),
+      laneStep('Burst absorber (DeepInfra failure)', TARGETS.groqGptOss20b, 'skipped while Groq is cooling'),
+      laneStep('Fallback (Groq unavailable)', TARGETS.geminiFlash),
+      laneStep('Fallback (Gemini 429)', TARGETS.mistral8b),
+      laneStep('Fallback (Mistral 429)', TARGETS.cerebrasGptOss120b),
+    ],
+    // Reasoning pipeline only, final-composition step ONLY. See router.ts's
+    // synthesisAttempts().
+    synthesis: [
+      laneStep('Primary', TARGETS.groqGptOss20b, 'skipped while Groq is cooling'),
+      laneStep('Fallback (Groq unavailable)', TARGETS.deepinfra),
+      laneStep('Fallback (DeepInfra 429)', TARGETS.geminiFlash),
+      laneStep('Fallback (Gemini 429)', TARGETS.mistral8b),
+      laneStep('Fallback (Mistral 429)', TARGETS.cerebrasGptOss120b),
     ],
   }
 }
@@ -199,7 +226,7 @@ export async function probeOne(name: string): Promise<ProbeResult | null> {
 // ── Per-model detail (for the model page) ─────────────────────────────────────
 
 export interface LanePosition {
-  lane: 'suggestor' | 'realtime' | 'drafter'
+  lane: 'suggestor' | 'realtime' | 'drafter' | 'swarm' | 'synthesis'
   index: number
   total: number
   // The model this one falls back FROM (upstream) / TO (downstream on failure).
@@ -227,7 +254,7 @@ export function getTargetDetail(name: string): TargetDetail {
 
   const lanes = buildLanes()
   const positions: LanePosition[] = []
-  for (const laneName of ['suggestor', 'realtime', 'drafter'] as const) {
+  for (const laneName of ['suggestor', 'realtime', 'drafter', 'swarm', 'synthesis'] as const) {
     const steps = lanes[laneName]
     const i = steps.findIndex((s) => `${s.provider}/${s.model}` === name)
     if (i < 0) continue

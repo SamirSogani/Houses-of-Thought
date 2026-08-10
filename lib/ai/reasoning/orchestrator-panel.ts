@@ -15,20 +15,24 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-panel.ts is server-only and must not run in the browser')
 }
 
-// All 9 calls use 'critic' (Mistral-first, then Groq/Google/Cerebras — see
-// lib/ai/router.ts realtimeAttempts()). A round-robin across 'critic' /
-// 'suggestor' / 'drafter' was tried here first, on the theory that 9
-// concurrent calls on one provider was causing malformed output; that theory
-// was wrong (the real bug was a too-tight schema max-length, fixed in
-// contracts.ts) and the round-robin turned out actively counterproductive
-// live during Phase 1 verification (2026-07-30): heavy same-day testing
-// pushed Gemini and Cerebras into real rate-limiting (confirmed via the AI
-// monitor — both showing HTTP 429 with several failures) while Mistral
-// stayed perfectly healthy throughout (100+ calls, zero failures) — so
-// spreading 6 of 9 calls onto 'suggestor'/'drafter' was routing INTO the two
-// providers already under load. 'critic' role's own 4-provider failover
-// chain already gives resilience if Mistral itself gets rate-limited; a
-// small stagger avoids firing all 9 in the same instant.
+// All 9 calls use one role — originally 'critic' (Mistral-first), now 'swarm'
+// (DeepInfra-first, 2026-08-10 addendum to decision 013 — see lib/ai/router.ts
+// swarmAttempts()): free-tier Mistral/Groq couldn't sustain this call's real
+// volume (9 parallel calls per gate, repeated across every gate in a run), so
+// this and every other reasoning-pipeline generate/review call moved to the
+// pipeline's own DeepInfra-led lane, leaving 'critic' for the rest of the app.
+// A round-robin across multiple DIFFERENT roles was tried here first, on the
+// theory that 9 concurrent calls on one provider was causing malformed
+// output; that theory was wrong (the real bug was a too-tight schema
+// max-length, fixed in contracts.ts) and the round-robin turned out actively
+// counterproductive live during Phase 1 verification (2026-07-30): heavy
+// same-day testing pushed Gemini and Cerebras into real rate-limiting
+// (confirmed via the AI monitor — both showing HTTP 429 with several
+// failures) while Mistral stayed perfectly healthy throughout (100+ calls,
+// zero failures) — so spreading 6 of 9 calls onto other roles was routing
+// INTO the two providers already under load. One role's own multi-provider
+// failover chain already gives resilience if its primary gets rate-limited;
+// a small stagger avoids firing all 9 in the same instant.
 const REVIEWER_STAGGER_MS = 150
 
 // A genuinely good artifact rarely satisfies all nine independent reviewers at
@@ -85,7 +89,7 @@ export async function runReviewPanel(
       const { system, user } = buildReviewerPrompt(standard, criteria[standard.id], artifact, context)
       try {
         const verdict = await completeJSON({
-          role: 'critic',
+          role: 'swarm',
           system,
           user,
           schema: SingleStandardVerdictSchema,

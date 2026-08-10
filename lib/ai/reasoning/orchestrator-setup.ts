@@ -60,7 +60,7 @@ export async function runContextGather(
     }
   }
   const verdict = await completeJSON({
-    role: 'coach',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${CONTEXT_GATHER_BLOCK}`,
     user: context,
     schema: ContextGatherModelSchema,
@@ -104,7 +104,7 @@ export async function runFrameGenerate(
     ? `Original question: ${originalQuery}\n\n${userAnswers}`
     : `Original question: ${originalQuery}`
   const modelOut = await completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${FRAME_BLOCK}`,
     user: appendRegenerationFeedback(
       baseContext,
@@ -161,7 +161,7 @@ export async function runBreadthScoping(
     }
   }
   const modelOut = await completeJSON({
-    role: 'coach',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${BREADTH_SCOPING_BLOCK}`,
     user: serializeFrame(frame, extraContext),
     schema: BreadthScopingPacketSchema,

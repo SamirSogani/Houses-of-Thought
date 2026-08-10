@@ -90,7 +90,7 @@ export const IMPLICATIONS_BLOCK = `Task: given the core question and the vetted 
 
 Return 2-8 implications, each: ikind (pos/neg/unc), text, horizon (Near-term/Long-term), who (who bears it) — spread across at least two ikind values; a one-sided list under-explores the consequences. confidence is your overall confidence in this set. caveats_from_degraded_layers lists, in plain language, anything you were told was degraded upstream (empty array if nothing was).`
 
-// ── Final composition (role: coach — packaging, not new reasoning) ─────────
+// ── Final composition (role: synthesis — packaging, not new reasoning) ─────
 export const FINAL_COMPOSITION_BLOCK = `Task: package the vetted reasoning below into a direct answer to the core question, for someone who will read only this, not the full pipeline trace.
 
 Return core_question (echo the frame's core_question exactly), answer (a clear, direct response citing the actual conclusions and their reasoning — plain voice, no hedging filler), and caveats (short, plain-language notes for anything flagged as degraded upstream; empty array if nothing was degraded).`

@@ -69,7 +69,7 @@ export async function runGlobalAssumptionsGenerate(
     }
   }
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_ASSUMPTIONS_BLOCK}`,
     user: appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair),
     schema: GlobalAssumptionsPacketSchema,
@@ -108,7 +108,7 @@ export async function runGlobalEvidenceGenerate(
     return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
   }
   return generateWithOptionalSearch({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
     buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair) + searchContext,
     baseSchema: GlobalEvidencePacketSchema,
@@ -153,7 +153,7 @@ export async function runConclusionsGenerate(
   if (dryRun) return { conclusions: ['[dry run] conclusion.'], supporting_chain: ['[dry run] supporting step.'] }
   const context = `${questionContext(frame, bundles, extraContext)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${CONCLUSIONS_BLOCK}`,
     user: appendRegenerationFeedback(context, repair),
     schema: ConclusionsPacketSchema,
@@ -205,7 +205,7 @@ export async function runImplicationsGenerate(
   }
   const context = `${serializeFrame(frame, extraContext)}\n\n## Conclusions\n${conclusions.conclusions.map((c) => `- ${c}`).join('\n')}\n\n## Supporting chain\n${conclusions.supporting_chain.map((s) => `- ${s}`).join('\n')}${degradedNotes.length ? `\n\n## Degraded upstream layers\n${degradedNotes.map((d) => `- ${d}`).join('\n')}` : ''}`
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${IMPLICATIONS_BLOCK}`,
     user: appendRegenerationFeedback(context, repair),
     schema: ImplicationsPacketSchema,
@@ -253,7 +253,7 @@ export async function runFinalComposition(
   }
   const context = `${serializeFrame(frame, extraContext)}\n\n## Implications\n${implications.implications.map((i) => `- (${i.ikind}) ${i.text} — ${i.who}, ${i.horizon}`).join('\n')}\n\nConfidence: ${implications.confidence}${implications.caveats_from_degraded_layers.length ? `\nDegraded upstream: ${implications.caveats_from_degraded_layers.join('; ')}` : ''}`
   return completeJSON({
-    role: 'coach',
+    role: 'synthesis',
     system: `${REASONING_PERSONA}\n\n${FINAL_COMPOSITION_BLOCK}`,
     user: context,
     schema: FinalAnswerSchema,

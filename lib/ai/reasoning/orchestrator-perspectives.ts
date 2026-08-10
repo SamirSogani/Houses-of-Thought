@@ -70,6 +70,15 @@ const DRAFTER_STAGGER_MS = 20_000
 // exhaustion left only Gemini+Cerebras absorbing the full drafter load
 // (plans/active/reasoning-pipeline/13-two-more-real-runs-and-a-grant-bug.md).
 //
+// KNOWN GAP (2026-08-10): this file's calls now ride the 'swarm' role/lane
+// (DeepInfra-first — router.ts swarmAttempts()), not 'drafter' — but
+// drafterLaneStress() still only reads Groq/Gemini/Cerebras health and knows
+// nothing about DeepInfra, swarm's actual primary. It's kept as a rough proxy
+// (Groq/Gemini/Cerebras being strained still broadly correlates with swarm
+// lane pressure, since 4 of its 5 targets overlap) rather than left unused,
+// but it is not an accurate stress signal for this lane anymore. A real
+// swarmLaneStress() is follow-up work, not done here.
+//
 // 'critical' at 2x (40s) was real-verified live the same day (14-dynamic-
 // budget-enforcement.md) and still wasn't enough: with Groq out and Gemini
 // also saturated, Cerebras — by then the only target actually serving
@@ -104,7 +113,7 @@ export async function runPerspectivesGenerateStances(
         }
       }
       const modelOut = await completeJSON({
-        role: 'drafter',
+        role: 'swarm',
         system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_STANCE_BLOCK}`,
         user: `${frameText}\n\nYour assigned viewpoint label: ${label}`,
         schema: StanceModelSchema,
@@ -184,7 +193,7 @@ export async function runPerspectivesGenerateDetails(
       const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
         stagger(0).then(() =>
           completeJSON({
-            role: 'drafter',
+            role: 'swarm',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_SUBQUESTIONS_BLOCK}`,
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
@@ -195,7 +204,7 @@ export async function runPerspectivesGenerateDetails(
         ),
         stagger(1).then(() =>
           completeJSON({
-            role: 'drafter',
+            role: 'swarm',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_ASSUMPTIONS_BLOCK}`,
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.pick({ assumptions: true }),
@@ -206,7 +215,7 @@ export async function runPerspectivesGenerateDetails(
         ),
         stagger(2).then(() =>
           generateWithOptionalSearch({
-            role: 'drafter',
+            role: 'swarm',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
             buildUser: (searchContext) => appendRegenerationFeedback(stanceText, feedback) + searchContext,
             baseSchema: PerspectiveBundleSchema.pick({ evidence: true }),
@@ -216,7 +225,7 @@ export async function runPerspectivesGenerateDetails(
         ),
         stagger(3).then(() =>
           completeJSON({
-            role: 'drafter',
+            role: 'swarm',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_COUNTERARGUMENT_BLOCK}`,
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),

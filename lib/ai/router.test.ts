@@ -18,6 +18,7 @@ import {
 // Every default target must look configured (record()/laneStep read these).
 const KEY_ENVS = [
   'MISTRAL_MINISTRAL_8B_API_KEY',
+  'DEEP_INFRA_API_KEY',
   'GROQ_QWEN_3_POINT_6_27B_API_KEY',
   'GROQ_OPENAI_GPT_OSS_20B_API_KEY',
   'GEMINI_FLASH_2_POINT_5_API_KEY',
@@ -26,8 +27,16 @@ const KEY_ENVS = [
 ]
 for (const k of KEY_ENVS) process.env[k] = 'test-key'
 
+// deepinfra currently differs from groqOss (Llama-3.1-8B-Instruct vs
+// gpt-oss-20b — router-config.ts), but TARGETS.deepinfra's model is a
+// deliberate one-line swap away from becoming gpt-oss-20b again (staged,
+// not active — see router-config.ts). Assertions/scripts below check
+// `provider` (the 3rd arg to `script`), not `model`, wherever they need to
+// tell deepinfra and groq apart — that stays correct even if the model swap
+// happens and the two collide again, so it shouldn't need re-touching.
 const MODELS = {
   mistral: 'ministral-8b-latest',
+  deepinfra: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
   groqQwen: 'qwen/qwen3.6-27b',
   groqOss: 'openai/gpt-oss-20b',
   gemini: 'gemini-2.5-flash',
@@ -44,9 +53,12 @@ interface Call {
 const OK = '{"ok":true}'
 const Schema = z.object({ ok: z.boolean() })
 
-// Per-test behavior: return content, or throw. Keyed off model (and call order
-// via the calls array when a test needs "first call fails, second succeeds").
-let script: (model: string, params: Record<string, unknown>) => string
+// Per-test behavior: return content, or throw. Keyed off model + provider (and
+// call order via the calls array when a test needs "first call fails, second
+// succeeds"). provider is threaded through (not just model) so tests stay
+// correct even if deepinfra and groq ever serve the same model id again — see
+// MODELS comment above.
+let script: (model: string, params: Record<string, unknown>, provider: string) => string
 const calls: Call[] = []
 
 function makeErr(status: number | undefined, message = 'provider error'): Error {
@@ -56,7 +68,7 @@ function makeErr(status: number | undefined, message = 'provider error'): Error 
 }
 
 function ask(
-  role: 'coach' | 'critic' | 'suggestor' | 'drafter',
+  role: 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis',
   overrides: { effort?: 'low' | 'high'; user?: string } = {}
 ) {
   return completeJSON({
@@ -79,7 +91,7 @@ beforeEach(() => {
       completions: {
         create: async (params: Record<string, unknown>) => {
           calls.push({ provider: t.provider, model: t.model, params })
-          const content = script(t.model, params)
+          const content = script(t.model, params, t.provider)
           return { choices: [{ message: { content } }] }
         },
       },
@@ -102,6 +114,67 @@ describe('lane order and 429 cascade', () => {
     await expect(ask('suggestor')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.model)).toEqual([MODELS.cerebras, MODELS.mistral, MODELS.groqQwen])
   })
+
+  it('realtime (coach|critic) tries deepinfra second, right after mistral, before groq', async () => {
+    script = (m) => (m === MODELS.mistral ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('critic')).resolves.toEqual({ ok: true })
+    // provider, not model — deepinfra and groq now share the same model id.
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra'])
+  })
+})
+
+describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
+  it('swarm walks deepinfra → groq gpt-oss-20b → gemini → mistral → cerebras', async () => {
+    script = (m) => (m === MODELS.cerebras ? OK : (() => { throw makeErr(429, 'rate limit') })())
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    // provider, not model — deepinfra and groq both request openai/gpt-oss-20b.
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'groq', 'google', 'mistral', 'cerebras'])
+  })
+
+  it('swarm skips groq while the shared penalty box is open (deepinfra straight to gemini)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
+    // Open the penalty box via the realtime lane first (mirrors the 'groq
+    // penalty box' describe block above) — proves swarm reads the SAME
+    // shared, account-level Groq state, not a lane-local copy. groqQwen's
+    // model id is distinct from deepinfra's, so a plain model check is fine
+    // for opening the box.
+    script = (m) =>
+      m === MODELS.mistral || m === MODELS.deepinfra || m === MODELS.groqQwen
+        ? (() => { throw makeErr(429, 'rate limit') })()
+        : OK
+    await ask('coach')
+
+    calls.length = 0
+    // Groq is skipped entirely here (cooling), so only deepinfra's call can
+    // possibly match this predicate — no collision risk in this one.
+    script = (m, _params, provider) => (provider === 'deepinfra' ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'google'])
+  })
+
+  it('synthesis leads with groq gpt-oss-20b, deepinfra second', async () => {
+    // MUST check provider, not model: 'groqOss' and 'deepinfra' share a model
+    // id, so a model-only check here would incorrectly fail deepinfra too.
+    script = (_m, _params, provider) => (provider === 'groq' ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['groq', 'deepinfra'])
+  })
+
+  it('synthesis skips groq while cooling down, leading with deepinfra', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
+    script = (m) =>
+      m === MODELS.mistral || m === MODELS.deepinfra || m === MODELS.groqQwen
+        ? (() => { throw makeErr(429, 'rate limit') })()
+        : OK
+    await ask('coach') // opens the shared penalty box
+
+    calls.length = 0
+    script = () => OK
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
 })
 
 describe('groq penalty box', () => {
@@ -109,34 +182,41 @@ describe('groq penalty box', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
 
-    // Call 1: mistral 429 → groq qwen 429 (opens penalty) → gemini serves.
-    script = (m) => {
-      if (m === MODELS.mistral || m === MODELS.groqQwen) throw makeErr(429, 'rate limit')
+    // Call 1: mistral 429 → deepinfra 429 (relief valve also down) → groq qwen
+    // 429 (opens penalty) → gemini serves. Checked by PROVIDER throughout this
+    // test, not model: deepinfra and groq's post-recovery fallback both serve
+    // openai/gpt-oss-20b (see MODELS comment above), which would misfire once
+    // groq recovers onto that model in call 3 below if checked by model alone.
+    script = (_m, _params, provider) => {
+      if (provider === 'mistral' || provider === 'deepinfra' || provider === 'groq') throw makeErr(429, 'rate limit')
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.at(-1)?.model).toBe(MODELS.gemini)
+    expect(calls.at(-1)?.provider).toBe('google')
 
-    // Call 2, inside the 30s box: groq is skipped entirely.
+    // Call 2, inside the 30s box: groq is skipped entirely (deepinfra also
+    // down this call, so the chain still needs to reach gemini to prove it).
     calls.length = 0
-    script = (m) => {
-      if (m === MODELS.mistral) throw makeErr(429, 'rate limit')
+    script = (_m, _params, provider) => {
+      if (provider === 'mistral' || provider === 'deepinfra') throw makeErr(429, 'rate limit')
       return OK
     }
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.gemini])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'google'])
 
     // Call 3, after the box clears: groq returns on the SAFER model until a
     // success clears recovery.
     vi.setSystemTime(new Date('2026-07-16T12:00:31Z'))
     calls.length = 0
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqOss])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'groq'])
+    expect(calls.at(-1)?.model).toBe(MODELS.groqOss) // the safer post-recovery model
 
     // Call 4: recovery cleared by the success — back on qwen.
     calls.length = 0
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'groq'])
+    expect(calls.at(-1)?.model).toBe(MODELS.groqQwen)
   })
 })
 
@@ -209,7 +289,7 @@ describe('transient vs terminal errors', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it('timeout/network (no status) cascades', async () => {
@@ -227,13 +307,13 @@ describe('transient vs terminal errors', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it('empty generation cascades', async () => {
     script = (m) => (m === MODELS.mistral ? '' : OK)
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it("Groq's json_validate_failed (its own generation failing strict-schema validation) cascades, not thrown as a terminal 400", async () => {
@@ -268,7 +348,7 @@ describe('transient vs terminal errors', () => {
       throw makeErr(503)
     }
     await expect(ask('coach')).rejects.toMatchObject({ status: 502, message: 'ai-upstream-error' })
-    expect(calls.length).toBe(4) // whole realtime lane tried, no airbag
+    expect(calls.length).toBe(5) // whole realtime lane tried (now incl. deepinfra), no airbag
   })
 })
 
@@ -292,7 +372,7 @@ describe('size-aware routing and overflow', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 })
 

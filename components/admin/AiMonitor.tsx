@@ -361,6 +361,8 @@ export function AiMonitor() {
               <Lane title="Suggestor lane · sidebar suggestions (Cerebras-first)" steps={snap.lanes.suggestor} probeByName={probeByName} />
               <Lane title="Real-time lane · coach / critic" steps={snap.lanes.realtime} probeByName={probeByName} />
               <Lane title="Drafter lane · on-demand" steps={snap.lanes.drafter} probeByName={probeByName} />
+              <Lane title="Swarm lane · reasoning pipeline (DeepInfra-first)" steps={snap.lanes.swarm} probeByName={probeByName} />
+              <Lane title="Synthesis lane · reasoning pipeline final composition" steps={snap.lanes.synthesis} probeByName={probeByName} />
             </div>
 
             {/* target health table */}

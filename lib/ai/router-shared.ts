@@ -17,7 +17,11 @@ export class AiError extends Error {
   }
 }
 
-export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter'
+// 'swarm' and 'synthesis' are dedicated to the reasoning pipeline
+// (lib/ai/reasoning/*) only — see router.ts's swarmAttempts()/
+// synthesisAttempts() header comment. Every other feature in the app keeps
+// using suggestor/coach/critic/drafter exactly as before.
+export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis'
 
 // ── Error classification ──────────────────────────────────────────────────────
 

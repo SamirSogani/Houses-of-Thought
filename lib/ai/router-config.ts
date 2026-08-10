@@ -16,10 +16,14 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/ai/router-config.ts is server-only and must not run in the browser')
 }
 
-export type ProviderId = 'mistral' | 'groq' | 'google' | 'cerebras' | 'openrouter'
+export type ProviderId = 'mistral' | 'deepinfra' | 'groq' | 'google' | 'cerebras' | 'openrouter'
 
 const BASE_URLS: Record<ProviderId, string> = {
   mistral: process.env.MISTRAL_BASE_URL ?? 'https://api.mistral.ai/v1',
+  // Paid, self-serve, OpenAI-compatible — added as a cheap relief valve on the
+  // realtime lane (router.ts realtimeAttempts()) after free-tier Mistral/Groq
+  // couldn't sustain even n=2 reasoning-pipeline test runs (Samir, 2026-08-10).
+  deepinfra: process.env.DEEPINFRA_BASE_URL ?? 'https://api.deepinfra.com/v1/openai',
   groq: process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
   google:
     process.env.GEMINI_BASE_URL ??
@@ -43,6 +47,9 @@ export interface Target {
 // deliberate large-context escape hatch (~1M tokens).
 const CTX = {
   mistral8b: Number(process.env.MISTRAL_CONTEXT ?? 128_000),
+  // 131K covers both candidate DeepInfra models (see TARGETS.deepinfra below):
+  // Llama-3.1-8B-Instruct's published window, and gpt-oss-20b's 131,072 max.
+  deepinfra: Number(process.env.DEEPINFRA_CONTEXT ?? 131_000),
   groq: Number(process.env.GROQ_CONTEXT ?? 128_000),
   gemini: Number(process.env.GEMINI_CONTEXT ?? 1_000_000),
   cerebras: Number(process.env.CEREBRAS_CONTEXT ?? 128_000),
@@ -55,6 +62,37 @@ export const TARGETS = {
     model: process.env.MISTRAL_MODEL ?? 'ministral-8b-latest',
     keyEnv: process.env.MISTRAL_KEY_ENV ?? 'MISTRAL_MINISTRAL_8B_API_KEY',
     contextWindow: CTX.mistral8b,
+  },
+  // Paid provider used across the realtime lane (relief valve) and the
+  // reasoning pipeline's swarm/synthesis lanes — see router-lanes.ts.
+  //
+  // Key name and TARGETS key are deliberately model-agnostic ('deepinfra',
+  // not e.g. 'deepinfraLlama8b'/'deepinfraGptOss20b') — 2026-08-10, Samir's
+  // call, after the model got swapped once already and had to be renamed
+  // across 4 files each time. Switching models now should be exactly ONE
+  // line: the `model` default below (or set DEEPINFRA_MODEL in env, no code
+  // change at all). There is only one DeepInfra target, so unlike Groq's two
+  // models there is no need for a second key — DEEP_INFRA_API_KEY covers
+  // whichever model is active. (Underscore between DEEP and INFRA — matches
+  // how the real key was actually named in .env, 2026-08-10; every other
+  // DeepInfra override var below stays DEEPINFRA_* with no underscore, since
+  // only the literal secret name needed to match what's really configured.)
+  //
+  // Active default: Llama-3.1-8B-Instruct (~$0.02-0.03/$0.05 per 1M).
+  // Staged alternative, ready if this one doesn't hold up on some area or
+  // edge case: 'openai/gpt-oss-20b' — the same model id this codebase already
+  // runs successfully on Groq (TARGETS.groqGptOss20b) and Cerebras,
+  // Apache-2.0/OpenAI-released so unlikely to be dropped, and it matches
+  // supportsJsonSchema()/reasoningEffortFor()'s 'gpt-oss' check
+  // (router-shared.ts) — gets the strict json_schema path already proven
+  // reliable elsewhere, instead of the json_object path Llama gets. NOT
+  // cheaper (~$0.04/$0.15 per 1M) — if it's ever switched to, that's for
+  // reliability/support-longevity, not price.
+  deepinfra: {
+    provider: 'deepinfra',
+    model: process.env.DEEPINFRA_MODEL ?? 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    keyEnv: process.env.DEEPINFRA_KEY_ENV ?? 'DEEP_INFRA_API_KEY',
+    contextWindow: CTX.deepinfra,
   },
   groqQwen: {
     provider: 'groq',
