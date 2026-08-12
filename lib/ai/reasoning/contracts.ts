@@ -240,6 +240,27 @@ export const ImplicationsPacketSchema = z.object({
 })
 export type ImplicationsPacket = z.infer<typeof ImplicationsPacketSchema>
 
+// ── Master review (arbitration after MAX_REGENERATION_ATTEMPTS, 2026-08-11,
+// Samir) — one more call examining all 9 standard verdicts from a layer's
+// final failed attempt TOGETHER, something no single standard-reviewer ever
+// does (each grades blind to the other 8, orchestrator-panel.ts). Looks for
+// genuine contradictions between the 9 notes and synthesizes one clear,
+// prioritized set of instructions for exactly one more regeneration attempt
+// before the layer truly halts. Only the 5 hard-block layers get this (frame,
+// global-assumptions, global-evidence, conclusions, implications) — the one
+// layer with real redundancy (perspectives, degrade-and-continue per bundle)
+// doesn't need a last-resort save the same way. See app/api/admin/reasoning/
+// route.ts for the halt-vs-escalate decision this feeds.
+export const MasterReviewGuidanceSchema = z.object({
+  // "none identified" (or equivalent) is a valid, EXPECTED answer — most
+  // failures are independent notes on genuinely separate problems, not
+  // reviewers actively disagreeing with each other. Don't invent tension that
+  // isn't there just to have something to report here.
+  contradictions: z.string().min(1).max(800),
+  guidance: z.string().min(1).max(1500),
+})
+export type MasterReviewGuidance = z.infer<typeof MasterReviewGuidanceSchema>
+
 // ── Final composition (packaging only, no review panel) ─────────────────────
 export const FinalAnswerSchema = z.object({
   core_question: str,

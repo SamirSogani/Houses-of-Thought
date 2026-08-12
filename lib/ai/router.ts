@@ -40,9 +40,11 @@
 // multi-target lane exists to survive. Only a genuine misconfiguration-shaped
 // error (400 / 401 / 403, everything else) is thrown immediately so a real bug
 // surfaces instead of being retried at full price four times.
-// Latency: every attempt carries a per-role timeout and the chain a shared
-// deadline (ATTEMPT_TIMEOUT_MS / CHAIN_DEADLINE_MS) so one slow-but-alive
-// provider cannot eat the route's entire 30s serverless budget.
+// Latency: every attempt carries a per-role timeout and the chain a shared,
+// per-role deadline (ATTEMPT_TIMEOUT_MS / CHAIN_DEADLINE_MS) so one slow-but-
+// alive provider cannot eat that role's route's entire serverless budget
+// (30s for most AI routes; 60s for the reasoning pipeline's swarm/synthesis,
+// see CHAIN_DEADLINE_MS below).
 
 import type OpenAI from 'openai'
 import { z } from 'zod'
@@ -60,6 +62,7 @@ import {
   supportsJsonSchema,
   TOKEN_SAFETY_MARGIN,
   type AiRole,
+  type AiEffort,
 } from './router-shared'
 import { clientFor, TARGETS, targetName, __resetClients, type Target } from './router-config'
 import {
@@ -80,7 +83,7 @@ if (typeof window !== 'undefined') {
 
 // ── Public facade re-exports ──────────────────────────────────────────────────
 
-export { AiError, type AiRole } from './router-shared'
+export { AiError, type AiRole, type AiEffort } from './router-shared'
 export { __setClientFactory } from './router-config'
 export {
   dailyLimitsExhausted,
@@ -104,14 +107,31 @@ export {
 } from './router-monitor'
 
 // ── Latency budgets ───────────────────────────────────────────────────────────
-// One slow-but-alive target must not eat the whole serverless budget
-// (maxDuration = 30 on every AI route). A timed-out attempt surfaces as a
-// no-status error and cascades like any transient failure — so the penalty box
-// and health log still see it, unlike a platform kill. The chain-wide deadline
-// is shared across completeJSON's parse-retry too, leaving ~4s headroom for
-// response serialization. Per-role attempt budgets (ATTEMPT_TIMEOUT_MS) and the
+// One slow-but-alive target must not eat the whole serverless budget. A
+// timed-out attempt surfaces as a no-status error and cascades like any
+// transient failure — so the penalty box and health log still see it, unlike
+// a platform kill. The chain-wide deadline is shared across completeJSON's
+// parse-retry too. Per-role attempt budgets (ATTEMPT_TIMEOUT_MS) and the
 // failover order itself (attemptsForRole/Attempt) live in router-lanes.ts.
-const CHAIN_DEADLINE_MS = 26_000
+//
+// Keyed per-role, not one flat number (2026-08-10, Samir) — because each
+// role's ROUTE has its own maxDuration, and this deadline must stay under
+// whatever that specific route can actually honor. Raising it for one role
+// without raising THAT role's route's maxDuration to match just trades a
+// graceful self-cutoff (still returns a clean error) for a hard platform
+// kill mid-response (no error, connection just dies). swarm/synthesis are
+// the reasoning pipeline's roles, both served ONLY by
+// app/api/admin/reasoning/route.ts (maxDuration=60 as of this change) — they
+// get ~5s headroom under that. Every other role's route is still
+// maxDuration=30, so they keep the original ~4s headroom under that.
+const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
+  suggestor: 26_000,
+  coach: 26_000,
+  critic: 26_000,
+  drafter: 26_000,
+  swarm: 55_000,
+  synthesis: 55_000,
+}
 
 // ── Execution ─────────────────────────────────────────────────────────────────
 
@@ -120,7 +140,10 @@ interface ExecuteOpts {
   user: string
   jsonSchema: Record<string, unknown>
   schemaName: string
-  effort: 'low' | 'high'
+  effort: AiEffort
+  // Opt-in past gpt-oss/qwen's 'high' floor — see reasoningEffortFor
+  // (router-shared.ts) for what this actually does and why it's gated.
+  allowHighReasoning?: boolean
   maxTokens: number
   neededTokens: number // estimated input + output; drives size-aware routing
   deadlineAt: number //  epoch ms; shared across the parse-retry (see completeJSON)
@@ -169,9 +192,11 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
     if (!client) continue // no key → skip, don't abort
     anyProviderTried = true
     const started = Date.now()
+    // attempt.timeoutMs overrides the role's default when a specific target
+    // needs more (or less) room — see Attempt.timeoutMs (router-lanes.ts).
     const timeoutMs = Math.max(
       1_000,
-      Math.min(ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now())
+      Math.min(attempt.timeoutMs ?? ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now())
     )
     try {
       const content = await callProvider(client, attempt, opts, timeoutMs)
@@ -302,7 +327,7 @@ async function callProvider(
         json_schema: { name: opts.schemaName, schema: opts.jsonSchema },
       })
     : ({ type: 'json_object' as const })
-  const reasoning_effort = reasoningEffortFor(attempt.model, opts.effort)
+  const reasoning_effort = reasoningEffortFor(attempt.model, opts.effort, opts.allowHighReasoning)
 
   let completion: OpenAI.Chat.Completions.ChatCompletion
   try {
@@ -371,7 +396,10 @@ export async function completeJSON<T>(opts: {
   user: string
   schema: z.ZodType<T> // zod schema; also converted to JSON Schema below
   schemaName: string // response_format json_schema name (a-z, 0-9, _, -)
-  effort: 'low' | 'high' // maps to reasoning_effort where the model accepts it
+  effort: AiEffort // maps to reasoning_effort where the model accepts it
+  // Opt-in past gpt-oss/qwen's 'high' floor — see reasoningEffortFor
+  // (router-shared.ts). Only meaningful when effort: 'high'; ignored otherwise.
+  allowHighReasoning?: boolean
   maxTokens: number
 }): Promise<T> {
   const jsonSchema = z.toJSONSchema(opts.schema, { target: 'draft-7' }) as Record<
@@ -391,11 +419,12 @@ export async function completeJSON<T>(opts: {
     jsonSchema,
     schemaName: opts.schemaName,
     effort: opts.effort,
+    allowHighReasoning: opts.allowHighReasoning,
     maxTokens: opts.maxTokens,
     neededTokens,
     // One deadline covers the first chain AND the parse-retry chain, so the
-    // whole completeJSON call stays inside the route's 30s function budget.
-    deadlineAt: Date.now() + CHAIN_DEADLINE_MS,
+    // whole completeJSON call stays inside its role's route's function budget.
+    deadlineAt: Date.now() + CHAIN_DEADLINE_MS[opts.role],
   }
 
   function tryParse(raw: string): { ok: true; value: T } | { ok: false; error: string } {

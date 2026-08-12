@@ -20,6 +20,7 @@ import {
   FinalAnswerSchema,
   type FinalAnswer,
   type ReviewPanelVerdict,
+  type MasterReviewGuidance,
 } from './contracts'
 import {
   REASONING_PERSONA,
@@ -31,6 +32,7 @@ import {
   serializeFrame,
   serializePerspectives,
   appendRegenerationFeedback,
+  appendMasterGuidance,
 } from './prompts'
 
 // Shared shape for "regenerate this after a failed panel verdict" across the
@@ -38,6 +40,15 @@ import {
 interface Repair<T> {
   priorArtifact: T
   priorVerdict: ReviewPanelVerdict
+}
+
+// Shared shape for the ONE extra attempt a hard-block layer earns after
+// exhausting MAX_REGENERATION_ATTEMPTS still failing (route.ts's master-
+// review escalation) — takes priority over Repair<T>'s raw per-standard notes
+// when present (the two are never both set on the same call).
+interface MasterGuided<T> {
+  priorArtifact: T
+  guidance: MasterReviewGuidance
 }
 import { runReviewPanel } from './orchestrator-panel'
 import { generateWithOptionalSearch } from './search'
@@ -51,7 +62,7 @@ if (typeof window !== 'undefined') {
 // buildExtraContext. Threaded through every function in this file that builds
 // a context string, so an answer re-contextualizes everything downstream of
 // wherever it was given, not just the very next call.
-function questionContext(frame: FramePacket, bundles: PerspectiveBundle[], extraContext?: string | null): string {
+export function questionContext(frame: FramePacket, bundles: PerspectiveBundle[], extraContext?: string | null): string {
   return `${serializeFrame(frame, extraContext)}\n\n## Vetted perspectives\n${serializePerspectives(bundles)}`
 }
 
@@ -60,7 +71,8 @@ export async function runGlobalAssumptionsGenerate(
   bundles: PerspectiveBundle[],
   dryRun: boolean,
   repair?: Repair<GlobalAssumptionsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalAssumptionsPacket>
 ): Promise<GlobalAssumptionsPacket> {
   if (dryRun) {
     return {
@@ -68,13 +80,21 @@ export async function runGlobalAssumptionsGenerate(
       cross_perspective_notes: '[dry run] cross-perspective note.',
     }
   }
+  const context = questionContext(frame, bundles, extraContext)
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
     role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_ASSUMPTIONS_BLOCK}`,
-    user: appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: GlobalAssumptionsPacketSchema,
     schemaName: 'global_assumptions_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     maxTokens: 900,
   })
 }
@@ -102,17 +122,28 @@ export async function runGlobalEvidenceGenerate(
   bundles: PerspectiveBundle[],
   dryRun: boolean,
   repair?: Repair<GlobalEvidencePacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
 ): Promise<GlobalEvidencePacket> {
   if (dryRun) {
     return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
   }
+  const context = questionContext(frame, bundles, extraContext)
+  const isRepair = !!repair || !!masterGuidance
   return generateWithOptionalSearch({
     role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair) + searchContext,
+    buildUser: (searchContext) =>
+      (masterGuidance
+        ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+        : appendRegenerationFeedback(context, repair)) + searchContext,
     baseSchema: GlobalEvidencePacketSchema,
     schemaName: 'global_evidence_packet',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 900 -> 1800, third instance of the exact same fix this session
     // (conclusions_packet, implications_packet): up to 8 items, each with a
     // 600-char claim_id AND a 600-char source_ref. Confirmed live: Gemini
@@ -120,7 +151,12 @@ export async function runGlobalEvidenceGenerate(
     // cap - immediately after global_assumptions_packet (smaller max, no
     // truncation seen) passed clean, isolating this as the schema-shape
     // issue, not a fluke of that particular call.
-    maxTokens: 1800,
+    // 1800 -> 2400 (2026-08-10, Samir): same fix again, one provider later —
+    // perspective_evidence (orchestrator-perspectives.ts, identical
+    // claim/source_ref/confidence/caveats shape) real-verified truncating
+    // mid-JSON on gpt-oss-20b at 1800. Bumped this twin call to match before
+    // it hits the same wall, even though it hasn't been caught live yet.
+    maxTokens: 2400,
   })
 }
 
@@ -148,17 +184,25 @@ export async function runConclusionsGenerate(
   globalEvidence: GlobalEvidencePacket,
   dryRun: boolean,
   repair?: Repair<ConclusionsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<ConclusionsPacket>
 ): Promise<ConclusionsPacket> {
   if (dryRun) return { conclusions: ['[dry run] conclusion.'], supporting_chain: ['[dry run] supporting step.'] }
   const context = `${questionContext(frame, bundles, extraContext)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
     role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${CONCLUSIONS_BLOCK}`,
-    user: appendRegenerationFeedback(context, repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: ConclusionsPacketSchema,
     schemaName: 'conclusions_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 900 -> 1800 (real traffic 2026-08-02): ConclusionsPacketSchema's own
     // bounds allow up to 4 conclusions + 8 supporting_chain items at 600 chars
     // each - 900 tokens can't cover that even at typical (non-maxed) length.
@@ -191,7 +235,8 @@ export async function runImplicationsGenerate(
   degradedNotes: string[],
   dryRun: boolean,
   repair?: Repair<ImplicationsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<ImplicationsPacket>
 ): Promise<ImplicationsPacket> {
   if (dryRun) {
     return {
@@ -204,13 +249,20 @@ export async function runImplicationsGenerate(
     }
   }
   const context = `${serializeFrame(frame, extraContext)}\n\n## Conclusions\n${conclusions.conclusions.map((c) => `- ${c}`).join('\n')}\n\n## Supporting chain\n${conclusions.supporting_chain.map((s) => `- ${s}`).join('\n')}${degradedNotes.length ? `\n\n## Degraded upstream layers\n${degradedNotes.map((d) => `- ${d}`).join('\n')}` : ''}`
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
     role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${IMPLICATIONS_BLOCK}`,
-    user: appendRegenerationFeedback(context, repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: ImplicationsPacketSchema,
     schemaName: 'implications_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 900 -> 1800, same fix and same evidence shape as conclusions_packet
     // above: ImplicationsPacketSchema allows up to 8 implications (each with
     // a 600-char text AND a 600-char who) plus 6 caveats at 600 chars -
@@ -258,7 +310,11 @@ export async function runFinalComposition(
     user: context,
     schema: FinalAnswerSchema,
     schemaName: 'final_answer',
-    effort: 'low',
+    // 'medium' (was 'low', 2026-08-11) — no repair path exists for final
+    // composition (packaging only, no review panel), so every call here is a
+    // "first-pass" call by definition; matches the medium-first-pass default
+    // every other generate call now uses.
+    effort: 'medium',
     maxTokens: 1200,
   })
 }

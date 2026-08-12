@@ -27,16 +27,17 @@ const KEY_ENVS = [
 ]
 for (const k of KEY_ENVS) process.env[k] = 'test-key'
 
-// deepinfra currently differs from groqOss (Llama-3.1-8B-Instruct vs
-// gpt-oss-20b — router-config.ts), but TARGETS.deepinfra's model is a
-// deliberate one-line swap away from becoming gpt-oss-20b again (staged,
-// not active — see router-config.ts). Assertions/scripts below check
-// `provider` (the 3rd arg to `script`), not `model`, wherever they need to
-// tell deepinfra and groq apart — that stays correct even if the model swap
-// happens and the two collide again, so it shouldn't need re-touching.
+// This fixture deliberately keeps deepinfra's dummy model string different
+// from groqOss's even though production's TARGETS.deepinfra (router-config.ts)
+// was swapped to the same id, 'openai/gpt-oss-20b', on 2026-08-10 (Samir:
+// Llama wasn't reliably incorporating the panel's regeneration feedback) — the
+// two providers really do serve the same model now. Assertions/scripts below
+// check `provider` (the 3rd arg to `script`), not `model`, wherever they need
+// to tell deepinfra and groq apart, so this fixture staying distinct from
+// production doesn't need re-touching either way.
 const MODELS = {
   mistral: 'ministral-8b-latest',
-  deepinfra: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+  deepinfra: 'openai/gpt-oss-20b',
   groqQwen: 'qwen/qwen3.6-27b',
   groqOss: 'openai/gpt-oss-20b',
   gemini: 'gemini-2.5-flash',

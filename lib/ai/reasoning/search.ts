@@ -5,7 +5,7 @@
 // GLOBAL_EVIDENCE_BLOCK in prompts.ts), the only prompts that offer it.
 
 import { z } from 'zod'
-import { completeJSON, type AiRole } from '@/lib/ai/router'
+import { completeJSON, type AiRole, type AiEffort } from '@/lib/ai/router'
 import { braveSearch } from '@/lib/ai/brave'
 import { log } from '@/lib/log'
 
@@ -75,6 +75,15 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
   baseSchema: z.ZodObject<Shape>
   schemaName: string
   maxTokens: number
+  // Was hardcoded 'high' unconditionally (2026-08-11: widened to match
+  // orchestrator-perspectives.ts/orchestrator-global.ts's medium-first/
+  // high-on-repair split — the two callers of this function,
+  // perspective_evidence and global_evidence, are repair-eligible like every
+  // other generate call, and there's no reason evidence generation alone
+  // should sit outside that scheme). Defaults preserve the old behavior for
+  // any caller that doesn't pass these.
+  effort?: AiEffort
+  allowHighReasoning?: boolean
 }): Promise<z.infer<z.ZodObject<Shape>>> {
   type Base = z.infer<z.ZodObject<Shape>>
   type WithSearch = Base & z.infer<typeof SearchQueriesSchema>
@@ -82,6 +91,7 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
   // (produces an unusable conditional type) — cast to the concrete shape we
   // know this always produces (Base's own fields plus search_queries).
   const searchableSchema = params.baseSchema.extend(SearchQueriesSchema.shape) as z.ZodType<WithSearch>
+  const effort = params.effort ?? 'high'
   let searchContext = ''
 
   for (let round = 0; round < MAX_SEARCH_ROUNDS; round++) {
@@ -91,7 +101,8 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
       user: params.buildUser(searchContext),
       schema: searchableSchema,
       schemaName: params.schemaName,
-      effort: 'high',
+      effort,
+      allowHighReasoning: params.allowHighReasoning,
       maxTokens: params.maxTokens,
     })
     // Defensive: catches a shape bug here rather than crashing on it — real
@@ -111,7 +122,8 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
     user: params.buildUser(searchContext),
     schema: params.baseSchema,
     schemaName: params.schemaName,
-    effort: 'high',
+    effort,
+    allowHighReasoning: params.allowHighReasoning,
     maxTokens: params.maxTokens,
   })
 }

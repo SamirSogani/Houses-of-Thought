@@ -13,6 +13,7 @@ import {
   BreadthScopingPacketSchema,
   type BreadthScopingPacket,
   type ReviewPanelVerdict,
+  type MasterReviewGuidance,
 } from './contracts'
 import {
   REASONING_PERSONA,
@@ -21,6 +22,7 @@ import {
   BREADTH_SCOPING_BLOCK,
   serializeFrame,
   appendRegenerationFeedback,
+  appendMasterGuidance,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
 import { runSearches } from './search'
@@ -89,7 +91,13 @@ export async function runFrameGenerate(
   // formatContextGatherAnswers (prompts.ts) — the ONE place pre-checkpoint
   // answers get threaded in; everything downstream picks them up for free via
   // the resulting frame, so they're never re-threaded again via extraContext.
-  userAnswers?: string | null
+  userAnswers?: string | null,
+  // Present only on the ONE extra attempt frame-review's master-review
+  // escalation earns after exhausting MAX_REGENERATION_ATTEMPTS (route.ts) —
+  // takes priority over repair's raw per-standard notes when present (the two
+  // are never both set: masterGuidance only exists once repair's own attempts
+  // are exhausted).
+  masterGuidance?: { priorFrame: FramePacket; guidance: MasterReviewGuidance }
 ): Promise<FramePacket> {
   if (dryRun) {
     return {
@@ -103,16 +111,24 @@ export async function runFrameGenerate(
   const baseContext = userAnswers
     ? `Original question: ${originalQuery}\n\n${userAnswers}`
     : `Original question: ${originalQuery}`
+  const isRepair = !!repair || !!masterGuidance
   const modelOut = await completeJSON({
     role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${FRAME_BLOCK}`,
-    user: appendRegenerationFeedback(
-      baseContext,
-      repair && { priorArtifact: repair.priorFrame, priorVerdict: repair.priorVerdict }
-    ),
+    user: masterGuidance
+      ? appendMasterGuidance(baseContext, masterGuidance.priorFrame, masterGuidance.guidance)
+      : appendRegenerationFeedback(
+          baseContext,
+          repair && { priorArtifact: repair.priorFrame, priorVerdict: repair.priorVerdict }
+        ),
     schema: FrameModelSchema,
     schemaName: 'frame_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // revision-under-feedback needs real deliberation more than first-pass
+    // generation does; see reasoningEffortFor's allowHighReasoning
+    // (router-shared.ts) for why 'high' specifically needs the opt-in.
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 1200 truncated mid-JSON on a real regeneration round (2026-07-31, log:
     // "response was not valid JSON" on BOTH the raw attempt and completeJSON's
     // own retry) — up to 6 definitions plus the 1400-char scope_notes

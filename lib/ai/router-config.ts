@@ -47,8 +47,9 @@ export interface Target {
 // deliberate large-context escape hatch (~1M tokens).
 const CTX = {
   mistral8b: Number(process.env.MISTRAL_CONTEXT ?? 128_000),
-  // 131K covers both candidate DeepInfra models (see TARGETS.deepinfra below):
-  // Llama-3.1-8B-Instruct's published window, and gpt-oss-20b's 131,072 max.
+  // 131K covers either DeepInfra model this has run (see TARGETS.deepinfra
+  // below): gpt-oss-20b's 131,072 max, and Llama-3.1-8B-Instruct's published
+  // window if ever reverted to.
   deepinfra: Number(process.env.DEEPINFRA_CONTEXT ?? 131_000),
   groq: Number(process.env.GROQ_CONTEXT ?? 128_000),
   gemini: Number(process.env.GEMINI_CONTEXT ?? 1_000_000),
@@ -78,19 +79,22 @@ export const TARGETS = {
   // DeepInfra override var below stays DEEPINFRA_* with no underscore, since
   // only the literal secret name needed to match what's really configured.)
   //
-  // Active default: Llama-3.1-8B-Instruct (~$0.02-0.03/$0.05 per 1M).
-  // Staged alternative, ready if this one doesn't hold up on some area or
-  // edge case: 'openai/gpt-oss-20b' — the same model id this codebase already
-  // runs successfully on Groq (TARGETS.groqGptOss20b) and Cerebras,
-  // Apache-2.0/OpenAI-released so unlikely to be dropped, and it matches
-  // supportsJsonSchema()/reasoningEffortFor()'s 'gpt-oss' check
+  // Active default: 'openai/gpt-oss-20b' — swapped from Llama-3.1-8B-Instruct
+  // (2026-08-10, Samir's call): real review-panel runs showed Llama wasn't
+  // reliably incorporating the panel's regeneration feedback, repeatedly
+  // re-failing the same standards instead of converging. Same model id this
+  // codebase already runs successfully on Groq (TARGETS.groqGptOss20b) and
+  // Cerebras, Apache-2.0/OpenAI-released so unlikely to be dropped, and it
+  // matches supportsJsonSchema()/reasoningEffortFor()'s 'gpt-oss' check
   // (router-shared.ts) — gets the strict json_schema path already proven
-  // reliable elsewhere, instead of the json_object path Llama gets. NOT
-  // cheaper (~$0.04/$0.15 per 1M) — if it's ever switched to, that's for
-  // reliability/support-longevity, not price.
+  // reliable elsewhere, instead of the looser json_object path Llama got.
+  // NOT cheaper (~$0.04/$0.15 per 1M vs Llama's ~$0.02-0.03/$0.05) — this
+  // swap is for reliability, not price. Llama-3.1-8B-Instruct is the
+  // fallback if gpt-oss-20b doesn't hold up on some area either — swap the
+  // string below (or DEEPINFRA_MODEL env) back to switch again.
   deepinfra: {
     provider: 'deepinfra',
-    model: process.env.DEEPINFRA_MODEL ?? 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    model: process.env.DEEPINFRA_MODEL ?? 'openai/gpt-oss-20b',
     keyEnv: process.env.DEEPINFRA_KEY_ENV ?? 'DEEP_INFRA_API_KEY',
     contextWindow: CTX.deepinfra,
   },

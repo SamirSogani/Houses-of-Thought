@@ -9,15 +9,17 @@
 // and generators are told this explicitly so they describe what evidence
 // would be needed rather than fabricating a specific, real-sounding source.
 
-import type { ContextGatherVerdict, FramePacket, PerspectiveBundle, ReviewPanelVerdict } from './contracts'
+import type { ContextGatherVerdict, FramePacket, PerspectiveBundle, ReviewPanelVerdict, MasterReviewGuidance } from './contracts'
 import type { StandardDef } from './standards'
+import { MAX_REGENERATION_ATTEMPTS } from './budget'
 
 export const REASONING_PERSONA = `You are one stage in a multi-agent reasoning pipeline inside Houses of Thought's admin tools. The pipeline reasons through a hard question in strict sequence — frame, perspectives, assumptions, evidence, conclusions, implications — modeled on Paul & Elder's Elements of Reasoning. You are doing exactly ONE stage; you do not see, and must not try to redo, any other stage's job.
 
 Hard rules:
 - Only produce what THIS stage asks for — nothing else.
 - Never invent facts, sources, or citations you cannot honestly ground in what you were given.
-- Plain, direct language — no lecturing, no hedging filler.`
+- Plain, direct language — no lecturing, no hedging filler.
+- Be concise — every field below has a hard output-token budget; a response that runs long doesn't get truncated gracefully, it gets cut off mid-JSON and fails outright. Say what's needed in as few words as it takes, not more — this is a real technical constraint, not a style preference.`
 
 // ── Context-gather (the two fixed checkpoints, plus admin-triggered ad-hoc
 // calls at any layer boundary — Phase 3 item 1, decision 019) ───────────────
@@ -106,12 +108,29 @@ Return core_question (echo the frame's core_question exactly), answer (a clear, 
 // actually is (e.g. Frame's "depth" is about how many considerations the
 // framing accounts for and whether the question is crisp, never about
 // argumentative depth — framing shouldn't argue yet). See decisions/019 §3.
+//
+// siblingPerspectiveLabels (2026-08-10, real-verified live): perspectives-
+// review's reviewers were failing breadth/logic on individual bundles for not
+// covering ground that belongs to a SIBLING perspective's stance (e.g.
+// faulting "the teacher workload perspective" for not discussing student
+// learning outcomes — that's "the affected students" perspective's job).
+// Each perspective is deliberately narrow and one-sided by design (that's the
+// whole point of splitting into n perspectives); the reviewer needs to know
+// that split exists to not penalize a stance for its own by-design focus.
+// Only perspectives-review ever passes this (orchestrator-perspectives.ts);
+// every other gate omits it and the prompt is unchanged — still one shared,
+// universal template, not a per-gate fork.
 export function buildReviewerPrompt(
   standard: StandardDef,
   criterion: string,
   artifact: unknown,
-  context: string
+  context: string,
+  siblingPerspectiveLabels?: string[]
 ): { system: string; user: string } {
+  const siblingNote = siblingPerspectiveLabels?.length
+    ? `\n\nThis artifact is ONE of ${siblingPerspectiveLabels.length + 1} perspectives being argued in parallel on this question — the others are: ${siblingPerspectiveLabels.join(', ')}. Each perspective is deliberately narrow and one-sided by design; covering the question's OTHER angles is those sibling perspectives' job, not this one's. Do not fail this artifact for lacking breadth, balance, or coverage across the whole question — judge it only as its own single, committed stance.`
+    : ''
+
   const system = `You are ONE independent reviewer on a nine-person review panel gating a reasoning pipeline. You do not see the other eight reviewers' work and must not try to cover their ground — grade ONLY your assigned standard, as defined below for THIS stage specifically.
 
 Your assigned standard: ${standard.name}
@@ -119,7 +138,7 @@ What that means at this stage: ${criterion}
 
 Division of labour — the other eight standards each own a concern below; do NOT fail YOUR standard for a shortcoming that is really one of theirs:
 · Clarity: readable, unambiguous phrasing · Accuracy: faithful to what was actually asked/claimed, no distortion · Precision: specific, exact detail · Relevance: stays on the question · Depth: engages the real range of considerations · Breadth: covers multiple genuine angles · Logic: reasoning follows without contradiction · Significance: focuses on what matters most · Fairness: even-handed, not one-sided.
-If your honest objection is really another standard's to make, leave it to them and judge only your own.
+If your honest objection is really another standard's to make, leave it to them and judge only your own.${siblingNote}
 
 Be a firm but fair grader — neither a cheerleader nor a nitpicker. pass:true unless the artifact genuinely and materially violates YOUR standard as defined above; do not fail it over a stylistic preference, a concern another standard owns, or something you are only mildly unsure about — when genuinely on the fence, pass. notes must state the specific reason (quote a fragment of the artifact where useful) — never a generic compliment or complaint. Keep notes to 2-3 sentences, under 500 characters — specific and cited, not padded.`
 
@@ -152,6 +171,53 @@ export function appendRegenerationFeedback(
     ? `\n\n## Already meets the bar — keep these satisfied while you fix the above; do NOT regress them\n${passing.join(', ')}`
     : ''
   return `${context}\n\n## Your previous attempt (revise this — do not start over)\n${JSON.stringify(repair.priorArtifact, null, 2)}\n\n## Why it failed review — address ONLY this feedback\n${feedback}${preserve}`
+}
+
+// ── Master review (arbitration after MAX_REGENERATION_ATTEMPTS, 2026-08-11,
+// Samir) — see MasterReviewGuidanceSchema (contracts.ts) for what this
+// produces and why. The 9 standard reviewers never see each other's verdicts
+// (buildReviewerPrompt above, deliberately); this is the first and only call
+// that does, specifically to catch cases the blind panel structurally can't:
+// two reviewers whose notes actually conflict.
+export function buildMasterReviewPrompt(
+  verdict: ReviewPanelVerdict,
+  artifact: unknown,
+  context: string
+): { system: string; user: string } {
+  const system = `You are a senior reviewer arbitrating after a reasoning-pipeline layer has failed its nine-standard review panel ${MAX_REGENERATION_ATTEMPTS} times in a row. Each of the 9 standard reviewers graded independently and blind to the other 8 — you are the first to see all 9 verdicts together, on this final failed attempt.
+
+Two jobs, in order:
+1. Look for a genuine CONTRADICTION between two or more of the 9 notes below — a case where satisfying one reviewer's concern would violate another's. This is the exception, not the rule: most of the time the notes are independent, valid critiques that were simply never acted on, not reviewers actively disagreeing with each other. Say so plainly if that's what you find (e.g. "none identified") — do not manufacture tension that is not really there just to have something to report.
+2. Write ONE clear, prioritized, concrete set of instructions for the next — and final — regeneration attempt, synthesized from all the failing notes, resolving any real contradiction you found. Name specifically what to change; a restatement of the reviewers' own notes is not enough on its own.`
+
+  const entries = Object.entries(verdict.standards) as [string, { pass: boolean; notes: string }][]
+  const failing = entries.filter(([, v]) => !v.pass)
+  const passing = entries.filter(([, v]) => v.pass).map(([id]) => id)
+  const notesBlock = failing.map(([id, v]) => `- ${id}: ${v.notes}`).join('\n')
+  const preserve = passing.length
+    ? `\n\nAlready meets the bar on the final attempt — the guidance must not regress these: ${passing.join(', ')}`
+    : ''
+
+  const user = `## Question and context\n${context}\n\n## Artifact that failed review ${MAX_REGENERATION_ATTEMPTS} times\n${JSON.stringify(artifact, null, 2)}\n\n## All 9 standard reviewers' verdicts on the final attempt\n${notesBlock}${preserve}`
+  return { system, user }
+}
+
+// Feeds a master reviewer's synthesized guidance into the ONE extra
+// regeneration attempt it earns (route.ts) — a distinct injection path from
+// appendRegenerationFeedback above, since by this point the raw 9-note dump
+// already failed to produce a fix across MAX_REGENERATION_ATTEMPTS tries; the
+// generator gets the master's synthesis instead of (not in addition to) that
+// raw dump.
+export function appendMasterGuidance(
+  context: string,
+  artifact: unknown,
+  guidance: MasterReviewGuidance
+): string {
+  const hasContradiction = !/^\s*none\b/i.test(guidance.contradictions)
+  const contradictionNote = hasContradiction
+    ? `\n\nNote on conflicting feedback across reviewers: ${guidance.contradictions}`
+    : ''
+  return `${context}\n\n## Your last ${MAX_REGENERATION_ATTEMPTS} attempts all failed review (revise this — do not start over)\n${JSON.stringify(artifact, null, 2)}\n\n## A senior reviewer examined all 9 standards' feedback together and synthesized this — this is your final attempt, follow it directly\n${guidance.guidance}${contradictionNote}`
 }
 
 // ── Serialization helpers — build the `user` context text for later steps ──

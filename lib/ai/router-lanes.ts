@@ -25,7 +25,7 @@
 //   Latency-sensitive background events fired by user activity. Kept off the big
 //   models to preserve the shared Mistral 50k TPM budget.
 //     1. Mistral   ministral-8b-latest    (primary)
-//     2. DeepInfra Llama-3.1-8B-Instruct  (on Mistral 429)  ── paid relief valve, added
+//     2. DeepInfra gpt-oss-20b            (on Mistral 429)  ── paid relief valve, added
 //                                          2026-08-10 (Samir): the reasoning pipeline's
 //                                          9-parallel review panel (all `critic`) plus
 //                                          real-time `coach` traffic were exhausting
@@ -37,18 +37,19 @@
 //                                          (router-config.ts) is deliberately
 //                                          model-agnostic in its naming — a same-day
 //                                          detour through gpt-oss-20b and back needed a
-//                                          4-file rename each way, so the model itself
-//                                          is now a one-line change (TARGETS.deepinfra's
-//                                          `model` default, or DEEPINFRA_MODEL env, no
-//                                          code change at all) if this one doesn't hold
-//                                          up on some area or edge case — gpt-oss-20b is
-//                                          staged and ready: same model id this codebase
-//                                          already runs successfully on Groq (see
-//                                          draftAttempts() below) and Cerebras, and it
-//                                          would get the strict json_schema path
-//                                          (supportsJsonSchema(), router-shared.ts)
-//                                          instead of the json_object path Llama gets —
-//                                          not cheaper if switched, just more proven.
+//                                          4-file rename each way, which is why the model
+//                                          itself is a one-line change (TARGETS.deepinfra's
+//                                          `model` default, or DEEPINFRA_MODEL env, no code
+//                                          change at all). Swapped to gpt-oss-20b again the
+//                                          same day (Samir): real review-panel runs showed
+//                                          Llama wasn't reliably incorporating the panel's
+//                                          regeneration feedback. Same model id this
+//                                          codebase already runs successfully on Groq (see
+//                                          draftAttempts() below) and Cerebras, and it gets
+//                                          the strict json_schema path (supportsJsonSchema(),
+//                                          router-shared.ts) instead of the looser
+//                                          json_object path Llama got — not cheaper, this
+//                                          swap is for reliability.
 //     3. Groq      qwen3.6-27b            (on DeepInfra failure)  ── stateful, see below
 //     4. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
 //     5. Cerebras  gpt-oss-120b           (multi-throttle bridge, on Google 429)
@@ -101,11 +102,17 @@ export interface Attempt extends Target {
   // Real-time Groq attempts open the penalty box on a (non-daily) 429 instead of
   // hopping straight to another Groq model.
   penaltyOnRateLimit?: boolean
+  // Per-attempt override of ATTEMPT_TIMEOUT_MS[role] (router.ts's execute()
+  // reads this if set). Only swarmAttempts()'s DeepInfra entry sets it today
+  // — see DEEPINFRA_SWARM_TIMEOUT_MS below.
+  timeoutMs?: number
 }
 
-// One slow-but-alive target must not eat the whole serverless budget
-// (maxDuration = 30 on every AI route) — see router.ts's execute() for how
-// this combines with CHAIN_DEADLINE_MS.
+// One slow-but-alive target must not eat the whole serverless budget. Each
+// role's route has its own maxDuration (most AI routes: 30s; the reasoning
+// pipeline's app/api/admin/reasoning/route.ts, serving swarm/synthesis: 60s
+// as of 2026-08-10 — see CHAIN_DEADLINE_MS, router.ts, for how these two
+// numbers combine per role.
 export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
   suggestor: 8_000,
   coach: 8_000,
@@ -114,6 +121,34 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
   swarm: 20_000, // same budget as drafter — real generation/review work, not a quick check
   synthesis: 8_000, // packaging only, same budget as coach
 }
+
+// DeepInfra-in-swarm-specific widen (2026-08-10, Samir, real-verified live):
+// the swarm lane's generic 20s was cutting off DeepInfra gpt-oss-20b calls
+// that were NOT actually failing — DeepInfra's own dashboard showed those
+// requests completed and billed (tiny amounts, these are small calls), our
+// client just stopped waiting first. gpt-oss-20b is a real reasoning model —
+// even reasoning_effort:"low" spends genuine wall-clock time on hidden
+// "thinking" tokens before the visible JSON, which Llama-3.1-8B (no
+// reasoning mode) never had to pay for — so the timeout tuned for Llama's
+// flat completion speed is too tight for gpt-oss-20b's latency profile.
+// Only DeepInfra gets this — Groq/Gemini/Mistral/Cerebras in the same lane
+// are fast and don't need more room.
+//
+// Widened again the same day once the actual ceiling moved: DeepInfra's
+// spend is a non-issue (paid account, these are cheap calls — real
+// $-per-call is <$0.01), so the constraint here was never budget, only the
+// route's serverless duration cap. app/api/admin/reasoning/route.ts's
+// maxDuration went 30s → 60s alongside this (Vercel Hobby plan — needs
+// Fluid Compute enabled to actually honor 60s; unverified from this
+// codebase, confirm in the Vercel dashboard). CHAIN_DEADLINE_MS.swarm
+// (router.ts) followed to 55s. DeepInfra is swarmAttempts()' FIRST attempt,
+// so widening it still eats directly into that shared budget — 45s leaves
+// ~10s for Groq's burst-absorber (or the schema-retry pass) if DeepInfra
+// genuinely fails rather than just running slow, a healthier margin than
+// the previous ~2s. Still a real trade-off, not a free win: raise further
+// only alongside the route's maxDuration and CHAIN_DEADLINE_MS[swarm], kept
+// in lockstep so the deadline never promises more than the route can honor.
+const DEEPINFRA_SWARM_TIMEOUT_MS = 45_000
 
 // Real-time background lane (coach | critic): Mistral primary, then the paid
 // DeepInfra relief valve (see header comment above), then the Groq
@@ -174,24 +209,27 @@ function draftAttempts(): Attempt[] {
 //
 // DeepInfra leads (this is the highest-volume traffic in the app: 9 parallel
 // review-panel calls per gate, repeated across 6 gates, plus every generate
-// step) — TARGETS.deepinfra (router-config.ts), currently Llama-3.1-8B-Instruct,
-// ~$0.02-0.03/$0.05 per 1M tokens. Groq is the paid "burst absorber" behind
-// it, pinned to gpt-oss-20b for the same strict-json_schema reliability
-// reason draftAttempts() pins it (NOT currentGroqTarget()'s qwen default —
-// see draftAttempts()'s comment). If TARGETS.deepinfra is ever switched to
-// gpt-oss-20b too (it's staged and ready — see router-config.ts), these first
-// two attempts would become the same model on two different providers'
-// infrastructure — worth remembering if that switch happens, since a
-// DeepInfra failure would then say nothing about whether the MODEL itself is
-// struggling, only that one provider's capacity is; Groq would still be
-// genuinely independent capacity, not a different fallback strategy.
+// step) — TARGETS.deepinfra (router-config.ts), currently gpt-oss-20b
+// (~$0.04/$0.15 per 1M — swapped from Llama-3.1-8B-Instruct the same day,
+// Samir: Llama wasn't reliably incorporating the panel's regeneration
+// feedback). Groq is the paid "burst absorber" behind it, pinned to the SAME
+// gpt-oss-20b id for the same strict-json_schema reliability reason
+// draftAttempts() pins it (NOT currentGroqTarget()'s qwen default — see
+// draftAttempts()'s comment) — so these first two attempts are now the same
+// model on two different providers' infrastructure. Worth remembering: a
+// DeepInfra failure here says nothing about whether the MODEL itself is
+// struggling, only that one provider's capacity is; Groq is still genuinely
+// independent capacity, not a genuinely different fallback strategy, unless
+// one of the two gets pointed at a different model again.
 // Gemini → Mistral → Cerebras close out the chain — same three providers the
 // rest of the app already relies on, just reordered behind the two paid
 // targets here. Shares the same Groq penalty box as every other lane (it's an
 // account-level signal, not lane-scoped): while Groq is cooling, this lane
-// leads with DeepInfra → Gemini instead of trying Groq at all.
+// leads with DeepInfra → Gemini instead of trying Groq at all. DeepInfra's
+// own attempt timeout is widened past the lane's generic 20s — see
+// DEEPINFRA_SWARM_TIMEOUT_MS above for why and the ceiling it pushes against.
 function swarmAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.deepinfra }]
+  const attempts: Attempt[] = [{ ...TARGETS.deepinfra, timeoutMs: DEEPINFRA_SWARM_TIMEOUT_MS }]
   if (!groqCoolingDown()) {
     attempts.push({ ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true })
   }

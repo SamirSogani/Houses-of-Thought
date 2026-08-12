@@ -3,36 +3,29 @@
 // 17 step types, stateless: the client resends the whole accumulated run
 // state every call (like /api/ai/draft's "house-so-far in" pattern) and this
 // route returns only the new fields that step produced (`patch`), which the
-// client merges in. maxDuration=30 per step; a review-gated layer is always
-// split into two steps (generate, review) — and Perspectives generation into
-// two more — so a single request never chains two dependent
+// client merges in. maxDuration=60 per step (raised from 30, 2026-08-10 —
+// Samir: DeepInfra gpt-oss-20b's real reasoning latency on the swarm/
+// synthesis lanes needed more room than 30s could give with any fallback
+// margin left — see lib/ai/router.ts's CHAIN_DEADLINE_MS and
+// lib/ai/router-lanes.ts's DEEPINFRA_SWARM_TIMEOUT_MS, both keyed to this
+// same 60s. NOTE: Vercel Hobby plan — this ceiling needs Fluid Compute
+// enabled on the project (Vercel dashboard → Settings) to actually be
+// honored; unverified from this codebase, confirm there if steps start
+// getting hard-killed instead of gracefully erroring); a review-gated layer
+// is always split into two steps (generate, review) — and Perspectives
+// generation into two more — so a single request never chains two dependent
 // completeJSON-latency-bounded batches. See lib/ai/reasoning/steps.ts.
 //
 // Admin-only (403 before any quota is spent).
 
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 import { AiError, drafterLaneStress } from '@/lib/ai/router'
 import { isCallerAdmin } from '@/lib/auth/admin'
 import { log } from '@/lib/log'
-import { STEP_ORDER, type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
-import { MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
-import { serializeFrame, serializePerspectives, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
-import {
-  ContextGatherVerdictSchema,
-  ContextGatherAnswersSchema,
-  AdHocContextGatherSchema,
-  FramePacketSchema,
-  BreadthScopingPacketSchema,
-  PerspectiveStanceSchema,
-  PerspectiveBundleSchema,
-  ReviewPanelVerdictSchema,
-  GlobalAssumptionsPacketSchema,
-  GlobalEvidencePacketSchema,
-  ConclusionsPacketSchema,
-  ImplicationsPacketSchema,
-  type ReviewPanelVerdict,
-} from '@/lib/ai/reasoning/contracts'
+import { type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
+import { MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
+import { serializeFrame, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
+import { type ReviewPanelVerdict } from '@/lib/ai/reasoning/contracts'
 import {
   runContextGather,
   runFrameGenerate,
@@ -54,149 +47,24 @@ import {
   runImplicationsGenerate,
   runImplicationsReview,
   runFinalComposition,
+  questionContext,
 } from '@/lib/ai/reasoning/orchestrator-global'
+import { runMasterReview } from '@/lib/ai/reasoning/orchestrator-panel'
 import { persistRunStep, runStatusFrom } from '@/lib/ai/reasoning/persistence'
+import {
+  RequestSchema,
+  failingStandardIds,
+  missing,
+  buildExtraContext,
+  buildAdHocContext,
+  degradedPerspectiveNotes,
+} from './route-schema'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 // Larger than the draft route's 100KB — this run state accumulates n
 // perspective bundles plus every packet/verdict produced so far, not one house.
 const MAX_BODY_BYTES = 300 * 1024
-
-const RunStateSchema = z.object({
-  originalQuery: z.string().min(1).max(2000),
-  contextGatherPre: ContextGatherVerdictSchema.nullish(),
-  // Phase 3 item 1 (decision 019): the admin's answers to contextGatherPre's
-  // questions_for_user, same index alignment. Threaded into frame-generate's
-  // prompt only (orchestrator-setup.ts's userAnswers param) — never
-  // re-threaded downstream via extraContext, since the resulting frame
-  // already reflects them for everything after.
-  contextGatherPreAnswers: ContextGatherAnswersSchema.nullish(),
-  frame: FramePacketSchema.nullish(),
-  frameVerdict: ReviewPanelVerdictSchema.nullish(),
-  contextGatherPost: ContextGatherVerdictSchema.nullish(),
-  // Threaded into every downstream generate/review call's context via
-  // buildExtraContext below (serializeFrame's extraContext param) — the frame
-  // itself is already locked by this checkpoint, so there's no "regenerate
-  // frame" step for these to converge through the way contextGatherPreAnswers
-  // does.
-  contextGatherPostAnswers: ContextGatherAnswersSchema.nullish(),
-  breadthScoping: BreadthScopingPacketSchema.nullish(),
-  // Admin-triggered, ad-hoc context-gather calls (Phase 3 item 1's larger
-  // scope — README's "any layer can trigger 'ask the user something'
-  // mid-pipeline," confirmed with Samir 2026-08-04). Append-only; each
-  // entry's `answers` starts null and is filled in once the admin resolves
-  // it. Capped generously — bounded by how many times an admin actually
-  // clicks the control, not a real limit.
-  adHocContextGathers: z.array(AdHocContextGatherSchema).max(20).nullish(),
-  perspectiveStances: z.array(PerspectiveStanceSchema).nullish(),
-  perspectives: z.array(PerspectiveBundleSchema).nullish(),
-  perspectiveVerdicts: z.array(ReviewPanelVerdictSchema).nullish(),
-  // Per-bundle regeneration count (03-orchestration-and-failure-handling.md);
-  // parallel to `perspectives`. Absent/null means "never regenerated yet."
-  perspectiveAttempts: z.array(z.number().int()).nullish(),
-  globalAssumptions: GlobalAssumptionsPacketSchema.nullish(),
-  globalAssumptionsVerdict: ReviewPanelVerdictSchema.nullish(),
-  globalEvidence: GlobalEvidencePacketSchema.nullish(),
-  globalEvidenceVerdict: ReviewPanelVerdictSchema.nullish(),
-  conclusions: ConclusionsPacketSchema.nullish(),
-  conclusionsVerdict: ReviewPanelVerdictSchema.nullish(),
-  implications: ImplicationsPacketSchema.nullish(),
-  implicationsVerdict: ReviewPanelVerdictSchema.nullish(),
-})
-type RunState = z.infer<typeof RunStateSchema>
-
-// 'context-gather-adhoc' (Phase 3 item 1) is deliberately NOT part of
-// STEP_ORDER — it's admin-triggered at whatever step the run is currently
-// paused at, not a fixed position in the linear sequence, so it must never
-// flow through nextStepAfter()/STEP_ORDER's indexOf-based advance logic the
-// way every other step does.
-const StepOrAdHocSchema = z.union([z.enum(STEP_ORDER), z.literal('context-gather-adhoc')])
-
-const RequestSchema = z.object({
-  step: StepOrAdHocSchema,
-  // Client-generated once per pipeline run (crypto.randomUUID(), see
-  // ReasoningPipelinePage.tsx's start()) and resent on every step call — the
-  // persistence key for reasoning_runs (Phase 2 item 1, decision 019). Not
-  // used for anything else; the route stays otherwise stateless per-request.
-  runId: z.string().uuid(),
-  capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
-  dryRun: z.boolean().optional(),
-  // Required only for step === 'context-gather-adhoc': which real step the
-  // client was paused at/before when the admin triggered it — used both as
-  // the ad-hoc call's own context ("where in the pipeline is this") and as
-  // the `last_step` value persistRunStep records for it (persistence.ts
-  // requires a real StepId, and 'context-gather-adhoc' itself isn't one).
-  atStep: z.enum(STEP_ORDER).nullish(),
-  // Dev-testing only (Phase 3 item 1): forces runContextGather's dryRun
-  // branch to simulate needs_user_input: true instead of always false, so the
-  // pause/ask/resume UI can be exercised for free. Never has any effect
-  // outside dryRun — see orchestrator-setup.ts's runContextGather.
-  devForceNeedsInput: z.boolean().optional(),
-  // Decision 019 verification stage 3 (A/B the review panel,
-  // 04-verification-and-open-questions.md): unlike dryRun, generation stays
-  // real — only every runReviewPanel call is replaced with an auto-pass
-  // verdict (orchestrator-panel.ts). Lets the same real question be run twice
-  // (panels on vs. off) and compared for final-answer quality.
-  panelsOff: z.boolean().optional(),
-  // Which attempt (1-indexed) this is for the layer currently in flight — the
-  // client increments it only across a regenerate-then-re-review loop-back
-  // (see `retry` on the response below) and resets it to 1 on any genuinely
-  // new layer. Read only by hard-block review steps to decide retry vs halt;
-  // perspectives-review tracks its own per-bundle counts in run state instead
-  // (a single scalar can't represent "n independent bundles' attempt counts").
-  attempt: z.number().int().min(1).max(MAX_REGENERATION_ATTEMPTS).nullish(),
-  run: RunStateSchema,
-})
-
-function failingStandardIds(verdict: ReviewPanelVerdict): string[] {
-  return (Object.keys(verdict.standards) as (keyof ReviewPanelVerdict['standards'])[]).filter(
-    (id) => !verdict.standards[id].pass
-  )
-}
-
-function missing(what: string): Response {
-  return NextResponse.json({ error: 'invalid-request', detail: `missing ${what} in run state` }, { status: 400 })
-}
-
-// Phase 3 item 1 (decision 019): folds context-gather-post's + every ad-hoc
-// call's answers into one block for serializeFrame's extraContext param.
-// contextGatherPre's answers are deliberately excluded — those already fold
-// into frame-generate directly (see the frame-generate case below), so by the
-// time this runs the frame itself already reflects them.
-function buildExtraContext(run: RunState): string | null {
-  const parts: string[] = []
-  const post = formatContextGatherAnswers(run.contextGatherPost, run.contextGatherPostAnswers)
-  if (post) parts.push(post)
-  for (const gather of run.adHocContextGathers ?? []) {
-    const text = formatContextGatherAnswers(gather.verdict, gather.answers)
-    if (text) parts.push(`${text}\n(asked while paused at: ${gather.atStep})`)
-  }
-  return parts.length ? parts.join('\n\n') : null
-}
-
-// What an admin-triggered ad-hoc context-gather call (Phase 3 item 1) sees —
-// whatever's accumulated so far, richest-available first. Reuses the same
-// serialize* helpers every other step already calls; the closing line names
-// where in the pipeline the admin paused, since CONTEXT_GATHER_BLOCK
-// (prompts.ts) is otherwise layer-agnostic.
-function buildAdHocContext(run: RunState, atStep: StepId): string {
-  const parts = [`Original question: ${run.originalQuery}`]
-  if (run.frame) parts.push(serializeFrame(run.frame, buildExtraContext(run)))
-  if (run.perspectives) parts.push(`## Vetted perspectives\n${serializePerspectives(run.perspectives)}`)
-  if (run.globalAssumptions) {
-    parts.push(`## Global assumptions\n${run.globalAssumptions.question_level_assumptions.join('; ')}`)
-  }
-  if (run.globalEvidence) {
-    parts.push(`## Global evidence\n${run.globalEvidence.question_level_evidence.map((e) => e.claim_id).join('; ')}`)
-  }
-  if (run.conclusions) parts.push(`## Conclusions\n${run.conclusions.conclusions.join('; ')}`)
-  if (run.implications) parts.push(`## Implications\n${run.implications.implications.map((i) => i.text).join('; ')}`)
-  parts.push(
-    `The admin has manually paused the pipeline just before "${atStep}" to ask: is there anything essential still missing or ambiguous given everything produced so far?`
-  )
-  return parts.join('\n\n')
-}
 
 export async function POST(req: Request): Promise<Response> {
   if (!(await isCallerAdmin())) {
@@ -271,9 +139,39 @@ export async function POST(req: Request): Promise<Response> {
       log.error('ai/reasoning/route', 'halted() called on a non-hard-block step', { step })
     }
     const failing = failingStandardIds(verdict)
-    const haltReason = `${step} failed review after ${MAX_REGENERATION_ATTEMPTS} attempts — ${failing.length}/9 standards still failing (${failing.join(', ')}).`
+    // attempt reflects however many tries this actually took — MAX_REGENERATION_ATTEMPTS
+    // normally, or MASTER_REVIEW_ATTEMPT when the one master-guided try also failed
+    // (tryMasterReviewOrHalt below).
+    const haltReason = `${step} failed review after ${attempt} attempt${attempt === 1 ? '' : 's'}${run.masterReview?.forStep === step ? ' (including one master-reviewer-guided attempt)' : ''} — ${failing.length}/9 standards still failing (${failing.join(', ')}).`
     persist(step, patch, null, true, haltReason)
     return NextResponse.json({ step, patch, nextStep: null, halted: true, haltReason })
+  }
+
+  // Called instead of halted() when a hard-block layer's review still fails
+  // at attempt === MAX_REGENERATION_ATTEMPTS (2026-08-11 addendum to 03-
+  // orchestration-and-failure-handling.md): one last, master-guided attempt
+  // before genuinely halting. A master reviewer sees all 9 standard verdicts
+  // TOGETHER — something no single standard-reviewer does (orchestrator-
+  // panel.ts's runReviewPanel, deliberately blind) — looks for a genuine
+  // contradiction between them, and synthesizes one clear set of instructions
+  // for the next *-generate call (via masterGuidance, threaded through the
+  // matching generate case below) to follow instead of the raw 9-note dump.
+  // Fires at most once per layer per run: run.masterReview.forStep already
+  // matching `step` means this WAS that one extra attempt and it failed too
+  // — no more chances, halt for real instead of looping forever.
+  async function tryMasterReviewOrHalt(
+    step: StepId,
+    generateStep: StepId,
+    artifact: unknown,
+    verdict: ReviewPanelVerdict,
+    context: string,
+    patch: Record<string, unknown>
+  ): Promise<Response> {
+    if (run.masterReview?.forStep === step) {
+      return halted(step, verdict, patch)
+    }
+    const guidance = await runMasterReview(verdict, artifact, context, dryRun)
+    return retryStep(step, generateStep, { ...patch, masterReview: { forStep: step, guidance } })
   }
 
   try {
@@ -297,12 +195,16 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       case 'frame-generate': {
+        const masterGuidance =
+          run.masterReview?.forStep === 'frame-review' && run.frame
+            ? { priorFrame: run.frame, guidance: run.masterReview.guidance }
+            : undefined
         const repair =
-          run.frame && run.frameVerdict && !run.frameVerdict.overall_pass
+          !masterGuidance && run.frame && run.frameVerdict && !run.frameVerdict.overall_pass
             ? { priorFrame: run.frame, priorVerdict: run.frameVerdict }
             : undefined
         const userAnswers = formatContextGatherAnswers(run.contextGatherPre, run.contextGatherPreAnswers)
-        const frame = await runFrameGenerate(run.originalQuery, dryRun, repair, userAnswers)
+        const frame = await runFrameGenerate(run.originalQuery, dryRun, repair, userAnswers, masterGuidance)
         return ok(step, { frame })
       }
 
@@ -311,7 +213,14 @@ export async function POST(req: Request): Promise<Response> {
         const verdict = await runFrameReview(run.frame, dryRun, panelsOff)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) return retryStep(step, 'frame-generate', { frameVerdict: verdict })
-          return halted(step, verdict, { frameVerdict: verdict })
+          return tryMasterReviewOrHalt(
+            step,
+            'frame-generate',
+            run.frame,
+            verdict,
+            `Original question: ${run.frame.original_query}`,
+            { frameVerdict: verdict }
+          )
         }
         return ok(step, { frameVerdict: verdict })
       }
@@ -394,11 +303,15 @@ export async function POST(req: Request): Promise<Response> {
 
       case 'global-assumptions-generate': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
+        const masterGuidance =
+          run.masterReview?.forStep === 'global-assumptions-review' && run.globalAssumptions
+            ? { priorArtifact: run.globalAssumptions, guidance: run.masterReview.guidance }
+            : undefined
         const repair =
-          run.globalAssumptions && run.globalAssumptionsVerdict && !run.globalAssumptionsVerdict.overall_pass
+          !masterGuidance && run.globalAssumptions && run.globalAssumptionsVerdict && !run.globalAssumptionsVerdict.overall_pass
             ? { priorArtifact: run.globalAssumptions, priorVerdict: run.globalAssumptionsVerdict }
             : undefined
-        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun, repair, extraContext)
+        const packet = await runGlobalAssumptionsGenerate(run.frame, run.perspectives, dryRun, repair, extraContext, masterGuidance)
         return ok(step, { globalAssumptions: packet })
       }
 
@@ -416,18 +329,29 @@ export async function POST(req: Request): Promise<Response> {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-assumptions-generate', { globalAssumptionsVerdict: verdict })
           }
-          return halted(step, verdict, { globalAssumptionsVerdict: verdict })
+          return tryMasterReviewOrHalt(
+            step,
+            'global-assumptions-generate',
+            run.globalAssumptions,
+            verdict,
+            questionContext(run.frame, run.perspectives, extraContext),
+            { globalAssumptionsVerdict: verdict }
+          )
         }
         return ok(step, { globalAssumptionsVerdict: verdict })
       }
 
       case 'global-evidence-generate': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
+        const masterGuidance =
+          run.masterReview?.forStep === 'global-evidence-review' && run.globalEvidence
+            ? { priorArtifact: run.globalEvidence, guidance: run.masterReview.guidance }
+            : undefined
         const repair =
-          run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
+          !masterGuidance && run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
             ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
             : undefined
-        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair, extraContext)
+        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair, extraContext, masterGuidance)
         return ok(step, { globalEvidence: packet })
       }
 
@@ -438,7 +362,14 @@ export async function POST(req: Request): Promise<Response> {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'global-evidence-generate', { globalEvidenceVerdict: verdict })
           }
-          return halted(step, verdict, { globalEvidenceVerdict: verdict })
+          return tryMasterReviewOrHalt(
+            step,
+            'global-evidence-generate',
+            run.globalEvidence,
+            verdict,
+            serializeFrame(run.frame, extraContext),
+            { globalEvidenceVerdict: verdict }
+          )
         }
         return ok(step, { globalEvidenceVerdict: verdict })
       }
@@ -447,8 +378,12 @@ export async function POST(req: Request): Promise<Response> {
         if (!run.frame || !run.perspectives || !run.globalAssumptions || !run.globalEvidence) {
           return missing('frame/perspectives/globalAssumptions/globalEvidence')
         }
+        const masterGuidance =
+          run.masterReview?.forStep === 'conclusions-review' && run.conclusions
+            ? { priorArtifact: run.conclusions, guidance: run.masterReview.guidance }
+            : undefined
         const repair =
-          run.conclusions && run.conclusionsVerdict && !run.conclusionsVerdict.overall_pass
+          !masterGuidance && run.conclusions && run.conclusionsVerdict && !run.conclusionsVerdict.overall_pass
             ? { priorArtifact: run.conclusions, priorVerdict: run.conclusionsVerdict }
             : undefined
         const packet = await runConclusionsGenerate(
@@ -458,7 +393,8 @@ export async function POST(req: Request): Promise<Response> {
           run.globalEvidence,
           dryRun,
           repair,
-          extraContext
+          extraContext,
+          masterGuidance
         )
         return ok(step, { conclusions: packet })
       }
@@ -470,7 +406,14 @@ export async function POST(req: Request): Promise<Response> {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'conclusions-generate', { conclusionsVerdict: verdict })
           }
-          return halted(step, verdict, { conclusionsVerdict: verdict })
+          return tryMasterReviewOrHalt(
+            step,
+            'conclusions-generate',
+            run.conclusions,
+            verdict,
+            serializeFrame(run.frame, extraContext),
+            { conclusionsVerdict: verdict }
+          )
         }
         return ok(step, { conclusionsVerdict: verdict })
       }
@@ -478,11 +421,23 @@ export async function POST(req: Request): Promise<Response> {
       case 'implications-generate': {
         if (!run.frame || !run.conclusions) return missing('frame/conclusions')
         const degradedNotes = degradedPerspectiveNotes(run)
+        const masterGuidance =
+          run.masterReview?.forStep === 'implications-review' && run.implications
+            ? { priorArtifact: run.implications, guidance: run.masterReview.guidance }
+            : undefined
         const repair =
-          run.implications && run.implicationsVerdict && !run.implicationsVerdict.overall_pass
+          !masterGuidance && run.implications && run.implicationsVerdict && !run.implicationsVerdict.overall_pass
             ? { priorArtifact: run.implications, priorVerdict: run.implicationsVerdict }
             : undefined
-        const packet = await runImplicationsGenerate(run.frame, run.conclusions, degradedNotes, dryRun, repair, extraContext)
+        const packet = await runImplicationsGenerate(
+          run.frame,
+          run.conclusions,
+          degradedNotes,
+          dryRun,
+          repair,
+          extraContext,
+          masterGuidance
+        )
         return ok(step, { implications: packet })
       }
 
@@ -493,7 +448,14 @@ export async function POST(req: Request): Promise<Response> {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
             return retryStep(step, 'implications-generate', { implicationsVerdict: verdict })
           }
-          return halted(step, verdict, { implicationsVerdict: verdict })
+          return tryMasterReviewOrHalt(
+            step,
+            'implications-generate',
+            run.implications,
+            verdict,
+            serializeFrame(run.frame, extraContext),
+            { implicationsVerdict: verdict }
+          )
         }
         return ok(step, { implicationsVerdict: verdict })
       }
@@ -514,11 +476,4 @@ export async function POST(req: Request): Promise<Response> {
     log.error('ai/reasoning/route', 'unhandled error', { step, error: (err as Error)?.message })
     return NextResponse.json({ error: 'ai-upstream-error' }, { status: 502 })
   }
-}
-
-function degradedPerspectiveNotes(run: RunState): string[] {
-  if (!run.perspectiveVerdicts) return []
-  return run.perspectiveVerdicts
-    .map((v, i) => (v.degraded ? `${run.perspectives?.[i]?.stance_label ?? v.subject_id}: review panel did not pass` : null))
-    .filter((x): x is string => x !== null)
 }

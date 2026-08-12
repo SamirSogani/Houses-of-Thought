@@ -118,7 +118,11 @@ export async function runPerspectivesGenerateStances(
         user: `${frameText}\n\nYour assigned viewpoint label: ${label}`,
         schema: StanceModelSchema,
         schemaName: 'perspective_stance',
-        effort: 'high',
+        // No repair path exists for stance generation (only the 4 sub-
+        // elements below get regenerated after a failed review) — always a
+        // first-pass call, so always 'medium'. See allowHighReasoning
+        // comments below for why 'high' is reserved for repair specifically.
+        effort: 'medium',
         maxTokens: 1000,
       })
       return { perspective_id, stance_label: label, ...modelOut }
@@ -190,6 +194,11 @@ export async function runPerspectivesGenerateDetails(
       const stagger = (j: number) =>
         new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * staggerMs))
 
+      // medium(first pass)/high(repair) for all 4 — 2026-08-11, Samir: same
+      // split as every other generate call in the pipeline. `feedback`
+      // presence already distinguishes first-pass from repair for this
+      // bundle (computed once above), so it doubles as the effort switch too.
+      const genEffort = feedback ? 'high' : 'medium'
       const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
         stagger(0).then(() =>
           completeJSON({
@@ -198,7 +207,8 @@ export async function runPerspectivesGenerateDetails(
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.pick({ sub_questions: true }),
             schemaName: 'perspective_subquestions',
-            effort: 'high',
+            effort: genEffort,
+            allowHighReasoning: !!feedback,
             maxTokens: 1100,
           })
         ),
@@ -209,7 +219,8 @@ export async function runPerspectivesGenerateDetails(
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.pick({ assumptions: true }),
             schemaName: 'perspective_assumptions',
-            effort: 'high',
+            effort: genEffort,
+            allowHighReasoning: !!feedback,
             maxTokens: 1200,
           })
         ),
@@ -220,7 +231,15 @@ export async function runPerspectivesGenerateDetails(
             buildUser: (searchContext) => appendRegenerationFeedback(stanceText, feedback) + searchContext,
             baseSchema: PerspectiveBundleSchema.pick({ evidence: true }),
             schemaName: 'perspective_evidence',
-            maxTokens: 1800,
+            effort: genEffort,
+            allowHighReasoning: !!feedback,
+            // 1800 → 2400 (2026-08-10, Samir): real-verified live truncating
+            // mid-JSON on gpt-oss-20b — its evidence items (rich citations:
+            // study names, years, journals) run longer than Llama's did at
+            // the same budget. global_evidence (orchestrator-global.ts) gets
+            // the same bump — identical shape/pattern, same risk, even
+            // though it hasn't been caught truncating yet live.
+            maxTokens: 2400,
           })
         ),
         stagger(3).then(() =>
@@ -230,7 +249,8 @@ export async function runPerspectivesGenerateDetails(
             user: appendRegenerationFeedback(stanceText, feedback),
             schema: PerspectiveBundleSchema.shape.counterargument.omit({ authored_by_perspective_id: true }),
             schemaName: 'perspective_counterargument',
-            effort: 'high',
+            effort: genEffort,
+            allowHighReasoning: !!feedback,
             maxTokens: 1600,
           })
         ),
@@ -275,7 +295,19 @@ export async function runPerspectivesReview(
     bundles.map(async (b, i) => {
       const prior = priorVerdicts?.[i]
       if (prior && !needsRegeneration(prior)) return prior
-      const verdict = await runReviewPanel(b.perspective_id, 'perspectives-review', b, context, dryRun, panelsOff)
+      // The other perspectives' labels — so the panel knows this bundle is
+      // deliberately narrow and doesn't fault it for ground a sibling
+      // perspective owns (see buildReviewerPrompt, prompts.ts).
+      const siblingLabels = bundles.filter((_, j) => j !== i).map((sib) => sib.stance_label)
+      const verdict = await runReviewPanel(
+        b.perspective_id,
+        'perspectives-review',
+        b,
+        context,
+        dryRun,
+        panelsOff,
+        siblingLabels
+      )
       if (verdict.overall_pass) return verdict
       const attemptsUsed = attempts?.[i] ?? 1
       return attemptsUsed >= MAX_REGENERATION_ATTEMPTS ? { ...verdict, degraded: true } : verdict

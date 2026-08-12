@@ -23,6 +23,10 @@ export class AiError extends Error {
 // using suggestor/coach/critic/drafter exactly as before.
 export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis'
 
+// 'medium' added 2026-08-11 (Samir) — see reasoningEffortFor below for what
+// each tier actually does per model family.
+export type AiEffort = 'low' | 'medium' | 'high'
+
 // ── Error classification ──────────────────────────────────────────────────────
 
 export function statusOf(err: unknown): number | undefined {
@@ -110,27 +114,58 @@ export function supportsJsonSchema(model: string): boolean {
 }
 
 // reasoning_effort's vocabulary is per-model and a mismatch is a hard 400 (which
-// would NOT fall through — it surfaces as an error). gpt-oss takes low|high; the
-// qwen *reasoning* models (e.g. qwen3.6-27b) take none|default. qwen *coder*
-// models (qwen3-coder / qwen-2.5-coder) accept no such field — excluding 'coder'
-// is what keeps the OpenRouter airbag from 400-ing. Mistral: omit (undefined).
+// would NOT fall through — it surfaces as an error, mapUpstream treats 400 as
+// terminal/misconfiguration-shaped, not cascaded). gpt-oss takes
+// low|medium|high (real-verified live, 2026-08-11: DeepInfra's gpt-oss-20b
+// accepts all three, 200 not 400, and 'medium' at a realistic 900-token
+// budget produced genuine reasoning_content without exhausting it). qwen
+// *reasoning* models (e.g. qwen3.6-27b) take none|default only — no distinct
+// medium tier. qwen *coder* models (qwen3-coder / qwen-2.5-coder) accept no
+// such field — excluding 'coder' is what keeps the OpenRouter airbag from
+// 400-ing. Mistral: omit (undefined).
 //
-// gpt-oss/qwen are both capped at their family's floor regardless of the
-// caller's requested effort (2026-07-31): confirmed live that 'high' reasoning
-// on these models can consume the entire maxTokens budget on internal
-// reasoning tokens before emitting any answer content — reproduced on BOTH
-// qwen (Groq) and gpt-oss-20b (Groq) as an empty completion, surfaced by Groq
-// as json_validate_failed with an empty failed_generation. Gemini already had
-// this exact protection (below); these two didn't. qwen's vocabulary has no
-// 'low' tier, so 'none' is its floor.
-export function reasoningEffortFor(model: string, effort: 'low' | 'high'): string | undefined {
-  if (model.includes('gpt-oss')) return 'low'
-  if (model.includes('qwen') && !model.includes('coder')) return 'none'
+// gpt-oss/qwen's 'high' is capped to their family's floor by DEFAULT
+// regardless of the caller's requested effort (2026-07-31): confirmed live
+// that 'high' reasoning on these models can consume the entire maxTokens
+// budget on internal reasoning tokens before emitting any answer content —
+// reproduced on BOTH qwen (Groq) and gpt-oss-20b (Groq) as an empty
+// completion, surfaced by Groq as json_validate_failed with an empty
+// failed_generation. allowHighReasoning (2026-08-11, Samir) is an explicit
+// per-call opt-in past that floor — only the reasoning pipeline's repair/
+// regeneration calls (lib/ai/reasoning/*) set it, on the theory that
+// surgical revision-under-feedback benefits from real deliberation more than
+// first-pass generation does, and the empty-completion risk (rare, and
+// already cascades gracefully via the ai-empty-output → next-target path,
+// router.ts's execute()) is worth accepting there specifically. Every other
+// caller in the app keeps the original floor untouched by default — this is
+// additive, not a loosening of existing behavior. 'medium' has NO such gate:
+// it was never the tier found risky, so it's unconditionally available
+// wherever requested.
+// Gemini already had its own version of this protection (below); these two
+// didn't. qwen's vocabulary has no distinct 'medium', so both low and medium
+// floor to its 'none'.
+export function reasoningEffortFor(
+  model: string,
+  effort: AiEffort,
+  // Opt-in past gpt-oss/qwen's 'high' floor — see the comment above. Ignored
+  // for every other tier and every other model family.
+  allowHighReasoning = false
+): string | undefined {
+  if (model.includes('gpt-oss')) {
+    if (effort === 'high') return allowHighReasoning ? 'high' : 'low'
+    return effort // 'low' or 'medium' pass straight through — both real-verified safe
+  }
+  if (model.includes('qwen') && !model.includes('coder')) {
+    if (effort === 'high' && allowHighReasoning) return 'default'
+    return 'none'
+  }
   // Gemini 2.5's OpenAI-compat endpoint accepts reasoning_effort — and DEFAULTS
   // to dynamic thinking billed as output tokens, the priciest out-rate in the
   // fleet (~50–70% of drafter-lane cost when left on). 2.5 Flash supports 'none';
-  // map 'high' to 'low' rather than passing it through — dynamic/deep thinking
-  // has not earned its ~8× out-rate on these drafting tasks.
-  if (model.includes('gemini')) return effort === 'high' ? 'low' : 'none'
+  // map anything above 'low' down to 'low' rather than passing 'high' through —
+  // dynamic/deep thinking has not earned its ~8× out-rate on these drafting
+  // tasks. allowHighReasoning does NOT override this: Gemini's cap is about
+  // cost, not the empty-completion risk the flag exists for.
+  if (model.includes('gemini')) return effort === 'low' ? 'none' : 'low'
   return undefined
 }

@@ -13,7 +13,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { useSignOut } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
-import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS } from '@/lib/ai/reasoning/budget'
+import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, MASTER_REVIEW_ATTEMPT } from '@/lib/ai/reasoning/budget'
 import type { ContextGatherVerdict } from '@/lib/ai/reasoning/contracts'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 import { ContextGatherAnswerBox } from './ContextGatherAnswerBox'
@@ -518,8 +518,19 @@ export function ReasoningPipelinePage() {
 
             {regenerationInfo && (
               <div style={{ ...mono, color: 'var(--amber-text)', marginTop: 12, textTransform: 'none', letterSpacing: 'normal' }}>
-                Failed review — regenerating with the panel&apos;s feedback (attempt {regenerationInfo.attempt}/
-                {MAX_REGENERATION_ATTEMPTS})…
+                {regenerationInfo.attempt >= MASTER_REVIEW_ATTEMPT ? (
+                  // The one extra, master-guided attempt after
+                  // MAX_REGENERATION_ATTEMPTS failed on its own feedback
+                  // (2026-08-11 addendum) — distinct copy, not "4/3", since
+                  // this attempt is qualitatively different (synthesized
+                  // guidance, not the raw 9-note dump) and is the last one.
+                  <>Still failing after {MAX_REGENERATION_ATTEMPTS} attempts — a senior reviewer synthesized guidance from all 9 standards for one final attempt…</>
+                ) : (
+                  <>
+                    Failed review — regenerating with the panel&apos;s feedback (attempt {regenerationInfo.attempt}/
+                    {MAX_REGENERATION_ATTEMPTS})…
+                  </>
+                )}
               </div>
             )}
 

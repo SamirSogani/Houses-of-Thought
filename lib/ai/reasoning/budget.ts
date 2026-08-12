@@ -26,6 +26,15 @@ export const MIN_N = 2
 // before it degrades (perspectives) or halts the pipeline (everything else).
 export const MAX_REGENERATION_ATTEMPTS = 3
 
+// One further attempt a hard-block layer earns after MAX_REGENERATION_ATTEMPTS
+// still fails (2026-08-11, Samir addendum) — a master reviewer synthesizes
+// guidance from all 9 standards' verdicts together (something the blind panel
+// structurally can't do itself) for exactly this one extra try before the
+// layer genuinely halts. Perspectives doesn't use this (it already degrades
+// instead of halting — real redundancy from the other bundles). See
+// app/api/admin/reasoning/route.ts's tryMasterReviewOrHalt.
+export const MASTER_REVIEW_ATTEMPT = MAX_REGENERATION_ATTEMPTS + 1
+
 // panelsOff (decision 019 verification stage 3, A/B the review panel): every
 // runReviewPanel call short-circuits to an auto-pass verdict instead of its 9
 // real reviewer calls (orchestrator-panel.ts's autoPassVerdict) — generation

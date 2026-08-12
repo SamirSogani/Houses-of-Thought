@@ -1,0 +1,189 @@
+// Request/run-state contracts and pure helper functions for
+// app/api/admin/reasoning/route.ts — split out (2026-08-11) purely to keep
+// route.ts under the repo's 600-LOC rule as the master-review escalation
+// (masterReview field, MASTER_REVIEW_ATTEMPT) grew it past that. No behavior
+// change: everything here is a direct move, not a rewrite. route.ts still
+// owns all the actual dispatch logic (the POST handler, ok/retryStep/halted/
+// tryMasterReviewOrHalt) — this file is schemas and pure functions only, kept
+// together because RunState is the one type nearly everything below threads
+// through.
+
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { STEP_ORDER, type StepId } from '@/lib/ai/reasoning/steps'
+import { MIN_N, MAX_N_PHASE1, MASTER_REVIEW_ATTEMPT } from '@/lib/ai/reasoning/budget'
+import { serializeFrame, serializePerspectives, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
+import {
+  ContextGatherVerdictSchema,
+  ContextGatherAnswersSchema,
+  AdHocContextGatherSchema,
+  FramePacketSchema,
+  BreadthScopingPacketSchema,
+  PerspectiveStanceSchema,
+  PerspectiveBundleSchema,
+  ReviewPanelVerdictSchema,
+  GlobalAssumptionsPacketSchema,
+  GlobalEvidencePacketSchema,
+  ConclusionsPacketSchema,
+  ImplicationsPacketSchema,
+  MasterReviewGuidanceSchema,
+  type ReviewPanelVerdict,
+} from '@/lib/ai/reasoning/contracts'
+
+export const RunStateSchema = z.object({
+  originalQuery: z.string().min(1).max(2000),
+  contextGatherPre: ContextGatherVerdictSchema.nullish(),
+  // Phase 3 item 1 (decision 019): the admin's answers to contextGatherPre's
+  // questions_for_user, same index alignment. Threaded into frame-generate's
+  // prompt only (orchestrator-setup.ts's userAnswers param) — never
+  // re-threaded downstream via extraContext, since the resulting frame
+  // already reflects them for everything after.
+  contextGatherPreAnswers: ContextGatherAnswersSchema.nullish(),
+  frame: FramePacketSchema.nullish(),
+  frameVerdict: ReviewPanelVerdictSchema.nullish(),
+  contextGatherPost: ContextGatherVerdictSchema.nullish(),
+  // Threaded into every downstream generate/review call's context via
+  // buildExtraContext below (serializeFrame's extraContext param) — the frame
+  // itself is already locked by this checkpoint, so there's no "regenerate
+  // frame" step for these to converge through the way contextGatherPreAnswers
+  // does.
+  contextGatherPostAnswers: ContextGatherAnswersSchema.nullish(),
+  breadthScoping: BreadthScopingPacketSchema.nullish(),
+  // Admin-triggered, ad-hoc context-gather calls (Phase 3 item 1's larger
+  // scope — README's "any layer can trigger 'ask the user something'
+  // mid-pipeline," confirmed with Samir 2026-08-04). Append-only; each
+  // entry's `answers` starts null and is filled in once the admin resolves
+  // it. Capped generously — bounded by how many times an admin actually
+  // clicks the control, not a real limit.
+  adHocContextGathers: z.array(AdHocContextGatherSchema).max(20).nullish(),
+  perspectiveStances: z.array(PerspectiveStanceSchema).nullish(),
+  perspectives: z.array(PerspectiveBundleSchema).nullish(),
+  perspectiveVerdicts: z.array(ReviewPanelVerdictSchema).nullish(),
+  // Per-bundle regeneration count (03-orchestration-and-failure-handling.md);
+  // parallel to `perspectives`. Absent/null means "never regenerated yet."
+  perspectiveAttempts: z.array(z.number().int()).nullish(),
+  globalAssumptions: GlobalAssumptionsPacketSchema.nullish(),
+  globalAssumptionsVerdict: ReviewPanelVerdictSchema.nullish(),
+  globalEvidence: GlobalEvidencePacketSchema.nullish(),
+  globalEvidenceVerdict: ReviewPanelVerdictSchema.nullish(),
+  conclusions: ConclusionsPacketSchema.nullish(),
+  conclusionsVerdict: ReviewPanelVerdictSchema.nullish(),
+  implications: ImplicationsPacketSchema.nullish(),
+  implicationsVerdict: ReviewPanelVerdictSchema.nullish(),
+  // Set once, only when a hard-block layer exhausts MAX_REGENERATION_ATTEMPTS
+  // still failing (2026-08-11 addendum) — tryMasterReviewOrHalt's synthesized
+  // guidance for that layer's ONE extra attempt. forStep is which *-review
+  // step earned it, so the matching *-generate case knows to use it instead
+  // of the raw per-standard feedback, and so tryMasterReviewOrHalt itself
+  // knows whether a repeat visit to the same review step is the (already
+  // master-guided) extra attempt failing too — genuinely halt then, not loop.
+  masterReview: z
+    .object({
+      forStep: z.enum(STEP_ORDER),
+      guidance: MasterReviewGuidanceSchema,
+    })
+    .nullish(),
+})
+export type RunState = z.infer<typeof RunStateSchema>
+
+// 'context-gather-adhoc' (Phase 3 item 1) is deliberately NOT part of
+// STEP_ORDER — it's admin-triggered at whatever step the run is currently
+// paused at, not a fixed position in the linear sequence, so it must never
+// flow through nextStepAfter()/STEP_ORDER's indexOf-based advance logic the
+// way every other step does.
+export const StepOrAdHocSchema = z.union([z.enum(STEP_ORDER), z.literal('context-gather-adhoc')])
+
+export const RequestSchema = z.object({
+  step: StepOrAdHocSchema,
+  // Client-generated once per pipeline run (crypto.randomUUID(), see
+  // ReasoningPipelinePage.tsx's start()) and resent on every step call — the
+  // persistence key for reasoning_runs (Phase 2 item 1, decision 019). Not
+  // used for anything else; the route stays otherwise stateless per-request.
+  runId: z.string().uuid(),
+  capN: z.number().int().min(MIN_N).max(MAX_N_PHASE1).nullish(),
+  dryRun: z.boolean().optional(),
+  // Required only for step === 'context-gather-adhoc': which real step the
+  // client was paused at/before when the admin triggered it — used both as
+  // the ad-hoc call's own context ("where in the pipeline is this") and as
+  // the `last_step` value persistRunStep records for it (persistence.ts
+  // requires a real StepId, and 'context-gather-adhoc' itself isn't one).
+  atStep: z.enum(STEP_ORDER).nullish(),
+  // Dev-testing only (Phase 3 item 1): forces runContextGather's dryRun
+  // branch to simulate needs_user_input: true instead of always false, so the
+  // pause/ask/resume UI can be exercised for free. Never has any effect
+  // outside dryRun — see orchestrator-setup.ts's runContextGather.
+  devForceNeedsInput: z.boolean().optional(),
+  // Decision 019 verification stage 3 (A/B the review panel,
+  // 04-verification-and-open-questions.md): unlike dryRun, generation stays
+  // real — only every runReviewPanel call is replaced with an auto-pass
+  // verdict (orchestrator-panel.ts). Lets the same real question be run twice
+  // (panels on vs. off) and compared for final-answer quality.
+  panelsOff: z.boolean().optional(),
+  // Which attempt (1-indexed) this is for the layer currently in flight — the
+  // client increments it only across a regenerate-then-re-review loop-back
+  // (see `retry` on the response below) and resets it to 1 on any genuinely
+  // new layer. Read only by hard-block review steps to decide retry vs halt;
+  // perspectives-review tracks its own per-bundle counts in run state instead
+  // (a single scalar can't represent "n independent bundles' attempt counts").
+  // Max raised to MASTER_REVIEW_ATTEMPT (2026-08-11): attempt 4 is the one
+  // master-guided attempt tryMasterReviewOrHalt grants a hard-block layer
+  // before it genuinely halts — see budget.ts.
+  attempt: z.number().int().min(1).max(MASTER_REVIEW_ATTEMPT).nullish(),
+  run: RunStateSchema,
+})
+
+export function failingStandardIds(verdict: ReviewPanelVerdict): string[] {
+  return (Object.keys(verdict.standards) as (keyof ReviewPanelVerdict['standards'])[]).filter(
+    (id) => !verdict.standards[id].pass
+  )
+}
+
+export function missing(what: string): Response {
+  return NextResponse.json({ error: 'invalid-request', detail: `missing ${what} in run state` }, { status: 400 })
+}
+
+// Phase 3 item 1 (decision 019): folds context-gather-post's + every ad-hoc
+// call's answers into one block for serializeFrame's extraContext param.
+// contextGatherPre's answers are deliberately excluded — those already fold
+// into frame-generate directly (route.ts's frame-generate case), so by the
+// time this runs the frame itself already reflects them.
+export function buildExtraContext(run: RunState): string | null {
+  const parts: string[] = []
+  const post = formatContextGatherAnswers(run.contextGatherPost, run.contextGatherPostAnswers)
+  if (post) parts.push(post)
+  for (const gather of run.adHocContextGathers ?? []) {
+    const text = formatContextGatherAnswers(gather.verdict, gather.answers)
+    if (text) parts.push(`${text}\n(asked while paused at: ${gather.atStep})`)
+  }
+  return parts.length ? parts.join('\n\n') : null
+}
+
+// What an admin-triggered ad-hoc context-gather call (Phase 3 item 1) sees —
+// whatever's accumulated so far, richest-available first. Reuses the same
+// serialize* helpers every other step already calls; the closing line names
+// where in the pipeline the admin paused, since CONTEXT_GATHER_BLOCK
+// (prompts.ts) is otherwise layer-agnostic.
+export function buildAdHocContext(run: RunState, atStep: StepId): string {
+  const parts = [`Original question: ${run.originalQuery}`]
+  if (run.frame) parts.push(serializeFrame(run.frame, buildExtraContext(run)))
+  if (run.perspectives) parts.push(`## Vetted perspectives\n${serializePerspectives(run.perspectives)}`)
+  if (run.globalAssumptions) {
+    parts.push(`## Global assumptions\n${run.globalAssumptions.question_level_assumptions.join('; ')}`)
+  }
+  if (run.globalEvidence) {
+    parts.push(`## Global evidence\n${run.globalEvidence.question_level_evidence.map((e) => e.claim_id).join('; ')}`)
+  }
+  if (run.conclusions) parts.push(`## Conclusions\n${run.conclusions.conclusions.join('; ')}`)
+  if (run.implications) parts.push(`## Implications\n${run.implications.implications.map((i) => i.text).join('; ')}`)
+  parts.push(
+    `The admin has manually paused the pipeline just before "${atStep}" to ask: is there anything essential still missing or ambiguous given everything produced so far?`
+  )
+  return parts.join('\n\n')
+}
+
+export function degradedPerspectiveNotes(run: RunState): string[] {
+  if (!run.perspectiveVerdicts) return []
+  return run.perspectiveVerdicts
+    .map((v, i) => (v.degraded ? `${run.perspectives?.[i]?.stance_label ?? v.subject_id}: review panel did not pass` : null))
+    .filter((x): x is string => x !== null)
+}
