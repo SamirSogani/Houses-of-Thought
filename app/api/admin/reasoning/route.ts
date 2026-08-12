@@ -3,18 +3,25 @@
 // 17 step types, stateless: the client resends the whole accumulated run
 // state every call (like /api/ai/draft's "house-so-far in" pattern) and this
 // route returns only the new fields that step produced (`patch`), which the
-// client merges in. maxDuration=60 per step (raised from 30, 2026-08-10 —
-// Samir: DeepInfra gpt-oss-20b's real reasoning latency on the swarm/
-// synthesis lanes needed more room than 30s could give with any fallback
-// margin left — see lib/ai/router.ts's CHAIN_DEADLINE_MS and
-// lib/ai/router-lanes.ts's DEEPINFRA_SWARM_TIMEOUT_MS, both keyed to this
-// same 60s. NOTE: Vercel Hobby plan — this ceiling needs Fluid Compute
-// enabled on the project (Vercel dashboard → Settings) to actually be
-// honored; unverified from this codebase, confirm there if steps start
-// getting hard-killed instead of gracefully erroring); a review-gated layer
-// is always split into two steps (generate, review) — and Perspectives
-// generation into two more — so a single request never chains two dependent
-// completeJSON-latency-bounded batches. See lib/ai/reasoning/steps.ts.
+// client merges in.
+//
+// maxDuration=280 (raised from 60, 2026-08-12 — Samir, root-causing "the
+// pipeline consistently stops on perspectives-generate or global-
+// assumptions" on real Vercel Hobby traffic): CONFIRMED live in the Vercel
+// dashboard — Fluid Compute is enabled on this project, which raises Hobby's
+// real ceiling to 300s (was mistakenly assumed to be a flat 60s; the old 60s
+// was this codebase's own self-imposed number, not something Hobby actually
+// required — see Vercel's function-duration docs). 280 leaves ~20s under
+// that real 300s ceiling for Vercel's own per-invocation overhead. See
+// lib/ai/router.ts's CHAIN_DEADLINE_MS and lib/ai/router-lanes.ts's
+// DEEPINFRA_SWARM_TIMEOUT_MS/DEEPINFRA_SWARM_LARGE_TIMEOUT_MS, all kept in
+// lockstep with this number — none may promise more than this route can
+// honor. Full real-verified diagnosis:
+// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum. A review-gated layer is always split into two steps (generate,
+// review) — and Perspectives generation into two more — so a single request
+// never chains two dependent completeJSON-latency-bounded batches. See
+// lib/ai/reasoning/steps.ts.
 //
 // Admin-only (403 before any quota is spent).
 
@@ -60,7 +67,7 @@ import {
   degradedPerspectiveNotes,
 } from './route-schema'
 
-export const maxDuration = 60
+export const maxDuration = 280
 
 // Larger than the draft route's 100KB — this run state accumulates n
 // perspective bundles plus every packet/verdict produced so far, not one house.

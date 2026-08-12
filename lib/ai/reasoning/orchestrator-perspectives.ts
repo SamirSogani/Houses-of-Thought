@@ -8,8 +8,7 @@
 // marked degraded and passed forward only once those are exhausted, since the
 // other bundles still give downstream layers something to work with.
 
-import { completeJSON, drafterLaneStress, type DrafterLaneStress } from '@/lib/ai/router'
-import { log } from '@/lib/log'
+import { completeJSON } from '@/lib/ai/router'
 import {
   type FramePacket,
   type BreadthScopingPacket,
@@ -39,58 +38,35 @@ if (typeof window !== 'undefined') {
 
 const StanceModelSchema = PerspectiveStanceSchema.omit({ perspective_id: true, stance_label: true })
 
-// Mirrors runReviewPanel's REVIEWER_STAGGER_MS (orchestrator-panel.ts), but
-// widened far past that pattern's original 150ms (2026-07-31 session,
-// earlier): a 150ms spread only fixed *simultaneous* 429s — it did nothing
-// against Groq's actual constraint, discovered by real-verifying past this
-// step for the first time ever: an account-level 8000 TPM (tokens/minute)
-// cap on gpt-oss-20b, counted against REQUESTED max_tokens, not just what's
-// consumed. This step's 4 sub-calls request 1100+1200+1800+1600 = 5700
-// tokens per bundle; at n=2 that's 11400 requested tokens for 8 calls, well
-// over one minute's budget if fired close together — confirmed live via
-// Groq's own "Limit 8000, Used 7434, Requested 1521" error.
+// RETIRED 2026-08-12 (Samir, root-causing "the pipeline consistently stops
+// on perspectives-generate or global-assumptions" on real Vercel Hobby
+// traffic): this used to be DRAFTER_STAGGER_MS, 20s (up to 4x under detected
+// stress) between each of this step's flattened calls — sized to keep this
+// step's real request rate under Groq's account-level 8000 TPM ceiling, back
+// when these calls rode the 'drafter' role/lane. That's been gone since
+// decision 020 (2026-08-10) moved this whole file to 'swarm', and gone
+// further still since this session's DeepInfra-only pinning
+// (router-lanes.ts's swarmAttempts()) removed Groq from the swarm chain
+// entirely — there is no TPM ceiling left in this lane to protect against
+// (DeepInfra is a paid account with no such per-request cap, the same fact
+// that justified going DeepInfra-only in the first place).
 //
-// 20s between each flattened call spreads n=2's 8 calls (indices 0-7) across
-// ~140s — an effective ~4900 TPM, ~60% of the cap, with real margin since
-// actual response latency adds further gaps the math below doesn't count.
-// The n=3 case (12 calls, 17100 tokens, ~220s spread) lands at a near-
-// identical ~4700 TPM — a fixed per-call stagger scales the total spread
-// with the load, keeping the effective rate roughly constant regardless of
-// n. Deliberately slow: decision 019's whole premise is a slower, more
-// rigorous answer, not a fast one — reliably finishing in minutes beats
-// finishing fast and failing.
-const DRAFTER_STAGGER_MS = 20_000
-
-// Widened under detected drafter-lane stress (Phase 2 dynamic budget
-// enforcement, 03-orchestration-and-failure-handling.md's "Budget
-// enforcement" spec) — same flattened call schedule, spread further apart so
-// the same total token/request rate lands on fewer live providers. See
-// drafterLaneStress() (lib/ai/router-state.ts) for what these levels mean;
-// motivated directly by the 2026-08-02 incident where Groq's daily
-// exhaustion left only Gemini+Cerebras absorbing the full drafter load
-// (plans/active/reasoning-pipeline/13-two-more-real-runs-and-a-grant-bug.md).
-//
-// KNOWN GAP (2026-08-10): this file's calls now ride the 'swarm' role/lane
-// (DeepInfra-first — router.ts swarmAttempts()), not 'drafter' — but
-// drafterLaneStress() still only reads Groq/Gemini/Cerebras health and knows
-// nothing about DeepInfra, swarm's actual primary. It's kept as a rough proxy
-// (Groq/Gemini/Cerebras being strained still broadly correlates with swarm
-// lane pressure, since 4 of its 5 targets overlap) rather than left unused,
-// but it is not an accurate stress signal for this lane anymore. A real
-// swarmLaneStress() is follow-up work, not done here.
-//
-// 'critical' at 2x (40s) was real-verified live the same day (14-dynamic-
-// budget-enforcement.md) and still wasn't enough: with Groq out and Gemini
-// also saturated, Cerebras — by then the only target actually serving
-// drafter calls — still produced schema-invalid JSON under the load. Bumped
-// to 4x on Samir's explicit call: latency doesn't matter here (decision
-// 019's whole premise is slower-but-rigorous), so lean hard into spacing
-// rather than trying to find a minimal-but-sufficient multiplier.
-function effectiveStaggerMs(stress: DrafterLaneStress): number {
-  if (stress === 'critical') return DRAFTER_STAGGER_MS * 4
-  if (stress === 'degraded') return DRAFTER_STAGGER_MS * 1.5
-  return DRAFTER_STAGGER_MS
-}
+// What the 20s/call number actually bought us, once its original purpose was
+// gone, was pure self-inflicted latency: at n=2, the flattened schedule ran
+// this step's 8 calls from 0s to 140s — comfortably past
+// app/api/admin/reasoning/route.ts's 60s maxDuration even before any stress
+// multiplier, so Vercel hard-killed the function outright before the code's
+// own graceful timeout/cascade logic ever got a chance to run. This is the
+// deterministic half of that bug (the other half — the route's maxDuration
+// itself being far tighter than Hobby actually requires — is fixed in
+// router.ts's CHAIN_DEADLINE_MS and this route's own maxDuration; see
+// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum for the full real-verified diagnosis). Replaced by
+// SWARM_STAGGER_MS below — small and constant, matching runReviewPanel's
+// REVIEWER_STAGGER_MS (orchestrator-panel.ts) — purely to avoid firing every
+// call in the exact same instant, not to throttle a rate limit that no
+// longer exists here.
+const SWARM_STAGGER_MS = 150
 
 export async function runPerspectivesGenerateStances(
   frame: FramePacket,
@@ -168,14 +144,6 @@ export async function runPerspectivesGenerateDetails(
   const frameText = serializeFrame(frame, extraContext)
   const n = stances.length
 
-  // Checked once per call (not per bundle/element) — every element in this
-  // batch shares the same schedule, and stress state doesn't change mid-call.
-  const stress = drafterLaneStress()
-  const staggerMs = effectiveStaggerMs(stress)
-  if (stress !== 'none') {
-    log.warn('ai/reasoning/perspectives', 'drafter lane under stress — widening stagger', { stress, staggerMs })
-  }
-
   const bundles = await Promise.all(
     stances.map(async (stance, i) => {
       const authoredBy = stances[(i + 1) % n].perspective_id
@@ -190,9 +158,9 @@ export async function runPerspectivesGenerateDetails(
         : undefined
 
       // Flattened across bundles AND sub-elements (i*4+j), not just bundles —
-      // see DRAFTER_STAGGER_MS above.
+      // see SWARM_STAGGER_MS above.
       const stagger = (j: number) =>
-        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * staggerMs))
+        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * SWARM_STAGGER_MS))
 
       // medium(first pass)/high(repair) for all 4 — 2026-08-11, Samir: same
       // split as every other generate call in the pipeline. `feedback`

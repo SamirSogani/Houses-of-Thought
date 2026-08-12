@@ -122,16 +122,30 @@ export {
 // graceful self-cutoff (still returns a clean error) for a hard platform
 // kill mid-response (no error, connection just dies). swarm/synthesis are
 // the reasoning pipeline's roles, both served ONLY by
-// app/api/admin/reasoning/route.ts (maxDuration=60 as of this change) — they
-// get ~5s headroom under that. Every other role's route is still
+// app/api/admin/reasoning/route.ts. Every other role's route is still
 // maxDuration=30, so they keep the original ~4s headroom under that.
+//
+// swarm/synthesis raised 55s → 260s (2026-08-12, Samir, root-causing "the
+// pipeline consistently stops on perspectives-generate or global-
+// assumptions" on real Vercel Hobby traffic): the route's own maxDuration
+// went 60 → 280 the same session (confirmed live: Fluid Compute is enabled
+// on this Hobby project, raising the real platform ceiling to 300s — the old
+// 60s was this codebase's own self-imposed number, not a true Hobby limit).
+// 260s keeps the same ~20s headroom under 280 that 55s had under 60. This
+// budget matters most for generateWithOptionalSearch's multi-round evidence
+// chains (search.ts) — up to 3 sequential completeJSON rounds sharing ONE
+// deadline — which is exactly what was observed failing live at ~95-100s
+// under the old 55s ceiling (a round finishing just past its own share of a
+// too-small shared budget). Full real-verified diagnosis:
+// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum.
 const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
   suggestor: 26_000,
   coach: 26_000,
   critic: 26_000,
   drafter: 26_000,
-  swarm: 55_000,
-  synthesis: 55_000,
+  swarm: 260_000,
+  synthesis: 260_000,
 }
 
 // Lets a caller that itself makes several sequential completeJSON calls

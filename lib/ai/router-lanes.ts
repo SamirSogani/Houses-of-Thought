@@ -110,8 +110,8 @@ export interface Attempt extends Target {
 
 // One slow-but-alive target must not eat the whole serverless budget. Each
 // role's route has its own maxDuration (most AI routes: 30s; the reasoning
-// pipeline's app/api/admin/reasoning/route.ts, serving swarm/synthesis: 60s
-// as of 2026-08-10 — see CHAIN_DEADLINE_MS, router.ts, for how these two
+// pipeline's app/api/admin/reasoning/route.ts, serving swarm/synthesis: 280s
+// as of 2026-08-12 — see CHAIN_DEADLINE_MS, router.ts, for how these two
 // numbers combine per role.
 export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
   suggestor: 8_000,
@@ -131,24 +131,30 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
 // "thinking" tokens before the visible JSON, which Llama-3.1-8B (no
 // reasoning mode) never had to pay for — so the timeout tuned for Llama's
 // flat completion speed is too tight for gpt-oss-20b's latency profile.
-// Only DeepInfra gets this — Groq/Gemini/Mistral/Cerebras in the same lane
-// are fast and don't need more room.
+// Only DeepInfra gets this — Groq/Gemini/Mistral/Cerebras aren't in this
+// lane's chain at all anymore (2026-08-12 pinning, see swarmAttempts()).
 //
-// Widened again the same day once the actual ceiling moved: DeepInfra's
-// spend is a non-issue (paid account, these are cheap calls — real
-// $-per-call is <$0.01), so the constraint here was never budget, only the
-// route's serverless duration cap. app/api/admin/reasoning/route.ts's
-// maxDuration went 30s → 60s alongside this (Vercel Hobby plan — needs
-// Fluid Compute enabled to actually honor 60s; unverified from this
-// codebase, confirm in the Vercel dashboard). CHAIN_DEADLINE_MS.swarm
-// (router.ts) followed to 55s. DeepInfra is swarmAttempts()' FIRST attempt,
-// so widening it still eats directly into that shared budget — 45s leaves
-// ~10s for Groq's burst-absorber (or the schema-retry pass) if DeepInfra
-// genuinely fails rather than just running slow, a healthier margin than
-// the previous ~2s. Still a real trade-off, not a free win: raise further
-// only alongside the route's maxDuration and CHAIN_DEADLINE_MS[swarm], kept
-// in lockstep so the deadline never promises more than the route can honor.
-const DEEPINFRA_SWARM_TIMEOUT_MS = 45_000
+// 45s → 60s (2026-08-12, Samir, root-causing "the pipeline consistently
+// stops on perspectives-generate or global-assumptions" on real Vercel
+// Hobby traffic): CORRECTION to the assumption below this constant carried
+// until today — the route's maxDuration was NOT actually capped at ~60s by
+// the Hobby plan itself; that was this codebase's own self-imposed number.
+// CONFIRMED live in the Vercel dashboard: Fluid Compute is enabled on this
+// Hobby project, which raises the real ceiling to 300s (Vercel's own
+// function-duration docs). The route's maxDuration is now 280s and
+// CHAIN_DEADLINE_MS.swarm/.synthesis (router.ts) 260s — DeepInfra is now the
+// ONLY attempt in this lane (no fallback since the same session's pinning),
+// so its own timeout can safely use most of that shared budget without
+// starving anything else. 60s is a modest, real increase over the
+// previously-observed ~18s-worst-case single-call latency, not a blind
+// blow-up to the new ceiling — a genuinely hung request should still fail
+// with reasonably prompt, actionable feedback rather than hanging for
+// minutes. Full real-verified diagnosis:
+// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum. Raise further only alongside the route's maxDuration and
+// CHAIN_DEADLINE_MS[swarm], kept in lockstep so this never promises more
+// than the route can honor.
+const DEEPINFRA_SWARM_TIMEOUT_MS = 60_000
 
 // Repair/high-reasoning-effort calls (allowHighReasoning, router-shared.ts)
 // only, in swarm/synthesis — 2026-08-12, Samir: real traffic showed EVERY
@@ -156,14 +162,22 @@ const DEEPINFRA_SWARM_TIMEOUT_MS = 45_000
 // REPAIR_TOKEN_HEADROOM (lib/ai/reasoning/budget.ts) pushed a single
 // request's size past Groq's 8000 TPM cap, or a json_validate_failed on the
 // requests just under that line) — not one succeeded across the whole
-// session. Confirmed the plan is Hobby (capped ~60s regardless of Fluid
-// Compute — the route's maxDuration=60s is already near the real ceiling,
-// not a number to push further), so the fix isn't "wait longer overall," it's
-// "stop spending any of the fixed ~55s chain budget on a provider that
-// structurally can't serve these requests" — swarmAttempts()/
-// synthesisAttempts() skip Groq entirely here, and DeepInfra's own attempt
-// gets the time that would have gone to a doomed Groq call instead.
-const DEEPINFRA_SWARM_LARGE_TIMEOUT_MS = 50_000
+// session, so swarmAttempts()/synthesisAttempts() skip Groq entirely here,
+// and DeepInfra's own attempt gets the time that would have gone to a doomed
+// Groq call instead.
+//
+// 50s → 75s (2026-08-12, same session as DEEPINFRA_SWARM_TIMEOUT_MS's 45→60
+// widen above — see that comment for the corrected Hobby/Fluid-Compute
+// ceiling this is now measured against). Repair-mode calls carry
+// REPAIR_TOKEN_HEADROOM (budget.ts) on top of their first-pass maxTokens and
+// run at 'high' reasoning effort — genuinely slower than a first-pass call by
+// construction, hence the extra margin over the 60s sibling above. This is
+// also the per-round budget generateWithOptionalSearch (search.ts) uses for
+// perspective_evidence/global_evidence's search rounds when repairing — up
+// to 3 rounds sharing ONE CHAIN_DEADLINE_MS=260s, so 75s/round comfortably
+// fits 3 rounds (225s) with real margin, unlike the old 50s/round against a
+// 55s TOTAL chain deadline that could only ever fit one round.
+const DEEPINFRA_SWARM_LARGE_TIMEOUT_MS = 75_000
 
 // Real-time background lane (coach | critic): Mistral primary, then the paid
 // DeepInfra relief valve (see header comment above), then the Groq

@@ -12,10 +12,8 @@ import { STANDARD_IDS } from './contracts'
 import { MAX_REGENERATION_ATTEMPTS } from './budget'
 
 const completeJSONMock = vi.fn()
-const drafterLaneStressMock = vi.fn<() => 'none' | 'degraded' | 'critical'>(() => 'none')
 vi.mock('@/lib/ai/router', () => ({
   completeJSON: (...args: unknown[]) => completeJSONMock(...args),
-  drafterLaneStress: () => drafterLaneStressMock(),
   // generateWithOptionalSearch (search.ts, itself unmocked here) calls this
   // directly — real return shape only matters as "some future epoch ms".
   chainDeadlineFor: () => Date.now() + 60_000,
@@ -58,14 +56,12 @@ function verdict(overall_pass: boolean, degraded = false): ReviewPanelVerdict {
 beforeEach(() => {
   completeJSONMock.mockReset()
   runReviewPanelMock.mockReset()
-  drafterLaneStressMock.mockReset()
-  drafterLaneStressMock.mockReturnValue('none')
   completeJSONMock.mockResolvedValue({})
   // runPerspectivesGenerateDetails staggers its calls via real setTimeout
-  // (DRAFTER_STAGGER_MS, widened to 20s live to fit Groq's real TPM budget —
-  // see orchestrator-perspectives.ts). Fake timers keep these tests fast
-  // regardless of that constant's value; vi.runAllTimersAsync() below flushes
-  // every pending stagger delay instead of a test actually waiting on it.
+  // (SWARM_STAGGER_MS, a small fixed spacing — see orchestrator-perspectives.ts).
+  // Fake timers keep these tests fast regardless of that constant's value;
+  // vi.runAllTimersAsync() below flushes every pending stagger delay instead
+  // of a test actually waiting on it.
   vi.useFakeTimers()
 })
 
@@ -130,32 +126,25 @@ describe('runPerspectivesGenerateDetails', () => {
     expect(attempts).toEqual([MAX_REGENERATION_ATTEMPTS])
   })
 
-  // Phase 2 dynamic budget enforcement (03-orchestration-and-failure-handling.md
-  // "Budget enforcement"): under detected drafter-lane stress, the same
-  // flattened schedule should spread further apart — see effectiveStaggerMs()
-  // in orchestrator-perspectives.ts.
-  it('widens the stagger under degraded stress, and further under critical', async () => {
-    const stances = [stance('p1', 'A')]
+  // 2026-08-12, Samir: the old stress-scaled DRAFTER_STAGGER_MS (up to 20s,
+  // 4x under detected stress) was retired — it existed to protect Groq's TPM
+  // budget, which no longer applies now that this lane is DeepInfra-only (see
+  // SWARM_STAGGER_MS in orchestrator-perspectives.ts). It's now a small fixed
+  // spacing regardless of drafter-lane health, purely to avoid firing every
+  // call in the same instant.
+  it('staggers each of the 4n calls by a small fixed spacing, not a stress-scaled one', async () => {
+    const stances = [stance('p1', 'A'), stance('p2', 'B')]
     completeJSONMock.mockResolvedValue({ sub_questions: ['q'] })
 
-    drafterLaneStressMock.mockReturnValue('degraded')
-    const degradedSpy = vi.spyOn(global, 'setTimeout')
-    const degradedPromise = runPerspectivesGenerateDetails(frame, stances, false)
+    const spy = vi.spyOn(global, 'setTimeout')
+    const resultPromise = runPerspectivesGenerateDetails(frame, stances, false)
     await vi.runAllTimersAsync()
-    await degradedPromise
-    // Base DRAFTER_STAGGER_MS is 20_000; 'degraded' widens it 1.5x.
-    expect(degradedSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 30_000, 60_000, 90_000]))
-    degradedSpy.mockRestore()
-
-    drafterLaneStressMock.mockReturnValue('critical')
-    const criticalSpy = vi.spyOn(global, 'setTimeout')
-    const criticalPromise = runPerspectivesGenerateDetails(frame, stances, false)
-    await vi.runAllTimersAsync()
-    await criticalPromise
-    // 'critical' widens it 4x (real-verified 2026-08-02 that 2x still let
-    // Cerebras produce invalid JSON under sole-remaining-target load — see
-    // effectiveStaggerMs()).
-    expect(criticalSpy.mock.calls.map((c) => c[1])).toEqual(expect.arrayContaining([0, 80_000, 160_000, 240_000]))
+    await resultPromise
+    // Flattened across bundles AND sub-elements (i*4+j) * 150ms — indices 0-7 for n=2.
+    expect(spy.mock.calls.map((c) => c[1])).toEqual(
+      expect.arrayContaining([0, 150, 300, 450, 600, 750, 900, 1050])
+    )
+    spy.mockRestore()
   })
 })
 

@@ -163,4 +163,5 @@ exceeds 8s. Fixed: `synthesisAttempts()` now applies the same
   fallback tail, since a slow or empty DeepInfra round now has nothing to
   fail over to. Worth watching `/admin/reasoning/runs` for whether this
   pattern (evidence steps specifically) recurs disproportionately now that
-  swarm has no relief valve.
+  swarm has no relief valve. **Root-caused and mostly fixed the same day —
+  see [22-vercel-hobby-duration-and-stagger-fix.md](22-vercel-hobby-duration-and-stagger-fix.md).**
