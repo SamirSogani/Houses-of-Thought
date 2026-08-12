@@ -31,7 +31,7 @@ import {
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
 import { generateWithOptionalSearch } from './search'
-import { MAX_REGENERATION_ATTEMPTS } from './budget'
+import { MAX_REGENERATION_ATTEMPTS, REPAIR_TOKEN_HEADROOM } from './budget'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-perspectives.ts is server-only and must not run in the browser')
@@ -209,7 +209,8 @@ export async function runPerspectivesGenerateDetails(
             schemaName: 'perspective_subquestions',
             effort: genEffort,
             allowHighReasoning: !!feedback,
-            maxTokens: 1100,
+            // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+            maxTokens: feedback ? 1100 + REPAIR_TOKEN_HEADROOM : 1100,
           })
         ),
         stagger(1).then(() =>
@@ -221,7 +222,8 @@ export async function runPerspectivesGenerateDetails(
             schemaName: 'perspective_assumptions',
             effort: genEffort,
             allowHighReasoning: !!feedback,
-            maxTokens: 1200,
+            // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+            maxTokens: feedback ? 1200 + REPAIR_TOKEN_HEADROOM : 1200,
           })
         ),
         stagger(2).then(() =>
@@ -239,7 +241,8 @@ export async function runPerspectivesGenerateDetails(
             // the same budget. global_evidence (orchestrator-global.ts) gets
             // the same bump — identical shape/pattern, same risk, even
             // though it hasn't been caught truncating yet live.
-            maxTokens: 2400,
+            // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+            maxTokens: feedback ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
           })
         ),
         stagger(3).then(() =>
@@ -251,7 +254,8 @@ export async function runPerspectivesGenerateDetails(
             schemaName: 'perspective_counterargument',
             effort: genEffort,
             allowHighReasoning: !!feedback,
-            maxTokens: 1600,
+            // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+            maxTokens: feedback ? 1600 + REPAIR_TOKEN_HEADROOM : 1600,
           })
         ),
       ])

@@ -16,6 +16,9 @@ const drafterLaneStressMock = vi.fn<() => 'none' | 'degraded' | 'critical'>(() =
 vi.mock('@/lib/ai/router', () => ({
   completeJSON: (...args: unknown[]) => completeJSONMock(...args),
   drafterLaneStress: () => drafterLaneStressMock(),
+  // generateWithOptionalSearch (search.ts, itself unmocked here) calls this
+  // directly — real return shape only matters as "some future epoch ms".
+  chainDeadlineFor: () => Date.now() + 60_000,
 }))
 
 const runReviewPanelMock = vi.fn()

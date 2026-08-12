@@ -70,7 +70,7 @@ function makeErr(status: number | undefined, message = 'provider error'): Error 
 
 function ask(
   role: 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis',
-  overrides: { effort?: 'low' | 'high'; user?: string } = {}
+  overrides: { effort?: 'low' | 'high'; user?: string; allowHighReasoning?: boolean } = {}
 ) {
   return completeJSON({
     role,
@@ -79,6 +79,7 @@ function ask(
     schema: Schema,
     schemaName: 'test',
     effort: overrides.effort ?? 'low',
+    allowHighReasoning: overrides.allowHighReasoning,
     maxTokens: 100,
   })
 }
@@ -130,6 +131,15 @@ describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
     await expect(ask('swarm')).resolves.toEqual({ ok: true })
     // provider, not model — deepinfra and groq both request openai/gpt-oss-20b.
     expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'groq', 'google', 'mistral', 'cerebras'])
+  })
+
+  it('swarm with allowHighReasoning (repair mode) skips groq entirely: deepinfra → gemini → mistral → cerebras', async () => {
+    // 2026-08-12, Samir: every repair-mode call that reached Groq failed
+    // there all session (413/429 TPM ceiling, or json_validate_failed just
+    // under it) — see DEEPINFRA_SWARM_LARGE_TIMEOUT_MS (router-lanes.ts).
+    script = (m) => (m === MODELS.cerebras ? OK : (() => { throw makeErr(429, 'rate limit') })())
+    await expect(ask('swarm', { allowHighReasoning: true })).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'google', 'mistral', 'cerebras'])
   })
 
   it('swarm skips groq while the shared penalty box is open (deepinfra straight to gemini)', async () => {

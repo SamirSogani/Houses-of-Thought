@@ -34,6 +34,7 @@ import {
   appendRegenerationFeedback,
   appendMasterGuidance,
 } from './prompts'
+import { REPAIR_TOKEN_HEADROOM } from './budget'
 
 // Shared shape for "regenerate this after a failed panel verdict" across the
 // four hard-block global/conclusions/implications generators below.
@@ -95,7 +96,8 @@ export async function runGlobalAssumptionsGenerate(
     // reasoningEffortFor's allowHighReasoning (router-shared.ts).
     effort: isRepair ? 'high' : 'medium',
     allowHighReasoning: isRepair,
-    maxTokens: 900,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 900 + REPAIR_TOKEN_HEADROOM : 900,
   })
 }
 
@@ -156,7 +158,8 @@ export async function runGlobalEvidenceGenerate(
     // claim/source_ref/confidence/caveats shape) real-verified truncating
     // mid-JSON on gpt-oss-20b at 1800. Bumped this twin call to match before
     // it hits the same wall, even though it hasn't been caught live yet.
-    maxTokens: 2400,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
   })
 }
 
@@ -208,7 +211,8 @@ export async function runConclusionsGenerate(
     // each - 900 tokens can't cover that even at typical (non-maxed) length.
     // Confirmed live: Gemini's raw output truncated mid-JSON on the 3rd
     // conclusion, twice in a row, at exactly this cap.
-    maxTokens: 1800,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 1800 + REPAIR_TOKEN_HEADROOM : 1800,
   })
 }
 
@@ -269,7 +273,8 @@ export async function runImplicationsGenerate(
     // structurally larger than conclusions_packet's own bounds, so it needed
     // at least the same headroom. Confirmed live: Gemini truncated mid-JSON
     // on the first implication's text field, twice in a row, at this cap.
-    maxTokens: 1800,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 1800 + REPAIR_TOKEN_HEADROOM : 1800,
   })
 }
 

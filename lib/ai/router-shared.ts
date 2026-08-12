@@ -82,6 +82,24 @@ export function isGroqJsonValidateFailed(err: unknown): boolean {
   return statusOf(err) === 400 && JSON_VALIDATE_FAILED_RE.test(errorText(err))
 }
 
+// Groq's account-level TPM ceiling can reject a single REQUEST outright —
+// 413 "Request too large... TPM: Limit 8000, Requested X" — before the model
+// ever runs, distinct from the ordinary 429 "already used this minute" case
+// (which the generic 429 branch in execute() already cascades past). Both
+// share the same body shape (`code: "rate_limit_exceeded"`), just a
+// different HTTP status. Real-verified live, 2026-08-12: a repair-mode call
+// using REPAIR_TOKEN_HEADROOM (lib/ai/reasoning/budget.ts) can request more
+// tokens in ONE call than Groq's account-level TPM ceiling allows, period —
+// uncaught, this fell through every classification below to the terminal
+// throw and killed the WHOLE fallback chain immediately, never even reaching
+// Gemini. Unlike a 429, this must NOT open the Groq penalty box (a temporary
+// cooldown fixes nothing about one request being structurally too big) —
+// just cascade past Groq for this call.
+const GROQ_TOKEN_LIMIT_RE = /rate_limit_exceeded/i
+export function isGroqTokenLimitExceeded(err: unknown): boolean {
+  return statusOf(err) === 413 && GROQ_TOKEN_LIMIT_RE.test(errorText(err))
+}
+
 // Map a non-transient (or terminal) error onto a status routes can surface.
 export function mapUpstream(err: unknown, provider: string): AiError {
   const status = statusOf(err)

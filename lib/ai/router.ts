@@ -56,6 +56,7 @@ import {
   isContextOverflow,
   isDailyQuota,
   isGroqJsonValidateFailed,
+  isGroqTokenLimitExceeded,
   mapUpstream,
   reasoningEffortFor,
   statusOf,
@@ -133,6 +134,14 @@ const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
   synthesis: 55_000,
 }
 
+// Lets a caller that itself makes several sequential completeJSON calls
+// (generateWithOptionalSearch's search rounds, search.ts) compute ONE
+// deadline up front and pass it to every round via completeJSON's own
+// deadlineAt option — see that option's comment for why this matters.
+export function chainDeadlineFor(role: AiRole): number {
+  return Date.now() + CHAIN_DEADLINE_MS[role]
+}
+
 // ── Execution ─────────────────────────────────────────────────────────────────
 
 interface ExecuteOpts {
@@ -163,7 +172,7 @@ interface ExecuteOpts {
 //   - Deadline: attempts stop once opts.deadlineAt passes, throwing the most
 //     actionable error seen, so a slow chain degrades instead of platform-killing.
 async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: string; target: Target }> {
-  const attempts = attemptsForRole(role)
+  const attempts = attemptsForRole(role, opts.allowHighReasoning)
   let last429: AiError | null = null
   let lastTransient: AiError | null = null
   let anyProviderTried = false
@@ -242,6 +251,16 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
         laneAllDaily = false
         lastTransient = mapUpstream(err, attempt.provider)
         record(attempt, 'error', 'json-validate-failed', latencyMs)
+        continue
+      }
+      // Groq's per-request TPM ceiling rejecting this request outright (see
+      // isGroqTokenLimitExceeded, router-shared.ts) — deliberately NOT routed
+      // through the 429 branch above: no penalty box, since waiting doesn't
+      // fix a single request being structurally too big.
+      if (isGroqTokenLimitExceeded(err)) {
+        laneAllDaily = false
+        lastTransient = mapUpstream(err, attempt.provider)
+        record(attempt, 'error', 'token-limit-exceeded', latencyMs)
         continue
       }
       // Transient provider incidents: 5xx, no-status (SDK timeout / network),
@@ -401,6 +420,20 @@ export async function completeJSON<T>(opts: {
   // (router-shared.ts). Only meaningful when effort: 'high'; ignored otherwise.
   allowHighReasoning?: boolean
   maxTokens: number
+  // Shared deadline (epoch ms) for a caller that itself makes several
+  // sequential completeJSON calls — generateWithOptionalSearch's search
+  // rounds (search.ts) being the one case today (2026-08-12). Without this,
+  // each call claims its own fresh CHAIN_DEADLINE_MS[role], so a 3-round
+  // sequence could legitimately run up to 3x that role's deadline — well
+  // past what the route's own maxDuration can actually honor (confirmed
+  // Hobby plan, ~60s hard ceiling regardless of Fluid Compute), so the
+  // platform kills the function outright instead of any of this file's own
+  // clean, classified timeout handling ever getting to run. Pass
+  // chainDeadlineFor(role)'s result, computed ONCE up front, into every
+  // round so the whole sequence shares one real budget and a late round
+  // fails fast (ai-timeout) rather than hanging for its own fresh window.
+  // Omitted (the default) preserves today's behavior for every other caller.
+  deadlineAt?: number
 }): Promise<T> {
   const jsonSchema = z.toJSONSchema(opts.schema, { target: 'draft-7' }) as Record<
     string,
@@ -424,7 +457,9 @@ export async function completeJSON<T>(opts: {
     neededTokens,
     // One deadline covers the first chain AND the parse-retry chain, so the
     // whole completeJSON call stays inside its role's route's function budget.
-    deadlineAt: Date.now() + CHAIN_DEADLINE_MS[opts.role],
+    // A caller-supplied deadlineAt (see the option's own comment above) wins
+    // over computing a fresh one here.
+    deadlineAt: opts.deadlineAt ?? Date.now() + CHAIN_DEADLINE_MS[opts.role],
   }
 
   function tryParse(raw: string): { ok: true; value: T } | { ok: false; error: string } {

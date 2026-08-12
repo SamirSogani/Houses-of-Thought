@@ -35,6 +35,19 @@ export const MAX_REGENERATION_ATTEMPTS = 3
 // app/api/admin/reasoning/route.ts's tryMasterReviewOrHalt.
 export const MASTER_REVIEW_ATTEMPT = MAX_REGENERATION_ATTEMPTS + 1
 
+// Repair calls opt into 'high' reasoning effort (router-shared.ts's
+// allowHighReasoning) on the theory that a genuine revision needs real
+// deliberation — but on gpt-oss-20b, 'high' effort's internal reasoning
+// tokens draw from the SAME maxTokens budget as the final JSON answer.
+// Real-verified live (2026-08-12, testing this branch): every repair call in
+// a perspectives-generate-details batch (subquestions/assumptions/evidence/
+// counterargument) exhausted its first-pass maxTokens on reasoning alone
+// before emitting any output — finishReason 'length', empty completion — on
+// BOTH DeepInfra and Groq (same underlying model, so the failure cascaded
+// through both rather than one covering for the other). Added on top of each
+// call's own first-pass maxTokens only when that call is in repair mode.
+export const REPAIR_TOKEN_HEADROOM = 3000
+
 // panelsOff (decision 019 verification stage 3, A/B the review panel): every
 // runReviewPanel call short-circuits to an auto-pass verdict instead of its 9
 // real reviewer calls (orchestrator-panel.ts's autoPassVerdict) — generation

@@ -150,6 +150,21 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
 // in lockstep so the deadline never promises more than the route can honor.
 const DEEPINFRA_SWARM_TIMEOUT_MS = 45_000
 
+// Repair/high-reasoning-effort calls (allowHighReasoning, router-shared.ts)
+// only, in swarm/synthesis — 2026-08-12, Samir: real traffic showed EVERY
+// repair-mode call that reached Groq failed there (413/429 TPM ceiling once
+// REPAIR_TOKEN_HEADROOM (lib/ai/reasoning/budget.ts) pushed a single
+// request's size past Groq's 8000 TPM cap, or a json_validate_failed on the
+// requests just under that line) — not one succeeded across the whole
+// session. Confirmed the plan is Hobby (capped ~60s regardless of Fluid
+// Compute — the route's maxDuration=60s is already near the real ceiling,
+// not a number to push further), so the fix isn't "wait longer overall," it's
+// "stop spending any of the fixed ~55s chain budget on a provider that
+// structurally can't serve these requests" — swarmAttempts()/
+// synthesisAttempts() skip Groq entirely here, and DeepInfra's own attempt
+// gets the time that would have gone to a doomed Groq call instead.
+const DEEPINFRA_SWARM_LARGE_TIMEOUT_MS = 50_000
+
 // Real-time background lane (coach | critic): Mistral primary, then the paid
 // DeepInfra relief valve (see header comment above), then the Groq
 // penalty-aware bridge to Google / Cerebras.
@@ -228,9 +243,13 @@ function draftAttempts(): Attempt[] {
 // leads with DeepInfra → Gemini instead of trying Groq at all. DeepInfra's
 // own attempt timeout is widened past the lane's generic 20s — see
 // DEEPINFRA_SWARM_TIMEOUT_MS above for why and the ceiling it pushes against.
-function swarmAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.deepinfra, timeoutMs: DEEPINFRA_SWARM_TIMEOUT_MS }]
-  if (!groqCoolingDown()) {
+// allowHighReasoning (router-shared.ts) is exactly the signal every
+// repair-mode call site already sets — see DEEPINFRA_SWARM_LARGE_TIMEOUT_MS
+// above for why that's also when Groq gets skipped entirely.
+function swarmAttempts(allowHighReasoning: boolean): Attempt[] {
+  const timeoutMs = allowHighReasoning ? DEEPINFRA_SWARM_LARGE_TIMEOUT_MS : DEEPINFRA_SWARM_TIMEOUT_MS
+  const attempts: Attempt[] = [{ ...TARGETS.deepinfra, timeoutMs }]
+  if (!allowHighReasoning && !groqCoolingDown()) {
     attempts.push({ ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true })
   }
   attempts.push({ ...TARGETS.geminiFlash })
@@ -247,13 +266,15 @@ function swarmAttempts(): Attempt[] {
 // times — the cost difference between "Groq-first" and "DeepInfra-first" is
 // negligible at that volume, so it defers to Groq the way the original spec's
 // "Synthesis" tier asked for. Same tail and same penalty-box sharing as
-// swarmAttempts().
-function synthesisAttempts(): Attempt[] {
+// swarmAttempts(). No call site sets allowHighReasoning for this role today
+// (runFinalComposition has no repair path — packaging only), but the switch
+// is threaded through anyway for consistency if that ever changes.
+function synthesisAttempts(allowHighReasoning: boolean): Attempt[] {
   const attempts: Attempt[] = []
-  if (!groqCoolingDown()) {
+  if (!allowHighReasoning && !groqCoolingDown()) {
     attempts.push({ ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true })
   }
-  attempts.push({ ...TARGETS.deepinfra })
+  attempts.push(allowHighReasoning ? { ...TARGETS.deepinfra, timeoutMs: DEEPINFRA_SWARM_LARGE_TIMEOUT_MS } : { ...TARGETS.deepinfra })
   attempts.push({ ...TARGETS.geminiFlash })
   attempts.push({ ...TARGETS.mistral8b })
   attempts.push({ ...TARGETS.cerebrasGptOss120b })
@@ -261,10 +282,12 @@ function synthesisAttempts(): Attempt[] {
 }
 
 // Built fresh per request so it reflects current penalty-box / recovery state.
-export function attemptsForRole(role: AiRole): Attempt[] {
+// allowHighReasoning only changes anything for swarm/synthesis (see
+// DEEPINFRA_SWARM_LARGE_TIMEOUT_MS above) — every other role ignores it.
+export function attemptsForRole(role: AiRole, allowHighReasoning = false): Attempt[] {
   if (role === 'drafter') return draftAttempts()
   if (role === 'suggestor') return suggestorAttempts()
-  if (role === 'swarm') return swarmAttempts()
-  if (role === 'synthesis') return synthesisAttempts()
+  if (role === 'swarm') return swarmAttempts(allowHighReasoning)
+  if (role === 'synthesis') return synthesisAttempts(allowHighReasoning)
   return realtimeAttempts() // coach | critic
 }

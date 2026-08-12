@@ -5,7 +5,7 @@
 // GLOBAL_EVIDENCE_BLOCK in prompts.ts), the only prompts that offer it.
 
 import { z } from 'zod'
-import { completeJSON, type AiRole, type AiEffort } from '@/lib/ai/router'
+import { completeJSON, chainDeadlineFor, type AiRole, type AiEffort } from '@/lib/ai/router'
 import { braveSearch } from '@/lib/ai/brave'
 import { log } from '@/lib/log'
 
@@ -93,6 +93,17 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
   const searchableSchema = params.baseSchema.extend(SearchQueriesSchema.shape) as z.ZodType<WithSearch>
   const effort = params.effort ?? 'high'
   let searchContext = ''
+  // Computed ONCE, shared across every round below (including the forced
+  // final one) — 2026-08-12, Samir: without this, each round's completeJSON
+  // claimed its own fresh CHAIN_DEADLINE_MS[role], so a full 3-round sequence
+  // (generate → search → generate → search → forced finalize) could run up
+  // to 3x that role's deadline, well past what the route's maxDuration can
+  // actually honor (Hobby plan, ~60s hard ceiling) — the platform killed the
+  // function outright instead of a late round ever failing cleanly on its
+  // own terms. Now a late round that's out of real budget throws a fast,
+  // classified ai-timeout (router.ts's execute()) instead of hanging for
+  // another full window it was never going to get from the platform anyway.
+  const deadlineAt = chainDeadlineFor(params.role)
 
   for (let round = 0; round < MAX_SEARCH_ROUNDS; round++) {
     const out = await completeJSON<WithSearch>({
@@ -104,6 +115,7 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
       effort,
       allowHighReasoning: params.allowHighReasoning,
       maxTokens: params.maxTokens,
+      deadlineAt,
     })
     // Defensive: catches a shape bug here rather than crashing on it — real
     // completeJSON calls always include search_queries (the schema requires
@@ -125,5 +137,6 @@ export async function generateWithOptionalSearch<Shape extends z.ZodRawShape>(pa
     effort,
     allowHighReasoning: params.allowHighReasoning,
     maxTokens: params.maxTokens,
+    deadlineAt,
   })
 }
