@@ -222,63 +222,64 @@ function draftAttempts(): Attempt[] {
 // composition (see synthesisAttempts() below). Not used anywhere else in the
 // app — the rest of the app keeps suggestor/coach/critic/drafter untouched.
 //
-// DeepInfra leads (this is the highest-volume traffic in the app: 9 parallel
-// review-panel calls per gate, repeated across 6 gates, plus every generate
-// step) — TARGETS.deepinfra (router-config.ts), currently gpt-oss-20b
-// (~$0.04/$0.15 per 1M — swapped from Llama-3.1-8B-Instruct the same day,
-// Samir: Llama wasn't reliably incorporating the panel's regeneration
-// feedback). Groq is the paid "burst absorber" behind it, pinned to the SAME
-// gpt-oss-20b id for the same strict-json_schema reliability reason
-// draftAttempts() pins it (NOT currentGroqTarget()'s qwen default — see
-// draftAttempts()'s comment) — so these first two attempts are now the same
-// model on two different providers' infrastructure. Worth remembering: a
-// DeepInfra failure here says nothing about whether the MODEL itself is
-// struggling, only that one provider's capacity is; Groq is still genuinely
-// independent capacity, not a genuinely different fallback strategy, unless
-// one of the two gets pointed at a different model again.
-// Gemini → Mistral → Cerebras close out the chain — same three providers the
-// rest of the app already relies on, just reordered behind the two paid
-// targets here. Shares the same Groq penalty box as every other lane (it's an
-// account-level signal, not lane-scoped): while Groq is cooling, this lane
-// leads with DeepInfra → Gemini instead of trying Groq at all. DeepInfra's
-// own attempt timeout is widened past the lane's generic 20s — see
-// DEEPINFRA_SWARM_TIMEOUT_MS above for why and the ceiling it pushes against.
-// allowHighReasoning (router-shared.ts) is exactly the signal every
-// repair-mode call site already sets — see DEEPINFRA_SWARM_LARGE_TIMEOUT_MS
-// above for why that's also when Groq gets skipped entirely.
+// DELIBERATE, TEMPORARY, DeepInfra-only — no fallback (2026-08-12, Samir,
+// verbatim: "it should always be using deep infra (no matter what for
+// now)"). Groq/Gemini/Mistral/Cerebras removed from this lane entirely, not
+// just reordered. Two reasons, both Samir's:
+//   (a) A clean read on DeepInfra's real success rate on THIS traffic (9
+//       parallel review-panel calls per gate × 6 gates, plus every generate
+//       step) without another provider's failures confounding the signal —
+//       decision 020's ~85% (59/10) OK/FAIL figure was measured on the
+//       realtime lane, not this one, and doc 20's fix #3 already found Groq
+//       structurally can't serve this lane's repair-mode calls at all.
+//   (b) DeepInfra is a paid account with no hard per-request rate ceiling
+//       the way Groq's on-demand tier has (the exact thing that made fix #3
+//       necessary) — most of what a fallback chain exists to protect
+//       against (a free-tier 429/cooldown) doesn't apply here by
+//       construction, so the chain was buying less than it looks like for
+//       this specific lane.
+// This is a KNOWN, INTENTIONAL reduction in resilience, not an oversight: a
+// genuine DeepInfra outage now fails every swarm call outright instead of
+// failing over to Gemini/Mistral/Cerebras. Revisit once real DeepInfra-only
+// traffic answers (a) — this is a posture for now, not a permanent
+// architecture decision. suggestor/coach/critic/drafter are untouched; this
+// scoping is swarm/synthesis only, same as everything else in this lane.
+//
+// isGroqTokenLimitExceeded()/isGroqJsonValidateFailed()/groqCoolingDown()
+// (router-shared.ts / router-state.ts) are now unused BY THIS LANE
+// specifically — left alone, the other four lanes above still call them.
+//
+// DeepInfra's own attempt timeout keeps the first-pass/repair-mode split —
+// DEEPINFRA_SWARM_TIMEOUT_MS / DEEPINFRA_SWARM_LARGE_TIMEOUT_MS above — that
+// distinction is about gpt-oss-20b's own latency profile under
+// allowHighReasoning, orthogonal to which (or how many) providers are in the
+// chain, so it survives this change untouched.
 function swarmAttempts(allowHighReasoning: boolean): Attempt[] {
   const timeoutMs = allowHighReasoning ? DEEPINFRA_SWARM_LARGE_TIMEOUT_MS : DEEPINFRA_SWARM_TIMEOUT_MS
-  const attempts: Attempt[] = [{ ...TARGETS.deepinfra, timeoutMs }]
-  if (!allowHighReasoning && !groqCoolingDown()) {
-    attempts.push({ ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true })
-  }
-  attempts.push({ ...TARGETS.geminiFlash })
-  attempts.push({ ...TARGETS.mistral8b })
-  attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  return attempts
+  return [{ ...TARGETS.deepinfra, timeoutMs }]
 }
 
 // Reasoning-pipeline-only lane, final-composition step ONLY (runFinalComposition,
 // orchestrator-global.ts) — packaging the vetted reasoning into the answer the
-// admin actually reads, not another reasoning stage. Groq leads here (pinned to
-// gpt-oss-20b, same reason as swarmAttempts()); DeepInfra is the first fallback
-// rather than the lead, since this step runs once per pipeline run, not ~200
-// times — the cost difference between "Groq-first" and "DeepInfra-first" is
-// negligible at that volume, so it defers to Groq the way the original spec's
-// "Synthesis" tier asked for. Same tail and same penalty-box sharing as
-// swarmAttempts(). No call site sets allowHighReasoning for this role today
-// (runFinalComposition has no repair path — packaging only), but the switch
-// is threaded through anyway for consistency if that ever changes.
+// admin actually reads, not another reasoning stage.
+//
+// DELIBERATE, TEMPORARY, DeepInfra-only — same posture and same reasoning as
+// swarmAttempts() immediately above (Samir, 2026-08-12); see that comment for
+// the full rationale. Groq no longer leads here (it used to, pinned to
+// gpt-oss-20b) and Gemini/Mistral/Cerebras no longer close out the chain —
+// removed, not reordered. No call site sets allowHighReasoning for this role
+// today (runFinalComposition has no repair path — packaging only), but the
+// switch is threaded through anyway for consistency if that ever changes, and
+// it now ALSO applies DEEPINFRA_SWARM_TIMEOUT_MS to the first-pass case
+// (previously only the repair-mode branch got a DeepInfra-specific timeout
+// here — the plain first-pass attempt fell through to
+// ATTEMPT_TIMEOUT_MS.synthesis's 8s, sized for Groq's speed, not gpt-oss-20b's
+// hidden-reasoning-token latency on DeepInfra. Harmless while DeepInfra was
+// only ever synthesis's fallback; live-broken now that it is the only
+// attempt — real-verified during this change, see doc 20's addendum).
 function synthesisAttempts(allowHighReasoning: boolean): Attempt[] {
-  const attempts: Attempt[] = []
-  if (!allowHighReasoning && !groqCoolingDown()) {
-    attempts.push({ ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true })
-  }
-  attempts.push(allowHighReasoning ? { ...TARGETS.deepinfra, timeoutMs: DEEPINFRA_SWARM_LARGE_TIMEOUT_MS } : { ...TARGETS.deepinfra })
-  attempts.push({ ...TARGETS.geminiFlash })
-  attempts.push({ ...TARGETS.mistral8b })
-  attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  return attempts
+  const timeoutMs = allowHighReasoning ? DEEPINFRA_SWARM_LARGE_TIMEOUT_MS : DEEPINFRA_SWARM_TIMEOUT_MS
+  return [{ ...TARGETS.deepinfra, timeoutMs }]
 }
 
 // Built fresh per request so it reflects current penalty-box / recovery state.

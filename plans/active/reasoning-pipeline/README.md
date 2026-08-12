@@ -57,6 +57,9 @@ Verification plan and deferred implementation questions:
 [04-verification-and-open-questions.md](04-verification-and-open-questions.md).
 Current build status, known open issues, and next phases (start here to
 resume work): [08-phase1.5-root-cause-and-halt-bug.md](08-phase1.5-root-cause-and-halt-bug.md).
+AI-call mechanics per step (which function, what gets sent to the model,
+how retries actually work — not a duplicate of the layer/schema doc above):
+[21-ai-call-mechanics-reference.md](21-ai-call-mechanics-reference.md).
 
 ## Why perspectives fan out and nothing else does
 

@@ -104,3 +104,63 @@ signals already available:
 - Real cost this session: on the order of a dozen n=2 real runs (`14n+54` ≈
   82 calls each) across today's testing — consistent with, not exceeding,
   the "run sparingly" guidance the app's own UI already surfaces.
+
+## Addendum, 2026-08-12 (later same day) — pinned swarm/synthesis to DeepInfra-only
+
+Samir's explicit call, verbatim: "it should always be using deep infra (no
+matter what for now)." `swarmAttempts()`/`synthesisAttempts()`
+([router-lanes.ts](../../../lib/ai/router-lanes.ts)) now return only
+`TARGETS.deepinfra` — Groq, Gemini, Mistral, and Cerebras removed from both
+lanes entirely, not reordered. Deliberate, temporary reduction in
+resilience: a genuine DeepInfra outage now fails a swarm/synthesis call
+outright instead of failing over. Two reasons (both Samir's, see the
+in-code comment for the full statement): a clean read on DeepInfra's real
+success rate on this traffic without another provider's failures
+confounding it, and DeepInfra being a paid account with no hard
+per-request ceiling the way Groq's on-demand tier has, so most of what the
+chain protected against doesn't apply here by construction. Scope is
+swarm/synthesis only — `suggestor`/`coach`/`critic`/`drafter` untouched.
+`isGroqTokenLimitExceeded()`/`isGroqJsonValidateFailed()`/`groqCoolingDown()`
+are unused BY THIS LANE now, left alone (other lanes still call them).
+
+**Bug found and fixed while doing this:** `synthesisAttempts()`'s
+non-repair (first-pass) branch never gave DeepInfra its own
+`DEEPINFRA_SWARM_TIMEOUT_MS` — only the repair branch did. It fell through
+to `ATTEMPT_TIMEOUT_MS.synthesis`'s 8s, sized for Groq's speed (Groq used
+to lead synthesis). Harmless while DeepInfra was only ever synthesis's
+*fallback* (an 8s DeepInfra attempt failing just advanced to Gemini
+unnoticed); live-broken the moment DeepInfra became the *only* attempt,
+since gpt-oss-20b's hidden-reasoning-token latency (the same reason
+`DEEPINFRA_SWARM_TIMEOUT_MS` exists at all, see router-lanes.ts) routinely
+exceeds 8s. Fixed: `synthesisAttempts()` now applies the same
+`DEEPINFRA_SWARM_TIMEOUT_MS`/`DEEPINFRA_SWARM_LARGE_TIMEOUT_MS` split as
+`swarmAttempts()`.
+
+**Real-verification, one real (non-dry-run) n=2 run against
+`/admin/reasoning`:**
+- `/admin`'s AI Router Monitor: Swarm and Synthesis lanes now render as a
+  single step, "Only target — no fallback (deliberate, temporary)" ·
+  `deepinfra · openai/gpt-oss-20b`.
+- Live traffic: `context-gather-pre` → `frame-generate` → `frame-review`
+  (9/9 standards passed) → `context-gather-post` → `breadth-scoping` all
+  succeeded, DeepInfra only. Target Health climbed to **31 OK / 3 FAIL, all
+  on `deepinfra`** — Groq/Gemini/Mistral/Cerebras stayed at 0/0 the entire
+  run, confirming zero fallback traffic reached them.
+- **The 3 failures are the trade-off working as designed, not a new bug:**
+  `perspectives-generate-details`'s evidence sub-call
+  (`perspective_evidence`, which routes through
+  `generateWithOptionalSearch`'s search rounds) hit DeepInfra timeouts
+  twice in a row (`"Request timed out."`, ~95s each — the search-round
+  chain's own deadline, not a hung request) and one `ai-empty-output`
+  (`finishReason: "stop"`, no content). Every failure's log line names only
+  `deepinfra` — no fallback was attempted, exactly as designed. The client
+  surfaced a clean "Could not reach a stage of the pipeline" with a Retry
+  affordance rather than hanging.
+- **Known gap, not fixed here (flagged for Samir, not fixed per his "no
+  matter what" instruction):** `perspective_evidence`/`global_evidence` —
+  the two steps that go through `generateWithOptionalSearch`'s multi-round
+  search chain — appear to be the ones most exposed by removing the
+  fallback tail, since a slow or empty DeepInfra round now has nothing to
+  fail over to. Worth watching `/admin/reasoning/runs` for whether this
+  pattern (evidence steps specifically) recurs disproportionately now that
+  swarm has no relief valve.

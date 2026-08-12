@@ -91,23 +91,15 @@ function buildLanes(): {
       laneStep('Fallback (Gemini 429)', TARGETS.cerebrasGptOss120b),
     ],
     // Reasoning pipeline only (lib/ai/reasoning/*) — every generate/review call
-    // except final composition. See router.ts's swarmAttempts().
-    swarm: [
-      laneStep('Primary — paid, highest-volume traffic', TARGETS.deepinfra),
-      laneStep('Burst absorber (DeepInfra failure)', TARGETS.groqGptOss20b, 'skipped while Groq is cooling'),
-      laneStep('Fallback (Groq unavailable)', TARGETS.geminiFlash),
-      laneStep('Fallback (Gemini 429)', TARGETS.mistral8b),
-      laneStep('Fallback (Mistral 429)', TARGETS.cerebrasGptOss120b),
-    ],
-    // Reasoning pipeline only, final-composition step ONLY. See router.ts's
-    // synthesisAttempts().
-    synthesis: [
-      laneStep('Primary', TARGETS.groqGptOss20b, 'skipped while Groq is cooling'),
-      laneStep('Fallback (Groq unavailable)', TARGETS.deepinfra),
-      laneStep('Fallback (DeepInfra 429)', TARGETS.geminiFlash),
-      laneStep('Fallback (Gemini 429)', TARGETS.mistral8b),
-      laneStep('Fallback (Mistral 429)', TARGETS.cerebrasGptOss120b),
-    ],
+    // except final composition. See router-lanes.ts's swarmAttempts().
+    // DELIBERATE, TEMPORARY, DeepInfra-only — no fallback (2026-08-12,
+    // Samir). See swarmAttempts()'s comment for the full rationale; this
+    // single-step lane is intentional, not a bug.
+    swarm: [laneStep('Only target — no fallback (deliberate, temporary)', TARGETS.deepinfra)],
+    // Reasoning pipeline only, final-composition step ONLY. See
+    // router-lanes.ts's synthesisAttempts(). Same DeepInfra-only posture as
+    // swarm above, same reason.
+    synthesis: [laneStep('Only target — no fallback (deliberate, temporary)', TARGETS.deepinfra)],
   }
 }
 

@@ -126,30 +126,39 @@ describe('lane order and 429 cascade', () => {
 })
 
 describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
-  it('swarm walks deepinfra → groq gpt-oss-20b → gemini → mistral → cerebras', async () => {
-    script = (m) => (m === MODELS.cerebras ? OK : (() => { throw makeErr(429, 'rate limit') })())
+  // 2026-08-12, Samir, verbatim: "it should always be using deep infra (no
+  // matter what for now)" — Groq/Gemini/Mistral/Cerebras removed from both
+  // lanes entirely (not just reordered). Deliberate, temporary loss of
+  // resilience — see router-lanes.ts's swarmAttempts()/synthesisAttempts()
+  // comment for the full rationale. These cases replace the old chain-order
+  // assertions (deepinfra → groq → gemini → mistral → cerebras) with
+  // deepinfra-only, no-fallback ones.
+
+  it('swarm succeeds via deepinfra alone', async () => {
+    script = () => OK
     await expect(ask('swarm')).resolves.toEqual({ ok: true })
-    // provider, not model — deepinfra and groq both request openai/gpt-oss-20b.
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'groq', 'google', 'mistral', 'cerebras'])
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('swarm with allowHighReasoning (repair mode) skips groq entirely: deepinfra → gemini → mistral → cerebras', async () => {
-    // 2026-08-12, Samir: every repair-mode call that reached Groq failed
-    // there all session (413/429 TPM ceiling, or json_validate_failed just
-    // under it) — see DEEPINFRA_SWARM_LARGE_TIMEOUT_MS (router-lanes.ts).
-    script = (m) => (m === MODELS.cerebras ? OK : (() => { throw makeErr(429, 'rate limit') })())
-    await expect(ask('swarm', { allowHighReasoning: true })).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'google', 'mistral', 'cerebras'])
+  it('swarm does not fail over on a deepinfra failure — no other provider is tried', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('swarm')).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('swarm skips groq while the shared penalty box is open (deepinfra straight to gemini)', async () => {
+  it('swarm with allowHighReasoning (repair mode) is still deepinfra-only, no fallback', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('swarm', { allowHighReasoning: true })).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
+
+  it('swarm ignores the shared groq penalty box — still deepinfra-only', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
     // Open the penalty box via the realtime lane first (mirrors the 'groq
-    // penalty box' describe block above) — proves swarm reads the SAME
-    // shared, account-level Groq state, not a lane-local copy. groqQwen's
-    // model id is distinct from deepinfra's, so a plain model check is fine
-    // for opening the box.
+    // penalty box' describe block below) — proves swarm no longer reads
+    // that shared, account-level Groq state at all now that Groq isn't in
+    // its chain.
     script = (m) =>
       m === MODELS.mistral || m === MODELS.deepinfra || m === MODELS.groqQwen
         ? (() => { throw makeErr(429, 'rate limit') })()
@@ -157,22 +166,24 @@ describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
     await ask('coach')
 
     calls.length = 0
-    // Groq is skipped entirely here (cooling), so only deepinfra's call can
-    // possibly match this predicate — no collision risk in this one.
-    script = (m, _params, provider) => (provider === 'deepinfra' ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    script = () => OK
     await expect(ask('swarm')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'google'])
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('synthesis leads with groq gpt-oss-20b, deepinfra second', async () => {
-    // MUST check provider, not model: 'groqOss' and 'deepinfra' share a model
-    // id, so a model-only check here would incorrectly fail deepinfra too.
-    script = (_m, _params, provider) => (provider === 'groq' ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+  it('synthesis succeeds via deepinfra alone', async () => {
+    script = () => OK
     await expect(ask('synthesis')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.provider)).toEqual(['groq', 'deepinfra'])
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('synthesis skips groq while cooling down, leading with deepinfra', async () => {
+  it('synthesis does not fail over on a deepinfra failure — no other provider is tried', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('synthesis')).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
+
+  it('synthesis ignores the shared groq penalty box — still deepinfra-only', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
     script = (m) =>
