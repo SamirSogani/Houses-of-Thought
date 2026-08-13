@@ -130,26 +130,39 @@ describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
   // matter what for now)" — Groq/Gemini/Mistral/Cerebras removed from both
   // lanes entirely (not just reordered). Deliberate, temporary loss of
   // resilience — see router-lanes.ts's swarmAttempts()/synthesisAttempts()
-  // comment for the full rationale. These cases replace the old chain-order
-  // assertions (deepinfra → groq → gemini → mistral → cerebras) with
-  // deepinfra-only, no-fallback ones.
+  // comment for the full rationale.
+  //
+  // Later the same day: real production traffic showed DeepInfra's own
+  // failures here (timeouts, empty completions) are intermittent, not a
+  // network/rate-limit problem (confirmed via DeepInfra's own dashboard —
+  // received, billed, no rate limit flagged) — so both lanes now retry the
+  // SAME target DEEPINFRA_SAME_TARGET_ATTEMPTS times before giving up. Still
+  // zero other providers — these cases assert exactly that: multiple calls,
+  // all to deepinfra, never anything else.
 
-  it('swarm succeeds via deepinfra alone', async () => {
+  it('swarm succeeds via deepinfra alone on the first attempt', async () => {
     script = () => OK
     await expect(ask('swarm')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('swarm does not fail over on a deepinfra failure — no other provider is tried', async () => {
-    script = () => { throw makeErr(429, 'rate limit') }
-    await expect(ask('swarm')).rejects.toThrow()
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  it('swarm retries deepinfra itself and recovers after a transient failure', async () => {
+    let n = 0
+    script = () => (n++ === 0 ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra'])
   })
 
-  it('swarm with allowHighReasoning (repair mode) is still deepinfra-only, no fallback', async () => {
+  it('swarm exhausts every deepinfra attempt before failing — no other provider is ever tried', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('swarm')).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
+  })
+
+  it('swarm with allowHighReasoning (repair mode) also retries deepinfra itself, no fallback', async () => {
     script = () => { throw makeErr(429, 'rate limit') }
     await expect(ask('swarm', { allowHighReasoning: true })).rejects.toThrow()
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
   })
 
   it('swarm ignores the shared groq penalty box — still deepinfra-only', async () => {
@@ -171,16 +184,23 @@ describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
     expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('synthesis succeeds via deepinfra alone', async () => {
+  it('synthesis succeeds via deepinfra alone on the first attempt', async () => {
     script = () => OK
     await expect(ask('synthesis')).resolves.toEqual({ ok: true })
     expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 
-  it('synthesis does not fail over on a deepinfra failure — no other provider is tried', async () => {
+  it('synthesis retries deepinfra itself and recovers after a transient failure', async () => {
+    let n = 0
+    script = () => (n++ === 0 ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra'])
+  })
+
+  it('synthesis exhausts every deepinfra attempt before failing — no other provider is ever tried', async () => {
     script = () => { throw makeErr(429, 'rate limit') }
     await expect(ask('synthesis')).rejects.toThrow()
-    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
   })
 
   it('synthesis ignores the shared groq penalty box — still deepinfra-only', async () => {

@@ -92,14 +92,16 @@ function buildLanes(): {
     ],
     // Reasoning pipeline only (lib/ai/reasoning/*) — every generate/review call
     // except final composition. See router-lanes.ts's swarmAttempts().
-    // DELIBERATE, TEMPORARY, DeepInfra-only — no fallback (2026-08-12,
-    // Samir). See swarmAttempts()'s comment for the full rationale; this
-    // single-step lane is intentional, not a bug.
-    swarm: [laneStep('Only target — no fallback (deliberate, temporary)', TARGETS.deepinfra)],
+    // DELIBERATE, TEMPORARY, DeepInfra-only — no OTHER provider (2026-08-12,
+    // Samir). Retried against itself up to DEEPINFRA_SAME_TARGET_ATTEMPTS
+    // times on a transient failure (real production traffic showed DeepInfra's
+    // own failures here are intermittent) — still zero other providers, see
+    // swarmAttempts()'s comment for the full rationale.
+    swarm: [laneStep('Only target — retried on itself, no other provider (deliberate, temporary)', TARGETS.deepinfra)],
     // Reasoning pipeline only, final-composition step ONLY. See
-    // router-lanes.ts's synthesisAttempts(). Same DeepInfra-only posture as
-    // swarm above, same reason.
-    synthesis: [laneStep('Only target — no fallback (deliberate, temporary)', TARGETS.deepinfra)],
+    // router-lanes.ts's synthesisAttempts(). Same DeepInfra-only, retry-on-
+    // itself posture as swarm above, same reason.
+    synthesis: [laneStep('Only target — retried on itself, no other provider (deliberate, temporary)', TARGETS.deepinfra)],
   }
 }
 

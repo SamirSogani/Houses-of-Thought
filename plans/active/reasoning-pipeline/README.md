@@ -64,6 +64,11 @@ Root cause of the pipeline consistently stopping on `perspectives-generate`
 or `global-assumptions` on real Vercel Hobby traffic (a self-inflicted call
 stagger plus a self-imposed duration ceiling, both fixed without upgrading
 the plan): [22-vercel-hobby-duration-and-stagger-fix.md](22-vercel-hobby-duration-and-stagger-fix.md).
+Why it kept failing even after that fix — DeepInfra's own intermittent
+reliability on ordinary first-pass calls (confirmed via its dashboard: received,
+billed, no rate limit — model behavior, not infra), and the same-target-retry
+fix that keeps "DeepInfra, no matter what" intact:
+[23-deepinfra-intermittent-reliability-and-same-target-retry.md](23-deepinfra-intermittent-reliability-and-same-target-retry.md).
 
 ## Why perspectives fan out and nothing else does
 

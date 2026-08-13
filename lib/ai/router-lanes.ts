@@ -258,6 +258,11 @@ function draftAttempts(): Attempt[] {
 // traffic answers (a) — this is a posture for now, not a permanent
 // architecture decision. suggestor/coach/critic/drafter are untouched; this
 // scoping is swarm/synthesis only, same as everything else in this lane.
+// NOT "one shot at DeepInfra, then fail" though — see
+// DEEPINFRA_SAME_TARGET_ATTEMPTS below: real production traffic showed
+// DeepInfra's own failures here are intermittent, so the lane retries the
+// SAME target a few times before giving up. Zero other providers involved —
+// still fully within "no matter what."
 //
 // isGroqTokenLimitExceeded()/isGroqJsonValidateFailed()/groqCoolingDown()
 // (router-shared.ts / router-state.ts) are now unused BY THIS LANE
@@ -268,9 +273,37 @@ function draftAttempts(): Attempt[] {
 // distinction is about gpt-oss-20b's own latency profile under
 // allowHighReasoning, orthogonal to which (or how many) providers are in the
 // chain, so it survives this change untouched.
+//
+// Listed DEEPINFRA_SAME_TARGET_ATTEMPTS times, not once (2026-08-12, Samir,
+// real-verified in production the same day): a real n=2 run against
+// houses-of-thought.vercel.app failed repeatedly at perspectives-generate/
+// global-assumptions, both `ai-empty-output` (finishReason "stop", zero
+// content) and plain SDK-level timeouts at the full DEEPINFRA_SWARM_TIMEOUT_MS
+// window — on ordinary first-pass/medium-effort calls, not just repair-mode.
+// Checked DeepInfra's own dashboard for that exact window: the requests were
+// RECEIVED and BILLED, no rate-limit flagged on the account. That rules out a
+// network/transit failure or a 429 — this is gpt-oss-20b's own reasoning-
+// token behavior (the same mechanism doc 20's fix #1 already named)
+// occasionally either running past the timeout or finishing with nothing in
+// the visible-answer channel, and it's INTERMITTENT — 3 real attempts on one
+// step that session: 2 failed, 1 succeeded outright, no code changed between
+// them. `execute()` (router.ts) already cascades through a role's attempt
+// list on exactly these error classes (timeout, ai-empty-output, 5xx) — no
+// new mechanism needed, just more attempts at the SAME target, so a
+// transient failure gets another real shot at DeepInfra specifically before
+// the step actually fails. Still zero other providers in this lane — Samir's
+// "no matter what" instruction stands; this is a retry, not a fallback.
+// `execute()`'s own shared CHAIN_DEADLINE_MS/deadlineAt check already caps
+// how many of these attempts actually get tried if time runs out, so this
+// can't blow the route's budget even in the worst case (3 × 75s repair-mode
+// = 225s, still under CHAIN_DEADLINE_MS.swarm's 260s with real margin). Full
+// diagnosis: plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum.
+const DEEPINFRA_SAME_TARGET_ATTEMPTS = 3
+
 function swarmAttempts(allowHighReasoning: boolean): Attempt[] {
   const timeoutMs = allowHighReasoning ? DEEPINFRA_SWARM_LARGE_TIMEOUT_MS : DEEPINFRA_SWARM_TIMEOUT_MS
-  return [{ ...TARGETS.deepinfra, timeoutMs }]
+  return Array.from({ length: DEEPINFRA_SAME_TARGET_ATTEMPTS }, () => ({ ...TARGETS.deepinfra, timeoutMs }))
 }
 
 // Reasoning-pipeline-only lane, final-composition step ONLY (runFinalComposition,
@@ -291,9 +324,14 @@ function swarmAttempts(allowHighReasoning: boolean): Attempt[] {
 // hidden-reasoning-token latency on DeepInfra. Harmless while DeepInfra was
 // only ever synthesis's fallback; live-broken now that it is the only
 // attempt — real-verified during this change, see doc 20's addendum).
+//
+// Listed DEEPINFRA_SAME_TARGET_ATTEMPTS times, same reasoning and same day as
+// swarmAttempts() above — see that comment for the full real-verified
+// diagnosis (received + billed + no rate limit on DeepInfra's own dashboard,
+// intermittent model-behavior failures, not a network/infra problem).
 function synthesisAttempts(allowHighReasoning: boolean): Attempt[] {
   const timeoutMs = allowHighReasoning ? DEEPINFRA_SWARM_LARGE_TIMEOUT_MS : DEEPINFRA_SWARM_TIMEOUT_MS
-  return [{ ...TARGETS.deepinfra, timeoutMs }]
+  return Array.from({ length: DEEPINFRA_SAME_TARGET_ATTEMPTS }, () => ({ ...TARGETS.deepinfra, timeoutMs }))
 }
 
 // Built fresh per request so it reflects current penalty-box / recovery state.

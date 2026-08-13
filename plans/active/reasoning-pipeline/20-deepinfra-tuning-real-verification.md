@@ -164,4 +164,8 @@ exceeds 8s. Fixed: `synthesisAttempts()` now applies the same
   fail over to. Worth watching `/admin/reasoning/runs` for whether this
   pattern (evidence steps specifically) recurs disproportionately now that
   swarm has no relief valve. **Root-caused and mostly fixed the same day —
-  see [22-vercel-hobby-duration-and-stagger-fix.md](22-vercel-hobby-duration-and-stagger-fix.md).**
+  see [22-vercel-hobby-duration-and-stagger-fix.md](22-vercel-hobby-duration-and-stagger-fix.md)
+  (the stagger/duration half) and
+  [23-deepinfra-intermittent-reliability-and-same-target-retry.md](23-deepinfra-intermittent-reliability-and-same-target-retry.md)
+  (DeepInfra's own intermittent reliability — confirmed via its dashboard,
+  not a network/rate-limit issue — and the same-target-retry fix).**
