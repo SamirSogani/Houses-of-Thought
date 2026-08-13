@@ -1,13 +1,14 @@
 // Prompts for the reasoning pipeline (decision 019). Client-safe (plain
 // strings + pure serialization helpers, no server imports) — mirrors
-// lib/ai/prompts.ts's PERSONA + capability-block composition pattern, at the
-// granularity of this pipeline's 16 steps.
+// lib/ai/prompts.ts's PERSONA + capability-block composition pattern.
 //
-// Evidence in this pipeline (perspective-level and global) is NOT Brave-
-// grounded like Draft Mode's evidence stage (lib/ai/draft.ts) — Phase 1 scope
-// is proving the orchestration architecture, not wiring live search. Reviewers
-// and generators are told this explicitly so they describe what evidence
-// would be needed rather than fabricating a specific, real-sounding source.
+// Evidence generation (perspective-level and global) IS Brave-grounded
+// (decision 019's Phase 1.5, doc 11) and split into 3 phases as of
+// 2026-08-13 (Samir) — strategy decides whether to search and/or ask the
+// person; populate writes the actual items from whatever real material came
+// back; confidence scores what populate wrote. Populate never has to hedge
+// about "is this citation real or hypothetical" the way the old single-call
+// version did, since by the time it runs, everything it's shown IS real.
 
 import type { ContextGatherVerdict, FramePacket, PerspectiveBundle, ReviewPanelVerdict, MasterReviewGuidance } from './contracts'
 import type { StandardDef } from './standards'
@@ -19,7 +20,8 @@ Hard rules:
 - Only produce what THIS stage asks for — nothing else.
 - Never invent facts, sources, or citations you cannot honestly ground in what you were given.
 - Plain, direct language — no lecturing, no hedging filler.
-- Be concise — every field below has a hard output-token budget; a response that runs long doesn't get truncated gracefully, it gets cut off mid-JSON and fails outright. Say what's needed in as few words as it takes, not more — this is a real technical constraint, not a style preference.`
+- Be concise — every field below has a hard output-token budget; a response that runs long doesn't get truncated gracefully, it gets cut off mid-JSON and fails outright. Say what's needed in as few words as it takes, not more — this is a real technical constraint, not a style preference.
+- This task does not need extended internal deliberation — decide promptly and answer. Spending a long time reasoning before answering doesn't improve the result here and risks never producing an answer at all, which fails this step outright rather than just running slower.`
 
 // ── Context-gather (the two fixed checkpoints, plus admin-triggered ad-hoc
 // calls at any layer boundary — Phase 3 item 1, decision 019) ───────────────
@@ -62,11 +64,27 @@ export const PERSPECTIVE_ASSUMPTIONS_BLOCK = `Task: given ONE perspective's stan
 
 Return 1-6 assumptions this stance depends on but does not defend. Prefer load-bearing ones — assumptions the stance would collapse without.`
 
-export const PERSPECTIVE_EVIDENCE_BLOCK = `Task: given ONE perspective's stance below, name what would support it.
+// ── Evidence generation, 3 phases (2026-08-13, Samir) — replaces the old
+// single PERSPECTIVE_EVIDENCE_BLOCK/GLOBAL_EVIDENCE_BLOCK (one call juggling
+// search-vs-ask decisions, epistemic hedging about real-vs-hypothetical
+// sourcing, AND confidence all at once). Strategy decides HOW to gather
+// (search and/or ask the user); populate writes the items from whatever
+// real material came back — no more "avoid inventing citations" hedging
+// needed, since by this point everything it sees IS real; confidence scores
+// what populate wrote, seeing nothing else. Perspective and global variants
+// differ only in scope (ONE stance vs. the question itself/ALL perspectives)
+// — same pattern as every other perspective/global pair in this file.
+export const PERSPECTIVE_EVIDENCE_STRATEGY_BLOCK = `Task: given ONE perspective's stance below, decide how to gather evidence for it — do not write any evidence yet, just the plan.
 
-Real web search is available via search_queries (up to 3). Most claims don't need it — only request search when a specific, checkable fact (a named study, a real statistic, an actual policy) would turn a hypothetical evidence item into a real, citable one. Leave search_queries empty otherwise; that is the normal case, not a fallback.
+Return search_queries (up to 3 real web searches — request one only when a specific, checkable fact, like a named study or a real statistic, would turn a hypothetical evidence item into a real, citable one; most claims don't need it, leave empty — that is the normal case, not a fallback), needs_user_input (true only when something only the person asking would know — a number specific to their situation, a policy they're operating under — would materially change what evidence applies; not merely because more detail would be nice), questions_for_user (up to 3, only when needs_user_input is true), and reason (one sentence, either way). Search and a question can both apply, or neither.`
 
-Return up to 6 evidence items, each: claim_id (a short slug naming what it supports), source_ref (if real search results were given back to you, a real URL or source name FROM those results — never a URL you were not actually given; otherwise the kind/name of source this would come from, described specifically — e.g. "district cost data," "peer-reviewed study on X" — never invent a specific real-sounding URL, author, or study that does not exist), confidence (low/medium/high), and caveats (a limitation, or null). If an item is not grounded in real search results, be honest that this is what a real search would need to find, not a verified citation.`
+export const PERSPECTIVE_EVIDENCE_POPULATE_BLOCK = `Task: given ONE perspective's stance below and whatever real search results or the person's own answer were found, write the actual evidence items.
+
+Return up to 6 evidence items, each: claim_id (a short slug naming what it supports), source_ref (the real URL or source name from the results/answer you were given below — quote it directly, don't paraphrase it into something less specific), caveats (a limitation, or null). Ground every item in what you were actually given — if nothing useful came back, return fewer items rather than padding the list.`
+
+export const PERSPECTIVE_EVIDENCE_CONFIDENCE_BLOCK = `Task: given the evidence items below (already written, already sourced), rate how strongly each one actually supports the claim it's attached to — not how important the claim is, just how solid its own sourcing is.
+
+Return confidence: one entry per item, each a claim_id (matching one of the items below exactly) and confidence (low/medium/high). A named, specific source backing a narrow claim is high; a general or secondhand source, or one covering a broader claim than stated, is medium or low.`
 
 export const PERSPECTIVE_COUNTERARGUMENT_BLOCK = `Task: you are NOT the author of the stance below — argue the strongest case AGAINST it. Attack, do not restate softened.
 
@@ -77,11 +95,17 @@ export const GLOBAL_ASSUMPTIONS_BLOCK = `Task: given the core question and ALL v
 
 Return question_level_assumptions (1-8), each ONE distinct, testable claim — if a sentence bundles multiple conditions ("X assumes A, and that B, and that C"), split it into separate assumptions unless A/B/C truly stand or fall together. And cross_perspective_notes (1-2 sentences naming WHICH specific perspectives or claims revealed the pattern — a bare assertion that a pattern exists, without pointing to what in the perspectives showed it, is not enough). Do not just repeat an assumption already listed inside one perspective's own assumptions unless naming it at a genuinely more general level.`
 
-export const GLOBAL_EVIDENCE_BLOCK = `Task: given the core question and ALL vetted perspectives below, name evidence relevant to the QUESTION ITSELF, not confined to defending any one stance.
+export const GLOBAL_EVIDENCE_STRATEGY_BLOCK = `Task: given the core question and ALL vetted perspectives below, decide how to gather evidence relevant to the QUESTION ITSELF (not confined to defending any one stance) — do not write any evidence yet, just the plan.
 
-Real web search is available via search_queries (up to 3). Most claims don't need it — only request search when a specific, checkable fact would turn a hypothetical evidence item into a real, citable one. Leave search_queries empty otherwise; that is the normal case, not a fallback.
+Return search_queries (up to 3 real web searches — request one only when a specific, checkable fact would turn a hypothetical evidence item into a real, citable one; most claims don't need it, leave empty — that is the normal case, not a fallback), needs_user_input (true only when something only the person asking would know would materially change what evidence applies to this question; not merely because more detail would be nice), questions_for_user (up to 3, only when needs_user_input is true), and reason (one sentence, either way). Search and a question can both apply, or neither.`
 
-Return up to 8 question_level_evidence items, each: claim_id, source_ref (if real search results were given back to you, a real URL or source name FROM those results — never a URL you were not actually given; otherwise described specifically — describe what a real search would need to find, never invent a specific real-sounding source), confidence.`
+export const GLOBAL_EVIDENCE_POPULATE_BLOCK = `Task: given the core question, ALL vetted perspectives, and whatever real search results or the person's own answer were found, write the actual question-level evidence items.
+
+Return up to 8 evidence items, each: claim_id and source_ref (the real URL or source name from the results/answer you were given below — quote it directly, don't paraphrase it into something less specific). Ground every item in what you were actually given — if nothing useful came back, return fewer items rather than padding the list.`
+
+export const GLOBAL_EVIDENCE_CONFIDENCE_BLOCK = `Task: given the evidence items below (already written, already sourced), rate how strongly each one actually supports the claim it's attached to.
+
+Return confidence: one entry per item, each a claim_id (matching one of the items below exactly) and confidence (low/medium/high). A named, specific source backing a narrow claim is high; a general or secondhand source, or one covering a broader claim than stated, is medium or low.`
 
 // ── Conclusions and implications ────────────────────────────────────────────
 export const CONCLUSIONS_BLOCK = `Task: given the core question, all vetted perspectives, and the global assumptions and evidence below, draw the conclusion(s) that actually follow.

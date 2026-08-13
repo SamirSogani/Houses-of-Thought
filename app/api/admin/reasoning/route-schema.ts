@@ -21,12 +21,19 @@ import {
   BreadthScopingPacketSchema,
   PerspectiveStanceSchema,
   PerspectiveBundleSchema,
+  PerspectivePartialBundleSchema,
   ReviewPanelVerdictSchema,
   GlobalAssumptionsPacketSchema,
   GlobalEvidencePacketSchema,
   ConclusionsPacketSchema,
   ImplicationsPacketSchema,
   MasterReviewGuidanceSchema,
+  SubElementFailureSchema,
+  EvidenceStrategySchema,
+  EvidenceGatherUnitSchema,
+  EvidenceGatherUnitAnswersSchema,
+  EvidenceItemDraftSchema,
+  GlobalEvidenceItemDraftSchema,
   type ReviewPanelVerdict,
 } from '@/lib/ai/reasoning/contracts'
 
@@ -57,13 +64,48 @@ export const RunStateSchema = z.object({
   // clicks the control, not a real limit.
   adHocContextGathers: z.array(AdHocContextGatherSchema).max(20).nullish(),
   perspectiveStances: z.array(PerspectiveStanceSchema).nullish(),
+  // perspectives-generate-details' own output (2026-08-13: evidence moved
+  // out to its own 3 steps below) — stance + sub_questions + assumptions +
+  // counterargument, no evidence yet.
+  perspectivePartials: z.array(PerspectivePartialBundleSchema).nullish(),
+  // Evidence's own 3-phase output, index-aligned with perspectiveStances —
+  // see lib/ai/reasoning/orchestrator-perspectives.ts's
+  // runPerspectivesEvidenceStrategy/Populate/Confidence.
+  perspectiveEvidenceStrategies: z.array(EvidenceStrategySchema).nullish(),
+  // Only the units that asked something (a subset of perspectiveStances,
+  // possibly empty) — set only when strategy produced at least one
+  // needs_user_input: true, cleared on the next fresh (non-repair) attempt.
+  perspectiveEvidenceGatherUnits: z.array(EvidenceGatherUnitSchema).nullish(),
+  // Index-aligned with perspectiveEvidenceGatherUnits (NOT perspectiveStances
+  // — only the units that actually asked have an entry here). Starts as an
+  // array of nulls once gather units are set, filled in as the admin answers.
+  perspectiveEvidenceGatherAnswers: z.array(EvidenceGatherUnitAnswersSchema.nullable()).nullish(),
+  // evidence-populate's own output, index-aligned with perspectiveStances —
+  // claim_id/source_ref/caveats, no confidence yet (that's the next step).
+  perspectiveEvidenceDrafts: z.array(z.array(EvidenceItemDraftSchema)).nullish(),
   perspectives: z.array(PerspectiveBundleSchema).nullish(),
   perspectiveVerdicts: z.array(ReviewPanelVerdictSchema).nullish(),
   // Per-bundle regeneration count (03-orchestration-and-failure-handling.md);
   // parallel to `perspectives`. Absent/null means "never regenerated yet."
   perspectiveAttempts: z.array(z.number().int()).nullish(),
+  // 2026-08-13, Samir: which sub-element(s), for which perspective(s), the
+  // MOST RECENT perspectives fan-out step (generate-details, or any of the
+  // 3 evidence steps) failed on — set only when that call throws
+  // PerspectivesGenerateError (orchestrator-perspectives.ts), cleared
+  // (nullish) on the next successful attempt at whichever step set it. See
+  // SubElementFailure (contracts.ts) for why this exists — makes a transient
+  // provider failure durable and specific instead of relying on Vercel's own
+  // (1-hour, Hobby plan) log retention.
+  lastSubElementFailures: z.array(SubElementFailureSchema).nullish(),
   globalAssumptions: GlobalAssumptionsPacketSchema.nullish(),
   globalAssumptionsVerdict: ReviewPanelVerdictSchema.nullish(),
+  // Global evidence's own 3-phase output (2026-08-13) — same shapes as the
+  // perspective-level ones above, just for the ONE question-level unit
+  // (unitId 'global' in globalEvidenceGatherUnit, if it asks).
+  globalEvidenceStrategy: EvidenceStrategySchema.nullish(),
+  globalEvidenceGatherUnit: EvidenceGatherUnitSchema.nullish(),
+  globalEvidenceGatherAnswer: EvidenceGatherUnitAnswersSchema.nullish(),
+  globalEvidenceDraft: z.array(GlobalEvidenceItemDraftSchema).nullish(),
   globalEvidence: GlobalEvidencePacketSchema.nullish(),
   globalEvidenceVerdict: ReviewPanelVerdictSchema.nullish(),
   conclusions: ConclusionsPacketSchema.nullish(),

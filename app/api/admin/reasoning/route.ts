@@ -42,12 +42,20 @@ import {
 import {
   runPerspectivesGenerateStances,
   runPerspectivesGenerateDetails,
+  runPerspectivesEvidenceStrategy,
+  runPerspectivesEvidencePopulate,
+  runPerspectivesEvidenceConfidence,
   runPerspectivesReview,
+  PerspectivesGenerateError,
+  collectEvidenceGatherUnits,
+  flattenEvidenceGatherAnswers,
 } from '@/lib/ai/reasoning/orchestrator-perspectives'
 import {
   runGlobalAssumptionsGenerate,
   runGlobalAssumptionsReview,
-  runGlobalEvidenceGenerate,
+  runGlobalEvidenceStrategy,
+  runGlobalEvidencePopulate,
+  runGlobalEvidenceConfidence,
   runGlobalEvidenceReview,
   runConclusionsGenerate,
   runConclusionsReview,
@@ -123,6 +131,20 @@ export async function POST(req: Request): Promise<Response> {
     const nextStep = nextStepAfter(step)
     persist(step, patch, nextStep, false)
     return NextResponse.json({ step, patch, nextStep, halted: false })
+  }
+
+  // Shared by all 4 perspectives fan-out steps (generate-details, the 3
+  // evidence steps) — 2026-08-13, Samir: make WHICH sub-element(s), for
+  // WHICH perspective(s), failed durable and client-visible, not just a
+  // line in Vercel's own logs (Hobby's 1-hour retention already cost real
+  // debugging time this session — see doc 23). Persisted even though this
+  // isn't a genuine hard-block halt (nextStep stays `step` itself — Retry
+  // just re-attempts it) so it survives past this one response and shows up
+  // in Past Runs too.
+  function perspectivesFanOutFailure(step: StepId, err: PerspectivesGenerateError): Response {
+    log.error('ai/reasoning/route', `${step} sub-element failure`, { failures: err.failures })
+    persist(step, { lastSubElementFailures: err.failures }, step, false)
+    return NextResponse.json({ error: 'ai-upstream-error', subElementFailures: err.failures }, { status: 502 })
   }
 
   // A failed panel verdict with regenerations still available: loop the client
@@ -271,21 +293,133 @@ export async function POST(req: Request): Promise<Response> {
       case 'perspectives-generate-details': {
         if (!run.frame || !run.perspectiveStances) return missing('frame/perspectiveStances')
         const repair =
+          run.perspectivePartials && run.perspectiveVerdicts
+            ? {
+                priorPartials: run.perspectivePartials,
+                priorVerdicts: run.perspectiveVerdicts,
+                priorAttempts: run.perspectiveAttempts ?? run.perspectiveStances.map(() => 1),
+              }
+            : undefined
+        try {
+          const partials = await runPerspectivesGenerateDetails(run.frame, run.perspectiveStances, dryRun, repair, extraContext)
+          // Clear any stale failure record from a prior failed attempt at
+          // this step — this one succeeded.
+          return ok(step, { perspectivePartials: partials, lastSubElementFailures: null })
+        } catch (err) {
+          if (err instanceof PerspectivesGenerateError) {
+            return perspectivesFanOutFailure(step, err)
+          }
+          throw err
+        }
+      }
+
+      case 'perspectives-evidence-strategy': {
+        if (!run.frame || !run.perspectiveStances || !run.perspectivePartials) {
+          return missing('frame/perspectiveStances/perspectivePartials')
+        }
+        const repair =
+          run.perspectiveEvidenceStrategies && run.perspectiveVerdicts
+            ? {
+                priorStrategies: run.perspectiveEvidenceStrategies,
+                priorPartials: run.perspectivePartials,
+                priorVerdicts: run.perspectiveVerdicts,
+              }
+            : undefined
+        try {
+          const strategies = await runPerspectivesEvidenceStrategy(
+            run.frame,
+            run.perspectiveStances,
+            dryRun,
+            devForceNeedsInput,
+            repair,
+            extraContext
+          )
+          // Only the units that actually asked something (Phase 3 item 1's
+          // pattern, extended to n independent units) — the client pauses
+          // exactly when this is non-empty, same idea as ContextGatherVerdict's
+          // needs_user_input but per-perspective.
+          const units = collectEvidenceGatherUnits(run.perspectiveStances, strategies)
+          return ok(step, {
+            perspectiveEvidenceStrategies: strategies,
+            perspectiveEvidenceGatherUnits: units.length ? units : null,
+            perspectiveEvidenceGatherAnswers: units.length ? units.map(() => null) : null,
+            lastSubElementFailures: null,
+          })
+        } catch (err) {
+          if (err instanceof PerspectivesGenerateError) {
+            return perspectivesFanOutFailure(step, err)
+          }
+          throw err
+        }
+      }
+
+      case 'perspectives-evidence-populate': {
+        if (!run.frame || !run.perspectiveStances || !run.perspectivePartials || !run.perspectiveEvidenceStrategies) {
+          return missing('frame/perspectiveStances/perspectivePartials/perspectiveEvidenceStrategies')
+        }
+        const userAnswers =
+          run.perspectiveEvidenceGatherUnits && run.perspectiveEvidenceGatherAnswers
+            ? flattenEvidenceGatherAnswers(run.perspectiveStances, run.perspectiveEvidenceGatherUnits, run.perspectiveEvidenceGatherAnswers)
+            : null
+        const repair =
+          run.perspectiveEvidenceDrafts && run.perspectiveVerdicts
+            ? {
+                priorDrafts: run.perspectiveEvidenceDrafts,
+                priorPartials: run.perspectivePartials,
+                priorVerdicts: run.perspectiveVerdicts,
+              }
+            : undefined
+        try {
+          const drafts = await runPerspectivesEvidencePopulate(
+            run.frame,
+            run.perspectiveStances,
+            run.perspectiveEvidenceStrategies,
+            userAnswers,
+            dryRun,
+            repair,
+            extraContext
+          )
+          return ok(step, { perspectiveEvidenceDrafts: drafts, lastSubElementFailures: null })
+        } catch (err) {
+          if (err instanceof PerspectivesGenerateError) {
+            return perspectivesFanOutFailure(step, err)
+          }
+          throw err
+        }
+      }
+
+      case 'perspectives-evidence-confidence': {
+        if (!run.frame || !run.perspectiveStances || !run.perspectivePartials || !run.perspectiveEvidenceDrafts) {
+          return missing('frame/perspectiveStances/perspectivePartials/perspectiveEvidenceDrafts')
+        }
+        const repair =
           run.perspectives && run.perspectiveVerdicts
             ? {
                 priorBundles: run.perspectives,
                 priorVerdicts: run.perspectiveVerdicts,
-                priorAttempts: run.perspectiveAttempts ?? run.perspectives.map(() => 1),
+                priorAttempts: run.perspectiveAttempts ?? run.perspectiveStances.map(() => 1),
               }
             : undefined
-        const { bundles, attempts } = await runPerspectivesGenerateDetails(
-          run.frame,
-          run.perspectiveStances,
-          dryRun,
-          repair,
-          extraContext
-        )
-        return ok(step, { perspectives: bundles, perspectiveAttempts: attempts })
+        try {
+          // The one place all three generate-side threads (details,
+          // strategy, populate) actually come together — see
+          // runPerspectivesEvidenceConfidence's own comment.
+          const { bundles, attempts } = await runPerspectivesEvidenceConfidence(
+            run.frame,
+            run.perspectiveStances,
+            run.perspectivePartials,
+            run.perspectiveEvidenceDrafts,
+            dryRun,
+            repair,
+            extraContext
+          )
+          return ok(step, { perspectives: bundles, perspectiveAttempts: attempts, lastSubElementFailures: null })
+        } catch (err) {
+          if (err instanceof PerspectivesGenerateError) {
+            return perspectivesFanOutFailure(step, err)
+          }
+          throw err
+        }
       }
 
       case 'perspectives-review': {
@@ -293,7 +427,8 @@ export async function POST(req: Request): Promise<Response> {
         // Degrade-and-continue, per bundle: a bundle whose verdict still
         // fails after MAX_REGENERATION_ATTEMPTS is marked degraded, but a
         // bundle with retries left loops the WHOLE step back to regenerate
-        // — never halts, even if every bundle is currently failing.
+        // (details → evidence strategy/populate/confidence again) — never
+        // halts, even if every bundle is currently failing.
         const verdicts = await runPerspectivesReview(
           run.frame,
           run.perspectives,
@@ -348,7 +483,7 @@ export async function POST(req: Request): Promise<Response> {
         return ok(step, { globalAssumptionsVerdict: verdict })
       }
 
-      case 'global-evidence-generate': {
+      case 'global-evidence-strategy': {
         if (!run.frame || !run.perspectives) return missing('frame/perspectives')
         const masterGuidance =
           run.masterReview?.forStep === 'global-evidence-review' && run.globalEvidence
@@ -358,7 +493,65 @@ export async function POST(req: Request): Promise<Response> {
           !masterGuidance && run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
             ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
             : undefined
-        const packet = await runGlobalEvidenceGenerate(run.frame, run.perspectives, dryRun, repair, extraContext, masterGuidance)
+        const strategy = await runGlobalEvidenceStrategy(
+          run.frame,
+          run.perspectives,
+          dryRun,
+          devForceNeedsInput,
+          repair,
+          extraContext,
+          masterGuidance
+        )
+        // Same idea as ContextGatherVerdict's needs_user_input, just scoped
+        // to this one question-level unit (unitId 'global') instead of n
+        // per-perspective ones — the client pauses exactly when this is set.
+        const unit = strategy.needs_user_input
+          ? { unitId: 'global', unitLabel: 'Global evidence', reason: strategy.reason, questions: strategy.questions_for_user }
+          : null
+        return ok(step, {
+          globalEvidenceStrategy: strategy,
+          globalEvidenceGatherUnit: unit,
+          globalEvidenceGatherAnswer: null,
+        })
+      }
+
+      case 'global-evidence-populate': {
+        if (!run.frame || !run.perspectives || !run.globalEvidenceStrategy) {
+          return missing('frame/perspectives/globalEvidenceStrategy')
+        }
+        const masterGuidance =
+          run.masterReview?.forStep === 'global-evidence-review' && run.globalEvidence
+            ? { priorArtifact: run.globalEvidence, guidance: run.masterReview.guidance }
+            : undefined
+        const repair =
+          !masterGuidance && run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
+            ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
+            : undefined
+        const userAnswer = run.globalEvidenceGatherAnswer?.find((a) => a != null) ?? null
+        const draft = await runGlobalEvidencePopulate(
+          run.frame,
+          run.perspectives,
+          run.globalEvidenceStrategy,
+          userAnswer,
+          dryRun,
+          repair,
+          extraContext,
+          masterGuidance
+        )
+        return ok(step, { globalEvidenceDraft: draft })
+      }
+
+      case 'global-evidence-confidence': {
+        if (!run.frame || !run.globalEvidenceDraft) return missing('frame/globalEvidenceDraft')
+        const masterGuidance =
+          run.masterReview?.forStep === 'global-evidence-review' && run.globalEvidence
+            ? { priorArtifact: run.globalEvidence, guidance: run.masterReview.guidance }
+            : undefined
+        const repair =
+          !masterGuidance && run.globalEvidence && run.globalEvidenceVerdict && !run.globalEvidenceVerdict.overall_pass
+            ? { priorArtifact: run.globalEvidence, priorVerdict: run.globalEvidenceVerdict }
+            : undefined
+        const packet = await runGlobalEvidenceConfidence(run.frame, run.globalEvidenceDraft, dryRun, repair, extraContext, masterGuidance)
         return ok(step, { globalEvidence: packet })
       }
 
@@ -367,11 +560,11 @@ export async function POST(req: Request): Promise<Response> {
         const verdict = await runGlobalEvidenceReview(run.frame, run.globalEvidence, dryRun, panelsOff, extraContext)
         if (!verdict.overall_pass) {
           if (attempt < MAX_REGENERATION_ATTEMPTS) {
-            return retryStep(step, 'global-evidence-generate', { globalEvidenceVerdict: verdict })
+            return retryStep(step, 'global-evidence-strategy', { globalEvidenceVerdict: verdict })
           }
           return tryMasterReviewOrHalt(
             step,
-            'global-evidence-generate',
+            'global-evidence-strategy',
             run.globalEvidence,
             verdict,
             serializeFrame(run.frame, extraContext),

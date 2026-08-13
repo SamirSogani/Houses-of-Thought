@@ -1,12 +1,15 @@
 // Server-only orchestration for the Perspectives layer — the pipeline's one
-// fan-out point (decisions/019). Split into two generate rounds because the 4
-// sub-elements need each bundle's own generated stance text as input
-// (lib/ai/reasoning/steps.ts explains why that can't be one request). Failure
-// here is the one place that degrades instead of hard-blocking: a bundle
-// whose panel fails gets its own bounded regenerations (MAX_REGENERATION_ATTEMPTS,
-// lib/ai/reasoning/budget.ts) — only that bundle, not the others — and is
-// marked degraded and passed forward only once those are exhausted, since the
-// other bundles still give downstream layers something to work with.
+// fan-out point (decisions/019). Split into multiple generate rounds because
+// later rounds need an earlier round's own generated text as input
+// (lib/ai/reasoning/steps.ts explains why that can't be one request):
+// stances first, then sub_questions/assumptions/counterargument, then
+// evidence's own 3-phase split (strategy → populate → confidence — see
+// runPerspectivesEvidenceStrategy below). Failure here is the one place that
+// degrades instead of hard-blocking: a bundle whose panel fails gets its own
+// bounded regenerations (MAX_REGENERATION_ATTEMPTS, lib/ai/reasoning/budget.ts)
+// — only that bundle, not the others — and is marked degraded and passed
+// forward only once those are exhausted, since the other bundles still give
+// downstream layers something to work with.
 
 import { completeJSON } from '@/lib/ai/router'
 import {
@@ -16,20 +19,32 @@ import {
   type PerspectiveStance,
   PerspectiveBundleSchema,
   type PerspectiveBundle,
+  type PerspectivePartialBundle,
   type ReviewPanelVerdict,
+  type PerspectiveSubElement,
+  type SubElementFailure,
+  EvidenceStrategySchema,
+  type EvidenceStrategy,
+  type EvidenceGatherUnit,
+  type EvidenceGatherUnitAnswers,
+  EvidencePopulateSchema,
+  type EvidenceItemDraft,
+  EvidenceConfidenceSchema,
 } from './contracts'
 import {
   REASONING_PERSONA,
   PERSPECTIVE_STANCE_BLOCK,
   PERSPECTIVE_SUBQUESTIONS_BLOCK,
   PERSPECTIVE_ASSUMPTIONS_BLOCK,
-  PERSPECTIVE_EVIDENCE_BLOCK,
+  PERSPECTIVE_EVIDENCE_STRATEGY_BLOCK,
+  PERSPECTIVE_EVIDENCE_POPULATE_BLOCK,
+  PERSPECTIVE_EVIDENCE_CONFIDENCE_BLOCK,
   PERSPECTIVE_COUNTERARGUMENT_BLOCK,
   serializeFrame,
   appendRegenerationFeedback,
 } from './prompts'
 import { runReviewPanel } from './orchestrator-panel'
-import { generateWithOptionalSearch } from './search'
+import { runSearches } from './search'
 import { MAX_REGENERATION_ATTEMPTS, REPAIR_TOKEN_HEADROOM } from './budget'
 
 if (typeof window !== 'undefined') {
@@ -38,34 +53,11 @@ if (typeof window !== 'undefined') {
 
 const StanceModelSchema = PerspectiveStanceSchema.omit({ perspective_id: true, stance_label: true })
 
-// RETIRED 2026-08-12 (Samir, root-causing "the pipeline consistently stops
-// on perspectives-generate or global-assumptions" on real Vercel Hobby
-// traffic): this used to be DRAFTER_STAGGER_MS, 20s (up to 4x under detected
-// stress) between each of this step's flattened calls — sized to keep this
-// step's real request rate under Groq's account-level 8000 TPM ceiling, back
-// when these calls rode the 'drafter' role/lane. That's been gone since
-// decision 020 (2026-08-10) moved this whole file to 'swarm', and gone
-// further still since this session's DeepInfra-only pinning
-// (router-lanes.ts's swarmAttempts()) removed Groq from the swarm chain
-// entirely — there is no TPM ceiling left in this lane to protect against
-// (DeepInfra is a paid account with no such per-request cap, the same fact
-// that justified going DeepInfra-only in the first place).
-//
-// What the 20s/call number actually bought us, once its original purpose was
-// gone, was pure self-inflicted latency: at n=2, the flattened schedule ran
-// this step's 8 calls from 0s to 140s — comfortably past
-// app/api/admin/reasoning/route.ts's 60s maxDuration even before any stress
-// multiplier, so Vercel hard-killed the function outright before the code's
-// own graceful timeout/cascade logic ever got a chance to run. This is the
-// deterministic half of that bug (the other half — the route's maxDuration
-// itself being far tighter than Hobby actually requires — is fixed in
-// router.ts's CHAIN_DEADLINE_MS and this route's own maxDuration; see
-// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
-// addendum for the full real-verified diagnosis). Replaced by
-// SWARM_STAGGER_MS below — small and constant, matching runReviewPanel's
-// REVIEWER_STAGGER_MS (orchestrator-panel.ts) — purely to avoid firing every
-// call in the exact same instant, not to throttle a rate limit that no
-// longer exists here.
+// Small and constant, matching runReviewPanel's REVIEWER_STAGGER_MS
+// (orchestrator-panel.ts) — purely to avoid firing every call in the exact
+// same instant. Retired 2026-08-12's 20s-per-call DRAFTER_STAGGER_MS (see
+// git history / doc 22) — that number existed to protect Groq's TPM ceiling,
+// which no longer applies to this DeepInfra-only lane.
 const SWARM_STAGGER_MS = 150
 
 export async function runPerspectivesGenerateStances(
@@ -94,7 +86,7 @@ export async function runPerspectivesGenerateStances(
         user: `${frameText}\n\nYour assigned viewpoint label: ${label}`,
         schema: StanceModelSchema,
         schemaName: 'perspective_stance',
-        // No repair path exists for stance generation (only the 4 sub-
+        // No repair path exists for stance generation (only the sub-
         // elements below get regenerated after a failed review) — always a
         // first-pass call, so always 'medium'. See allowHighReasoning
         // comments below for why 'high' is reserved for repair specifically.
@@ -106,12 +98,11 @@ export async function runPerspectivesGenerateStances(
   )
 }
 
-function dryRunBundle(stance: PerspectiveStance, authoredBy: string): PerspectiveBundle {
+function dryRunPartial(stance: PerspectiveStance, authoredBy: string): PerspectivePartialBundle {
   return {
     ...stance,
     sub_questions: [`[dry run] sub-question for ${stance.stance_label}.`],
     assumptions: [`[dry run] assumption for ${stance.stance_label}.`],
-    evidence: [],
     counterargument: {
       authored_by_perspective_id: authoredBy,
       target_claims: stance.key_claims.slice(0, 1),
@@ -122,10 +113,64 @@ function dryRunBundle(stance: PerspectiveStance, authoredBy: string): Perspectiv
 
 // Only a bundle whose last verdict failed AND hasn't exhausted its retries
 // needs regenerating — everything else (already passed, or already gave up
-// and degraded) is carried forward untouched. Shared by generate and review
-// below so the two can never disagree about which bundles are "still live."
+// and degraded) is carried forward untouched. Shared by every generate step
+// below AND runPerspectivesReview so none of them can disagree about which
+// bundles are "still live."
 function needsRegeneration(verdict: ReviewPanelVerdict | undefined): boolean {
   return verdict != null && !verdict.overall_pass && !verdict.degraded
+}
+
+// How many attempts a bundle has now had, given its prior verdict — pure,
+// no AI calls. Computed once (in runPerspectivesEvidenceConfidence, the last
+// generate-side step before assembly) rather than redundantly in every one
+// of the 4 generate functions.
+function computeAttempts(stances: PerspectiveStance[], repair?: { priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] }): number[] {
+  return stances.map((_, i) => {
+    if (!repair) return 1
+    return needsRegeneration(repair.priorVerdicts[i]) ? repair.priorAttempts[i] + 1 : repair.priorAttempts[i]
+  })
+}
+
+// Thrown by any of the 4 fan-out generate steps below when one or more units
+// failed (2026-08-13, Samir) — carries every failure found, not just the
+// first one Promise.allSettled happened to see, so app/api/admin/reasoning/
+// route.ts can persist and surface exactly which sub-element(s), for which
+// perspective(s), actually failed. See SubElementFailure (contracts.ts) for
+// the shape and why this exists.
+export class PerspectivesGenerateError extends Error {
+  constructor(public readonly failures: SubElementFailure[]) {
+    super(
+      `perspectives fan-out generation failed: ${failures
+        .map((f) => `${f.stanceLabel} (${f.perspectiveId})/${f.subElement}: ${f.errorMessage}`)
+        .join('; ')}`
+    )
+    this.name = 'PerspectivesGenerateError'
+  }
+}
+
+// Runs n parallel completeJSON calls, tagging any rejection with `subElement`
+// + the calling perspective before re-throwing via Promise.allSettled — the
+// shared machinery behind every one of the 4 fan-out steps below, so
+// PerspectivesGenerateError's aggregation logic lives in exactly one place.
+async function fanOutTracked<T>(
+  stances: PerspectiveStance[],
+  subElement: PerspectiveSubElement,
+  perCall: (stance: PerspectiveStance, i: number) => Promise<T>
+): Promise<{ values: T[] } | { failures: SubElementFailure[] }> {
+  const settled = await Promise.allSettled(stances.map((stance, i) => perCall(stance, i)))
+  const failures: SubElementFailure[] = []
+  settled.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      failures.push({
+        perspectiveId: stances[i].perspective_id,
+        stanceLabel: stances[i].stance_label,
+        subElement,
+        errorMessage: (result.reason as Error)?.message ?? String(result.reason),
+      })
+    }
+  })
+  if (failures.length) return { failures }
+  return { values: settled.map((r) => (r as PromiseFulfilledResult<T>).value) }
 }
 
 export async function runPerspectivesGenerateDetails(
@@ -135,39 +180,47 @@ export async function runPerspectivesGenerateDetails(
   // Present only on a retry loop-back from perspectives-review (03-
   // orchestration-and-failure-handling.md: "only the failing unit
   // regenerates... one perspective's bundle failing doesn't touch any other
-  // perspective"). Bundles whose prior verdict already settled (passed, or
-  // exhausted retries and degraded) are returned unchanged, not re-asked for.
-  repair?: { priorBundles: PerspectiveBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] },
+  // perspective"). A bundle whose prior verdict already settled (passed, or
+  // exhausted retries and degraded) is returned unchanged, not re-asked for.
+  repair?: { priorPartials: PerspectivePartialBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] },
   // Phase 3 item 1's re-contextualization mechanism — route.ts's buildExtraContext.
   extraContext?: string | null
-): Promise<{ bundles: PerspectiveBundle[]; attempts: number[] }> {
+): Promise<PerspectivePartialBundle[]> {
   const frameText = serializeFrame(frame, extraContext)
   const n = stances.length
 
-  const bundles = await Promise.all(
-    stances.map(async (stance, i) => {
+  type Result = { partial: PerspectivePartialBundle } | { failures: SubElementFailure[] }
+
+  const results: Result[] = await Promise.all(
+    stances.map(async (stance, i): Promise<Result> => {
       const authoredBy = stances[(i + 1) % n].perspective_id
-      if (dryRun) return dryRunBundle(stance, authoredBy)
+      if (dryRun) return { partial: dryRunPartial(stance, authoredBy) }
 
       const priorVerdict = repair?.priorVerdicts[i]
-      if (repair && !needsRegeneration(priorVerdict)) return repair.priorBundles[i]
+      if (repair && !needsRegeneration(priorVerdict)) return { partial: repair.priorPartials[i] }
 
       const stanceText = `${frameText}\n\n## This perspective's stance\n${stance.stance_label}: ${stance.stance_summary}\nKey claims:\n${stance.key_claims.map((c) => `- ${c}`).join('\n')}`
       const feedback = repair && priorVerdict
-        ? { priorArtifact: repair.priorBundles[i], priorVerdict }
+        ? { priorArtifact: repair.priorPartials[i], priorVerdict }
         : undefined
 
-      // Flattened across bundles AND sub-elements (i*4+j), not just bundles —
-      // see SWARM_STAGGER_MS above.
+      // Flattened across bundles AND sub-elements (i*3+j) — see
+      // SWARM_STAGGER_MS above.
       const stagger = (j: number) =>
-        new Promise<void>((resolve) => setTimeout(resolve, (i * 4 + j) * SWARM_STAGGER_MS))
+        new Promise<void>((resolve) => setTimeout(resolve, (i * 3 + j) * SWARM_STAGGER_MS))
 
-      // medium(first pass)/high(repair) for all 4 — 2026-08-11, Samir: same
-      // split as every other generate call in the pipeline. `feedback`
-      // presence already distinguishes first-pass from repair for this
-      // bundle (computed once above), so it doubles as the effort switch too.
+      // medium(first pass)/high(repair) — 2026-08-11, Samir: same split as
+      // every other generate call in the pipeline. `feedback` presence
+      // already distinguishes first-pass from repair for this bundle
+      // (computed once above), so it doubles as the effort switch too.
       const genEffort = feedback ? 'high' : 'medium'
-      const [subQuestions, assumptions, evidence, counterargument] = await Promise.all([
+
+      // Promise.allSettled, not Promise.all (2026-08-13, Samir): captures
+      // every sub-element that failed, not just whichever one settled
+      // first — see PerspectivesGenerateError above and SubElementFailure
+      // (contracts.ts). Deliberate tradeoff: up to the slowest single
+      // call's own timeout in added latency vs. the old short-circuit.
+      const settled = await Promise.allSettled([
         stagger(0).then(() =>
           completeJSON({
             role: 'swarm',
@@ -195,25 +248,6 @@ export async function runPerspectivesGenerateDetails(
           })
         ),
         stagger(2).then(() =>
-          generateWithOptionalSearch({
-            role: 'swarm',
-            system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_BLOCK}`,
-            buildUser: (searchContext) => appendRegenerationFeedback(stanceText, feedback) + searchContext,
-            baseSchema: PerspectiveBundleSchema.pick({ evidence: true }),
-            schemaName: 'perspective_evidence',
-            effort: genEffort,
-            allowHighReasoning: !!feedback,
-            // 1800 → 2400 (2026-08-10, Samir): real-verified live truncating
-            // mid-JSON on gpt-oss-20b — its evidence items (rich citations:
-            // study names, years, journals) run longer than Llama's did at
-            // the same budget. global_evidence (orchestrator-global.ts) gets
-            // the same bump — identical shape/pattern, same risk, even
-            // though it hasn't been caught truncating yet live.
-            // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
-            maxTokens: feedback ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
-          })
-        ),
-        stagger(3).then(() =>
           completeJSON({
             role: 'swarm',
             system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_COUNTERARGUMENT_BLOCK}`,
@@ -227,22 +261,201 @@ export async function runPerspectivesGenerateDetails(
           })
         ),
       ])
+      const [subQuestionsResult, assumptionsResult, counterargumentResult] = settled
+
+      const failures: SubElementFailure[] = []
+      const record = (result: PromiseSettledResult<unknown>, subElement: PerspectiveSubElement) => {
+        if (result.status === 'rejected') {
+          failures.push({
+            perspectiveId: stance.perspective_id,
+            stanceLabel: stance.stance_label,
+            subElement,
+            errorMessage: (result.reason as Error)?.message ?? String(result.reason),
+          })
+        }
+      }
+      record(subQuestionsResult, 'sub_questions')
+      record(assumptionsResult, 'assumptions')
+      record(counterargumentResult, 'counterargument')
+      if (failures.length) return { failures }
+
+      const subQuestions = (subQuestionsResult as PromiseFulfilledResult<{ sub_questions: string[] }>).value
+      const assumptions = (assumptionsResult as PromiseFulfilledResult<{ assumptions: string[] }>).value
+      const counterargument = (
+        counterargumentResult as PromiseFulfilledResult<Omit<PerspectiveBundle['counterargument'], 'authored_by_perspective_id'>>
+      ).value
 
       return {
-        ...stance,
-        ...subQuestions,
-        ...assumptions,
-        ...evidence,
-        counterargument: { authored_by_perspective_id: authoredBy, ...counterargument },
+        partial: {
+          ...stance,
+          ...subQuestions,
+          ...assumptions,
+          counterargument: { authored_by_perspective_id: authoredBy, ...counterargument },
+        },
       }
     })
   )
 
-  const attempts = stances.map((_, i) => {
-    if (!repair) return 1
-    return needsRegeneration(repair.priorVerdicts[i]) ? repair.priorAttempts[i] + 1 : repair.priorAttempts[i]
-  })
+  const allFailures = results.flatMap((r) => ('failures' in r ? r.failures : []))
+  if (allFailures.length) throw new PerspectivesGenerateError(allFailures)
+  return results.map((r) => (r as { partial: PerspectivePartialBundle }).partial)
+}
 
+// ── Evidence, phase 1/3: strategy (2026-08-13, Samir) ───────────────────────
+// Decide search_queries and/or needs_user_input per perspective — nothing
+// else. n parallel calls, same repair semantics as every other fan-out step
+// (a settled bundle's prior strategy carries forward unchanged).
+export async function runPerspectivesEvidenceStrategy(
+  frame: FramePacket,
+  stances: PerspectiveStance[],
+  dryRun: boolean,
+  // Dev-testing only (mirrors runContextGather's forceNeedsInput,
+  // orchestrator-setup.ts) — forces EVERY stance's dry-run strategy to ask a
+  // question, so the multi-unit pause UI (EvidenceGatherAnswerBox) can be
+  // exercised for free instead of only ever showing one unit at a time. No
+  // effect outside dryRun.
+  forceNeedsInput = false,
+  repair?: { priorStrategies: EvidenceStrategy[]; priorPartials: PerspectivePartialBundle[]; priorVerdicts: ReviewPanelVerdict[] },
+  extraContext?: string | null
+): Promise<EvidenceStrategy[]> {
+  const frameText = serializeFrame(frame, extraContext)
+  const result = await fanOutTracked(stances, 'evidence_strategy', async (stance, i) => {
+    if (dryRun) {
+      if (forceNeedsInput) {
+        return {
+          search_queries: [],
+          needs_user_input: true,
+          questions_for_user: [{ question: `[dry run] Anything specific ${stance.stance_label} should look for?`, options: [] }],
+          reason: '[dry run] simulated clarification need, for UI testing only.',
+        }
+      }
+      return { search_queries: [], needs_user_input: false, questions_for_user: [], reason: '[dry run] no evidence strategy needed.' }
+    }
+    const priorVerdict = repair?.priorVerdicts[i]
+    if (repair && !needsRegeneration(priorVerdict)) return repair.priorStrategies[i]
+    const stanceText = `${frameText}\n\n## This perspective's stance\n${stance.stance_label}: ${stance.stance_summary}\nKey claims:\n${stance.key_claims.map((c) => `- ${c}`).join('\n')}`
+    const feedback = repair && priorVerdict ? { priorArtifact: repair.priorPartials[i], priorVerdict } : undefined
+    return completeJSON({
+      role: 'swarm',
+      system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_STRATEGY_BLOCK}`,
+      user: appendRegenerationFeedback(stanceText, feedback),
+      schema: EvidenceStrategySchema,
+      schemaName: 'perspective_evidence_strategy',
+      // Deciding search-vs-ask is a simple call by design (Samir's explicit
+      // scoping) — 'medium' always, no repair-mode 'high' bump; there's no
+      // real content to "revise" here the way populate/confidence have.
+      effort: 'medium',
+      maxTokens: 500,
+    })
+  })
+  if ('failures' in result) throw new PerspectivesGenerateError(result.failures)
+  return result.values
+}
+
+// ── Evidence, phase 2/3: populate ("another agent... fetch the data then
+// input it into the JSON", Samir) ───────────────────────────────────────────
+// Runs each perspective's requested search (if any) via runSearches
+// (search.ts) — sequential per-perspective call, same as context-gather's
+// existing pattern, NOT generateWithOptionalSearch's old multi-round loop
+// (that loop no longer exists anywhere in evidence generation: strategy
+// decides search terms ONCE, up front, so there's nothing left to iterate
+// on — this also resolves the multi-round CHAIN_DEADLINE_MS-sharing
+// complexity doc 20/22 flagged as a known gap for perspective_evidence).
+export async function runPerspectivesEvidencePopulate(
+  frame: FramePacket,
+  stances: PerspectiveStance[],
+  strategies: EvidenceStrategy[],
+  // The admin's answers to any unit that asked (Phase 3 item 1's pattern,
+  // extended — EvidenceGatherUnit/Answers, contracts.ts). Index-aligned with
+  // stances; a stance that never asked (or the admin skipped) gets null.
+  userAnswers: (string | null)[] | null,
+  dryRun: boolean,
+  repair?: { priorDrafts: EvidenceItemDraft[][]; priorPartials: PerspectivePartialBundle[]; priorVerdicts: ReviewPanelVerdict[] },
+  extraContext?: string | null
+): Promise<EvidenceItemDraft[][]> {
+  const frameText = serializeFrame(frame, extraContext)
+  const result = await fanOutTracked(stances, 'evidence_populate', async (stance, i) => {
+    if (dryRun) return [{ claim_id: `dry-run-${stance.perspective_id}`, source_ref: '[dry run] source', caveats: null }]
+    const priorVerdict = repair?.priorVerdicts[i]
+    if (repair && !needsRegeneration(priorVerdict)) return repair.priorDrafts[i]
+
+    const strategy = strategies[i]
+    const searchFindings = strategy.search_queries.length ? await runSearches(strategy.search_queries) : null
+    const answer = userAnswers?.[i] ?? null
+    let stanceText = `${frameText}\n\n## This perspective's stance\n${stance.stance_label}: ${stance.stance_summary}\nKey claims:\n${stance.key_claims.map((c) => `- ${c}`).join('\n')}`
+    if (searchFindings) stanceText += `\n\n## Real search results\n${searchFindings}`
+    if (answer) stanceText += `\n\n## The person's answer to your question\n${answer}`
+
+    const feedback = repair && priorVerdict ? { priorArtifact: repair.priorPartials[i], priorVerdict } : undefined
+    const out = await completeJSON({
+      role: 'swarm',
+      system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_POPULATE_BLOCK}`,
+      user: appendRegenerationFeedback(stanceText, feedback),
+      schema: EvidencePopulateSchema,
+      schemaName: 'perspective_evidence_populate',
+      effort: feedback ? 'high' : 'medium',
+      allowHighReasoning: !!feedback,
+      // 2400 (2026-08-10 finding, carried over from the old single-call
+      // version): gpt-oss-20b's evidence items (citations: study names,
+      // years, journals) run long. +REPAIR_TOKEN_HEADROOM on repair only.
+      maxTokens: feedback ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
+    })
+    return out.evidence
+  })
+  if ('failures' in result) throw new PerspectivesGenerateError(result.failures)
+  return result.values
+}
+
+// ── Evidence, phase 3/3: confidence ("a separate request/subagent", Samir) ──
+// Sees ONLY the finished items (not the stance, not sourcing context) —
+// scoring how well each item's OWN source backs its OWN claim, nothing else.
+// Matches confidence entries back to drafts by claim_id, not array position
+// — a missing match falls back to 'medium' with a logged warning rather
+// than either side needing to stay positionally in sync. Also does the
+// final merge (partial bundle + evidence + attempts) into the assembled
+// PerspectiveBundle[] perspectives-review expects — the one place all three
+// generate-side threads (details, strategy, populate) actually come
+// together.
+export async function runPerspectivesEvidenceConfidence(
+  frame: FramePacket,
+  stances: PerspectiveStance[],
+  partials: PerspectivePartialBundle[],
+  drafts: EvidenceItemDraft[][],
+  dryRun: boolean,
+  repair?: { priorBundles: PerspectiveBundle[]; priorVerdicts: ReviewPanelVerdict[]; priorAttempts: number[] },
+  extraContext?: string | null
+): Promise<{ bundles: PerspectiveBundle[]; attempts: number[] }> {
+  const context = serializeFrame(frame, extraContext)
+  const result = await fanOutTracked(stances, 'evidence_confidence', async (stance, i) => {
+    const draft = drafts[i]
+    if (dryRun) return draft.map((d) => ({ ...d, confidence: 'medium' as const }))
+    const priorVerdict = repair?.priorVerdicts[i]
+    if (repair && !needsRegeneration(priorVerdict)) {
+      return repair.priorBundles[i].evidence
+    }
+    if (draft.length === 0) return []
+
+    const feedback = repair && priorVerdict ? { priorArtifact: repair.priorBundles[i].evidence, priorVerdict } : undefined
+    const out = await completeJSON({
+      role: 'swarm',
+      system: `${REASONING_PERSONA}\n\n${PERSPECTIVE_EVIDENCE_CONFIDENCE_BLOCK}`,
+      user: appendRegenerationFeedback(`## Evidence items\n${JSON.stringify(draft, null, 2)}\n\n${context}`, feedback),
+      schema: EvidenceConfidenceSchema,
+      schemaName: 'perspective_evidence_confidence',
+      effort: feedback ? 'high' : 'medium',
+      allowHighReasoning: !!feedback,
+      maxTokens: feedback ? 800 + REPAIR_TOKEN_HEADROOM : 800,
+    })
+    const byId = new Map(out.confidence.map((c) => [c.claim_id, c.confidence]))
+    return draft.map((d) => {
+      const confidence = byId.get(d.claim_id)
+      return { ...d, confidence: confidence ?? 'medium' }
+    })
+  })
+  if ('failures' in result) throw new PerspectivesGenerateError(result.failures)
+
+  const bundles: PerspectiveBundle[] = partials.map((partial, i) => ({ ...partial, evidence: result.values[i] }))
+  const attempts = computeAttempts(stances, repair)
   return { bundles, attempts }
 }
 
@@ -285,4 +498,37 @@ export async function runPerspectivesReview(
       return attemptsUsed >= MAX_REGENERATION_ATTEMPTS ? { ...verdict, degraded: true } : verdict
     })
   )
+}
+
+// ── Evidence-gather pause aggregation (route.ts helper) ─────────────────────
+// Turns n independent EvidenceStrategy verdicts into the units that actually
+// need to pause the run — only the ones with needs_user_input: true. Empty
+// array means "nothing to pause for," same as ContextGatherVerdict's
+// needs_user_input: false.
+export function collectEvidenceGatherUnits(stances: PerspectiveStance[], strategies: EvidenceStrategy[]): EvidenceGatherUnit[] {
+  return strategies.flatMap((s, i) =>
+    s.needs_user_input
+      ? [{ unitId: stances[i].perspective_id, unitLabel: stances[i].stance_label, reason: s.reason, questions: s.questions_for_user }]
+      : []
+  )
+}
+
+// Reassembles per-unit answers (from the aggregated pause above) back into
+// an array index-aligned with `stances`, one flattened answer per
+// perspective — runPerspectivesEvidencePopulate's userAnswers param. A
+// perspective's OWN answer is its first answered question, if any (evidence-
+// strategy asks at most 3, but populate only needs one combined signal, not
+// a per-question breakdown the way context-gather's frame-level answers do).
+export function flattenEvidenceGatherAnswers(
+  stances: PerspectiveStance[],
+  units: EvidenceGatherUnit[],
+  answers: (EvidenceGatherUnitAnswers | null)[]
+): (string | null)[] {
+  const byUnitId = new Map<string, string | null>()
+  units.forEach((unit, i) => {
+    const unitAnswers = answers[i]
+    const firstAnswered = unitAnswers?.find((a) => a != null) ?? null
+    byUnitId.set(unit.unitId, firstAnswered)
+  })
+  return stances.map((s) => byUnitId.get(s.perspective_id) ?? null)
 }

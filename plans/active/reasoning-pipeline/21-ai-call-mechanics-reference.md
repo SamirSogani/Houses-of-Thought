@@ -5,9 +5,16 @@
 This is **not** [01-layers-and-standards.md](01-layers-and-standards.md) (the
 conceptual/schema-contract doc — what each layer *means* and what shape it
 returns). This is the mechanics reference: which function fires, what
-`completeJSON`/`generateWithOptionalSearch` options it passes, and how
-retries actually work, per step. Line numbers are as of this doc's date —
-expect drift.
+`completeJSON`/`runSearches` options it passes, and how retries actually
+work, per step. Line numbers are as of this doc's date — expect drift.
+
+**Updated 2026-08-13** for Samir's evidence redesign
+([24](24-evidence-redesign-and-failure-tracking.md)): evidence generation
+(per-perspective and global) split from 1 call into 3 — strategy → populate →
+confidence. `generateWithOptionalSearch` (the old multi-round search loop) is
+retired entirely; `runSearches` (search.ts) now runs at most once per unit,
+inside the populate phase, since strategy decides search terms once, up
+front, leaving nothing left to iterate on.
 
 Every generate call below lives in `lib/ai/reasoning/`:
 `orchestrator-setup.ts` (context-gather, frame, breadth-scoping),
@@ -23,17 +30,22 @@ rather than repeated per row.
 | Frame | `runFrameGenerate` (orchestrator-setup.ts:86) → `runFrameReview` (orchestrator-setup.ts:142) | swarm | medium / high | 2000 / 2000 (no `REPAIR_TOKEN_HEADROOM` — not one of the 8 call sites that get it) | No | **hard-block** (`STEP_FAILURE_MODE['frame-review']`) | First reviewed gate; sets `original_query`/`core_question` everything downstream reads |
 | Context-gather (post) | `runContextGather` — same function as the pre-checkpoint | swarm | low (fixed) | 400 (fixed) | Post-hoc only, same as above | No panel — same as above | Runs after frame passes review |
 | Breadth-scoping | `runBreadthScoping` — orchestrator-setup.ts:162 | swarm | low (fixed, no repair path) | 500 (fixed) | No | No panel — same as context-gather | Model proposes `n`; `clampN`/`clampNForStress` (budget.ts) is the real ceiling, not the model's raw answer |
-| Perspectives — stance | `runPerspectivesGenerateStances` — orchestrator-perspectives.ts:95 | swarm | medium (fixed — "no repair path exists for stance generation") | 1000 (fixed) | No | Feeds into the bundle; see Perspectives-review row for the actual gate | One call per perspective (n total), independent sessions (decision 019) |
-| Perspectives — sub-questions | `runPerspectivesGenerateDetails` — orchestrator-perspectives.ts:202 | swarm | medium / high | 1100 / 4100 (1100 + `REPAIR_TOKEN_HEADROOM`) | No | degrade (bundle-level, see below) | 1 of 4 sub-elements generated in parallel per bundle |
-| Perspectives — assumptions | same function — orchestrator-perspectives.ts:216 | swarm | medium / high | 1200 / 4200 | No | degrade | " |
-| Perspectives — evidence | same function — orchestrator-perspectives.ts:229 | swarm | medium / high | 2400 / 5400 | **Yes** — `generateWithOptionalSearch` (search.ts:68), up to `MAX_SEARCH_ROUNDS`=2 round-trips + 1 forced-finalize round | degrade | Same claim/source_ref/confidence shape as global-evidence; both bumped to 2400 the same day after a live truncation |
-| Perspectives — counterargument | same function — orchestrator-perspectives.ts:248 | swarm | medium / high | 1600 / 4600 | No | degrade | Cross-assigned to a different perspective's session (decision 019) |
-| Perspectives — review | `runPerspectivesReview` — orchestrator-perspectives.ts:287 → `runReviewPanel` | swarm | low (panel, fixed) | 800 (panel, fixed) | No | **degrade** — the one step that degrades per-bundle instead of hard-blocking (`STEP_FAILURE_MODE['perspectives-review']`); other bundles unaffected | One panel run per bundle (n panels, not one shared panel) |
-| Global assumptions | `runGlobalAssumptionsGenerate` (orchestrator-global.ts:70) → `runGlobalAssumptionsReview` (orchestrator-global.ts:104) | swarm | medium / high | 900 / 3900 | No | **hard-block** | Question-level, informed by all vetted perspectives but scoped to none |
-| Global evidence | `runGlobalEvidenceGenerate` (orchestrator-global.ts:122) → `runGlobalEvidenceReview` (orchestrator-global.ts:166) | swarm | medium / high | 2400 / 5400 | **Yes** — `generateWithOptionalSearch`, same as perspectives-evidence | **hard-block** | Twin of perspectives-evidence; same truncation history |
-| Conclusions | `runConclusionsGenerate` (orchestrator-global.ts:183) → `runConclusionsReview` (orchestrator-global.ts:219) | swarm | medium / high | 1800 / 4800 | No | **hard-block** | Reads global assumptions + evidence + all vetted perspectives |
-| Implications | `runImplicationsGenerate` (orchestrator-global.ts:236) → `runImplicationsReview` (orchestrator-global.ts:281) | swarm | medium / high | 1800 / 4800 | No | **hard-block** | Carries forward `caveats_from_degraded_layers` from any degraded perspective bundle |
-| Final composition | `runFinalComposition` — orchestrator-global.ts:298 | **synthesis** | medium (fixed — "no repair path exists... every call here is a first-pass call by definition") | 1200 (fixed) | No | No panel — packaging only, thrown error → route-level failure/Retry | The one step on the `synthesis` role/lane, not `swarm` |
+| Perspectives — stance | `runPerspectivesGenerateStances` — orchestrator-perspectives.ts:63 | swarm | medium (fixed — "no repair path exists for stance generation") | 1000 (fixed) | No | Feeds into the bundle; see Perspectives-review row for the actual gate | One call per perspective (n total), independent sessions (decision 019) |
+| Perspectives — sub-questions | `runPerspectivesGenerateDetails` — orchestrator-perspectives.ts:226 | swarm | medium / high | 1100 / 4100 (1100 + `REPAIR_TOKEN_HEADROOM`) | No | degrade (bundle-level, see below) | 1 of 3 sub-elements generated in parallel per bundle (evidence moved out to its own 3-phase sequence below, 2026-08-13) |
+| Perspectives — assumptions | same function — orchestrator-perspectives.ts:239 | swarm | medium / high | 1200 / 4200 | No | degrade | " |
+| Perspectives — counterargument | same function — orchestrator-perspectives.ts:252 | swarm | medium / high | 1600 / 4600 | No | degrade | Cross-assigned to a different perspective's session (decision 019) |
+| Perspectives — evidence strategy | `runPerspectivesEvidenceStrategy` — orchestrator-perspectives.ts:339 | swarm | medium (fixed — no repair-mode bump; "deciding search-vs-ask is a simple call by design," nothing to revise) | 500 (fixed) | No — decides `search_queries`/`needs_user_input` only, doesn't search itself | degrade | New 2026-08-13; runs after stance/sub-questions/assumptions/counterargument settle, not alongside them |
+| Perspectives — evidence populate | `runPerspectivesEvidencePopulate` — orchestrator-perspectives.ts:391 | swarm | medium / high | 2400 / 5400 | **Yes** — `runSearches` (search.ts), ONE round per unit that asked, not a loop | degrade | "Another agent... fetch the data then input it into the JSON" (Samir) — writes claim/source_ref/caveats from real search results and/or the user's answer only; no confidence field yet |
+| Perspectives — evidence confidence | `runPerspectivesEvidenceConfidence` — orchestrator-perspectives.ts:440 | swarm | medium / high | 800 / 3800 | No | degrade | Separate call/subagent scores each populated item's confidence (Samir's explicit scoping); also does the final merge into `PerspectiveBundle` |
+| Perspectives — review | `runPerspectivesReview` — orchestrator-perspectives.ts:468 → `runReviewPanel` | swarm | low (panel, fixed) | 800 (panel, fixed) | No | **degrade** — the one step that degrades per-bundle instead of hard-blocking (`STEP_FAILURE_MODE['perspectives-review']`); other bundles unaffected | One panel run per bundle (n panels, not one shared panel) |
+| Global assumptions | `runGlobalAssumptionsGenerate` (orchestrator-global.ts:76) → `runGlobalAssumptionsReview` (orchestrator-global.ts:110) | swarm | medium / high | 900 / 3900 | No | **hard-block** | Question-level, informed by all vetted perspectives but scoped to none |
+| Global evidence strategy | `runGlobalEvidenceStrategy` — orchestrator-global.ts:137 | swarm | medium (fixed — same no-repair-bump rule as perspectives-evidence-strategy) | 500 (fixed) | No | **hard-block** | One question-level unit, not n per-perspective ones |
+| Global evidence populate | `runGlobalEvidencePopulate` — orchestrator-global.ts:185 | swarm | medium / high | 2400 / 5400 | **Yes** — `runSearches`, ONE round | **hard-block** | Twin of perspectives-evidence-populate |
+| Global evidence confidence | `runGlobalEvidenceConfidence` — orchestrator-global.ts:228 | swarm | medium / high | 800 / 3800 | No | **hard-block** | Twin of perspectives-evidence-confidence; merges into `GlobalEvidencePacket` |
+| Global evidence review | `runGlobalEvidenceReview` — orchestrator-global.ts:259 → `runReviewPanel` | swarm | low (panel, fixed) | 800 (panel, fixed) | No | **hard-block** | Reviews the merged `GlobalEvidencePacket` (confidence phase's output) |
+| Conclusions | `runConclusionsGenerate` (orchestrator-global.ts:276) → `runConclusionsReview` (orchestrator-global.ts:312) | swarm | medium / high | 1800 / 4800 | No | **hard-block** | Reads global assumptions + evidence + all vetted perspectives |
+| Implications | `runImplicationsGenerate` (orchestrator-global.ts:329) → `runImplicationsReview` (orchestrator-global.ts:374) | swarm | medium / high | 1800 / 4800 | No | **hard-block** | Carries forward `caveats_from_degraded_layers` from any degraded perspective bundle |
+| Final composition | `runFinalComposition` — orchestrator-global.ts:391 | **synthesis** | medium (fixed — "no repair path exists... every call here is a first-pass call by definition") | 1200 (fixed) | No | No panel — packaging only, thrown error → route-level failure/Retry | The one step on the `synthesis` role/lane, not `swarm` |
 
 ## Review-panel mechanics (shared by every `-review` row above)
 

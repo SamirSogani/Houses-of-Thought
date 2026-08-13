@@ -2,17 +2,22 @@
 // layer with a review panel decomposes into two client-driven steps
 // (`{layer}-generate`, `{layer}-review`) because chaining generate-then-review
 // in one request would sum their worst-case completeJSON latencies past the
-// route's 30s budget — see decisions/019 and the Phase 1 plan for why. A layer
+// route's budget — see decisions/019 and the Phase 1 plan for why. A layer
 // without a panel is one step.
 //
-// Perspectives generation is itself split into two further steps for the SAME
-// reason: within a bundle, the 4 sub-elements need the stance's own generated
-// text as input (01-layers-and-standards.md), so stance generation (round 1,
-// n parallel calls) must finish before sub-element generation (round 2, 4n
-// parallel calls) starts — chaining both rounds in one request risks the same
-// budget overrun as generate+review. 17 steps total. Summing calls per step at
-// n=3 still reproduces the architecture doc's `14n+54` exactly (96) — this
-// split changes round-trip granularity, not the total call count.
+// Perspectives generation is itself split into further steps for the SAME
+// reason: within a bundle, sub-elements need the stance's own generated text
+// as input (01-layers-and-standards.md), so stance generation (round 1, n
+// parallel calls) must finish before the rest starts — chaining rounds in one
+// request risks the same budget overrun as generate+review.
+//
+// Evidence (perspective-level AND global) is itself 3 further steps as of
+// 2026-08-13 (Samir) — strategy (decide search/ask-user) → populate (write
+// items from what came back) → confidence (score what populate wrote) — each
+// a genuinely separate call needing the previous one's real output, same
+// reasoning as every other split above. strategy's needs_user_input can pause
+// the run exactly like context-gather-pre/post do (see
+// EvidenceGatherUnit/PendingGather) before populate ever runs.
 //
 // Mirrors lib/ai/draft.ts's DRAFT_STAGES / nextDraftStage / DRAFT_STAGE_LABELS
 // pattern, one level more granular.
@@ -25,10 +30,15 @@ export const STEP_ORDER = [
   'breadth-scoping',
   'perspectives-generate-stances',
   'perspectives-generate-details',
+  'perspectives-evidence-strategy',
+  'perspectives-evidence-populate',
+  'perspectives-evidence-confidence',
   'perspectives-review',
   'global-assumptions-generate',
   'global-assumptions-review',
-  'global-evidence-generate',
+  'global-evidence-strategy',
+  'global-evidence-populate',
+  'global-evidence-confidence',
   'global-evidence-review',
   'conclusions-generate',
   'conclusions-review',
@@ -70,11 +80,16 @@ export const STEP_LABELS: Record<StepId, string> = {
   'context-gather-post': 'Confirming the frame is complete…',
   'breadth-scoping': 'Deciding how many perspectives to explore…',
   'perspectives-generate-stances': 'Staking out independent perspectives…',
-  'perspectives-generate-details': 'Drafting sub-questions, assumptions, evidence, and counterarguments…',
+  'perspectives-generate-details': 'Drafting sub-questions, assumptions, and counterarguments…',
+  'perspectives-evidence-strategy': 'Deciding how to gather evidence for each perspective…',
+  'perspectives-evidence-populate': 'Writing evidence from real search results…',
+  'perspectives-evidence-confidence': 'Rating each evidence item’s confidence…',
   'perspectives-review': 'Review panel checking each perspective…',
   'global-assumptions-generate': 'Surfacing question-level assumptions…',
   'global-assumptions-review': 'Review panel checking global assumptions…',
-  'global-evidence-generate': 'Gathering question-level evidence…',
+  'global-evidence-strategy': 'Deciding how to gather question-level evidence…',
+  'global-evidence-populate': 'Writing question-level evidence from real search results…',
+  'global-evidence-confidence': 'Rating each question-level evidence item’s confidence…',
   'global-evidence-review': 'Review panel checking global evidence…',
   'conclusions-generate': 'Drawing conclusions…',
   'conclusions-review': 'Review panel checking the conclusions…',
@@ -83,7 +98,7 @@ export const STEP_LABELS: Record<StepId, string> = {
   'final-composition': 'Composing the final answer…',
 }
 
-// Groups the 17 steps into the UI's top-level rows (ReasoningStagesList).
+// Groups the steps into the UI's top-level rows (ReasoningStagesList).
 export interface LayerGroup {
   id: string
   label: string
@@ -96,9 +111,26 @@ export const LAYER_GROUPS: readonly LayerGroup[] = [
   { id: 'frame', label: 'Frame', stepIds: ['frame-generate', 'frame-review'], hasPanel: true },
   { id: 'context-gather-post', label: 'Context check', stepIds: ['context-gather-post'], hasPanel: false },
   { id: 'breadth-scoping', label: 'Breadth scoping', stepIds: ['breadth-scoping'], hasPanel: false },
-  { id: 'perspectives', label: 'Perspectives', stepIds: ['perspectives-generate-stances', 'perspectives-generate-details', 'perspectives-review'], hasPanel: true },
+  {
+    id: 'perspectives',
+    label: 'Perspectives',
+    stepIds: [
+      'perspectives-generate-stances',
+      'perspectives-generate-details',
+      'perspectives-evidence-strategy',
+      'perspectives-evidence-populate',
+      'perspectives-evidence-confidence',
+      'perspectives-review',
+    ],
+    hasPanel: true,
+  },
   { id: 'global-assumptions', label: 'Global assumptions', stepIds: ['global-assumptions-generate', 'global-assumptions-review'], hasPanel: true },
-  { id: 'global-evidence', label: 'Global evidence', stepIds: ['global-evidence-generate', 'global-evidence-review'], hasPanel: true },
+  {
+    id: 'global-evidence',
+    label: 'Global evidence',
+    stepIds: ['global-evidence-strategy', 'global-evidence-populate', 'global-evidence-confidence', 'global-evidence-review'],
+    hasPanel: true,
+  },
   { id: 'conclusions', label: 'Conclusions', stepIds: ['conclusions-generate', 'conclusions-review'], hasPanel: true },
   { id: 'implications', label: 'Implications', stepIds: ['implications-generate', 'implications-review'], hasPanel: true },
   { id: 'final-composition', label: 'Final composition', stepIds: ['final-composition'], hasPanel: false },

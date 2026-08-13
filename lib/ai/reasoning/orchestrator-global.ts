@@ -11,8 +11,12 @@ import {
   type PerspectiveBundle,
   GlobalAssumptionsPacketSchema,
   type GlobalAssumptionsPacket,
-  GlobalEvidencePacketSchema,
   type GlobalEvidencePacket,
+  EvidenceStrategySchema,
+  type EvidenceStrategy,
+  GlobalEvidencePopulateSchema,
+  type GlobalEvidenceItemDraft,
+  EvidenceConfidenceSchema,
   ConclusionsPacketSchema,
   type ConclusionsPacket,
   ImplicationsPacketSchema,
@@ -25,7 +29,9 @@ import {
 import {
   REASONING_PERSONA,
   GLOBAL_ASSUMPTIONS_BLOCK,
-  GLOBAL_EVIDENCE_BLOCK,
+  GLOBAL_EVIDENCE_STRATEGY_BLOCK,
+  GLOBAL_EVIDENCE_POPULATE_BLOCK,
+  GLOBAL_EVIDENCE_CONFIDENCE_BLOCK,
   CONCLUSIONS_BLOCK,
   IMPLICATIONS_BLOCK,
   FINAL_COMPOSITION_BLOCK,
@@ -37,7 +43,7 @@ import {
 import { REPAIR_TOKEN_HEADROOM } from './budget'
 
 // Shared shape for "regenerate this after a failed panel verdict" across the
-// four hard-block global/conclusions/implications generators below.
+// hard-block global/conclusions/implications generators below.
 interface Repair<T> {
   priorArtifact: T
   priorVerdict: ReviewPanelVerdict
@@ -52,7 +58,7 @@ interface MasterGuided<T> {
   guidance: MasterReviewGuidance
 }
 import { runReviewPanel } from './orchestrator-panel'
-import { generateWithOptionalSearch } from './search'
+import { runSearches } from './search'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-global.ts is server-only and must not run in the browser')
@@ -119,48 +125,135 @@ export async function runGlobalAssumptionsReview(
   )
 }
 
-export async function runGlobalEvidenceGenerate(
+// ── Global evidence, 3 phases (2026-08-13, Samir) — replaces the old single
+// runGlobalEvidenceGenerate (one generateWithOptionalSearch call juggling
+// search-vs-ask, epistemic hedging about real-vs-hypothetical sourcing, AND
+// confidence all at once). Mirrors orchestrator-perspectives.ts's evidence
+// split exactly, just for the ONE question-level unit instead of n
+// per-perspective ones — see that file's comments for the full rationale.
+// No PerspectivesGenerateError-style aggregation needed here: a single unit
+// failing IS the whole failure, no ambiguity about "which one" the way n
+// parallel perspective calls have.
+export async function runGlobalEvidenceStrategy(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
+  dryRun: boolean,
+  // Dev-testing only (mirrors runContextGather's forceNeedsInput,
+  // orchestrator-setup.ts, and runPerspectivesEvidenceStrategy's own copy of
+  // this) — forces the dry-run strategy to ask a question, so the
+  // single-unit pause UI can be exercised for free. No effect outside
+  // dryRun.
+  forceNeedsInput = false,
+  repair?: Repair<GlobalEvidencePacket>,
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
+): Promise<EvidenceStrategy> {
+  if (dryRun) {
+    if (forceNeedsInput) {
+      return {
+        search_queries: [],
+        needs_user_input: true,
+        questions_for_user: [{ question: '[dry run] Anything specific the global evidence pass should look for?', options: [] }],
+        reason: '[dry run] simulated clarification need, for UI testing only.',
+      }
+    }
+    return { search_queries: [], needs_user_input: false, questions_for_user: [], reason: '[dry run] no evidence strategy needed.' }
+  }
+  const context = questionContext(frame, bundles, extraContext)
+  return completeJSON({
+    role: 'swarm',
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_STRATEGY_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
+    schema: EvidenceStrategySchema,
+    schemaName: 'global_evidence_strategy',
+    // Deciding search-vs-ask is a simple call by design (Samir's explicit
+    // scoping) — 'medium' always, no repair-mode 'high' bump; mirrors
+    // orchestrator-perspectives.ts's runPerspectivesEvidenceStrategy.
+    effort: 'medium',
+    maxTokens: 500,
+  })
+}
+
+// Runs the strategy's requested search (if any) via runSearches (search.ts)
+// — ONE round, not generateWithOptionalSearch's old multi-round loop (that
+// loop no longer exists anywhere in evidence generation: strategy decides
+// search terms ONCE, up front, so there's nothing left to iterate on — this
+// also resolves the multi-round CHAIN_DEADLINE_MS-sharing complexity doc
+// 20/22 flagged as a known gap for this exact call).
+export async function runGlobalEvidencePopulate(
+  frame: FramePacket,
+  bundles: PerspectiveBundle[],
+  strategy: EvidenceStrategy,
+  // The admin's answer, if strategy asked and they answered (Phase 3 item
+  // 1's pattern, extended — EvidenceGatherUnit/Answers, contracts.ts).
+  userAnswer: string | null,
+  dryRun: boolean,
+  repair?: Repair<GlobalEvidencePacket>,
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
+): Promise<GlobalEvidenceItemDraft[]> {
+  if (dryRun) return [{ claim_id: '[dry run] claim', source_ref: '[dry run] source' }]
+  const isRepair = !!repair || !!masterGuidance
+  let context = questionContext(frame, bundles, extraContext)
+  const searchFindings = strategy.search_queries.length ? await runSearches(strategy.search_queries) : null
+  if (searchFindings) context += `\n\n## Real search results\n${searchFindings}`
+  if (userAnswer) context += `\n\n## The person's answer to your question\n${userAnswer}`
+  const out = await completeJSON({
+    role: 'swarm',
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_POPULATE_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
+    schema: GlobalEvidencePopulateSchema,
+    schemaName: 'global_evidence_populate',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11 split,
+    // still applies to this call now that it's populate's own job.
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
+    // 2400 (carried over from the old single-call version's 2026-08-10
+    // finding): gpt-oss-20b's evidence items (citations) run long.
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
+  })
+  return out.evidence
+}
+
+// Sees ONLY the finished items — scoring how well each item's OWN source
+// backs its OWN claim, nothing else ("a separate request/subagent," Samir).
+// Matches confidence entries back to drafts by claim_id, not array
+// position — a missing match falls back to 'medium' with the item kept
+// anyway, rather than either side needing to stay positionally in sync.
+export async function runGlobalEvidenceConfidence(
+  frame: FramePacket,
+  draft: GlobalEvidenceItemDraft[],
   dryRun: boolean,
   repair?: Repair<GlobalEvidencePacket>,
   extraContext?: string | null,
   masterGuidance?: MasterGuided<GlobalEvidencePacket>
 ): Promise<GlobalEvidencePacket> {
   if (dryRun) {
-    return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
+    return { question_level_evidence: draft.map((d) => ({ ...d, confidence: 'medium' as const })) }
   }
-  const context = questionContext(frame, bundles, extraContext)
+  if (draft.length === 0) return { question_level_evidence: [] }
   const isRepair = !!repair || !!masterGuidance
-  return generateWithOptionalSearch({
+  const itemsBlock = `## Evidence items\n${JSON.stringify(draft, null, 2)}\n\n${serializeFrame(frame, extraContext)}`
+  const out = await completeJSON({
     role: 'swarm',
-    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    buildUser: (searchContext) =>
-      (masterGuidance
-        ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
-        : appendRegenerationFeedback(context, repair)) + searchContext,
-    baseSchema: GlobalEvidencePacketSchema,
-    schemaName: 'global_evidence_packet',
-    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
-    // same split as every generate call in the pipeline; see
-    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_CONFIDENCE_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(itemsBlock, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(itemsBlock, repair),
+    schema: EvidenceConfidenceSchema,
+    schemaName: 'global_evidence_confidence',
     effort: isRepair ? 'high' : 'medium',
     allowHighReasoning: isRepair,
-    // 900 -> 1800, third instance of the exact same fix this session
-    // (conclusions_packet, implications_packet): up to 8 items, each with a
-    // 600-char claim_id AND a 600-char source_ref. Confirmed live: Gemini
-    // truncated mid-JSON on the 2nd evidence item, twice in a row, at this
-    // cap - immediately after global_assumptions_packet (smaller max, no
-    // truncation seen) passed clean, isolating this as the schema-shape
-    // issue, not a fluke of that particular call.
-    // 1800 -> 2400 (2026-08-10, Samir): same fix again, one provider later —
-    // perspective_evidence (orchestrator-perspectives.ts, identical
-    // claim/source_ref/confidence/caveats shape) real-verified truncating
-    // mid-JSON on gpt-oss-20b at 1800. Bumped this twin call to match before
-    // it hits the same wall, even though it hasn't been caught live yet.
-    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
-    maxTokens: isRepair ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
+    maxTokens: isRepair ? 800 + REPAIR_TOKEN_HEADROOM : 800,
   })
+  const byId = new Map(out.confidence.map((c) => [c.claim_id, c.confidence]))
+  const question_level_evidence = draft.map((d) => ({ ...d, confidence: byId.get(d.claim_id) ?? ('medium' as const) }))
+  return { question_level_evidence }
 }
 
 export async function runGlobalEvidenceReview(
