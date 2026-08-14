@@ -332,15 +332,32 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
   throw new AiError(429, 'ai-rate-limited')
 }
 
-// supportsJsonSchema() matches on 'gpt-oss' model name, not provider — Groq's
-// and Cerebras's gpt-oss targets both get strict response_format: json_schema.
-// Confirmed live (2026-08-02, plans/active/reasoning-pipeline/14): Cerebras's
-// enforcement of that shape is weaker than Groq's — Groq 400s as
+// supportsJsonSchema() matches on model name ('gpt-oss' or 'deepseek-v3' as
+// of 2026-08-13), not provider — Groq's and Cerebras's gpt-oss targets, and
+// now DeepInfra's DeepSeek-V3 target, all get strict response_format:
+// json_schema. Confirmed live (2026-08-02, plans/active/reasoning-pipeline/14):
+// Cerebras's enforcement of that shape is weaker than Groq's — Groq 400s as
 // json_validate_failed when its own generation doesn't conform (cascades
 // cleanly, see isGroqJsonValidateFailed above); Cerebras returned a 200 with
 // the correct object wrapped in a one-element array, which only our own zod
 // parse below catches. This costs nothing on providers that already enforce
 // the shape strictly, so it's unconditional rather than gated per-provider.
+// DeepInfra's own enforcement quality for DeepSeek-V3 is NOT yet
+// real-verified against either failure shape — isGroqJsonValidateFailed only
+// recognizes Groq's specific error text, so if DeepInfra's constrained
+// decoding fails in some other shape, it may not cascade as cleanly as
+// Groq's does today. Watch early real traffic on this target for it.
+//
+// A different DeepInfra failure shape WAS real-verified, on
+// meta-llama/Llama-3.3-70B-Instruct-Turbo (2026-08-13, TARGETS.deepinfra's
+// swap history, router-config.ts): running the json_object fallback (not
+// this guardrail's json_schema path — Llama was never granted
+// supportsJsonSchema()), it wrapped its JSON output in a markdown code fence
+// on 4/4 real attempts, which broke JSON.parse outright before zod ever got
+// a chance to validate anything. completeJSON's tryParse (below) now strips
+// a leading/trailing code fence unconditionally, on every completion
+// regardless of which json mode served it — see stripMarkdownFence's own
+// comment for why unconditional rather than gated to json_object mode.
 const JSON_SHAPE_GUARDRAIL =
   'Respond with exactly one JSON object matching the schema — do not wrap it in an array or add any extra nesting.'
 
@@ -421,6 +438,26 @@ async function callProvider(
   return content
 }
 
+// Strips a leading/trailing markdown code fence (``` or ```json, or any other
+// language tag) from a completion's raw content before JSON.parse ever sees
+// it. Real-world motivation (2026-08-13): DeepInfra's
+// meta-llama/Llama-3.3-70B-Instruct-Turbo — running the json_object fallback
+// path because its strict json_schema support isn't confirmed (see
+// supportsJsonSchema, router-shared.ts, and TARGETS.deepinfra's comment,
+// router-config.ts) — wrapped otherwise-valid JSON in a ```json ... ``` fence
+// on 4/4 real attempts, which JSON.parse rejected outright ("response was not
+// valid JSON") even though the content inside the fence was fine every time.
+// Runs unconditionally on EVERY completion in tryParse below, not gated to
+// json_object-mode models — a strict-schema model could theoretically do the
+// same thing, and there's no reason to leave that door open. Cheap either
+// way: a response that's already raw JSON simply doesn't match the fence
+// regex, and the original string is returned untouched.
+function stripMarkdownFence(raw: string): string {
+  const trimmed = raw.trim()
+  const match = trimmed.match(/^```[^\n`]*\n([\s\S]*?)\n?```$/)
+  return match ? match[1].trim() : raw
+}
+
 // ── Public facade ─────────────────────────────────────────────────────────────
 
 export async function completeJSON<T>(opts: {
@@ -479,7 +516,7 @@ export async function completeJSON<T>(opts: {
   function tryParse(raw: string): { ok: true; value: T } | { ok: false; error: string } {
     let parsed: unknown
     try {
-      parsed = JSON.parse(raw)
+      parsed = JSON.parse(stripMarkdownFence(raw))
     } catch {
       return { ok: false, error: 'response was not valid JSON' }
     }

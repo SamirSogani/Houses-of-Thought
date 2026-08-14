@@ -125,10 +125,40 @@ export function estimateTokens(text: string): number {
 
 // ── Model-capability quirks ───────────────────────────────────────────────────
 
-// Groq's strict json_schema structured output is only reliable on the gpt-oss
-// family here; everything else uses json_object (schema embedded in the prompt).
+// Strict json_schema structured output is only reliable on specific model
+// families here; everything else uses json_object (schema embedded in the
+// prompt) — see mapUpstream's comment (router.ts) for which providers this
+// actually applies to. 'deepseek-v3' added 2026-08-13 alongside
+// TARGETS.deepinfra's model swap (router-config.ts) — DeepInfra's own docs
+// (docs.deepinfra.com/chat/structured-outputs) list DeepSeek-V3/V3.1 as
+// explicitly supported for strict schema; matched case-insensitively since
+// the real model id ('deepseek-ai/DeepSeek-V3') isn't all-lowercase the way
+// 'openai/gpt-oss-20b' happens to be. Deliberately matches only '-v3', not a
+// bare 'deepseek' substring — R1 and other DeepSeek variants haven't been
+// confirmed and shouldn't silently inherit this.
+//
+// meta-llama/Llama-3.3-70B-Instruct-Turbo (TARGETS.deepinfra, 2026-08-13) was
+// deliberately left off this list too — DeepInfra's docs don't explicitly
+// enumerate it — and running on this function's json_object fallback is
+// exactly what let it hit its real failure (see TARGETS.deepinfra's own
+// comment, router-config.ts): it wrapped otherwise-valid JSON in a markdown
+// code fence, something json_object mode has no constrained-decoding
+// guarantee against. That specific failure now also has a direct defensive
+// fix (router.ts strips a markdown fence from every completion before
+// JSON.parse — see stripMarkdownFence there), but that guard is a robustness
+// net, not a reason to grant strict schema mode without real confirmation.
+//
+// Qwen/Qwen3-235B-A22B-Instruct-2507 (TARGETS.deepinfra, 2026-08-13 swap from
+// Llama-3.3-70B) is likewise deliberately NOT included here: its DeepInfra
+// model page shows a "Supports" badge for JSON, but this codebase already
+// learned that badge alone isn't a reliable signal — Llama-3.3-70B carried
+// the identical badge and still failed. Left off pending real per-model
+// confirmation the same way every model except DeepSeek-V3 is — this is a
+// deliberate omission, not an oversight a future reader should "fix" without
+// first getting that confirmation.
 export function supportsJsonSchema(model: string): boolean {
-  return model.includes('gpt-oss')
+  const m = model.toLowerCase()
+  return m.includes('gpt-oss') || m.includes('deepseek-v3')
 }
 
 // reasoning_effort's vocabulary is per-model and a mismatch is a hard 400 (which

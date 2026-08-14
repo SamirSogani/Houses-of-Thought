@@ -154,7 +154,19 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
 // addendum. Raise further only alongside the route's maxDuration and
 // CHAIN_DEADLINE_MS[swarm], kept in lockstep so this never promises more
 // than the route can honor.
-const DEEPINFRA_SWARM_TIMEOUT_MS = 60_000
+// TEMP diagnostic bump, 2026-08-13: real local traffic against the new
+// DeepSeek-V3 default (router-config.ts) showed EVERY perspectives-generate-
+// details call — a 671B-param model, no hidden reasoning channel but a much
+// bigger one than gpt-oss-20b's 20B — timing out at the old 60s ceiling,
+// every single attempt, not intermittently. 60s was tuned for gpt-oss-20b's
+// specific latency profile; this value is deliberately generous (not a
+// measured right-size yet) so one real run can show the actual completion
+// time before this gets tuned properly. Still self-limiting regardless of
+// this number — execute()'s Math.min(attempt.timeoutMs, deadlineAt -
+// Date.now()) (router.ts) clamps any single attempt to whatever's left of
+// CHAIN_DEADLINE_MS.swarm (260s), so this can't blow the route's budget on
+// its own even set this high.
+const DEEPINFRA_SWARM_TIMEOUT_MS = 200_000
 
 // Repair/high-reasoning-effort calls (allowHighReasoning, router-shared.ts)
 // only, in swarm/synthesis — 2026-08-12, Samir: real traffic showed EVERY

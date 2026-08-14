@@ -14,6 +14,8 @@ import {
   __resetRouterState,
   __setClientFactory,
 } from './router'
+import { supportsJsonSchema } from './router-shared'
+import { TARGETS } from './router-config'
 
 // Every default target must look configured (record()/laneStep read these).
 const KEY_ENVS = [
@@ -27,17 +29,17 @@ const KEY_ENVS = [
 ]
 for (const k of KEY_ENVS) process.env[k] = 'test-key'
 
-// This fixture deliberately keeps deepinfra's dummy model string different
-// from groqOss's even though production's TARGETS.deepinfra (router-config.ts)
-// was swapped to the same id, 'openai/gpt-oss-20b', on 2026-08-10 (Samir:
-// Llama wasn't reliably incorporating the panel's regeneration feedback) — the
-// two providers really do serve the same model now. Assertions/scripts below
-// check `provider` (the 3rd arg to `script`), not `model`, wherever they need
-// to tell deepinfra and groq apart, so this fixture staying distinct from
-// production doesn't need re-touching either way.
+// deepinfra's entry is read live from TARGETS (router-config.ts), not
+// hand-typed — a hardcoded duplicate here already went stale once (2026-08-13,
+// the DeepSeek-V3 swap broke 4 assertions comparing recorded call.model
+// against this fixture) even though the ORIGINAL intent, per the comment this
+// replaced, was for this fixture not to need touching on a model swap.
+// Importing the real value is what actually delivers that intent going
+// forward — every other entry here stays a plain dummy string since nothing
+// asserts on their exact value the way deepinfra's does.
 const MODELS = {
   mistral: 'ministral-8b-latest',
-  deepinfra: 'openai/gpt-oss-20b',
+  deepinfra: TARGETS.deepinfra.model,
   groqQwen: 'qwen/qwen3.6-27b',
   groqOss: 'openai/gpt-oss-20b',
   gemini: 'gemini-2.5-flash',
@@ -497,6 +499,38 @@ describe('json shape guardrail and defensive unwrap', () => {
   })
 })
 
+describe('markdown code fence stripping', () => {
+  // Defensive fix (2026-08-13) for the failure real-verified on DeepInfra's
+  // meta-llama/Llama-3.3-70B-Instruct-Turbo (see TARGETS.deepinfra's comment,
+  // router-config.ts): the model wrapped otherwise-valid JSON in a markdown
+  // code fence on 4/4 real attempts. Runs unconditionally in tryParse
+  // (router.ts, stripMarkdownFence), not gated to json_object-mode models.
+
+  it('parses JSON wrapped in a bare ``` fence, no retry needed', async () => {
+    script = () => '```\n{"ok":true}\n```'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1) // accepted on the first attempt
+  })
+
+  it('parses JSON wrapped in a ```json language-tagged fence, no retry needed', async () => {
+    script = () => '```json\n{"ok":true}\n```'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1)
+  })
+
+  it('tolerates surrounding whitespace/newlines around a fenced response', async () => {
+    script = () => '\n\n  ```json\n{"ok":true}\n```  \n\n'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1)
+  })
+
+  it('a fenced response that still fails the schema goes through the normal retry path, not a silent pass', async () => {
+    script = () => '```json\n{"ok":"not-a-boolean"}\n```'
+    await expect(ask('suggestor')).rejects.toMatchObject({ status: 502, message: 'ai-invalid-output' })
+    expect(calls.length).toBe(2)
+  })
+})
+
 describe('reasoning_effort mapping', () => {
   it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss/qwen capped at their floor; mistral omits', async () => {
     // drafter now leads with Groq (gpt-oss-20b) — fail it so the chain reaches Gemini.
@@ -532,7 +566,11 @@ describe('probes', () => {
     for (const call of calls) {
       const rf = call.params.response_format as { type: string }
       expect(rf).toBeDefined()
-      expect(rf.type).toBe(call.model.includes('gpt-oss') ? 'json_schema' : 'json_object')
+      // Real supportsJsonSchema() (router-shared.ts), not a re-derived guess
+      // here — this exact assertion went stale once already (2026-08-13, the
+      // DeepSeek-V3 swap) when it hardcoded 'gpt-oss' instead of importing
+      // the real classifier.
+      expect(rf.type).toBe(supportsJsonSchema(call.model) ? 'json_schema' : 'json_object')
     }
   })
 
