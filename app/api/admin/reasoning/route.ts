@@ -25,7 +25,7 @@
 //
 // Admin-only (403 before any quota is spent).
 
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { AiError, drafterLaneStress } from '@/lib/ai/router'
 import { isCallerAdmin } from '@/lib/auth/admin'
 import { log } from '@/lib/log'
@@ -115,16 +115,35 @@ export async function POST(req: Request): Promise<Response> {
   // which step is running.
   const extraContext = buildExtraContext(run)
 
-  // Fire-and-forget persistence (Phase 2 item 1, decision 019): every real
-  // (non-dry-run) step response upserts the full merged run state — not just
-  // on completion, so a halted run is captured too. See
-  // lib/ai/reasoning/persistence.ts and 15-persistence.md. Nested (rather
-  // than module-level) so it closes over this request's `run`/`runId`/
-  // `dryRun` without threading them through every one of ok/retryStep/
-  // halted's ~15 call sites below.
+  // Persistence (Phase 2 item 1, decision 019): every real (non-dry-run) step
+  // response upserts the full merged run state — not just on completion, so a
+  // halted run is captured too. See lib/ai/reasoning/persistence.ts and
+  // 15-persistence.md. Nested (rather than module-level) so it closes over
+  // this request's `run`/`runId`/`dryRun` without threading them through
+  // every one of ok/retryStep/halted's ~15 call sites below.
+  //
+  // Scheduled via next/server's after() (2026-08-14, Samir/Claude — see the
+  // Past Runs investigation this same session: most historical rows sit
+  // frozen at some earlier step instead of their true last one, and the
+  // 502 catch-all's own persist call — added moments earlier this session —
+  // wasn't landing either). This used to be `void persistRunStep(...)`, a
+  // genuinely untracked fire-and-forget: the route returns its
+  // NextResponse.json(...) immediately after calling persist(), and Vercel's
+  // serverless runtime is free to freeze the invocation right after the
+  // response is flushed — there's no contractual guarantee an unawaited
+  // promise's own network round-trip to Supabase finishes first. after()
+  // is exactly Vercel/Next's answer to this: it defers the callback until
+  // the response has been sent, but keeps the invocation alive until the
+  // callback's own promise settles, so the write can no longer lose that
+  // race. persistRunStep itself is unchanged — still never throws into the
+  // caller (its own try/catch), so a genuine Supabase-side failure remains
+  // exactly as non-fatal to the pipeline as before; this only fixes the
+  // platform-timing loss, not add new failure handling.
   function persist(patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string): void {
     if (dryRun) return
-    void persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason, panelsOff)
+    after(() =>
+      persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason, panelsOff)
+    )
   }
 
   function ok(step: StepId, patch: Record<string, unknown>): Response {
@@ -670,10 +689,23 @@ export async function POST(req: Request): Promise<Response> {
         return NextResponse.json({ error: 'invalid-request', detail: 'unknown step' }, { status: 400 })
     }
   } catch (err) {
+    // 2026-08-14, Samir: every other failure path in this route (halted(),
+    // retryStep(), perspectivesFanOutFailure()) persists before responding —
+    // this catch-all was the one gap. An AiError or any other unhandled
+    // throw (upstream 5xx, timeout, network error) used to return straight
+    // to the client with no DB write at all, leaving the run frozen at
+    // whatever `status`/`lastStep` its last successful step left it in —
+    // forever indistinguishable from "still genuinely in progress" in Past
+    // Runs. Same non-hard-block shape as perspectivesFanOutFailure: nextStep
+    // stays the step itself (Retry re-attempts it, no special client case),
+    // just with haltReason now durable instead of silently dropped.
+    const patchStep = step === 'context-gather-adhoc' ? atStep : step
+    const message = err instanceof AiError ? err.message : (err as Error)?.message || 'unknown error'
+    if (patchStep) persist(patchStep, {}, patchStep, false, `${patchStep} threw: ${message}`)
     if (err instanceof AiError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
-    log.error('ai/reasoning/route', 'unhandled error', { step, error: (err as Error)?.message })
+    log.error('ai/reasoning/route', 'unhandled error', { step, error: message })
     return NextResponse.json({ error: 'ai-upstream-error' }, { status: 502 })
   }
 }
