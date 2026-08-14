@@ -63,6 +63,12 @@ const CTX = {
   // prior model's window on this target. 128K therefore remains the tightest
   // ceiling across all four models this target has now run; still no change
   // needed, still kept at 128_000 for the same conservative reason as before.
+  // deepseek-ai/DeepSeek-V4-Flash-0731 (2026-08-14, Samir's call — see
+  // TARGETS.deepinfra's own comment for the full swap rationale and the
+  // reasoning-channel risk flag) is 1,048,576 natively (confirmed live on
+  // deepinfra.com/deepseek-ai/DeepSeek-V4-Flash-0731) — by far the largest
+  // window this target has run. 128K remains the tightest ceiling across all
+  // five models this target has now run; still no change needed here.
   deepinfra: Number(process.env.DEEPINFRA_CONTEXT ?? 128_000),
   groq: Number(process.env.GROQ_CONTEXT ?? 128_000),
   gemini: Number(process.env.GEMINI_CONTEXT ?? 1_000_000),
@@ -92,7 +98,65 @@ export const TARGETS = {
   // DeepInfra override var below stays DEEPINFRA_* with no underscore, since
   // only the literal secret name needed to match what's really configured.)
   //
-  // Active default: 'Qwen/Qwen3-235B-A22B-Instruct-2507' — swapped from
+  // Active default: 'deepseek-ai/DeepSeek-V4-Flash-0731' (2026-08-14, Samir's
+  // call, swapped from Qwen3-235B-A22B-Instruct-2507 — NOT because Qwen
+  // failed real verification like the models before it did; the 2026-08-13
+  // swap-in run passed 22/22 real calls. This swap is exploratory: DeepSeek
+  // released V4-Flash the same week (284B total / 13B active MoE, 1M-token
+  // context, tuned for "agentic" workloads) and Samir wants it real-verified
+  // on this lane before deciding between it and Qwen.
+  //
+  // Confirmed live before this swap, same discipline as every prior one:
+  // fetched https://deepinfra.com/deepseek-ai/DeepSeek-V4-Flash-0731 directly
+  // — resolves to a real model page, not a 404. The undated
+  // 'deepseek-ai/DeepSeek-V4-Flash' id also resolves, but per DeepInfra's own
+  // page copy that one is the SUPERSEDED preview checkpoint; '-0731' is the
+  // official release (substantially more agentic-capability post-training,
+  // same architecture/context/pricing) — same reasoning as pinning Llama's
+  // '-Turbo' suffix below: prefer the exact, current, non-generic id.
+  // Confirmed 1,048,576-token context (CTX.deepinfra above — still far under
+  // the existing 128K default, no change needed) and pricing ~$0.08/1M input,
+  // ~$0.18/1M output (standard tier) — meaningfully cheaper per-token than
+  // Qwen3-235B was, though cost was not the reason for this swap.
+  //
+  // supportsJsonSchema() (router-shared.ts) deliberately NOT extended for
+  // this model, same discipline as Llama-3.3-70B and Qwen3-235B above:
+  // DeepInfra's model page shows "Supports" badges for JSON and function
+  // calling, but this session already twice confirmed that badge is NOT a
+  // reliable signal of real constrained-decoding support (Llama had the
+  // identical badge and still failed; Qwen's strict-mode status also stayed
+  // genuinely unconfirmed). docs.deepinfra.com/chat/structured-outputs,
+  // re-checked for this swap, still names only DeepSeek-V3 explicitly — not
+  // V4-Flash. This model therefore also runs on the json_object fallback
+  // path, backed by the same JSON_SHAPE_GUARDRAIL + stripMarkdownFence
+  // (router.ts) net every unconfirmed model on this target gets.
+  //
+  // ⚠ KNOWN RISK, flagged before real-verification rather than discovered by
+  // it: unlike DeepSeek-V3 and Qwen3-235B — both explicitly chosen FOR having
+  // no hidden reasoning channel, to structurally rule out gpt-oss-20b's
+  // empty-output failure class — DeepSeek-V4-Flash-0731's own page documents
+  // a `reasoning_effort` parameter (low/high/max) and a `reasoning_content`
+  // field. That means it DOES have a hidden reasoning phase, the same shape
+  // of mechanism that caused gpt-oss-20b's 5-consecutive-real-failure
+  // incident that started this entire multi-model saga.
+  //
+  // Real-verified (2026-08-14, one full real run, local dev against a live
+  // DeepInfra key — not yet exercised on deployed Vercel traffic): all 22
+  // pipeline steps completed, zero regenerations, zero ai-empty-output, zero
+  // ai-invalid-output — including at perspectives-generate-details and
+  // perspectives-evidence-strategy specifically, the two steps a prior real
+  // production run failed on under Qwen3-235B. Frame 9/9, both Perspectives
+  // bundles 9/9, Global Assumptions 9/9, Global Evidence 8/9 (one tolerated
+  // standard, still overall_pass), Conclusions 9/9, Implications 9/9 — every
+  // gate passed first try. ~4m6s total real AI-call time summed across all
+  // 22 steps (individual calls ranged ~2s-45s), noticeably faster than
+  // DeepSeek-V3's 8+ minutes for the Perspectives layer alone. The hidden-
+  // reasoning-channel risk above did NOT materialize this run — one clean
+  // run is not proof it never will (gpt-oss-20b's own failure was
+  // intermittent, not every-call), so this is still worth watching on early
+  // real traffic, same discipline as every model on this target gets.
+  //
+  // ── Qwen/Qwen3-235B-A22B-Instruct-2507 (kept here for history) — swapped from
   // 'meta-llama/Llama-3.3-70B-Instruct-Turbo' (2026-08-13, same live
   // debugging session as the Llama swap directly below, later the same
   // evening once Llama's real-verification results came back). Llama's
@@ -136,7 +200,11 @@ export const TARGETS = {
   // on DeepInfra is therefore genuinely UNCONFIRMED — supportsJsonSchema()
   // (router-shared.ts) was deliberately NOT extended to include it, same
   // discipline as every model on this target except DeepSeek-V3 (see that
-  // function's own comment). This swap has NOT yet been real-verified.
+  // function's own comment). Real-verified the same evening this comment was
+  // written: 22/22 pipeline steps' real calls succeeded, zero regenerations,
+  // zero JSON-parsing failures (full results in the swap note above this
+  // one) — this model was never demoted for failing, only superseded by the
+  // 2026-08-14 DeepSeek-V4-Flash-0731 exploration above.
   //
   // Paired with a new defensive fix the same session (router.ts, completeJSON
   // / tryParse, via stripMarkdownFence): a helper now strips a leading/
@@ -238,7 +306,7 @@ export const TARGETS = {
   // DEEPINFRA_MODEL env) to revert or try something else again.
   deepinfra: {
     provider: 'deepinfra',
-    model: process.env.DEEPINFRA_MODEL ?? 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+    model: process.env.DEEPINFRA_MODEL ?? 'deepseek-ai/DeepSeek-V4-Flash-0731',
     keyEnv: process.env.DEEPINFRA_KEY_ENV ?? 'DEEP_INFRA_API_KEY',
     contextWindow: CTX.deepinfra,
   },
