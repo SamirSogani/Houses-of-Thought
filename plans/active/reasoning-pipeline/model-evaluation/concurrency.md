@@ -97,3 +97,57 @@ this scales to concurrent real usage without a human babysitting every tab.
 - **Different model than what's now the local default.** This measured
   Qwen3-235B, not DeepSeek-V4-Flash-0731 — no concurrent-load data exists
   yet for the model currently in the local working tree.
+
+## Post-fix re-test — 0 of 9 (0%) losses, 2026-08-14
+
+Same shape, same day, immediately after PR #4
+([fix/reasoning-persistence-race](https://github.com/SamirSogani/houses-of-thought/pull/4))
+merged to `main` and deployed (commit `d7e3855`, confirmed live via GitHub's
+commit-status API). 9 concurrent real (non-dry-run) runs, n=2, same 9
+questions as the pre-fix test above, launched via 9 browser tabs against
+`houses-of-thought.vercel.app`. Same model in production (Qwen3-235B).
+Skipped the PR's own Vercel preview check (Step 3) — the preview URL sat
+behind Vercel's account-level Deployment Protection (a "Log in to Vercel"
+gate, distinct from the app's own admin auth) with no bypass token
+available; Samir approved going straight to merge + production re-test
+instead.
+
+| Question | Outcome | Wall-clock (created → last recorded write) |
+|---|---|---|
+| Should a city require solar panels on all new residential construction? | ✅ Done | 22m 57s |
+| Should a college make standardized testing optional for admissions? | ✅ Done | 13m 58s |
+| Should public libraries eliminate late fees? | ✅ Done | 21m 39s |
+| Should a mid-sized city switch its bus fleet to electric buses? | ✅ Done | 21m 16s |
+| Should a hospital adopt a four-day work week for nurses? | ✅ Done | 21m 33s |
+| Should a nonprofit accept cryptocurrency donations? | ✅ Done | 20m 29s |
+| Should a startup outsource its customer support to a call center? | ✅ Done | 23m 51s |
+| Should a manufacturing plant switch to a four-day production week? | ✅ Done (1 transient 502 + manual Retry) | 43m 31s* |
+| Should our school ban homework? | ✅ Done (1 transient 502 + manual Retry) | 44m 37s* |
+
+\* These two idled ~30 real minutes before I noticed the 502 and clicked
+Retry (a monitoring-cadence artifact, not pipeline work time) — not
+comparable to the other seven or to the pre-fix table's timings.
+
+**Every one of the 9 confirmed via `/api/admin/reasoning/runs/{id}`:
+`status: "done"`, `haltReason: null`, and a non-empty `runState.finalAnswer`**
+(the list endpoint alone doesn't surface `finalAnswer` — had to hit the
+per-run detail route). Spot-checked one rendered answer directly in-browser
+(the homework question) to match the pre-fix test's "read the actual
+rendered text" methodology. **0 of 9 silent-completion losses**, vs. 3 of 9
+(33%) pre-fix — Finding 1 is closed.
+
+Two side observations, neither a regression of this fix:
+- **Two runs hit a real 502** mid-run (manufacturing, homework) under
+  9-way concurrent load. `haltReason` stayed `null` and `updatedAt` didn't
+  move across the failure, meaning it was very likely a Vercel
+  platform-level 502 (e.g. a hard timeout or resource limit) that killed
+  the invocation before the route's own JS ever reached its catch block —
+  not the kind of in-process unhandled exception this PR's catch-all
+  patches. The client's existing manual "Retry" button worked correctly
+  once clicked; after retry, both runs completed cleanly with the fix
+  intact. Worth its own investigation if it recurs, but out of scope here.
+- **The homework question completed cleanly this time** (previously
+  Finding 2: hard-halted on `global-assumptions-review`, 8/9 standards
+  failing 4 straight attempts). This run passed `global-assumptions-review`
+  at 8/9. Single data point in both directions — not evidence the
+  content-quality issue is fixed, just that it didn't recur here.

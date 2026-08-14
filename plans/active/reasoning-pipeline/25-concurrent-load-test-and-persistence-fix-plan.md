@@ -124,8 +124,34 @@ two findings aren't addressed here:
   runs auto-skip clarification, or is the pause-and-wait the right
   design?), not a bug. Samir's call if/when it matters.
 
-## Not done yet
+## What actually happened (2026-08-14, later the same day)
 
-Nothing in this doc has been executed — no branch created, no commit made,
-no push. Waiting on Samir to confirm before touching git, per this repo's
-own "commit or push only when asked" rule.
+Steps 1–4 executed, with two deviations from plan:
+
+- **Repo turned out to be public**, not private — PR #4 opened and read via
+  the GitHub API with no `gh` CLI and no authenticated browser session
+  needed (Step 2's assumption was wrong).
+- **Step 3's preview check couldn't run as written.** The PR's Vercel
+  preview URL sat behind account-level Deployment Protection (a Vercel
+  login gate, distinct from the app's own admin auth) with no bypass token
+  available. Samir approved skipping straight to merge + a full production
+  re-test instead of the preview spot-check.
+
+Everything else ran as planned: branch pushed, PR #4 opened
+(`app/api/admin/reasoning/route.ts` + docs only, `lib/ai/router-config.ts`
+untouched), merged to `main` (fast-forward, commit `d7e3855`), confirmed
+live on production via GitHub's commit-status API, then the exact 9-way
+concurrent load test re-run against production. Full results:
+[model-evaluation/concurrency.md](model-evaluation/concurrency.md)'s
+"Post-fix re-test" section.
+
+**Result: 0 of 9 (0%) silent-completion losses, down from 3 of 9 (33%)
+pre-fix.** Finding 1 is closed. Two runs hit a transient 502 under load
+(likely Vercel-platform-level, not the in-process exception this PR
+patches) and needed a manual Retry click — a separate observation, not a
+regression, flagged in the concurrency doc for future investigation if it
+recurs.
+
+Step 5 (the DeepSeek-V4-Flash-0731 model swap) remains not started, per
+plan — it stays local/uncommitted until it gets its own branch, PR, and
+concurrent-load verification.
