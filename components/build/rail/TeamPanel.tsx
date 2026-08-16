@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { displayNameFor, formatLastActive, type RosterPerson, type TeamRoster } from '../useTeamRoster'
-import { initialsForName } from '../Avatar'
+import { PersonHoverCard } from '../PersonHoverCard'
 import { TeamShareBlock } from './TeamShareBlock'
 import { TeamMessageThread } from './TeamMessageThread'
 import { TeamActivityFeed } from './TeamActivityFeed'
@@ -253,16 +253,19 @@ export function TeamPanel({
             const isOwnerRow = m.role === 'owner'
             const canRemove = !isOwnerRow && (isOwner || isSelf)
             const name = displayNameFor(m)
-            const lastActive = formatLastActive(roster?.presence[m.userId])
+            const roleLabel = isOwnerRow ? 'Owner' : m.role === 'editor' ? 'Editor' : 'Viewer'
             return (
               <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--rule)', borderRadius: 10, padding: '9px 11px' }}>
-                <span
-                  title={lastActive}
-                  style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--ink)', color: 'var(--parchment)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, flex: '0 0 auto' }}
-                >
-                  {initialsForName(name)}
-                </span>
-                <span title={lastActive} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--ink)' }}>
+                <PersonHoverCard
+                  id={m.userId}
+                  name={name}
+                  email={m.email}
+                  roleLabel={roleLabel}
+                  lastSeenIso={roster?.presence[m.userId]}
+                  isSelf={isSelf}
+                  size={26}
+                />
+                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--ink)' }}>
                   {name}
                   {isSelf && <span style={{ color: 'var(--ink-subtle)' }}> · you</span>}
                 </span>

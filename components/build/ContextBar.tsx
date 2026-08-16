@@ -13,7 +13,8 @@ import type { AiMode, PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
-import { Avatar, RealAvatar } from './Avatar'
+import { Avatar } from './Avatar'
+import { PersonHoverCard } from './PersonHoverCard'
 import { displayNameFor, formatLastActive, type TeamRoster } from './useTeamRoster'
 
 const presenceOrder: PersonKey[] = ['you', 'ai']
@@ -243,9 +244,10 @@ export function ContextBar({
 
 // Real presence avatars: owner + every collaborator (team-panel-v2 item 1),
 // followed by the co-pilot — which still isn't a real account, so it keeps
-// its lib/build/people.ts Avatar. Hovering/focusing a person's avatar shows
-// their last-active timestamp from house_presence (item 4), same wording
-// TeamPanel's own membership list uses.
+// its lib/build/people.ts Avatar. Each real person's avatar is a
+// PersonHoverCard: full color when recently active, faded when not, with a
+// small card (name, email, activity) on hover/click/focus — Google Docs/
+// Word-style, replacing the old plain browser title-tooltip treatment.
 function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUserId: string | null }) {
   const people_ = [...(roster.owner ? [roster.owner] : []), ...roster.collaborators]
   return (
@@ -253,13 +255,25 @@ function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUs
       {people_.map((p) => {
         const name = displayNameFor(p)
         const isSelf = p.userId === currentUserId
-        const label = `${name}${isSelf ? ' (you)' : ''} · ${p.role} · ${formatLastActive(roster.presence[p.userId])}`
-        return <RealAvatar key={p.userId} id={p.userId} name={name} size={30} ring title={label} style={{ marginLeft: -7 }} />
+        return (
+          <PersonHoverCard
+            key={p.userId}
+            id={p.userId}
+            name={name}
+            email={p.email}
+            roleLabel={p.role}
+            lastSeenIso={roster.presence[p.userId]}
+            isSelf={isSelf}
+            size={30}
+            ring
+            style={{ marginLeft: -7 }}
+          />
+        )
       })}
       <Avatar who="ai" size={30} ring title={`${people.ai.name} · ${people.ai.role}`} style={{ marginLeft: -7 }} />
-      {/* The avatars carry their identity only in a `title` tooltip, which
-          keyboard and touch users never see (a11y S7). State it in text for
-          assistive tech instead. */}
+      {/* The hover cards carry identity in a dialog that only opens on
+          hover/click/focus, which assistive tech may never trigger passively
+          (a11y S7). State it in text unconditionally, same as before. */}
       <span className="sr-only">
         In this house: {people_.map((p) => `${displayNameFor(p)} (${p.role}, ${formatLastActive(roster.presence[p.userId])})`).join(', ')}
         {`, ${people.ai.name} (${people.ai.role})`}

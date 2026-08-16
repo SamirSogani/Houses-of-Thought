@@ -55,6 +55,17 @@ export function formatLastActive(iso: string | null | undefined): string {
   return `active ${Math.floor(diffMs / day)}d ago`
 }
 
+// Google Docs/Word-style presence: an avatar reads as "here" (full color) or
+// "away" (faded) at a glance, no hover needed to tell the two apart. 5 minutes
+// is more generous than formatLastActive's 2-minute "active now" wording,
+// since TeamPanel only pings every ~60s while open — a still-present
+// collaborator can otherwise flicker to "away" between pings.
+const ACTIVE_THRESHOLD_MS = 5 * 60_000
+export function isRecentlyActive(iso: string | null | undefined): boolean {
+  if (!iso) return false
+  return Date.now() - new Date(iso).getTime() < ACTIVE_THRESHOLD_MS
+}
+
 export function useTeamRoster(team: TeamContext | null): TeamRoster {
   const [owner, setOwner] = useState<RosterPerson | null>(null)
   const [collaborators, setCollaborators] = useState<RosterPerson[]>([])
