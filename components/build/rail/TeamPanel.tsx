@@ -51,6 +51,7 @@ export function TeamPanel({
   const [role, setRole] = useState<Role>('editor')
   const [invite, setInvite] = useState<InviteState>({ status: 'idle' })
   const [removing, setRemoving] = useState<string | null>(null)
+  const [changingRole, setChangingRole] = useState<string | null>(null)
 
   const loadMembers = useCallback(async () => {
     try {
@@ -116,6 +117,26 @@ export function TeamPanel({
       loadMembers()
     } catch {
       setInvite({ status: 'error', message: 'Network error — try again.' })
+    }
+  }
+
+  // Owner-only, never self (a collaborator can't promote/demote themselves —
+  // matches house_collaborators_update's RLS, which is owner-gated the same
+  // way the insert/delete calls above already are).
+  async function handleRoleChange(userId: string, newRole: Role) {
+    setChangingRole(userId)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('house_collaborators')
+        .update({ role: newRole })
+        .eq('house_id', houseId)
+        .eq('user_id', userId)
+      if (!error) {
+        setMembers((ms) => (ms ?? []).map((m) => (m.userId === userId ? { ...m, role: newRole } : m)))
+      }
+    } finally {
+      setChangingRole(null)
     }
   }
 
@@ -223,7 +244,28 @@ export function TeamPanel({
                   {displayName(m)}
                   {isSelf && <span style={{ color: 'var(--ink-subtle)' }}> · you</span>}
                 </span>
-                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', textTransform: 'uppercase', flex: '0 0 auto' }}>{m.role}</span>
+                {isOwner && !isSelf ? (
+                  <div role="group" aria-label={`Role for ${displayName(m)}`} style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 6, overflow: 'hidden', flex: '0 0 auto', opacity: changingRole === m.userId ? 0.6 : 1 }}>
+                    {(['editor', 'viewer'] as Role[]).map((r) => {
+                      const active = m.role === r
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => !active && handleRoleChange(m.userId, r)}
+                          disabled={changingRole === m.userId}
+                          aria-pressed={active}
+                          className="mono"
+                          style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.02em', padding: '3px 8px', border: 'none', color: active ? 'var(--ink)' : 'var(--ink-subtle)', background: active ? 'var(--amber-tint)' : 'transparent', fontWeight: active ? 700 : 500, cursor: active ? 'default' : 'pointer' }}
+                        >
+                          {r}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', textTransform: 'uppercase', flex: '0 0 auto' }}>{m.role}</span>
+                )}
                 {canRemove && (
                   <button
                     type="button"
