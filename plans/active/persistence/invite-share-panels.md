@@ -95,20 +95,48 @@ Nothing backend exists for this yet; it's genuinely new, small surface.
    identically to what `/examples/[slug]` feeds its render, returns 404 on
    no match (don't distinguish "no such token" from "revoked" — same
    response). Renders via the extracted component from step 4.
-6. **Add `/shared` to `middleware.ts`'s public routes** — i.e. do *not* add
-   it to `PROTECTED_PREFIXES`. It must stay reachable without login; that's
-   the entire point.
+6. **Add `/shared` to `proxy.ts`'s public routes** — i.e. do *not* add it to
+   `PROTECTED_PREFIXES`. It must stay reachable without login; that's the
+   entire point. (Note: this file was `middleware.ts` briefly mid-build —
+   see "Also found" below — settled back to `proxy.ts`, Next's actual
+   current convention.)
 
-## Verification checklist (before calling this done)
+## Verification checklist — all confirmed live, 2026-08-16
 
-- `npx tsc --noEmit` and `npm run build` clean.
-- A real house, invited as `viewer`: confirm read access in `/build/<id>`,
-  confirm write attempts are rejected (RLS, not just UI hiding the button).
-- A real house, invited as `editor`: confirm write access works.
-- A collaborator removing themselves: confirm they lose access immediately
-  (re-query, not just UI state).
-- A share link: open in an incognito/logged-out context, confirm it
-  renders real data, confirm revoking it 404s the same URL immediately.
-- A stranger (authenticated, not invited, no token): confirm `/build/<id>`
-  still RLS-bounces them exactly as today — this feature must not widen
-  access beyond what was explicitly granted.
+- ✅ `npx tsc --noEmit` and `npm run build` clean.
+- ✅ Real second account, invited as `viewer`: read access confirmed in
+  `/build/<id>`; a direct write attempt confirmed RLS-rejected, not just
+  UI-hidden (tested against a real Vercel preview deployment, second
+  account on a separate browser/device from the owner).
+- ✅ Same account, flipped to `editor`: write access confirmed working.
+- ✅ Self-removal ("Leave"): confirmed losing access.
+- ✅ Share link opened in a genuinely cookie-less context (a tab that had
+  never touched the app's origin, not just a private window): real live
+  data rendered, read-only (zero editable inputs on the page), clear
+  "SHARED HOUSE · READ-ONLY" banner.
+- ✅ Revoke: same URL immediately returned the app's real 404 page —
+  indistinguishable from a token that never existed, as designed.
+- ⬜ Stranger (authenticated, not invited, no token) still RLS-bounced from
+  `/build/<id>` exactly as before — not explicitly re-tested, but this
+  path's RLS was never touched by this feature (only `house_collaborators`
+  wiring, which is additive, and `share_token` resolution, which
+  deliberately bypasses RLS via service role rather than widening it) — low
+  risk, but flagging as the one item that's reasoned-about rather than
+  directly observed.
+
+## Also found and fixed while building/verifying this
+
+- `profile`s and five house-related tables had never been granted
+  `service_role` SELECT — a real, live, pre-existing gap (same class as
+  `0012`/`0029`/`0031`), triggered for the first time by this feature's
+  service-role routes. Fixed: migrations `0034`, `0035`.
+- The `proxy.ts`/`middleware.ts` naming: flip-flopped twice this session as
+  Next's resolved version floated from 16.2.9 → 16.2.10 mid-session
+  (unpinned `^16.2.9` in `package.json`) and changed which convention is
+  current. Settled on `proxy.ts`, confirmed against Next's own docs.
+- `app/api/collaborators/route.ts` was silently swallowing Supabase errors
+  with no server-side logging — fixed; this is what actually surfaced the
+  grant gap above instead of an unexplained 404/500.
+- `TeamPanel` had no way to change an existing collaborator's role after
+  inviting (only remove-and-reinvite) — added an owner-only, non-self
+  role-toggle to the membership list.
