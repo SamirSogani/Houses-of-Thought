@@ -11,13 +11,23 @@ import { useAuthedPage, CenterNotice } from '@/components/useAuthedPage'
 import { StudentAssignments } from '@/components/classroom/StudentAssignments'
 
 // Columns selected for the grid — keep in sync with HouseRow.
-const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at, assignment_id, turned_in, draft'
+const HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at, assignment_id, turned_in, draft, share_token'
+// Shared-with-you houses never expose share_token (Mechanism 2 is owner-only)
+// or draft-gate state (turn-in doesn't apply to someone else's house).
+const SHARED_HOUSE_COLUMNS = 'id, title, question, status, layers_complete, updated_at'
 
 export default function DashboardPage() {
   const router = useRouter()
   // Shared authed scaffold: user + account type + capabilities + signOut.
   const { accountType, caps, signOut } = useAuthedPage()
   const [houses, setHouses] = useState<HouseSummary[] | null>(null)
+  // Mechanism 1 ("Invite"): houses owned by someone else where the signed-in
+  // user is a house_collaborators row — labeled distinctly, never merged into
+  // "Your Houses" (plan doc step 4).
+  const [sharedHouses, setSharedHouses] = useState<HouseSummary[] | null>(null)
+  // Mechanism 2 ("Share"): a transient, non-error confirmation (e.g. "Link
+  // copied") — separate from `error` below, which is reserved for failures.
+  const [notice, setNotice] = useState<string | null>(null)
   // Turned-in houses that already carry teacher feedback: undo-turn-in is
   // blocked for these (bl-H2 — un-submitting after grading silently detached
   // the grade from the work the teacher actually saw).
@@ -72,6 +82,41 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // Mechanism 1 step 4: houses shared with the signed-in user as a
+  // house_collaborators row, surfaced separately from — never merged into —
+  // the owner-only query above. houses_select RLS (0004/0006/0020) already
+  // permits reading these rows; this is purely a client-side query change.
+  const loadSharedHouses = useCallback(async () => {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: memberships, error: membershipError } = await supabase
+      .from('house_collaborators')
+      .select('house_id, role')
+      .eq('user_id', user.id)
+    if (membershipError || !memberships || memberships.length === 0) {
+      setSharedHouses([])
+      return
+    }
+    const roleByHouse = new Map(memberships.map((m) => [m.house_id as string, m.role as 'viewer' | 'editor']))
+    const { data, error } = await supabase
+      .from('houses')
+      .select(SHARED_HOUSE_COLUMNS)
+      .in('id', Array.from(roleByHouse.keys()))
+      .order('updated_at', { ascending: false })
+    if (error) {
+      console.error('Failed to load shared houses:', error)
+      setSharedHouses([])
+      return
+    }
+    const rows = data as HouseRow[]
+    setSharedHouses(
+      rows.map((r) => ({ ...rowToSummary(r), sharedRole: roleByHouse.get(r.id) }))
+    )
+  }, [])
+
   useEffect(() => {
     if (accountType !== 'standard') return
     ;(async () => {
@@ -84,7 +129,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadHouses()
-  }, [loadHouses])
+    loadSharedHouses()
+  }, [loadHouses, loadSharedHouses])
 
   // draft=true routes into Draft Mode (decision 016): same blank house, but the
   // workspace opens with the AI-draft flow (?draft=1).
@@ -124,7 +170,10 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { error } = await supabase.from('houses').update({ title: next || null }).eq('id', id)
     if (!error) {
+      // The id could be an owned house OR (an editor's rename of) a house
+      // shared with this user — update whichever list actually holds it.
       setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, title: next || null } : h)))
+      setSharedHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, title: next || null } : h)))
     }
   }
 
@@ -169,6 +218,47 @@ export default function DashboardPage() {
     }
   }
 
+  // Mechanism 2 ("Share"): the owner's own UPDATE, allowed by the existing
+  // owner-gated houses_update RLS (0004/0006/0020) — no new policy (0033
+  // added only the column). A fresh crypto.randomUUID() stands in for the
+  // plan doc's `gen_random_uuid()`: same effect (a random, DB-unique token),
+  // generated client-side so this is a plain `.update()` rather than needing
+  // an RPC round trip; share_token's UNIQUE constraint still catches the
+  // astronomically unlikely collision and surfaces it as a normal error below.
+  async function handleGetShareLink(id: string) {
+    const house = (houses ?? []).find((h) => h.id === id)
+    const existing = house?.shareToken
+    const token = existing ?? crypto.randomUUID()
+    if (!existing) {
+      const supabase = createClient()
+      const { error } = await supabase.from('houses').update({ share_token: token }).eq('id', id)
+      if (error) {
+        setError('Could not create a share link — please try again.')
+        return
+      }
+      setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, shareToken: token } : h)))
+    }
+    const url = `${window.location.origin}/shared/${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setError(null)
+      setNotice('Share link copied to clipboard.')
+    } catch {
+      setNotice(`Share link: ${url}`)
+    }
+  }
+
+  async function handleRevokeShareLink(id: string) {
+    const supabase = createClient()
+    const { error } = await supabase.from('houses').update({ share_token: null }).eq('id', id)
+    if (!error) {
+      setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, shareToken: null } : h)))
+      setNotice('Share link revoked — it no longer works.')
+    } else {
+      setError('Could not revoke the share link — please try again.')
+    }
+  }
+
   if (houses === null) {
     return <CenterNotice>Loading your houses…</CenterNotice>
   }
@@ -202,6 +292,11 @@ export default function DashboardPage() {
               {error}
             </p>
           )}
+          {notice && !error && (
+            <p className="mono" style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 16 }}>
+              {notice}
+            </p>
+          )}
 
           {/* Assigned work (students only; self-hides when empty) */}
           <div style={{ marginTop: 'clamp(24px, 3vw, 36px)' }}>
@@ -227,6 +322,8 @@ export default function DashboardPage() {
                 onRename={handleRename}
                 onDelete={handleDelete}
                 onTurnIn={handleTurnIn}
+                onGetShareLink={handleGetShareLink}
+                onRevokeShareLink={handleRevokeShareLink}
               />
             ))}
             <CreateHouseCard onClick={() => handleCreate()} disabled={creating} />
@@ -238,6 +335,39 @@ export default function DashboardPage() {
               />
             )}
           </div>
+
+          {/* Mechanism 1 ("Invite"): houses someone else owns where the
+              signed-in user is a house_collaborators row. Deliberately its own
+              section, never merged into the grid above — these aren't yours. */}
+          {sharedHouses !== null && sharedHouses.length > 0 && (
+            <div style={{ marginTop: 'clamp(32px, 4vw, 48px)' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(20px, 2.6vw, 26px)', letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+                Shared with you
+              </h2>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink-mid)', marginTop: 6 }}>
+                Houses other people invited you to. Rename requires editor access; only the owner can
+                delete or share.
+              </p>
+              <div
+                className="acct-card-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: 20,
+                  marginTop: 16,
+                }}
+              >
+                {sharedHouses.map((h) => (
+                  <HouseCard
+                    key={h.id}
+                    house={h}
+                    href={`/build/${h.id}`}
+                    onRename={h.sharedRole === 'editor' ? handleRename : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 

@@ -47,9 +47,27 @@ backfills the hand-run `profiles` SQL so repo == live DB.
   to honor collaborators (foundation only, no app feature yet).
 All three migrations applied to live DB.
 
-✅ **Phase 4 — Route protection** (2026-07-04).
-`middleware.ts` now server-guards `/dashboard`, `/build`, `/profile` at the
-middleware layer — unauthenticated requests redirect to `/login?next=<path>`.
+✅ **Phase 4 — Route protection** (2026-07-04; **actually wired 2026-08-15/16**).
+`proxy.ts` server-guards `/dashboard`, `/build`, `/profile`, `/classroom`,
+`/classes`, `/join` — unauthenticated requests redirect to
+`/login?next=<path>`. **Correction, part 1 (2026-08-15):** from 2026-07-04
+the file sat as `proxy.ts` with an export named `proxy`, which the
+then-resolved Next.js version (16.2.9) didn't recognize as any file
+convention at all — confirmed via an empty `middleware-manifest.json` — so
+it silently did nothing for six weeks. Renamed to `middleware.ts` and
+verified live. **Correction, part 2 (2026-08-16, hours later):**
+`package.json` pins Next at `^16.2.9` (unpinned patch range); a routine
+`npm`/`next dev` run floated the resolved version to 16.2.10, which
+introduced official support for a *new* `proxy.ts`/`export function proxy()`
+convention and marked `middleware.ts` deprecated in favor of it (confirmed
+against Next's own docs, nextjs.org/docs/messages/middleware-to-proxy, and
+`PROXY_FILENAME` alongside `MIDDLEWARE_FILENAME` in the installed package
+source). Renamed back to `proxy.ts` — this time as the framework's actual
+current convention, not the original bug. Every downstream page's route-
+protection comment now says `proxy.ts` again, correctly. Moral: this file's
+name has now been correct under three different meanings in six weeks —
+don't assume either name is stable; check the installed Next.js version's
+own constants/docs before touching it again.
 
 ⏳ **Phase 2 + Phase 3 (dashboard subsection)** (2026-07-04).
 - Dashboard queries the signed-in user's `houses` on mount, ordered by
@@ -69,7 +87,10 @@ middleware layer — unauthenticated requests redirect to `/login?next=<path>`.
 
 ## Deferred to follow-up milestones
 
-- `house_collaborators` table + wiring the invite/team flow to real users.
-  Until then `owner_key` (`you`/`maya`/`devan`/`ai`) is a cosmetic text field.
+- ~~`house_collaborators` table + wiring the invite/team flow to real
+  users.~~ **Concrete plan written 2026-08-15:**
+  [invite-share-panels.md](invite-share-panels.md). Not yet implemented.
+  Until it ships, `owner_key` (`you`/`maya`/`devan`/`ai`) is a cosmetic text
+  field.
 - `/try` localStorage → account import on signup.
 - Real-time multi-user co-editing.

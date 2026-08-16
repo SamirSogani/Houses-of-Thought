@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BuildHousePage } from '@/components/build/BuildHousePage'
+import type { TeamContext } from '@/components/build/RightRail'
 import { loadHouse, saveHouse } from '@/lib/build/persistence'
 import { capabilitiesFor } from '@/lib/auth/capabilities'
 import { CenterNotice, useSignOut } from '@/components/useAuthedPage'
@@ -29,6 +30,13 @@ export default function BuildHouseRoute({
   const [readOnly, setReadOnly] = useState(false)
   // A strawman house holds an AI-written flawed argument to attack, not edit.
   const [strawman, setStrawman] = useState(false)
+  // Mechanism 1 ("Invite"): readOnly is true SPECIFICALLY because this is a
+  // 'viewer' house_collaborators row — distinct from the teacher/strawman
+  // read-only cases, which read differently in the banner.
+  const [viewerCollaborator, setViewerCollaborator] = useState(false)
+  // Real standing on this house (owner or an existing collaborator) — null
+  // hides the RightRail Team tab entirely (teacher view, strawman attack).
+  const [team, setTeam] = useState<TeamContext | null>(null)
   // Owner's turned-in submission: read-only until they undo turn-in (bl-H2).
   const [turnedInLock, setTurnedInLock] = useState(false)
   const [feedback, setFeedback] = useState<'edit' | 'view' | null>(null)
@@ -51,9 +59,13 @@ export default function BuildHouseRoute({
       } = await supabase.auth.getUser()
       if (!active || !user) return
 
-      const [{ data: profile }, { data: houseRow }, loadedHouse] = await Promise.all([
+      const [{ data: profile }, { data: houseRow }, { data: collabRow }, loadedHouse] = await Promise.all([
         supabase.from('profiles').select('account_type').eq('id', user.id).single(),
         supabase.from('houses').select('owner_id, is_strawman, assignment_id, turned_in').eq('id', id).single(),
+        // Mechanism 1: this caller's own membership row, if any (house_collaborators
+        // RLS lets a user always read their own row, even before can_access_house
+        // resolves — see migration 0004).
+        supabase.from('house_collaborators').select('role').eq('house_id', id).eq('user_id', user.id).maybeSingle(),
         loadHouse(supabase, id),
       ])
       if (!active) return
@@ -70,6 +82,9 @@ export default function BuildHouseRoute({
       // teacher's artifact, not student work).
       const isAssignment = houseRow?.assignment_id != null && !isStrawman
       const turnedIn = !notOwner && !isStrawman && houseRow?.turned_in === true
+      const collaboratorRole = (collabRow?.role as 'viewer' | 'editor' | undefined) ?? null
+      const isCollaborator = collaboratorRole !== null
+      const isViewer = notOwner && isCollaborator && collaboratorRole === 'viewer'
 
       // Apply the forced mode before first render so the house never briefly
       // shows Decide-mode help. Assignment submissions are student work by
@@ -81,13 +96,24 @@ export default function BuildHouseRoute({
       else if (isAssignment && !notOwner) state.mode = 'learn'
       setModeLocked(caps.forcedMode !== null || (isAssignment && !notOwner))
       setDraftEligible(caps.canAuthorDraft && !isAssignment)
-      // Read-only whenever you're not the owner (teacher on a student's house,
-      // student attacking a strawman) — and for the owner's own turned-in
-      // submission until they undo turn-in (bl-H2). Teachers own their
-      // strawmen, so they can still review/revise those.
+      // Read-only whenever you're not the owner AND not an 'editor' collaborator
+      // (teacher on a student's house, student attacking a strawman, a 'viewer'
+      // collaborator) — and for the owner's own turned-in submission until they
+      // undo turn-in (bl-H2). Teachers own their strawmen, so they can still
+      // review/revise those. An 'editor' collaborator is the one notOwner case
+      // that is NOT read-only — house_collaborators RLS (0004) already grants
+      // them real write access; this just stops the client from hiding it.
       setStrawman(isStrawman)
-      setReadOnly(notOwner || turnedIn)
+      setReadOnly(notOwner ? (isCollaborator ? collaboratorRole !== 'editor' : true) : turnedIn)
       setTurnedInLock(turnedIn)
+      setViewerCollaborator(isViewer)
+      // Team tab: real standing only (owner or an existing collaborator), never
+      // a strawman (nothing to invite anyone to attack).
+      setTeam(
+        !isStrawman && (!notOwner || isCollaborator)
+          ? { houseId: id, currentUserId: user.id, isOwner: !notOwner }
+          : null
+      )
       // Grading surfaces exist only on assignment submissions (bl-M4): a
       // teacher reaching a student's PERSONAL house from the roster gets a
       // plain read-only view, not the grade panel.
@@ -118,6 +144,8 @@ export default function BuildHouseRoute({
       feedback={feedback}
       draftEligible={draftEligible}
       draftEntry={draftParam === '1'}
+      viewerCollaborator={viewerCollaborator}
+      team={team}
       onSignOut={() => void signOut()}
       // Read-only view: skip persistence so a teacher's stray edit never fails a
       // write it was never allowed to make. Otherwise: guarded save presenting

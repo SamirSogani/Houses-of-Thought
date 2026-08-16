@@ -16,7 +16,7 @@ import { ContextBar, type SaveStatus } from './ContextBar'
 import { BlueprintRail } from './BlueprintRail'
 import { MobileStepStrip } from './MobileStepStrip'
 import { Canvas } from './Canvas'
-import { RightRail, MobileRailDrawer } from './RightRail'
+import { RightRail, MobileRailDrawer, type TeamContext } from './RightRail'
 import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
@@ -41,6 +41,8 @@ export function BuildHousePage({
   feedback = null,
   draftEligible = false,
   draftEntry = false,
+  viewerCollaborator = false,
+  team = null,
   onSignOut,
   onSave,
 }: {
@@ -50,8 +52,9 @@ export function BuildHousePage({
   houseId?: string
   // When true (students), the Learn/Decide toggle is disabled and pinned.
   modeLocked?: boolean
-  // When true (a teacher viewing a student's house), edits don't persist and the
-  // write-affordances are disabled; a banner makes the read-only state explicit.
+  // When true (a teacher viewing a student's house, or a viewer collaborator),
+  // edits don't persist and the write-affordances are disabled; a banner makes
+  // the read-only state explicit.
   readOnly?: boolean
   // When true, this is an AI strawman to attack (implies readOnly upstream); the
   // banner reads differently from the teacher read-only case.
@@ -67,6 +70,14 @@ export function BuildHousePage({
   draftEligible?: boolean
   // True when the user arrived via "Start with an AI draft" (?draft=1).
   draftEntry?: boolean
+  // Mechanism 1 ("Invite"): true when readOnly is true SPECIFICALLY because the
+  // caller is a 'viewer' house_collaborators row (not a teacher/strawman case)
+  // — the read-only banner reads differently for it.
+  viewerCollaborator?: boolean
+  // Real standing on this house (owner, or an existing collaborator) — surfaces
+  // the RightRail Team tab when set; hidden entirely otherwise (teacher view,
+  // strawman attack, a stranger who somehow reached this far).
+  team?: TeamContext | null
   onSignOut: () => void
   // Persistence adapter. Must REJECT on failure — a SaveError-shaped `code`
   // ('save-failed' | 'stale-write' | 'signed-out') drives the status machine.
@@ -333,7 +344,9 @@ export function BuildHousePage({
                 : 'AI Strawman · students will attack this — review and revise it, then release it from the assignment page'
               : turnedIn
                 ? 'Turned in · read-only — undo turn-in from your dashboard to keep editing'
-                : "Read-only · you're viewing a student's house"}
+                : viewerCollaborator
+                  ? 'Read-only · you have viewer access to this house'
+                  : "Read-only · you're viewing a student's house"}
           </div>
         )}
         {lockedByOtherTab && (
@@ -418,6 +431,7 @@ export function BuildHousePage({
             draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
             suggestCache={suggestCacheRef}
             interview={interview}
+            team={team}
           />
         )}
       </div>
@@ -457,6 +471,7 @@ export function BuildHousePage({
           draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
           suggestCache={suggestCacheRef}
           interview={interview}
+          team={team}
           onClose={() => setRailOpen(false)}
         />
       )}
