@@ -218,43 +218,54 @@ export default function DashboardPage() {
     }
   }
 
-  // Mechanism 2 ("Share"): the owner's own UPDATE, allowed by the existing
-  // owner-gated houses_update RLS (0004/0006/0020) — no new policy (0033
-  // added only the column). A fresh crypto.randomUUID() stands in for the
-  // plan doc's `gen_random_uuid()`: same effect (a random, DB-unique token),
-  // generated client-side so this is a plain `.update()` rather than needing
-  // an RPC round trip; share_token's UNIQUE constraint still catches the
-  // astronomically unlikely collision and surfaces it as a normal error below.
+  // Mechanism 2 ("Share"): calls app/api/share-link/route.ts rather than
+  // updating houses.share_token directly. That route still performs the
+  // UPDATE on THIS caller's own session (owner-gated houses_update RLS —
+  // 0004/0006/0020 — unchanged), so it grants no new access; going through it
+  // instead of a direct client `.update()` is what lets house_activity log a
+  // share_link_created/revoked row (team-panel-v2 item 6) no matter whether
+  // the action came from here or from TeamPanel's own share block, which
+  // calls the exact same route.
   async function handleGetShareLink(id: string) {
-    const house = (houses ?? []).find((h) => h.id === id)
-    const existing = house?.shareToken
-    const token = existing ?? crypto.randomUUID()
-    if (!existing) {
-      const supabase = createClient()
-      const { error } = await supabase.from('houses').update({ share_token: token }).eq('id', id)
-      if (error) {
+    try {
+      const res = await fetch('/api/share-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ houseId: id, action: 'create' }),
+      })
+      const body = (await res.json().catch(() => ({}))) as { shareToken?: string; error?: string }
+      if (!res.ok || !body.shareToken) {
         setError('Could not create a share link — please try again.')
         return
       }
-      setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, shareToken: token } : h)))
-    }
-    const url = `${window.location.origin}/shared/${token}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setError(null)
-      setNotice('Share link copied to clipboard.')
+      setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, shareToken: body.shareToken! } : h)))
+      const url = `${window.location.origin}/shared/${body.shareToken}`
+      try {
+        await navigator.clipboard.writeText(url)
+        setError(null)
+        setNotice('Share link copied to clipboard.')
+      } catch {
+        setNotice(`Share link: ${url}`)
+      }
     } catch {
-      setNotice(`Share link: ${url}`)
+      setError('Could not create a share link — please try again.')
     }
   }
 
   async function handleRevokeShareLink(id: string) {
-    const supabase = createClient()
-    const { error } = await supabase.from('houses').update({ share_token: null }).eq('id', id)
-    if (!error) {
+    try {
+      const res = await fetch('/api/share-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ houseId: id, action: 'revoke' }),
+      })
+      if (!res.ok) {
+        setError('Could not revoke the share link — please try again.')
+        return
+      }
       setHouses((hs) => (hs ?? []).map((h) => (h.id === id ? { ...h, shareToken: null } : h)))
       setNotice('Share link revoked — it no longer works.')
-    } else {
+    } catch {
       setError('Could not revoke the share link — please try again.')
     }
   }

@@ -1,13 +1,20 @@
 // Context bar: editable title, live strength pill, mode toggle, presence.
-// The presence stack shows only who is actually here: you and the co-pilot.
-// (Fake collaborators and the inert Invite/Publish buttons were removed —
-// audit 2026-07-19, ai-slop §2-3.)
+// The presence stack used to show only a hardcoded 'you'/'ai' pair — a
+// leftover from when collaboration was fake (fake collaborators and the inert
+// Invite/Publish buttons were removed — audit 2026-07-19, ai-slop §2-3). Now
+// that house_collaborators is real (team-panel-v2 item 1), it shows a real
+// avatar for the house owner and every collaborator, sourced from
+// useTeamRoster and threaded down from BuildHousePage — plus the co-pilot,
+// which still isn't a real account. Falls back to the old 'you'/'ai' pair
+// whenever there's no real team context at all (teacher view, strawman
+// attack — see RightRail's TeamContext) or the roster hasn't loaded yet.
 
 import type { AiMode, PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
-import { Avatar } from './Avatar'
+import { Avatar, RealAvatar } from './Avatar'
+import { displayNameFor, formatLastActive, type TeamRoster } from './useTeamRoster'
 
 const presenceOrder: PersonKey[] = ['you', 'ai']
 
@@ -35,6 +42,8 @@ export function ContextBar({
   draftLocked = false,
   scored = true,
   saveStatus = null,
+  roster = null,
+  currentUserId,
   onModeChange,
   onTitleChange,
   onOpenReview,
@@ -59,6 +68,12 @@ export function ContextBar({
   scored?: boolean
   // null hides the indicator (read-only views, tab-locked views).
   saveStatus?: SaveStatus | null
+  // Real owner + collaborator data (team-panel-v2 item 1), from
+  // useTeamRoster. null when there's no real team context (teacher view,
+  // strawman) — falls back to the old 'you'/'ai' presence pair.
+  roster?: TeamRoster | null
+  // Needed to mark the viewer's own avatar "(you)" instead of by name.
+  currentUserId?: string | null
   onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
@@ -197,27 +212,58 @@ export function ContextBar({
         })}
       </div>
 
-      {/* Right cluster: who is actually in the house — you and the co-pilot. */}
+      {/* Right cluster: who is actually in the house. */}
       <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
-          {presenceOrder.map((k) => (
-            <Avatar
-              key={k}
-              who={k}
-              size={30}
-              ring
-              title={`${people[k].name} · ${people[k].role}`}
-              style={{ marginLeft: -7 }}
-            />
-          ))}
-          {/* The avatars carry their identity only in a `title` tooltip, which
-              keyboard and touch users never see (a11y S7). State it in text for
-              assistive tech instead. */}
-          <span className="sr-only">
-            In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
-          </span>
-        </div>
+        {roster && (roster.owner || roster.collaborators.length > 0) ? (
+          <RealPresence roster={roster} currentUserId={currentUserId ?? null} />
+        ) : (
+          <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+            {presenceOrder.map((k) => (
+              <Avatar
+                key={k}
+                who={k}
+                size={30}
+                ring
+                title={`${people[k].name} · ${people[k].role}`}
+                style={{ marginLeft: -7 }}
+              />
+            ))}
+            {/* The avatars carry their identity only in a `title` tooltip, which
+                keyboard and touch users never see (a11y S7). State it in text for
+                assistive tech instead. */}
+            <span className="sr-only">
+              In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
+            </span>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// Real presence avatars: owner + every collaborator (team-panel-v2 item 1),
+// followed by the co-pilot — which still isn't a real account, so it keeps
+// its lib/build/people.ts Avatar. Hovering/focusing a person's avatar shows
+// their last-active timestamp from house_presence (item 4), same wording
+// TeamPanel's own membership list uses.
+function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUserId: string | null }) {
+  const people_ = [...(roster.owner ? [roster.owner] : []), ...roster.collaborators]
+  return (
+    <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+      {people_.map((p) => {
+        const name = displayNameFor(p)
+        const isSelf = p.userId === currentUserId
+        const label = `${name}${isSelf ? ' (you)' : ''} · ${p.role} · ${formatLastActive(roster.presence[p.userId])}`
+        return <RealAvatar key={p.userId} id={p.userId} name={name} size={30} ring title={label} style={{ marginLeft: -7 }} />
+      })}
+      <Avatar who="ai" size={30} ring title={`${people.ai.name} · ${people.ai.role}`} style={{ marginLeft: -7 }} />
+      {/* The avatars carry their identity only in a `title` tooltip, which
+          keyboard and touch users never see (a11y S7). State it in text for
+          assistive tech instead. */}
+      <span className="sr-only">
+        In this house: {people_.map((p) => `${displayNameFor(p)} (${p.role}, ${formatLastActive(roster.presence[p.userId])})`).join(', ')}
+        {`, ${people.ai.name} (${people.ai.role})`}
+      </span>
     </div>
   )
 }

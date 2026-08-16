@@ -17,6 +17,7 @@ import { BlueprintRail } from './BlueprintRail'
 import { MobileStepStrip } from './MobileStepStrip'
 import { Canvas } from './Canvas'
 import { RightRail, MobileRailDrawer, type TeamContext } from './RightRail'
+import { useTeamRoster } from './useTeamRoster'
 import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
@@ -96,6 +97,12 @@ export function BuildHousePage({
   const interview = useInterviewSession()
   // Same-browser second tab: passive until Take over (frontend plan Phase 0 §6).
   const { lockedByOtherTab, takeOver } = useHouseTabLock(houseId)
+  // Real owner/collaborator names + presence (team-panel-v2 items 1/4),
+  // fetched once here and threaded to both ContextBar (avatars) and
+  // RightRail/MobileRailDrawer (TeamPanel's membership list) so they can
+  // never disagree about who's on this house. No-ops when team is null
+  // (teacher view, strawman attack).
+  const roster = useTeamRoster(team)
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -406,6 +413,8 @@ export function BuildHousePage({
           draftLocked={draftGateLocked(state.draft)}
           scored={deriveStatus(state) !== 'empty'}
           saveStatus={readOnly || lockedByOtherTab ? null : saveStatus}
+          roster={roster}
+          currentUserId={team?.currentUserId ?? null}
           onModeChange={(mode) => {
             if (modeLocked) return
             guardedDispatch({ type: 'SET_MODE', mode })
@@ -432,6 +441,7 @@ export function BuildHousePage({
             suggestCache={suggestCacheRef}
             interview={interview}
             team={team}
+            roster={roster}
           />
         )}
       </div>
@@ -472,6 +482,7 @@ export function BuildHousePage({
           suggestCache={suggestCacheRef}
           interview={interview}
           team={team}
+          roster={roster}
           onClose={() => setRailOpen(false)}
         />
       )}

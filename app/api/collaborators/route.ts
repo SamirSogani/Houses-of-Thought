@@ -115,7 +115,12 @@ export async function GET(req: NextRequest) {
   }
   const collaborators = (collabData ?? []) as CollaboratorRow[]
 
-  const ids = collaborators.map((c) => c.user_id)
+  // team-panel-v2 item 1: ContextBar's presence avatars and TeamPanel's
+  // membership list both need the OWNER's display name too, not just
+  // collaborators' — one shared profiles lookup covers both (owner + every
+  // collaborator) rather than a separate round trip for the owner alone.
+  const ownerId = (house as { owner_id: string }).owner_id
+  const ids = Array.from(new Set([ownerId, ...collaborators.map((c) => c.user_id)]))
   let profiles: ProfileRow[] = []
   if (ids.length > 0) {
     const { data: profileData, error: profileError } = await client
@@ -123,14 +128,19 @@ export async function GET(req: NextRequest) {
       .select('id, username, email')
       .in('id', ids)
     if (profileError) {
+      console.error(
+        `GET /api/collaborators — profile lookup failed: code=${profileError.code} message=${profileError.message}`
+      )
       return NextResponse.json({ error: 'server-error' }, { status: 500 })
     }
     profiles = (profileData ?? []) as ProfileRow[]
   }
   const byId = new Map(profiles.map((p) => [p.id, p]))
+  const ownerProfile = byId.get(ownerId)
 
   return NextResponse.json({
-    ownerId: (house as { owner_id: string }).owner_id,
+    ownerId,
+    owner: { userId: ownerId, username: ownerProfile?.username ?? null, email: ownerProfile?.email ?? null },
     collaborators: collaborators.map((c) => ({
       userId: c.user_id,
       role: c.role,

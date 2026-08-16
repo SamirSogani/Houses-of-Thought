@@ -1,76 +1,83 @@
 'use client'
 
 // Right rail — Team tab (Mechanism 1, "Invite", of
-// plans/active/persistence/invite-share-panels.md). Replaces the Team tab that
+// plans/active/persistence/invite-share-panels.md; extended by team-panel-v2
+// with share, presence, DMs, and an activity log). Replaces the Team tab that
 // was removed in commit 1c49db6 for simulating a feature that didn't exist yet
 // (fake collaborators, an inert Invite button). Every control here resolves to
-// a real backend call: email resolution and the membership list go through
-// app/api/collaborators/route.ts (service-role reads, gated by the caller's own
-// session); invite/remove writes go straight to house_collaborators under the
-// existing owner/self RLS from migration 0004 — no fake state, no toast that
-// isn't backed by a persisted change.
+// a real backend call: invite/remove writes go straight to house_collaborators
+// under the existing owner/self RLS from migration 0004; share goes through
+// app/api/share-link/route.ts (team-panel-v2 item 3/6); presence pings
+// house_presence directly (self-only upsert RLS, 0036); DMs read/write
+// house_direct_messages directly (0036); the activity log at the bottom reads
+// app/api/activity/route.ts, which resolves actor/target display names the
+// same way app/api/collaborators/route.ts already does for the roster.
+//
+// Names + roles + presence come from `roster` (useTeamRoster, fetched once in
+// BuildHousePage and shared with ContextBar) rather than a separate fetch here
+// — so the Team tab and the top presence bar can never show two different
+// answers for "who's on this house."
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { displayNameFor, formatLastActive, type RosterPerson, type TeamRoster } from '../useTeamRoster'
+import { initialsForName } from '../Avatar'
+import { TeamShareBlock } from './TeamShareBlock'
+import { TeamMessageThread } from './TeamMessageThread'
+import { TeamActivityFeed } from './TeamActivityFeed'
 
 type Role = 'viewer' | 'editor'
-
-interface Member {
-  userId: string
-  role: string
-  username: string | null
-  email: string | null
-}
 
 type InviteState =
   | { status: 'idle' }
   | { status: 'busy' }
   | { status: 'error'; message: string }
 
-function displayName(m: Member): string {
-  return m.username || m.email || 'Unknown'
-}
-
-function initialsFor(m: Member): string {
-  const name = displayName(m)
-  return name.slice(0, 2).toUpperCase()
-}
+const PRESENCE_PING_MS = 60_000
 
 export function TeamPanel({
   houseId,
   currentUserId,
   isOwner,
+  roster,
 }: {
   houseId: string
   currentUserId: string
   isOwner: boolean
+  roster: TeamRoster | null
 }) {
-  const [members, setMembers] = useState<Member[] | null>(null)
-  const [listError, setListError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('editor')
   const [invite, setInvite] = useState<InviteState>({ status: 'idle' })
   const [removing, setRemoving] = useState<string | null>(null)
   const [changingRole, setChangingRole] = useState<string | null>(null)
+  // Set while a DM thread with one teammate is open — replaces the rest of
+  // the panel (share/invite/membership/activity) with just that thread, same
+  // pattern the mobile drawer uses for its own single-purpose views.
+  const [thread, setThread] = useState<{ userId: string; name: string } | null>(null)
 
-  const loadMembers = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/collaborators?houseId=${encodeURIComponent(houseId)}`)
-      if (!res.ok) {
-        setListError("Couldn't load who has access to this house.")
-        return
-      }
-      const body = (await res.json()) as { collaborators: Member[] }
-      setListError(null)
-      setMembers(body.collaborators)
-    } catch {
-      setListError("Couldn't load who has access to this house.")
-    }
-  }, [houseId])
+  const reload = useCallback(() => roster?.reload(), [roster])
 
+  // team-panel-v2 item 4: ping own presence on mount + every ~60s while this
+  // panel (the Team tab) is actually open — NOT whenever the house is open,
+  // which is what ContextBar's read-only presence display does instead.
   useEffect(() => {
-    loadMembers()
-  }, [loadMembers])
+    const supabase = createClient()
+    let active = true
+    async function ping() {
+      if (!active) return
+      const { error } = await supabase
+        .from('house_presence')
+        .upsert({ house_id: houseId, user_id: currentUserId, last_seen_at: new Date().toISOString() }, { onConflict: 'house_id,user_id' })
+      if (error) console.error(`TeamPanel — presence ping failed: code=${error.code} message=${error.message}`)
+    }
+    ping()
+    const id = setInterval(ping, PRESENCE_PING_MS)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [houseId, currentUserId])
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
@@ -114,7 +121,7 @@ export function TeamPanel({
       }
       setInvite({ status: 'idle' })
       setEmail('')
-      loadMembers()
+      reload()
     } catch {
       setInvite({ status: 'error', message: 'Network error — try again.' })
     }
@@ -132,9 +139,7 @@ export function TeamPanel({
         .update({ role: newRole })
         .eq('house_id', houseId)
         .eq('user_id', userId)
-      if (!error) {
-        setMembers((ms) => (ms ?? []).map((m) => (m.userId === userId ? { ...m, role: newRole } : m)))
-      }
+      if (!error) reload()
     } finally {
       setChangingRole(null)
     }
@@ -149,17 +154,32 @@ export function TeamPanel({
         .delete()
         .eq('house_id', houseId)
         .eq('user_id', userId)
-      if (!error) {
-        setMembers((ms) => (ms ?? []).filter((m) => m.userId !== userId))
-      }
+      if (!error) reload()
     } finally {
       setRemoving(null)
     }
   }
 
+  if (thread) {
+    return (
+      <TeamMessageThread
+        houseId={houseId}
+        currentUserId={currentUserId}
+        otherUserId={thread.userId}
+        otherName={thread.name}
+        onBack={() => setThread(null)}
+      />
+    )
+  }
+
+  const rows: RosterPerson[] = [...(roster?.owner ? [roster.owner] : []), ...(roster?.collaborators ?? [])]
+  const loading = roster === null || (roster.loading && rows.length === 0)
+
   return (
     <div className="fade-in">
-      <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 11, padding: 13 }}>
+      {isOwner && <TeamShareBlock houseId={houseId} />}
+
+      <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 11, padding: 13, marginTop: isOwner ? 16 : 0 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Team</div>
         <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
           {isOwner
@@ -215,63 +235,66 @@ export function TeamPanel({
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>Who has access</span>
       </div>
 
-      {listError && (
-        <div style={{ fontSize: 12, color: 'var(--warning-text)', lineHeight: 1.45 }}>{listError}</div>
+      {roster?.error && (
+        <div style={{ fontSize: 12, color: 'var(--warning-text)', lineHeight: 1.45 }}>{roster.error}</div>
       )}
 
-      {members === null && !listError && (
-        <div style={{ fontSize: 12, color: 'var(--ink-subtle)' }}>Loading…</div>
-      )}
+      {loading && !roster?.error && <div style={{ fontSize: 12, color: 'var(--ink-subtle)' }}>Loading…</div>}
 
-      {members !== null && (
+      {!loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {members.length === 0 && (
+          {rows.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45 }}>
               No one else has access yet.
             </div>
           )}
-          {members.map((m) => {
+          {rows.map((m) => {
             const isSelf = m.userId === currentUserId
-            const canRemove = isOwner || isSelf
+            const isOwnerRow = m.role === 'owner'
+            const canRemove = !isOwnerRow && (isOwner || isSelf)
+            const name = displayNameFor(m)
+            const lastActive = formatLastActive(roster?.presence[m.userId])
             return (
               <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--rule)', borderRadius: 10, padding: '9px 11px' }}>
                 <span
+                  title={lastActive}
                   style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--ink)', color: 'var(--parchment)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, flex: '0 0 auto' }}
                 >
-                  {initialsFor(m)}
+                  {initialsForName(name)}
                 </span>
-                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--ink)' }}>
-                  {displayName(m)}
+                <span title={lastActive} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: 'var(--ink)' }}>
+                  {name}
                   {isSelf && <span style={{ color: 'var(--ink-subtle)' }}> · you</span>}
                 </span>
-                {isOwner && !isSelf ? (
-                  <div role="group" aria-label={`Role for ${displayName(m)}`} style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 6, overflow: 'hidden', flex: '0 0 auto', opacity: changingRole === m.userId ? 0.6 : 1 }}>
-                    {(['editor', 'viewer'] as Role[]).map((r) => {
-                      const active = m.role === r
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => !active && handleRoleChange(m.userId, r)}
-                          disabled={changingRole === m.userId}
-                          aria-pressed={active}
-                          className="mono"
-                          style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.02em', padding: '3px 8px', border: 'none', color: active ? 'var(--ink)' : 'var(--ink-subtle)', background: active ? 'var(--amber-tint)' : 'transparent', fontWeight: active ? 700 : 500, cursor: active ? 'default' : 'pointer' }}
-                        >
-                          {r}
-                        </button>
-                      )
-                    })}
-                  </div>
+                {isOwnerRow ? (
+                  <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', textTransform: 'uppercase', flex: '0 0 auto' }}>Owner</span>
+                ) : isOwner && !isSelf ? (
+                  <RoleToggle
+                    role={m.role as Role}
+                    busy={changingRole === m.userId}
+                    onChange={(r) => handleRoleChange(m.userId, r)}
+                    label={`Role for ${name}`}
+                  />
                 ) : (
                   <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', textTransform: 'uppercase', flex: '0 0 auto' }}>{m.role}</span>
+                )}
+                {!isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => setThread({ userId: m.userId, name })}
+                    aria-label={`Message ${name}`}
+                    title="Send a message"
+                    style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+                  >
+                    Message
+                  </button>
                 )}
                 {canRemove && (
                   <button
                     type="button"
                     onClick={() => handleRemove(m.userId)}
                     disabled={removing === m.userId}
-                    aria-label={isSelf ? 'Leave this house' : `Remove ${displayName(m)}`}
+                    aria-label={isSelf ? 'Leave this house' : `Remove ${name}`}
                     title={isSelf ? 'Leave this house' : 'Remove access'}
                     style={{ flex: '0 0 auto', fontSize: 11, color: 'var(--warning-text)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
                   >
@@ -283,6 +306,41 @@ export function TeamPanel({
           })}
         </div>
       )}
+
+      <TeamActivityFeed houseId={houseId} currentUserId={currentUserId} />
+    </div>
+  )
+}
+
+function RoleToggle({
+  role,
+  busy,
+  onChange,
+  label,
+}: {
+  role: Role
+  busy: boolean
+  onChange: (r: Role) => void
+  label: string
+}) {
+  return (
+    <div role="group" aria-label={label} style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 6, overflow: 'hidden', flex: '0 0 auto', opacity: busy ? 0.6 : 1 }}>
+      {(['editor', 'viewer'] as Role[]).map((r) => {
+        const active = role === r
+        return (
+          <button
+            key={r}
+            type="button"
+            onClick={() => !active && onChange(r)}
+            disabled={busy}
+            aria-pressed={active}
+            className="mono"
+            style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.02em', padding: '3px 8px', border: 'none', color: active ? 'var(--ink)' : 'var(--ink-subtle)', background: active ? 'var(--amber-tint)' : 'transparent', fontWeight: active ? 700 : 500, cursor: active ? 'default' : 'pointer' }}
+          >
+            {r}
+          </button>
+        )
+      })}
     </div>
   )
 }

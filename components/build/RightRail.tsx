@@ -1,21 +1,27 @@
 'use client'
 
-// Right rail (Co-pilot [+ Team]), in two shells that share the tab strip and
+// Right rail (Co-pilot + Team), in two shells that share the tab strip and
 // panel body: the fixed 320px desktop aside, and a slide-over drawer for
 // <1024px (opened from the floating Co-pilot button in BuildHousePage). Only
 // one shell is ever mounted, so CopilotPanel never fetches twice.
 //
-// The Team tab (Mechanism 1 of plans/active/persistence/invite-share-panels.md)
-// replaces the one removed in commit 1c49db6 for simulating a feature that
-// didn't exist yet (fake presence, an inert Invite button, fictional
-// collaborators). It only appears now that `team` is real: BuildHousePage
-// passes it exactly when the caller has real standing on the house (owner, or
-// an existing collaborator) — never a decorative tab with nothing behind it.
+// The Team tab (Mechanism 1 of plans/active/persistence/invite-share-panels.md,
+// extended by plans/active/persistence/team-panel-v2.md) replaces the one
+// removed in commit 1c49db6 for simulating a feature that didn't exist yet
+// (fake presence, an inert Invite button, fictional collaborators).
+//
+// team-panel-v2 item 2: unlike v1, the tab strip is now ALWAYS both tabs —
+// `team` being null (teacher viewing a student's house, or a strawman attack)
+// no longer collapses the header to a single static "Co-pilot" label; Team's
+// content area shows a plain "Not available in this view" state instead of
+// the tab disappearing, so switching tabs is always the same gesture.
 
 import { useEffect, useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { XIcon } from '@/components/icons'
+import { ChevronLeft, ChevronRight } from './buildIcons'
 import { useFocusTrap } from '@/components/useFocusTrap'
+import type { TeamRoster } from './useTeamRoster'
 import { CopilotPanel, type SuggestCache } from './rail/CopilotPanel'
 import type { InterviewSession } from './rail/InterviewCard'
 import { TeamPanel } from './rail/TeamPanel'
@@ -30,42 +36,56 @@ export interface TeamContext {
 
 type RailTab = 'copilot' | 'team'
 
-function RailHeader({ team, tab, onTab }: { team?: TeamContext | null; tab: RailTab; onTab: (t: RailTab) => void }) {
-  if (!team) {
-    return (
-      <div
-        style={{
-          padding: '10px 16px 12px',
-          fontWeight: 600,
-          fontSize: 13,
-          color: 'var(--ink)',
-          borderBottom: '1px solid var(--rule)',
-        }}
-      >
-        Co-pilot
-      </div>
-    )
-  }
+function RailHeader({
+  team,
+  tab,
+  onTab,
+  expanded,
+  onToggleExpand,
+}: {
+  team?: TeamContext | null
+  tab: RailTab
+  onTab: (t: RailTab) => void
+  expanded: boolean
+  onToggleExpand: () => void
+}) {
   const tabs: { key: RailTab; label: string }[] = [
     { key: 'copilot', label: 'Co-pilot' },
     { key: 'team', label: 'Team' },
   ]
   return (
-    <div style={{ display: 'flex', borderBottom: '1px solid var(--rule)' }}>
-      {tabs.map((t) => {
-        const active = tab === t.key
-        return (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => onTab(t.key)}
-            aria-pressed={active}
-            style={{ flex: 1, padding: '10px 0 12px', fontWeight: 600, fontSize: 13, color: active ? 'var(--ink)' : 'var(--ink-subtle)', background: 'none', border: 'none', borderBottom: `2px solid ${active ? 'var(--amber)' : 'transparent'}`, marginBottom: -1 }}
-          >
-            {t.label}
-          </button>
-        )
-      })}
+    <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid var(--rule)' }}>
+      <div style={{ display: 'flex', flex: '1 1 auto' }}>
+        {tabs.map((t) => {
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onTab(t.key)}
+              aria-pressed={active}
+              style={{ flex: 1, padding: '10px 0 12px', fontWeight: 600, fontSize: 13, color: active ? 'var(--ink)' : 'var(--ink-subtle)', background: 'none', border: 'none', borderBottom: `2px solid ${active ? 'var(--amber)' : 'transparent'}`, marginBottom: -1 }}
+            >
+              {t.label}
+              {!team && t.key === 'team' && <span className="sr-only"> — not available in this view</span>}
+            </button>
+          )
+        })}
+      </div>
+      {/* team-panel-v2 item 7: widens the rail (or, on mobile, opens a
+          full-width overlay instead of the usual slide-over) once DMs +
+          activity log + membership list all have to fit alongside the
+          invite form. Exact mechanism is an implementation detail — the plan
+          doc leaves it to the implementer. */}
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        aria-label={expanded ? 'Narrow panel' : 'Widen panel'}
+        title={expanded ? 'Narrow panel' : 'Widen panel'}
+        style={{ flex: '0 0 auto', width: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-subtle)', background: 'none', border: 'none', borderLeft: '1px solid var(--rule-soft)' }}
+      >
+        {expanded ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+      </button>
     </div>
   )
 }
@@ -77,6 +97,7 @@ function RailBody({
   suggestCache,
   interview,
   team,
+  roster,
   tab,
 }: {
   state: State
@@ -85,10 +106,24 @@ function RailBody({
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
   team?: TeamContext | null
+  roster?: TeamRoster | null
   tab: RailTab
 }) {
-  if (tab === 'team' && team) {
-    return <TeamPanel houseId={team.houseId} currentUserId={team.currentUserId} isOwner={team.isOwner} />
+  if (tab === 'team') {
+    if (!team) {
+      // team-panel-v2 item 2: teacher-viewing-a-student's-house and the
+      // strawman-attack views have genuinely no team concept — the tab stays
+      // visible (never disappears) but its content says so plainly instead
+      // of silently falling back to Co-pilot content.
+      return (
+        <div className="fade-in" style={{ padding: '32px 8px', textAlign: 'center' }}>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)', lineHeight: 1.6 }}>
+            Not available in this view
+          </div>
+        </div>
+      )
+    }
+    return <TeamPanel houseId={team.houseId} currentUserId={team.currentUserId} isOwner={team.isOwner} roster={roster ?? null} />
   }
   return <CopilotPanel state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} />
 }
@@ -100,6 +135,7 @@ export function RightRail({
   suggestCache,
   interview,
   team,
+  roster,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -110,13 +146,20 @@ export function RightRail({
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
   team?: TeamContext | null
+  // Real owner/collaborator names + presence (team-panel-v2 item 1/4), from
+  // BuildHousePage's useTeamRoster — shared with ContextBar so both agree.
+  roster?: TeamRoster | null
 }) {
   const [tab, setTab] = useState<RailTab>('copilot')
+  const [expanded, setExpanded] = useState(false)
   return (
-    <aside className="bhp-right-rail" style={{ flex: '0 0 320px', background: 'var(--white)', borderLeft: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <RailHeader team={team} tab={tab} onTab={setTab} />
+    <aside
+      className="bhp-right-rail"
+      style={{ flex: expanded ? '0 0 520px' : '0 0 320px', background: 'var(--white)', borderLeft: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', minHeight: 0, transition: 'flex-basis 0.18s ease' }}
+    >
+      <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} tab={tab} />
+        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} roster={roster} tab={tab} />
       </div>
     </aside>
   )
@@ -130,6 +173,7 @@ export function MobileRailDrawer({
   suggestCache,
   interview,
   team,
+  roster,
   onClose,
 }: {
   state: State
@@ -138,9 +182,13 @@ export function MobileRailDrawer({
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
   team?: TeamContext | null
+  roster?: TeamRoster | null
   onClose: () => void
 }) {
   const [tab, setTab] = useState<RailTab>('copilot')
+  // team-panel-v2 item 7, mobile case: "widen" becomes "go full-width" — there
+  // is no room to widen a slide-over further on a small viewport.
+  const [expanded, setExpanded] = useState(false)
   // Focus moves into the drawer on open and returns to the Co-pilot button on
   // close; Tab stays inside while it's open (a11y C2).
   const drawerRef = useFocusTrap<HTMLDivElement>()
@@ -170,16 +218,17 @@ export function MobileRailDrawer({
           top: 0,
           right: 0,
           bottom: 0,
-          width: 'min(90vw, 360px)',
+          width: expanded ? '100vw' : 'min(90vw, 360px)',
           background: 'var(--white)',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '-24px 0 60px rgba(20,33,58,0.24)',
+          transition: 'width 0.18s ease',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'stretch' }}>
           <div style={{ flex: '1 1 auto' }}>
-            <RailHeader team={team} tab={tab} onTab={setTab} />
+            <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
           </div>
           <button
             type="button"
@@ -194,7 +243,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} tab={tab} />
+          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} roster={roster} tab={tab} />
         </div>
       </div>
     </div>

@@ -88,9 +88,11 @@ own constants/docs before touching it again.
 ## Deferred to follow-up milestones
 
 - ~~`house_collaborators` table + wiring the invite/team flow to real
-  users.~~ **Concrete plan written 2026-08-15:**
-  [invite-share-panels.md](invite-share-panels.md). Not yet implemented.
-  Until it ships, `owner_key` (`you`/`maya`/`devan`/`ai`) is a cosmetic text
-  field.
+  users.~~ **Shipped 2026-08-16**, fully verified live:
+  [invite-share-panels.md](invite-share-panels.md). `owner_key`
+  (`you`/`maya`/`devan`/`ai`) is still cosmetic — real per-item attribution
+  remains a separate, deferred change.
+- **v2 in progress:** real presence, DMs, activity log, always-on Team tab
+  — [team-panel-v2.md](team-panel-v2.md).
 - `/try` localStorage → account import on signup.
 - Real-time multi-user co-editing.
