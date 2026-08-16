@@ -8,7 +8,7 @@
 // which unmount this card — no longer destroys a half-finished interview.
 // See plans/active/ai/05-interviewer.md.
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { serializeContent } from '@/lib/build/persistence'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
@@ -23,12 +23,21 @@ export interface InterviewSession {
   setActive: React.Dispatch<React.SetStateAction<boolean>>
   transcript: InterviewTurn[]
   setTranscript: React.Dispatch<React.SetStateAction<InterviewTurn[]>>
+  // Consolidated blank-house entry point (declutter item 1): true once the
+  // co-pilot's single "Enter reasoning pipeline" button (CopilotPanel) has
+  // kicked this interview off, so BuildHousePage knows a completed interview
+  // here should hand off into the draft runner automatically. An interview
+  // started standalone (InterviewCard's own "Start" button, once the house
+  // has content) never touches this flag, so it never triggers a draft.
+  pipelineEntered: boolean
+  setPipelineEntered: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 export function useInterviewSession(): InterviewSession {
   const [active, setActive] = useState(false)
   const [transcript, setTranscript] = useState<InterviewTurn[]>([])
-  return { active, setActive, transcript, setTranscript }
+  const [pipelineEntered, setPipelineEntered] = useState(false)
+  return { active, setActive, transcript, setTranscript, pipelineEntered, setPipelineEntered }
 }
 
 // After this many user answers the client stops asking and forces a summary.
@@ -38,10 +47,17 @@ export function InterviewCard({
   state,
   dispatch,
   session,
+  autoStart = false,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   session?: InterviewSession
+  // Consolidated blank-house entry point (declutter item 1): when true, this
+  // card starts itself instead of waiting for its own "Start" button click —
+  // CopilotPanel's single "Enter reasoning pipeline" button drives this via
+  // session.pipelineEntered. Standalone use (the non-blank-house case) never
+  // passes this, so nothing here changes for that role.
+  autoStart?: boolean
 }) {
   // Hooks always run; the hoisted session (when provided) is the source of truth.
   const local = useInterviewSession()
@@ -117,6 +133,18 @@ export function InterviewCard({
   function retry() {
     runInterview(transcript, userTurns >= HARD_STOP_TURNS)
   }
+
+  // autoStart fires start() exactly once, only when nothing has happened yet
+  // (no active conversation, no transcript, no context already set) — a
+  // remount mid-conversation (drawer close/reopen, tab switch) sees active
+  // already true from the hoisted session and this is a no-op, so the
+  // consolidated entry point never restarts an interview in progress.
+  useEffect(() => {
+    if (autoStart && !active && transcript.length === 0 && !state.aiContext) start()
+    // Fires only off the autoStart trigger; start()/active/transcript/state
+    // are read fresh via closures, same pattern as the rest of this file.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--parchment)',

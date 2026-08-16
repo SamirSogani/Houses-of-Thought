@@ -1,4 +1,9 @@
-// Context bar: editable title, live strength pill, mode toggle, presence.
+// Context bar: editable title, live strength pill, presence. The manual
+// Learn/Decide toggle (decision 007) was removed from the UI here (draft-mode
+// declutter item 2) — this component no longer takes mode/modeLocked/
+// onModeChange at all; the underlying mode state lives on House State
+// untouched. See lib/auth/capabilities.ts for how mode is still forced
+// (students → 'learn') and lib/build/state.ts for its default ('decide').
 // The presence stack used to show only a hardcoded 'you'/'ai' pair — a
 // leftover from when collaboration was fake (fake collaborators and the inert
 // Invite/Publish buttons were removed — audit 2026-07-19, ai-slop §2-3). Now
@@ -9,7 +14,7 @@
 // whenever there's no real team context at all (teacher view, strawman
 // attack — see RightRail's TeamContext) or the roster hasn't loaded yet.
 
-import type { AiMode, PersonKey } from '@/lib/build/types'
+import type { PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
@@ -37,15 +42,12 @@ export function ContextBar({
   title,
   question,
   strength,
-  mode,
-  modeLocked = false,
   readOnly = false,
   draftLocked = false,
   scored = true,
   saveStatus = null,
   roster = null,
   currentUserId,
-  onModeChange,
   onTitleChange,
   onOpenReview,
 }: {
@@ -54,9 +56,6 @@ export function ContextBar({
   // house is identified by its question when no title is entered.
   question: string
   strength: Strength
-  mode: AiMode
-  // When true (students), the toggle is shown but inert — pinned to Learn.
-  modeLocked?: boolean
   // When true (teacher read-only view), the title and write buttons are disabled.
   readOnly?: boolean
   // Draft gate (decision 016 §2): AI-drafted layers await their claim, so the
@@ -75,7 +74,6 @@ export function ContextBar({
   roster?: TeamRoster | null
   // Needed to mark the viewer's own avatar "(you)" instead of by name.
   currentUserId?: string | null
-  onModeChange: (mode: AiMode) => void
   onTitleChange: (v: string) => void
   onOpenReview: () => void
 }) {
@@ -173,45 +171,6 @@ export function ContextBar({
           />
         </span>
       </button>
-
-      {/* Co-pilot mode: Learn | Decide (decision 007) */}
-      <div
-        role="group"
-        aria-label={
-          modeLocked
-            ? 'Co-pilot mode: Learn (student accounts stay in Learn mode)'
-            : 'Co-pilot mode: how much help the co-pilot gives'
-        }
-        title={modeLocked ? 'Student accounts stay in Learn mode.' : 'How much help the co-pilot gives.'}
-        style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)', opacity: modeLocked ? 0.6 : 1 }}
-      >
-        {(['learn', 'decide'] as AiMode[]).map((m) => {
-          const active = mode === m
-          return (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onModeChange(m)}
-              disabled={modeLocked}
-              aria-pressed={active}
-              className="mono bhp-mode-seg"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.02em',
-                textTransform: 'uppercase',
-                padding: '7px 12px',
-                border: 'none',
-                cursor: modeLocked ? 'not-allowed' : 'pointer',
-                color: active ? 'var(--ink)' : 'var(--ink-subtle)',
-                background: active ? 'var(--amber-tint)' : 'transparent',
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {m}
-            </button>
-          )
-        })}
-      </div>
 
       {/* Right cluster: who is actually in the house. */}
       <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
