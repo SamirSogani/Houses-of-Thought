@@ -15,6 +15,8 @@ import { serializeContent } from '@/lib/build/persistence'
 import { PlusIcon, SparkIcon } from '../buildIcons'
 import { InterviewCard, useInterviewSession, type InterviewSession } from './InterviewCard'
 import { houseIsBlank } from './DraftCard'
+import { ReasoningPipelineCard, ReasoningConclusionSuggestion } from './ReasoningPipelineCard'
+import type { ReasoningPipelineRunner } from '../useReasoningPipelineRunner'
 
 // snake_case finding kind → the mono tag shown on each card.
 const KIND_LABEL: Record<FindingKind, string> = {
@@ -52,22 +54,13 @@ type FetchState =
 // already-added cards for a second, duplicate Add (bl-M1).
 export type SuggestCache = Map<number, { findings: Finding[]; hash: string; consumed: number[] }>
 
-// Declutter item 1: the consolidated blank-house entry point's own offer card,
-// styled to match InterviewCard's/DraftCard's cardStyle (same file doesn't
-// export it, so mirrored here rather than reaching into either for a constant).
-const pipelineCardStyle: React.CSSProperties = {
-  background: 'var(--parchment)',
-  border: '1px solid var(--rule)',
-  borderRadius: 11,
-  padding: 13,
-}
-
 export function CopilotPanel({
   state,
   dispatch,
   draftCard,
   suggestCache,
   interview,
+  pipelineRunner,
   restrictAuthorship = false,
 }: {
   state: State
@@ -81,6 +74,12 @@ export function CopilotPanel({
   // Hoisted interview session — same rationale: the transcript must survive
   // this panel unmounting (mobile drawer close, tab switch).
   interview?: InterviewSession
+  // House-scoped reasoning pipeline's runner (plan doc 27), hoisted in
+  // BuildHousePage for the same survives-unmounting reason as draftRunner/
+  // interview above. Undefined when there's no houseId to scope it to (the
+  // localStorage /house builder) — the consolidated entry point below falls
+  // back to the old interview+draft offer in that case.
+  pipelineRunner?: ReasoningPipelineRunner
   // lib/auth/capabilities.ts: aiPosture 'coach' (students) is documented as
   // "Socratic/withholding only... never get author output" (decision 007).
   // Declutter item 3 made every FindingCard always show its question AND its
@@ -176,8 +175,6 @@ export function CopilotPanel({
   // falls through to the unchanged branch below, where DraftCard's own
   // progress/review UI takes over exactly as it did before this change.
   const showConsolidatedEntry = houseIsBlank(state) && !state.draft && draftCard != null
-  const pipelineStarted =
-    interviewSession.pipelineEntered || interviewSession.active || state.aiContext != null
 
   return (
     <div className="fade-in">
@@ -195,42 +192,26 @@ export function CopilotPanel({
       </div>
 
       <div style={{ marginTop: 16 }}>
-        {showConsolidatedEntry ? (
-          pipelineStarted ? (
-            // Interview running (or just finished) — reuse InterviewCard as-is
-            // for the actual conversation; autoStart fires its own start() once.
-            // No draftCard here: state.draft doesn't exist yet, so there is
-            // nothing to show for it — BuildHousePage hands off into the
-            // runner automatically once the interview lands a summary.
-            <InterviewCard
-              state={state}
-              dispatch={dispatch}
-              session={interviewSession}
-              autoStart={interviewSession.pipelineEntered}
-            />
-          ) : (
-            <div style={pipelineCardStyle} className="fade-in">
-              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Enter reasoning pipeline</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
-                A few quick questions, then the co-pilot drafts every layer except your
-                conclusion — live on the canvas. You review, edit, and claim each one.
-              </div>
-              <button
-                type="button"
-                onClick={() => interviewSession.setPipelineEntered(true)}
-                style={{ marginTop: 10, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 7, padding: '7px 14px', cursor: 'pointer' }}
-              >
-                Enter reasoning pipeline
-              </button>
-            </div>
-          )
+        {showConsolidatedEntry && pipelineRunner ? (
+          // The real thing (plan doc 27): starts an actual pipeline run
+          // against POST /api/houses/[id]/reasoning, not the old
+          // interview→draft handoff. Falls through to the branch below once
+          // final-composition lands and APPLY_REASONING_RESULT flips the
+          // house out of "blank" — see ReasoningPipelineCard's own comment.
+          <ReasoningPipelineCard state={state} dispatch={dispatch} runner={pipelineRunner} />
         ) : (
+          // No pipelineRunner (e.g. the localStorage /house builder, which has
+          // no houseId to scope a run to, or a non-blank house) — the
+          // pre-pipeline interview+draft path stays available exactly as it
+          // was.
           <>
             <InterviewCard state={state} dispatch={dispatch} session={interviewSession} />
             {draftCard}
           </>
         )}
       </div>
+
+      {pipelineRunner && <ReasoningConclusionSuggestion state={state} dispatch={dispatch} runner={pipelineRunner} />}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 0 10px' }}>
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>Suggested for this layer</span>

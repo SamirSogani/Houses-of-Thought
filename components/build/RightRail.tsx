@@ -24,6 +24,7 @@ import { useFocusTrap } from '@/components/useFocusTrap'
 import type { TeamRoster } from './useTeamRoster'
 import { CopilotPanel, type SuggestCache } from './rail/CopilotPanel'
 import type { InterviewSession } from './rail/InterviewCard'
+import type { ReasoningPipelineRunner } from './useReasoningPipelineRunner'
 import { TeamPanel } from './rail/TeamPanel'
 
 // Passed only when the current user has real standing on this house (owner or
@@ -96,6 +97,7 @@ function RailBody({
   draftCard,
   suggestCache,
   interview,
+  pipelineRunner,
   team,
   roster,
   tab,
@@ -106,6 +108,7 @@ function RailBody({
   draftCard?: React.ReactNode
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
+  pipelineRunner?: ReasoningPipelineRunner
   team?: TeamContext | null
   roster?: TeamRoster | null
   tab: RailTab
@@ -135,6 +138,7 @@ function RailBody({
       draftCard={draftCard}
       suggestCache={suggestCache}
       interview={interview}
+      pipelineRunner={pipelineRunner}
       restrictAuthorship={restrictAuthorship}
     />
   )
@@ -146,6 +150,7 @@ export function RightRail({
   draftCard,
   suggestCache,
   interview,
+  pipelineRunner,
   team,
   roster,
   restrictAuthorship,
@@ -158,6 +163,9 @@ export function RightRail({
   // survive this shell unmounting (tab switch / mobile drawer).
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
+  // House-scoped reasoning pipeline's runner (plan doc 27) — same
+  // survives-unmounting rationale, hoisted in BuildHousePage.
+  pipelineRunner?: ReasoningPipelineRunner
   team?: TeamContext | null
   // Real owner/collaborator names + presence (team-panel-v2 item 1/4), from
   // BuildHousePage's useTeamRoster — shared with ContextBar so both agree.
@@ -174,7 +182,7 @@ export function RightRail({
     >
       <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
+        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
       </div>
     </aside>
   )
@@ -187,6 +195,7 @@ export function MobileRailDrawer({
   draftCard,
   suggestCache,
   interview,
+  pipelineRunner,
   team,
   roster,
   onClose,
@@ -197,6 +206,7 @@ export function MobileRailDrawer({
   draftCard?: React.ReactNode
   suggestCache?: React.RefObject<SuggestCache>
   interview?: InterviewSession
+  pipelineRunner?: ReasoningPipelineRunner
   team?: TeamContext | null
   roster?: TeamRoster | null
   onClose: () => void
@@ -261,7 +271,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
+          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
         </div>
       </div>
     </div>

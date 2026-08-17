@@ -23,21 +23,12 @@ export interface InterviewSession {
   setActive: React.Dispatch<React.SetStateAction<boolean>>
   transcript: InterviewTurn[]
   setTranscript: React.Dispatch<React.SetStateAction<InterviewTurn[]>>
-  // Consolidated blank-house entry point (declutter item 1): true once the
-  // co-pilot's single "Enter reasoning pipeline" button (CopilotPanel) has
-  // kicked this interview off, so BuildHousePage knows a completed interview
-  // here should hand off into the draft runner automatically. An interview
-  // started standalone (InterviewCard's own "Start" button, once the house
-  // has content) never touches this flag, so it never triggers a draft.
-  pipelineEntered: boolean
-  setPipelineEntered: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 export function useInterviewSession(): InterviewSession {
   const [active, setActive] = useState(false)
   const [transcript, setTranscript] = useState<InterviewTurn[]>([])
-  const [pipelineEntered, setPipelineEntered] = useState(false)
-  return { active, setActive, transcript, setTranscript, pipelineEntered, setPipelineEntered }
+  return { active, setActive, transcript, setTranscript }
 }
 
 // After this many user answers the client stops asking and forces a summary.
@@ -52,11 +43,13 @@ export function InterviewCard({
   state: State
   dispatch: React.Dispatch<Action>
   session?: InterviewSession
-  // Consolidated blank-house entry point (declutter item 1): when true, this
-  // card starts itself instead of waiting for its own "Start" button click —
-  // CopilotPanel's single "Enter reasoning pipeline" button drives this via
-  // session.pipelineEntered. Standalone use (the non-blank-house case) never
-  // passes this, so nothing here changes for that role.
+  // When true, this card starts itself instead of waiting for its own
+  // "Start" button click. Unused by any caller as of plan doc 27
+  // (2026-08-16) — the blank-house entry point that used to drive this
+  // (CopilotPanel's "Enter reasoning pipeline" button) now starts the real
+  // reasoning pipeline instead of an interview; kept as a general capability
+  // of this card rather than removed, since a future standalone auto-start
+  // use is still plausible.
   autoStart?: boolean
 }) {
   // Hooks always run; the hoisted session (when provided) is the source of truth.

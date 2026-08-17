@@ -23,6 +23,7 @@ import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
 import { useIsMobile } from './useIsMobile'
 import { useDraftRunner } from './useDraftRunner'
+import { useReasoningPipelineRunner } from './useReasoningPipelineRunner'
 import { useHouseTabLock } from './useHouseTabLock'
 import { DraftCard } from './rail/DraftCard'
 import type { SuggestCache } from './rail/CopilotPanel'
@@ -90,6 +91,15 @@ export function BuildHousePage({
   // can't kill a draft in progress. The card is created here and passed down.
   const canDraft = draftEligible && !readOnly && !strawman
   const draftRunner = useDraftRunner(state, dispatch, canDraft, houseId)
+  // House-scoped reasoning pipeline (plan doc 27, decision 019): same
+  // eligibility gate as Draft Mode (canDraft — draftEligible excludes
+  // students server-side too via capabilitiesFor().canAuthorDraft) and same
+  // "lives in BuildHousePage so it survives tab switches" rationale as
+  // draftRunner above. Only ever passed down when canDraft AND there's a
+  // real houseId to scope it to (undefined on the localStorage /house
+  // builder) — CopilotPanel falls back to the pre-pipeline interview+draft
+  // offer whenever pipelineRunner is undefined.
+  const reasoningPipelineRunner = useReasoningPipelineRunner(dispatch, canDraft ? houseId : undefined)
   // Suggestion cache + interview session live here (like the draft runner) so
   // tab switches and the mobile drawer can't destroy them — a discarded cache
   // refires a paid suggest call; a discarded transcript loses the interview.
@@ -321,27 +331,6 @@ export function BuildHousePage({
     if (draftEntry && canDraft && isMobile) setRailOpen(true)
   }, [draftEntry, canDraft, isMobile])
 
-  // Consolidated blank-house entry point (declutter item 1): CopilotPanel's
-  // single "Enter reasoning pipeline" button starts the interview and flags
-  // interview.pipelineEntered; once that interview lands a summary
-  // (state.aiContext), hand off into the SAME draft runner "Start with an AI
-  // draft" already used — this just fires that handoff automatically instead
-  // of waiting for a second click. Lives here (not in CopilotPanel/InterviewCard)
-  // so closing the mobile drawer or switching rail tabs mid-interview can't
-  // drop the handoff — same survives-unmounting rationale as draftRunner and
-  // interview above, both hoisted for exactly this reason.
-  useEffect(() => {
-    if (!interview.pipelineEntered) return
-    if (!canDraft || !state.aiContext || state.draft) return
-    draftRunner.start()
-    interview.setPipelineEntered(false)
-    // draftRunner/interview are read directly (not via refs) but this effect
-    // only ever acts once per pipeline entry, immediately re-running itself
-    // with pipelineEntered now false to become a no-op — including them would
-    // just re-run this same no-op on every unrelated re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interview.pipelineEntered, state.aiContext, state.draft, canDraft])
-
   const feedbackHouse = useMemo(
     () => (feedback === 'edit' ? (JSON.parse(contentKey) as Record<string, unknown>) : undefined),
     [feedback, contentKey]
@@ -455,6 +444,7 @@ export function BuildHousePage({
             draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
             suggestCache={suggestCacheRef}
             interview={interview}
+            pipelineRunner={canDraft ? reasoningPipelineRunner : undefined}
             team={team}
             roster={roster}
             restrictAuthorship={modeLocked}
@@ -497,6 +487,7 @@ export function BuildHousePage({
           draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
           suggestCache={suggestCacheRef}
           interview={interview}
+          pipelineRunner={canDraft ? reasoningPipelineRunner : undefined}
           team={team}
           roster={roster}
           onClose={() => setRailOpen(false)}

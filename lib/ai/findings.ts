@@ -31,6 +31,14 @@ export const FINDING_KINDS = [
 ] as const
 
 const str = z.string().min(1).max(300)
+// Widened cap for the two reasoning-pipeline-sourced kinds below (2026-08-16,
+// plan doc plans/active/reasoning-pipeline/27-house-scoped-pipeline-integration.md):
+// their content is drawn from lib/ai/reasoning/contracts.ts packets, some of
+// which cap at 600 (evidence claim_id/source_ref) or 1000 (counterargument
+// rebuttals) chars — wider than every other AiAction field's 300, all of
+// which are freshly model-generated for THIS schema's own 300-char prompts.
+// Reusing `str` here would silently truncate well-formed pipeline output.
+const longStr = z.string().min(1).max(1000)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 
 // INVARIANT 1 (plans/active/ai README): there is deliberately NO action variant
@@ -42,6 +50,17 @@ export const AiActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('add_perspective'), name: str, summary: str, stance: str }),
   // perspectiveName is matched to an existing perspective by name, case-insensitive.
   z.object({ kind: z.literal('add_subquestion'), perspectiveName: str, q: str }),
+  // Nested per-perspective supportingEvidence ({text, source}, lib/build/types.ts)
+  // — distinct from add_evidence below, which targets the FLAT house_evidence
+  // table. Added 2026-08-16 for the reasoning pipeline's PerspectiveBundle.evidence
+  // mapping (plan doc 27 §3) — no prior AiAction kind could reach this nested
+  // shape; Draft Mode's own 'evidence' stage still only ever emits add_evidence
+  // (lib/ai/draft.ts's DRAFT_STAGE_KINDS is untouched by this addition).
+  z.object({ kind: z.literal('add_perspective_evidence'), perspectiveName: str, text: longStr, source: longStr }),
+  // Nested per-perspective counters (string[], lib/build/types.ts) — the
+  // counterargument's rebuttals in the reasoning pipeline's own vocabulary.
+  // Added alongside add_perspective_evidence above, same rationale.
+  z.object({ kind: z.literal('add_counter'), perspectiveName: str, text: longStr }),
   z.object({ kind: z.literal('add_assumption'), text: str }),
   z.object({
     kind: z.literal('add_implication'),
