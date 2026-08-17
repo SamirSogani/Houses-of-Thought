@@ -20,13 +20,13 @@ See [README.md](../README.md) for the 🟢/📋/⏳ provenance legend. Cross-ref
   fast enough that even n=2 test runs failed roughly half the time.
 - Not in `drafter` or `suggestor` — see those providers' own docs.
 
-## Model history — six swaps, one target, one line to change
+## Model history — seven swaps, one target, one line to change
 
 `TARGETS.deepinfra.model` ([router-config.ts](../../../../../lib/ai/router-config.ts))
 is deliberately model-agnostic in naming (not `deepinfraGptOss20b` etc.) —
 2026-08-10, after the first swap required a 4-file rename. Every entry below
 is 📋 from that file's own comment history plus commit `e8a8682`, except the
-last two (this session, 🟢).
+last three (this session and the next, 🟢).
 
 1. **`Llama-3.1-8B-Instruct`** (original). Swapped away: didn't reliably
    incorporate the review panel's regeneration feedback — repeatedly
@@ -70,20 +70,38 @@ last two (this session, 🟢).
    `ai-invalid-output` at `perspectives-evidence-strategy`) — see
    [reliability.md](../reliability.md)'s caveat section for why one clean
    run isn't proof.
-6. **`deepseek-ai/DeepSeek-V4-Flash-0731`** (2026-08-14, current default) 🟢.
-   Exploratory swap — Qwen hadn't failed *its own* real-verification, this
-   was tried because DeepSeek released V4-Flash the same week (284B/13B
-   active MoE, 1M context, "agentic"-tuned). Confirmed the exact dated id
-   (`-0731`) over the bare `DeepSeek-V4-Flash`, which DeepInfra's own page
-   copy marks as the superseded preview. **Known, flagged-before-testing
-   risk:** unlike DeepSeek-V3 and Qwen, this model's page documents a
-   `reasoning_effort` param and `reasoning_content` field — it *does* have a
-   hidden reasoning channel, the same shape of mechanism that broke
-   gpt-oss-20b. Real-verified once this session: full 22/22 real run, zero
-   regenerations, zero `ai-empty-output` — the risk didn't materialize this
-   run, but per the same "one run isn't proof" lesson from Qwen, that's not
-   confirmation it never will. Also not granted `supportsJsonSchema()` —
-   DeepInfra's structured-outputs docs still only confirm DeepSeek-V3.
+6. **`deepseek-ai/DeepSeek-V4-Flash-0731`** (2026-08-14, merged to
+   production; **rolled back 2026-08-15, see #7**) 🟢. Exploratory swap —
+   Qwen hadn't failed *its own* real-verification, this was tried because
+   DeepSeek released V4-Flash the same week (284B/13B active MoE, 1M
+   context, "agentic"-tuned). Confirmed the exact dated id (`-0731`) over
+   the bare `DeepSeek-V4-Flash`, which DeepInfra's own page copy marks as
+   the superseded preview. **Known, flagged-before-testing risk:** unlike
+   DeepSeek-V3 and Qwen, this model's page documents a `reasoning_effort`
+   param and `reasoning_content` field — it *does* have a hidden reasoning
+   channel, the same shape of mechanism that broke gpt-oss-20b. Solo
+   real-verification (22/22, zero regenerations, zero `ai-empty-output`)
+   came back clean — but the risk was real: a **9-way concurrent real-load
+   test the next day found 3/9 (33%) permanent failures**, 5
+   `ai-invalid-output` events across 3 questions plus a separate silent-stall
+   pattern on 2 more, after 2 retries each with no recovery. Full data:
+   [26-deepseek-v4-flash-model-swap-plan.md](../../26-deepseek-v4-flash-model-swap-plan.md),
+   [reliability.md](../reliability.md). Also never granted
+   `supportsJsonSchema()` — DeepInfra's structured-outputs docs still only
+   confirm DeepSeek-V3.
+7. **`Qwen/Qwen3-235B-A22B-Instruct-2507`** (2026-08-15, rollback, current
+   default) 🟢. Reverted to swap #5 via the `DEEPINFRA_MODEL` Vercel env
+   var (Production) — no code deploy, per `router-config.ts`'s own comment
+   on the override (the code's hardcoded default string still reads
+   `deepseek-ai/DeepSeek-V4-Flash-0731`; the env var is what actually
+   governs production now). Chosen because Qwen's own known failure
+   (`ai-invalid-output`, 1 production incident, see swap #5) is a single
+   data point against DeepSeek-V4-Flash-0731's 3/9 concurrent-load failure
+   rate — not a clean bill of health, but the better-evidenced option
+   between two thinly-verified models. Worth re-running the same 9-way
+   concurrent-load test against Qwen on current code for a fair
+   apples-to-apples comparison — not yet done (see reliability.md's
+   "Still needed").
 
 ## `supportsJsonSchema()` status — one model, out of six
 

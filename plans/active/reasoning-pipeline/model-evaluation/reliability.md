@@ -12,7 +12,7 @@ for the 🟢/📋/⏳ provenance legend.
 | `deepseek-ai/DeepSeek-V3` | ✅ yes, twice | None found — genuinely fixed the empty-output bug (no hidden reasoning channel). Only issue was speed (see [latency.md](latency.md)), not correctness | 2/2 real-verification runs clean: Frame 9/9 first try both times, both Perspectives bundles passed review first try, zero regenerations |
 | `meta-llama/Llama-3.3-70B-Instruct-Turbo` | ❌ no | Wrapped otherwise-valid JSON in a markdown code fence (` ```json ... ``` `), breaking `JSON.parse` before Zod ever saw it. Root cause: never granted `supportsJsonSchema()` (DeepInfra's docs don't confirm strict-schema support for it), so it ran on the looser `json_object` fallback with no constrained-decoding guarantee | **4/4 real attempts failed**, same way each time |
 | `Qwen/Qwen3-235B-A22B-Instruct-2507` | ✅ yes, once cleanly — but see caveat below | `ai-invalid-output` (schema-invalid JSON surviving completeJSON's one corrective retry) observed in later production traffic, at `perspectives-evidence-strategy` | 1/1 real-verification run clean (22/22 calls, zero regenerations, zero JSON-parsing failures) — but the *next day*, a real production run failed. See caveat. |
-| `deepseek-ai/DeepSeek-V4-Flash-0731` | ✅ yes | None observed this run — including no `ai-empty-output` despite this model having a hidden `reasoning_effort`/`reasoning_content` channel, the same *shape* of risk that broke gpt-oss-20b | 1/1 real-verification run clean (22/22 calls, zero regenerations) |
+| `deepseek-ai/DeepSeek-V4-Flash-0731` | ⚠️ mostly — but see concurrent-load caveat below | Solo run: none observed (no `ai-empty-output` despite the hidden `reasoning_effort`/`reasoning_content` channel). Under 9-way concurrent load: `ai-invalid-output` (5 events across 3/9 questions, at `frame-generate`, `global-assumptions-generate` x2, and `final-composition`) plus a distinct silent-stall pattern (`status: "running"`, `haltReason: null`, `lastStep` frozen across retries — 2/9 questions) | 1/1 solo real-verification run clean (22/22 calls). Concurrent: 9-way real load, n=2, same 9 questions as Qwen's — **6/9 (67%) done, 3/9 (33%) permanent failure** after 2 retries each |
 
 ## Caveat: Qwen's one clean run vs. the next day's production failure
 
@@ -47,8 +47,33 @@ trusting any single real-verification run as proof of reliability:
 **Practical takeaway:** one real-verification run — even a perfect 22/22 —
 is a smoke test, not a reliability measurement. Every model swap in this
 project's history has been "real-verified" on 1-2 runs before shipping; the
-ones that later showed real production trouble (gpt-oss-20b, Qwen) both
-passed their own initial real-verification cleanly first.
+ones that later showed real production trouble (gpt-oss-20b, Qwen,
+**and now DeepSeek-V4-Flash-0731**) all passed their own initial
+real-verification cleanly first.
+
+## DeepSeek-V4-Flash-0731's concurrent-load result — the caveat confirmed a third time
+
+Same pattern as Qwen's caveat above, on the very next model tried: one
+clean solo real-verification run (22/22, 2026-08-14), swapped in as
+default, merged and deployed same day
+([26-deepseek-v4-flash-model-swap-plan.md](../26-deepseek-v4-flash-model-swap-plan.md)),
+then a 9-way concurrent real-load test (same shape as Qwen's, same 9
+questions) run against production later that day found real trouble the
+solo run couldn't have caught: **6/9 (67%) completed, 3/9 (33%) permanent
+failure** after 2 retries each, split across two distinct failure modes —
+explicit `ai-invalid-output` crashes (the exact risk this model's hidden
+reasoning channel was flagged for before testing) and a separate,
+previously-unseen silent-stall pattern with no `haltReason` at all. Full
+breakdown: [26-deepseek-v4-flash-model-swap-plan.md](../26-deepseek-v4-flash-model-swap-plan.md)'s
+"Final results" section. **Decision: rolled back to
+`Qwen/Qwen3-235B-A22B-Instruct-2507`** via `DEEPINFRA_MODEL` env var.
+
+Three for three now: gpt-oss-20b, Qwen, and DeepSeek-V4-Flash-0731 have
+each passed a clean solo (or near-solo) real-verification run and then
+shown a real failure mode only concurrent/production load surfaced. **No
+model in this project should be trusted as a default off a single clean
+run — concurrent-load testing before trusting a swap is no longer
+optional, it's the pattern.**
 
 ## Specific error classes seen, by name
 
@@ -60,7 +85,19 @@ For grep-ability against future logs:
 - `ai-invalid-output` — content came back, but failed `JSON.parse` (even
   after `stripMarkdownFence`) or failed Zod schema validation, twice in a
   row (first attempt + completeJSON's one corrective retry). Qwen's
-  production failure this session.
+  production failure this session; also DeepSeek-V4-Flash-0731's dominant
+  concurrent-load failure (5 events across 3/9 questions in the 9-way test),
+  at `frame-generate`, `global-assumptions-generate` (x2), and notably
+  `final-composition` — the very last of 22 steps, after every prior gate
+  passed 9/9.
+- **Silent stall, no `haltReason`** — API `status` stays `"running"`,
+  `haltReason: null`, and `lastStep`/`updatedAt` never move again, even
+  across repeated manual retries. Client UI shows "Could not reach a stage
+  of the pipeline" with no error detail. First seen on
+  DeepSeek-V4-Flash-0731's concurrent-load test (2/9 questions, one of them
+  stuck at the same step across all 3 attempts spanning the whole ~50min
+  test). Not yet explained — could be a genuine server-side hang the Retry
+  button can't fix, or a client-stream issue; unconfirmed which.
 - Markdown-fence-wrapped JSON — a *cause* of `ai-invalid-output`/parse
   failure, not a separate error code. Llama-3.3-70B's signature failure,
   4/4 real attempts. `stripMarkdownFence` (router.ts) is the general-purpose
@@ -78,10 +115,18 @@ For grep-ability against future logs:
 
 - Multiple real runs per model (n≥3) to get an actual success *rate*
   instead of a single pass/fail data point — true of every model in this
-  table, including the current default.
-- Re-measurement of the Past Runs DONE/HALTED/RUNNING split after the
-  `after()` persistence fix ships, to separate model reliability from
-  persistence reliability.
+  table except DeepSeek-V4-Flash-0731 (now has 10 real runs total: 1 solo +
+  9 concurrent) and Qwen (1 solo + 1 later production run).
 - `Llama-3.1-8B-Instruct`'s and `openai/gpt-oss-20b`'s exact real attempt
   counts pre-decision-020 — only qualitative descriptions survive in
   router-config.ts's comments, not raw counts.
+- Root-cause the silent-stall failure mode (no `haltReason`, frozen
+  `lastStep`) found on DeepSeek-V4-Flash-0731 — unconfirmed whether it's
+  server-side or client-side, and whether it's specific to that model or a
+  latent bug any model could hit under load.
+- Now that persistence is confirmed fixed (doc 25) and the same 9-way
+  concurrent-load rig has been run twice (Qwen once, DeepSeek-V4-Flash-0731
+  once), worth eventually re-running Qwen's exact same test again on
+  current code to get a second data point under identical conditions —
+  right now the two models' concurrent numbers aren't perfectly
+  apples-to-apples (different days, different underlying code versions).
