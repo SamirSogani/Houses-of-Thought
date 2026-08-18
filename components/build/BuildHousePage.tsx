@@ -436,7 +436,7 @@ export function BuildHousePage({
       {/* Three-zone row (desktop) / canvas only (mobile) */}
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
         {!isMobile && <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
-        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} />
+        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} houseId={houseId} />
         {!isMobile && (
           <RightRail
             state={state}
