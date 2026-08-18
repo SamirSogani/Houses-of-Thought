@@ -17,8 +17,15 @@
 --
 -- Both the human turn and the AI's reply are inserted by the SAME request
 -- (app/api/houses/[id]/layer-feedback/route.ts), under the caller's own
--- session (not service role) — mirrors app/api/houses/[id]/reasoning/route.ts's
--- authorization style, so one insert policy covers both roles.
+-- session (not service role, unlike house_activity's triggers) — same class
+-- of table as house_presence/house_direct_messages (0036/0037), which is why
+-- this file also grants the table itself to `authenticated` below: RLS
+-- policies alone never grant base table access (the same gap 0029, 0031,
+-- 0034, 0035, and 0037 each had to fix separately after the fact). Confirmed
+-- live as a real "permission denied for table house_layer_feedback" (42501)
+-- error the first version of this file shipped without the grant — folded
+-- in here so a fresh apply gets it right in one paste; there is no
+-- table-and-grant split for this feature anymore.
 
 create table if not exists public.house_layer_feedback (
   id         uuid primary key default gen_random_uuid(),
@@ -48,3 +55,9 @@ create policy house_layer_feedback_select on public.house_layer_feedback
 drop policy if exists house_layer_feedback_insert on public.house_layer_feedback;
 create policy house_layer_feedback_insert on public.house_layer_feedback
   for insert with check (public.can_access_house(house_id));
+
+-- Base-table grant (see header comment) — matches exactly what the policies
+-- above permit: select, insert, nothing else. GRANT is inherently
+-- re-runnable, so re-pasting this whole file on a database that already has
+-- the table (but not this line) is safe and is exactly the fix.
+grant select, insert on public.house_layer_feedback to authenticated;
