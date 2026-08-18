@@ -91,6 +91,23 @@ export const DRAFT_STAGE_BLOCKS: Record<import('./draft').DraftStage, string> = 
   implications: `Stage: Implications (layer 6). Return 4-6 add_implication actions spread across ikind values pos, neg, and unc (at least one of each), each naming who bears it and an honest horizon. Then 1-2 add_watchpoint actions: early signals that would show this reasoning going wrong.`,
 }
 
+// Post-draft Q&A/correction (POST /api/houses/[id]/layer-feedback; migration
+// 0039). Composed as PERSONA + LAYER_FEEDBACK_BLOCK + DRAFT_STAGE_BLOCKS[stage]
+// — reuses Draft Mode's own per-stage rules and action kinds so a correction
+// can never drift into content that stage isn't allowed to hold. The person is
+// reviewing a layer already drafted (by Draft Mode or the reasoning pipeline —
+// both land in the same state.draft shape); this is their chance to ask about
+// it or flag what it got wrong, not a fresh cold-start draft.
+export const LAYER_FEEDBACK_BLOCK = `Task: the person is reviewing a layer you already drafted for this house. They just wrote you a message — either a question about it, or a correction (a mistake you made, or context you didn't have). Reply in "answer", at most 4 sentences, plain and direct.
+
+If they are only asking to understand something (why an item is there, what it means, how it connects to the rest of the house), answer it and return an empty actions list. Do not restate existing items as if proposing them again.
+
+If they raise a real mistake or give you information you didn't have, use "actions" to propose what should change — ONLY using the action kinds allowed for this stage (below), and only for what they actually raised. You cannot delete or edit an existing item yourself: if something already there is wrong, say so plainly in "answer" and tell them which item to remove by hand, then propose its replacement via actions.
+
+This is the Evidence stage's one exception: you have no live search results in this conversation, so you may NEVER return an add_evidence action here, even if asked for one — explain in answer what to search for instead, or point them to re-running that layer's draft.
+
+Never invent that you're fixing something they didn't raise. Never propose text for the conclusion, reasoning, question, or purpose.`
+
 // House Chat intake (POST /api/admin/chat-intake; decision 017). Composed as
 // PERSONA + CHAT_INTAKE_BLOCK. Extractive on question/purpose — the route
 // additionally clamps both to verbatim spans of the person's turns

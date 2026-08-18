@@ -5,17 +5,29 @@
 // person reads the AI's items on this very step, edits freely, then claims the
 // layer with the button here. On the Conclusion step it instead marks the one
 // layer Draft Mode never touches.
+//
+// Also mounts LayerFeedbackThread (migration 0039) for any layer the co-pilot
+// has drafted, claimed or not — the person's chance to ask about it or flag a
+// mistake / missing context after the fact, not just at the moment of claim.
 
 import type { Action, State } from '@/lib/build/types'
 import { draftGateLocked, stageForStep } from '@/lib/ai/draft'
 import { SparkIcon } from './buildIcons'
+import { LayerFeedbackThread } from './LayerFeedbackThread'
 
 export function DraftClaimBanner({
   state,
   dispatch,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
+  // Scopes the post-draft Q&A/correction thread (migration 0039) to this
+  // house. Undefined on the localStorage /house builder, which has no row to
+  // scope a thread to — the feedback affordance below simply doesn't render
+  // there, same gate CopilotPanel already applies to the reasoning pipeline
+  // entry point.
+  houseId?: string
 }) {
   const draft = state.draft
   if (!draft) return null
@@ -23,8 +35,8 @@ export function DraftClaimBanner({
   const stage = stageForStep(state.step)
 
   // Drafted layer awaiting its claim.
-  if (stage && draft.drafted[stage] && !draft.claimed[stage]) {
-    return (
+  const claimBanner =
+    stage && draft.drafted[stage] && !draft.claimed[stage] ? (
       <div
         className="fade-in"
         style={{
@@ -64,15 +76,12 @@ export function DraftClaimBanner({
           Claim this layer
         </button>
       </div>
-    )
-  }
-
-  // Mid-run: the draft is still generating (or wedged — the runner's card lives
-  // in the rail and can be unavailable, e.g. after losing draft eligibility or a
-  // daily cap mid-run). This Stop is the gate's escape hatch: STOP_DRAFT settles
-  // the stage machine so claiming — and eventually publish — can proceed.
-  if (draft.stage !== 'done') {
-    return (
+    ) : // Mid-run: the draft is still generating (or wedged — the runner's card
+    // lives in the rail and can be unavailable, e.g. after losing draft
+    // eligibility or a daily cap mid-run). This Stop is the gate's escape
+    // hatch: STOP_DRAFT settles the stage machine so claiming — and
+    // eventually publish — can proceed.
+    draft.stage !== 'done' ? (
       <div
         className="fade-in mono"
         style={{
@@ -100,13 +109,8 @@ export function DraftClaimBanner({
           Stop the draft here
         </button>
       </div>
-    )
-  }
-
-  // Conclusion step: the layer the AI never drafts (016 §1).
-  if (state.step === 5) {
-    const locked = draftGateLocked(draft)
-    return (
+    ) : // Conclusion step: the layer the AI never drafts (016 §1).
+    state.step === 5 ? (
       <div
         className="fade-in mono"
         style={{
@@ -120,12 +124,29 @@ export function DraftClaimBanner({
           borderRadius: 9,
         }}
       >
-        {locked
+        {draftGateLocked(draft)
           ? 'Claim the drafted layers first — this layer is where the house becomes yours'
           : 'The co-pilot never drafts this layer · the conclusion is yours to write'}
       </div>
-    )
-  }
+    ) : null
 
-  return null
+  // Ask/correct affordance: available for any layer the co-pilot has drafted,
+  // claimed or not — a mistake or missing context is often only noticed after
+  // the fact (see this file's own module comment).
+  const feedback =
+    stage && draft.drafted[stage] && houseId ? (
+      // Keyed on stage: switching layers must not leak one layer's expanded/
+      // loaded transcript state into another's (React would otherwise reuse
+      // this instance in place since it stays the same component at the same
+      // position).
+      <LayerFeedbackThread key={stage} state={state} dispatch={dispatch} houseId={houseId} stage={stage} />
+    ) : null
+
+  if (!claimBanner && !feedback) return null
+  return (
+    <>
+      {claimBanner}
+      {feedback}
+    </>
+  )
 }

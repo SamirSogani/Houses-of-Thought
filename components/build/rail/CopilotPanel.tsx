@@ -12,7 +12,7 @@ import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
 import { aiActionApplicable } from '@/lib/build/aiActions'
 import { serializeContent } from '@/lib/build/persistence'
-import { PlusIcon, SparkIcon } from '../buildIcons'
+import { PlusIcon } from '../buildIcons'
 import { InterviewCard, useInterviewSession, type InterviewSession } from './InterviewCard'
 import { houseIsBlank } from './DraftCard'
 import { ReasoningPipelineCard, ReasoningConclusionSuggestion } from './ReasoningPipelineCard'
@@ -178,20 +178,16 @@ export function CopilotPanel({
 
   return (
     <div className="fade-in">
-      {/* Intro tile */}
-      <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 11, padding: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', borderRadius: 8, flex: '0 0 auto' }}>
-          <SparkIcon size={14} fill="var(--amber)" />
-        </span>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Co-pilot · {kicker}</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
-            Suggestions for this layer only. It guides. You decide what enters the house.
-          </div>
-        </div>
+      {/* Intro caption — was a bordered icon+title+description tile; that
+          announced "this is Co-pilot" redundantly under a rail tab already
+          labeled Co-pilot, and cost real vertical space on every layer. Now
+          a single caption line, styled like "Suggested for this layer"
+          below. */}
+      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: '0.04em' }}>
+        Co-pilot · {kicker}
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 12 }}>
         {showConsolidatedEntry && pipelineRunner ? (
           // The real thing (plan doc 27): starts an actual pipeline run
           // against POST /api/houses/[id]/reasoning, not the old
