@@ -20,6 +20,13 @@ export interface HouseSummary {
   // Draft gate (016 §2): AI-drafted layers await their claim — turn-in is
   // blocked from the dashboard too, not just publish/export in the workspace.
   draftLocked: boolean
+  // Mechanism 2 ("Share", 0033): the current /shared/<token> link, or null if
+  // this house has never been shared / the link was revoked. Owner-only —
+  // fetched only on the "Your Houses" query, never the "Shared with you" one.
+  shareToken: string | null
+  // Mechanism 1 ("Invite"): set only on a "Shared with you" row — the caller's
+  // own house_collaborators role for this house. Undefined on an owned house.
+  sharedRole?: 'viewer' | 'editor'
 }
 
 export const TOTAL_LAYERS = 7
@@ -48,6 +55,7 @@ export interface HouseRow {
   turned_in?: boolean
   turned_in_at?: string | null // when it was turned in (0024)
   draft?: unknown // houses.draft jsonb (0022); omitted by selects that don't need it
+  share_token?: string | null // houses.share_token (0033); omitted by selects that don't need it
 }
 
 export function rowToSummary(row: HouseRow): HouseSummary {
@@ -62,6 +70,7 @@ export function rowToSummary(row: HouseRow): HouseSummary {
     turnedIn: row.turned_in ?? false,
     turnedInAt: row.turned_in_at ?? null,
     draftLocked: draftGateLocked((row.draft as DraftState | null | undefined) ?? null),
+    shareToken: row.share_token ?? null,
   }
 }
 

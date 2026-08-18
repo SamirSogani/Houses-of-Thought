@@ -36,6 +36,16 @@ export function aiActionApplicable(state: State, action: AiAction): boolean {
       if (!target) return false
       return !target.subQuestions.some((sq) => norm(sq.q) === norm(action.q))
     }
+    case 'add_perspective_evidence': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!target) return false
+      return !target.supportingEvidence.some((e) => norm(e.text) === norm(action.text))
+    }
+    case 'add_counter': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!target) return false
+      return !target.counters.some((c) => norm(c) === norm(action.text))
+    }
     case 'add_assumption':
       return !state.assumptions.some((a) => norm(a.text) === norm(action.text))
     case 'add_implication':
@@ -81,6 +91,24 @@ export function applyAiAction(draft: State, action: AiAction): string | null {
         p.id === match.id ? { ...p, subQuestions: [...p.subQuestions, { q: action.q, note: '' }] } : p
       )
       return `Sub-question added to ${match.name}`
+    }
+
+    case 'add_perspective_evidence': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, supportingEvidence: [...p.supportingEvidence, { text: action.text, source: action.source }] } : p
+      )
+      return `Evidence added to ${match.name}`
+    }
+
+    case 'add_counter': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, counters: [...p.counters, action.text] } : p
+      )
+      return `Counter added to ${match.name}`
     }
 
     case 'add_assumption':

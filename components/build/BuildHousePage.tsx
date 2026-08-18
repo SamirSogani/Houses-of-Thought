@@ -16,12 +16,14 @@ import { ContextBar, type SaveStatus } from './ContextBar'
 import { BlueprintRail } from './BlueprintRail'
 import { MobileStepStrip } from './MobileStepStrip'
 import { Canvas } from './Canvas'
-import { RightRail, MobileRailDrawer } from './RightRail'
+import { RightRail, MobileRailDrawer, type TeamContext } from './RightRail'
+import { useTeamRoster } from './useTeamRoster'
 import { SubmissionFeedback } from './SubmissionFeedback'
 import { Toast } from './Toast'
 import { SparkIcon } from './buildIcons'
 import { useIsMobile } from './useIsMobile'
 import { useDraftRunner } from './useDraftRunner'
+import { useReasoningPipelineRunner } from './useReasoningPipelineRunner'
 import { useHouseTabLock } from './useHouseTabLock'
 import { DraftCard } from './rail/DraftCard'
 import type { SuggestCache } from './rail/CopilotPanel'
@@ -41,6 +43,8 @@ export function BuildHousePage({
   feedback = null,
   draftEligible = false,
   draftEntry = false,
+  viewerCollaborator = false,
+  team = null,
   onSignOut,
   onSave,
 }: {
@@ -50,8 +54,9 @@ export function BuildHousePage({
   houseId?: string
   // When true (students), the Learn/Decide toggle is disabled and pinned.
   modeLocked?: boolean
-  // When true (a teacher viewing a student's house), edits don't persist and the
-  // write-affordances are disabled; a banner makes the read-only state explicit.
+  // When true (a teacher viewing a student's house, or a viewer collaborator),
+  // edits don't persist and the write-affordances are disabled; a banner makes
+  // the read-only state explicit.
   readOnly?: boolean
   // When true, this is an AI strawman to attack (implies readOnly upstream); the
   // banner reads differently from the teacher read-only case.
@@ -67,6 +72,14 @@ export function BuildHousePage({
   draftEligible?: boolean
   // True when the user arrived via "Start with an AI draft" (?draft=1).
   draftEntry?: boolean
+  // Mechanism 1 ("Invite"): true when readOnly is true SPECIFICALLY because the
+  // caller is a 'viewer' house_collaborators row (not a teacher/strawman case)
+  // — the read-only banner reads differently for it.
+  viewerCollaborator?: boolean
+  // Real standing on this house (owner, or an existing collaborator) — surfaces
+  // the RightRail Team tab when set; hidden entirely otherwise (teacher view,
+  // strawman attack, a stranger who somehow reached this far).
+  team?: TeamContext | null
   onSignOut: () => void
   // Persistence adapter. Must REJECT on failure — a SaveError-shaped `code`
   // ('save-failed' | 'stale-write' | 'signed-out') drives the status machine.
@@ -78,6 +91,15 @@ export function BuildHousePage({
   // can't kill a draft in progress. The card is created here and passed down.
   const canDraft = draftEligible && !readOnly && !strawman
   const draftRunner = useDraftRunner(state, dispatch, canDraft, houseId)
+  // House-scoped reasoning pipeline (plan doc 27, decision 019): same
+  // eligibility gate as Draft Mode (canDraft — draftEligible excludes
+  // students server-side too via capabilitiesFor().canAuthorDraft) and same
+  // "lives in BuildHousePage so it survives tab switches" rationale as
+  // draftRunner above. Only ever passed down when canDraft AND there's a
+  // real houseId to scope it to (undefined on the localStorage /house
+  // builder) — CopilotPanel falls back to the pre-pipeline interview+draft
+  // offer whenever pipelineRunner is undefined.
+  const reasoningPipelineRunner = useReasoningPipelineRunner(dispatch, canDraft ? houseId : undefined)
   // Suggestion cache + interview session live here (like the draft runner) so
   // tab switches and the mobile drawer can't destroy them — a discarded cache
   // refires a paid suggest call; a discarded transcript loses the interview.
@@ -85,6 +107,12 @@ export function BuildHousePage({
   const interview = useInterviewSession()
   // Same-browser second tab: passive until Take over (frontend plan Phase 0 §6).
   const { lockedByOtherTab, takeOver } = useHouseTabLock(houseId)
+  // Real owner/collaborator names + presence (team-panel-v2 items 1/4),
+  // fetched once here and threaded to both ContextBar (avatars) and
+  // RightRail/MobileRailDrawer (TeamPanel's membership list) so they can
+  // never disagree about who's on this house. No-ops when team is null
+  // (teacher view, strawman attack).
+  const roster = useTeamRoster(team)
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -333,7 +361,9 @@ export function BuildHousePage({
                 : 'AI Strawman · students will attack this — review and revise it, then release it from the assignment page'
               : turnedIn
                 ? 'Turned in · read-only — undo turn-in from your dashboard to keep editing'
-                : "Read-only · you're viewing a student's house"}
+                : viewerCollaborator
+                  ? 'Read-only · you have viewer access to this house'
+                  : "Read-only · you're viewing a student's house"}
           </div>
         )}
         {lockedByOtherTab && (
@@ -387,16 +417,12 @@ export function BuildHousePage({
           title={state.title}
           question={state.question}
           strength={strength}
-          mode={state.mode}
-          modeLocked={modeLocked}
           readOnly={readOnly || lockedByOtherTab}
           draftLocked={draftGateLocked(state.draft)}
           scored={deriveStatus(state) !== 'empty'}
           saveStatus={readOnly || lockedByOtherTab ? null : saveStatus}
-          onModeChange={(mode) => {
-            if (modeLocked) return
-            guardedDispatch({ type: 'SET_MODE', mode })
-          }}
+          roster={roster}
+          currentUserId={team?.currentUserId ?? null}
           onTitleChange={(v) => guardedDispatch({ type: 'SET_TITLE', value: v })}
           onOpenReview={() => guardedDispatch({ type: 'GO_STEP', n: 7 })}
         />
@@ -418,6 +444,10 @@ export function BuildHousePage({
             draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
             suggestCache={suggestCacheRef}
             interview={interview}
+            pipelineRunner={canDraft ? reasoningPipelineRunner : undefined}
+            team={team}
+            roster={roster}
+            restrictAuthorship={modeLocked}
           />
         )}
       </div>
@@ -457,7 +487,11 @@ export function BuildHousePage({
           draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
           suggestCache={suggestCacheRef}
           interview={interview}
+          pipelineRunner={canDraft ? reasoningPipelineRunner : undefined}
+          team={team}
+          roster={roster}
           onClose={() => setRailOpen(false)}
+          restrictAuthorship={modeLocked}
         />
       )}
 

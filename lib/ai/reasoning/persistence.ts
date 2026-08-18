@@ -51,6 +51,12 @@ function serviceClient(): SupabaseClient | null {
 // single JSONB blob per run, not separate packet/verdict tables (the packet
 // shapes in 02-data-contracts.md already live inside RunState as-is; no
 // evidence yet of a query that needs to slice one packet type across runs).
+//
+// `houseId` (0038_reasoning_runs_house_id.sql, plan doc 27): optional and
+// defaults to null so the admin route's existing call sites (which never
+// pass it) keep working unmodified — admin-triggered runs are house_id: null
+// exactly as before this column existed. Only the new house-scoped route
+// (app/api/houses/[id]/reasoning/route.ts) ever passes a real value.
 export async function persistRunStep(
   runId: string,
   originalQuery: string,
@@ -58,7 +64,8 @@ export async function persistRunStep(
   step: StepId,
   status: ReasoningRunStatus,
   haltReason: string | undefined,
-  panelsOff: boolean
+  panelsOff: boolean,
+  houseId: string | null = null
 ): Promise<void> {
   const client = serviceClient()
   if (!client) return
@@ -72,6 +79,7 @@ export async function persistRunStep(
         halt_reason: haltReason ?? null,
         run_state: runState,
         panels_off: panelsOff,
+        house_id: houseId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

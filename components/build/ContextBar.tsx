@@ -1,13 +1,26 @@
-// Context bar: editable title, live strength pill, mode toggle, presence.
-// The presence stack shows only who is actually here: you and the co-pilot.
-// (Fake collaborators and the inert Invite/Publish buttons were removed —
-// audit 2026-07-19, ai-slop §2-3.)
+// Context bar: editable title, live strength pill, presence. The manual
+// Learn/Decide toggle (decision 007) was removed from the UI here (draft-mode
+// declutter item 2) — this component no longer takes mode/modeLocked/
+// onModeChange at all; the underlying mode state lives on House State
+// untouched. See lib/auth/capabilities.ts for how mode is still forced
+// (students → 'learn') and lib/build/state.ts for its default ('decide').
+// The presence stack used to show only a hardcoded 'you'/'ai' pair — a
+// leftover from when collaboration was fake (fake collaborators and the inert
+// Invite/Publish buttons were removed — audit 2026-07-19, ai-slop §2-3). Now
+// that house_collaborators is real (team-panel-v2 item 1), it shows a real
+// avatar for the house owner and every collaborator, sourced from
+// useTeamRoster and threaded down from BuildHousePage — plus the co-pilot,
+// which still isn't a real account. Falls back to the old 'you'/'ai' pair
+// whenever there's no real team context at all (teacher view, strawman
+// attack — see RightRail's TeamContext) or the roster hasn't loaded yet.
 
-import type { AiMode, PersonKey } from '@/lib/build/types'
+import type { PersonKey } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
 import { strengthColor } from '@/lib/build/strength'
 import { people } from '@/lib/build/people'
 import { Avatar } from './Avatar'
+import { PersonHoverCard } from './PersonHoverCard'
+import { displayNameFor, formatLastActive, type TeamRoster } from './useTeamRoster'
 
 const presenceOrder: PersonKey[] = ['you', 'ai']
 
@@ -29,13 +42,12 @@ export function ContextBar({
   title,
   question,
   strength,
-  mode,
-  modeLocked = false,
   readOnly = false,
   draftLocked = false,
   scored = true,
   saveStatus = null,
-  onModeChange,
+  roster = null,
+  currentUserId,
   onTitleChange,
   onOpenReview,
 }: {
@@ -44,9 +56,6 @@ export function ContextBar({
   // house is identified by its question when no title is entered.
   question: string
   strength: Strength
-  mode: AiMode
-  // When true (students), the toggle is shown but inert — pinned to Learn.
-  modeLocked?: boolean
   // When true (teacher read-only view), the title and write buttons are disabled.
   readOnly?: boolean
   // Draft gate (decision 016 §2): AI-drafted layers await their claim, so the
@@ -59,7 +68,12 @@ export function ContextBar({
   scored?: boolean
   // null hides the indicator (read-only views, tab-locked views).
   saveStatus?: SaveStatus | null
-  onModeChange: (mode: AiMode) => void
+  // Real owner + collaborator data (team-panel-v2 item 1), from
+  // useTeamRoster. null when there's no real team context (teacher view,
+  // strawman) — falls back to the old 'you'/'ai' presence pair.
+  roster?: TeamRoster | null
+  // Needed to mark the viewer's own avatar "(you)" instead of by name.
+  currentUserId?: string | null
   onTitleChange: (v: string) => void
   onOpenReview: () => void
 }) {
@@ -158,66 +172,71 @@ export function ContextBar({
         </span>
       </button>
 
-      {/* Co-pilot mode: Learn | Decide (decision 007) */}
-      <div
-        role="group"
-        aria-label={
-          modeLocked
-            ? 'Co-pilot mode: Learn (student accounts stay in Learn mode)'
-            : 'Co-pilot mode: how much help the co-pilot gives'
-        }
-        title={modeLocked ? 'Student accounts stay in Learn mode.' : 'How much help the co-pilot gives.'}
-        style={{ display: 'inline-flex', border: '1px solid var(--rule)', borderRadius: 8, overflow: 'hidden', background: 'var(--white)', opacity: modeLocked ? 0.6 : 1 }}
-      >
-        {(['learn', 'decide'] as AiMode[]).map((m) => {
-          const active = mode === m
-          return (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onModeChange(m)}
-              disabled={modeLocked}
-              aria-pressed={active}
-              className="mono bhp-mode-seg"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.02em',
-                textTransform: 'uppercase',
-                padding: '7px 12px',
-                border: 'none',
-                cursor: modeLocked ? 'not-allowed' : 'pointer',
-                color: active ? 'var(--ink)' : 'var(--ink-subtle)',
-                background: active ? 'var(--amber-tint)' : 'transparent',
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {m}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Right cluster: who is actually in the house — you and the co-pilot. */}
+      {/* Right cluster: who is actually in the house. */}
       <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
-          {presenceOrder.map((k) => (
-            <Avatar
-              key={k}
-              who={k}
-              size={30}
-              ring
-              title={`${people[k].name} · ${people[k].role}`}
-              style={{ marginLeft: -7 }}
-            />
-          ))}
-          {/* The avatars carry their identity only in a `title` tooltip, which
-              keyboard and touch users never see (a11y S7). State it in text for
-              assistive tech instead. */}
-          <span className="sr-only">
-            In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
-          </span>
-        </div>
+        {roster && (roster.owner || roster.collaborators.length > 0) ? (
+          <RealPresence roster={roster} currentUserId={currentUserId ?? null} />
+        ) : (
+          <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+            {presenceOrder.map((k) => (
+              <Avatar
+                key={k}
+                who={k}
+                size={30}
+                ring
+                title={`${people[k].name} · ${people[k].role}`}
+                style={{ marginLeft: -7 }}
+              />
+            ))}
+            {/* The avatars carry their identity only in a `title` tooltip, which
+                keyboard and touch users never see (a11y S7). State it in text for
+                assistive tech instead. */}
+            <span className="sr-only">
+              In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
+            </span>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// Real presence avatars: owner + every collaborator (team-panel-v2 item 1),
+// followed by the co-pilot — which still isn't a real account, so it keeps
+// its lib/build/people.ts Avatar. Each real person's avatar is a
+// PersonHoverCard: full color when recently active, faded when not, with a
+// small card (name, email, activity) on hover/click/focus — Google Docs/
+// Word-style, replacing the old plain browser title-tooltip treatment.
+function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUserId: string | null }) {
+  const people_ = [...(roster.owner ? [roster.owner] : []), ...roster.collaborators]
+  return (
+    <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+      {people_.map((p) => {
+        const name = displayNameFor(p)
+        const isSelf = p.userId === currentUserId
+        return (
+          <PersonHoverCard
+            key={p.userId}
+            id={p.userId}
+            name={name}
+            email={p.email}
+            roleLabel={p.role}
+            lastSeenIso={roster.presence[p.userId]}
+            isSelf={isSelf}
+            size={30}
+            ring
+            style={{ marginLeft: -7 }}
+          />
+        )
+      })}
+      <Avatar who="ai" size={30} ring title={`${people.ai.name} · ${people.ai.role}`} style={{ marginLeft: -7 }} />
+      {/* The hover cards carry identity in a dialog that only opens on
+          hover/click/focus, which assistive tech may never trigger passively
+          (a11y S7). State it in text unconditionally, same as before. */}
+      <span className="sr-only">
+        In this house: {people_.map((p) => `${displayNameFor(p)} (${p.role}, ${formatLastActive(roster.presence[p.userId])})`).join(', ')}
+        {`, ${people.ai.name} (${people.ai.role})`}
+      </span>
     </div>
   )
 }

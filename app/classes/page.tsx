@@ -2,7 +2,7 @@
 
 // Student classroom panel (decision 010). Reached from the dashboard navbar
 // (students only): join a class by code, see the classes you're in with progress,
-// and open/continue assigned work. Auth is enforced by the proxy; the panel is
+// and open/continue assigned work. Auth is enforced by proxy.ts; the panel is
 // harmless for any signed-in user, but the navbar only surfaces it to students.
 
 import { useCallback, useEffect, useState } from 'react'

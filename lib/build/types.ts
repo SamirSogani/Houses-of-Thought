@@ -158,4 +158,12 @@ export type Action =
   | { type: 'APPLY_DRAFT_STAGE'; stage: DraftStage; actions: AiAction[] }
   | { type: 'STOP_DRAFT' }
   | { type: 'CLAIM_DRAFT_LAYER'; stage: DraftStage }
+  // House-scoped reasoning pipeline (plan doc 27, decision 019): fired once,
+  // when final-composition completes, with every packet already flattened
+  // into an ordered AiAction batch (lib/ai/reasoning/houseMapping.ts). Seeds
+  // state.draft fresh (only ever dispatched on a blank house — see
+  // houseIsBlank's gate in components/build/rail/DraftCard.tsx) so the SAME
+  // review-and-claim UI Draft Mode already has takes over from here; no new
+  // claim mechanism.
+  | { type: 'APPLY_REASONING_RESULT'; actions: AiAction[] }
   | { type: 'SET_TOAST'; value: string }

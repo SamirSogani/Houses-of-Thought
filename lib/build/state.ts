@@ -27,12 +27,32 @@ const seededPerspectives: Perspective[] = perspectiveSeed.map((p) => {
   }
 })
 import { applyAiAction } from './aiActions'
+import type { AiAction } from '@/lib/ai/findings'
 import {
   DRAFT_STAGE_STEP,
   emptyDraft,
   nextDraftStage,
   unclaimedDraftStages,
+  type DraftStage,
 } from '@/lib/ai/draft'
+
+// Which draft stage each AiAction kind counts toward for APPLY_REASONING_RESULT
+// below — mirrors lib/ai/draft.ts's DRAFT_STAGE_KINDS (the inverse mapping),
+// extended with the two nested-perspective kinds add_perspective_evidence and
+// add_counter (also 'perspectives', same as add_perspective/add_subquestion).
+// Not exported: this bookkeeping is specific to how APPLY_REASONING_RESULT
+// derives DraftState.drafted, not a general-purpose lookup other code needs.
+const REASONING_ACTION_STAGE: Partial<Record<AiAction['kind'], DraftStage>> = {
+  add_concept: 'concepts',
+  add_perspective: 'perspectives',
+  add_subquestion: 'perspectives',
+  add_perspective_evidence: 'perspectives',
+  add_counter: 'perspectives',
+  add_evidence: 'evidence',
+  add_assumption: 'assumptions',
+  add_implication: 'implications',
+  add_watchpoint: 'implications',
+}
 
 export const initialState: State = {
   step: 1,
@@ -372,6 +392,43 @@ export function reducer(state: State, action: Action): State {
         next.activePerspective = null
         next.toast = `Drafted ${layerKey(DRAFT_STAGE_STEP[action.stage])}`
       }
+      return next
+    }
+
+    case 'APPLY_REASONING_RESULT': {
+      // Only ever seeds a FRESH draft — the caller (useReasoningPipelineRunner)
+      // only fires this once, on a house that was blank going in (the same
+      // houseIsBlank gate that shows the "Enter reasoning pipeline" entry
+      // point at all); a pre-existing draft here would mean this landed twice
+      // for one run, which must no-op rather than double-insert.
+      if (state.draft) return state
+      const next: State = { ...state }
+      // Perspectives land before anything that targets them by name
+      // (sub-questions, nested evidence, counters) — same ordering fix as
+      // APPLY_DRAFT_STAGE below, generalized to every perspective-targeting
+      // kind now that there are four instead of two.
+      const targetsPerspectiveByName = new Set<AiAction['kind']>([
+        'add_subquestion',
+        'add_perspective_evidence',
+        'add_counter',
+      ])
+      const ordered = [...action.actions].sort(
+        (a, b) => Number(targetsPerspectiveByName.has(a.kind)) - Number(targetsPerspectiveByName.has(b.kind))
+      )
+      const drafted = { ...emptyDraft().drafted }
+      for (const a of ordered) {
+        if (applyAiAction(next, a) === null) continue
+        const stage = REASONING_ACTION_STAGE[a.kind]
+        if (stage) drafted[stage] = true
+      }
+      next.draft = {
+        via: 'reasoning-pipeline',
+        stage: 'done',
+        drafted,
+        claimed: emptyDraft().claimed,
+      }
+      const anyDrafted = Object.values(drafted).some(Boolean)
+      next.toast = anyDrafted ? 'Reasoning pipeline finished — review the draft' : 'Reasoning pipeline finished'
       return next
     }
 

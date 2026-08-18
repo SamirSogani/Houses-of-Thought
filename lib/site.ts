@@ -81,4 +81,9 @@ export const NOINDEX_PREFIXES = [
   '/forgot-password',
   '/reset-password',
   '/api',
+  // A share link (Mechanism 2 of plans/active/persistence/invite-share-panels.md)
+  // is access-by-link, not public content — it must stay reachable without
+  // login (proxy.ts does not gate it), but a search engine indexing it
+  // would defeat the point of "only someone with the link can see this".
+  '/shared',
 ]

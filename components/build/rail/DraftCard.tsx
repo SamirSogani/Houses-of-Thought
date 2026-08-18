@@ -26,7 +26,10 @@ const cardStyle: React.CSSProperties = {
   marginBottom: 16,
 }
 
-function houseIsBlank(state: State): boolean {
+// Exported so CopilotPanel can gate the consolidated "Enter reasoning
+// pipeline" entry point (declutter item 1) on the same definition of blank —
+// one source of truth for what counts as an empty house.
+export function houseIsBlank(state: State): boolean {
   return (
     state.concepts.length === 0 &&
     state.perspectives.length === 0 &&

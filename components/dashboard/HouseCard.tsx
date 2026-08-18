@@ -20,6 +20,8 @@ export function HouseCard({
   onRename,
   onDelete,
   onTurnIn,
+  onGetShareLink,
+  onRevokeShareLink,
 }: {
   house: HouseSummary
   href: string
@@ -29,10 +31,15 @@ export function HouseCard({
   onRename?: (id: string, title: string) => void
   onDelete?: (id: string) => void
   onTurnIn?: (id: string, turnedIn: boolean) => void
+  // Mechanism 2 ("Share"): owner-only, so only "Your Houses" cards pass these —
+  // a "Shared with you" card never does (see HouseCard's caller in
+  // app/dashboard/page.tsx).
+  onGetShareLink?: (id: string) => void
+  onRevokeShareLink?: (id: string) => void
 }) {
   const percent = housePercent(house)
   const meta = statusMeta[house.status]
-  const hasMenu = !!(onRename || onDelete || onTurnIn)
+  const hasMenu = !!(onRename || onDelete || onTurnIn || onGetShareLink)
   // Turn-in applies to assignment submissions — and to a still-turned-in house
   // whose assignment was deleted (bl-L7: the chip must stay clearable).
   const isSubmission = house.assignmentId !== null || house.turnedIn
@@ -81,9 +88,12 @@ export function HouseCard({
     e.stopPropagation()
   }
 
-  // "Share (copy link)" was removed: it copied a /build/<id> URL that RLS
-  // bounces for anyone but the owner (or their teacher), so recipients silently
-  // dead-ended (audit 2026-07-19, ux H5). Restore once a shared view exists.
+  // "Share (copy link)" was removed in 2026-07-19 (audit ux H5) because it
+  // copied a /build/<id> URL that RLS bounces for anyone but the owner — a
+  // silent dead end for the recipient. Restored as "Get/Copy share link" now
+  // that a real read-only view exists: /shared/<token> (Mechanism 2 of
+  // plans/active/persistence/invite-share-panels.md), which actually resolves
+  // for whoever holds the link.
   function startRename(e: React.MouseEvent) {
     stop(e)
     setRenameValue(house.title ?? '')
@@ -102,6 +112,16 @@ export function HouseCard({
   function doDelete(e: React.MouseEvent) {
     stop(e)
     onDelete?.(house.id)
+    closeMenu()
+  }
+  function getShareLink(e: React.MouseEvent) {
+    stop(e)
+    onGetShareLink?.(house.id)
+    closeMenu()
+  }
+  function revokeShareLink(e: React.MouseEvent) {
+    stop(e)
+    onRevokeShareLink?.(house.id)
     closeMenu()
   }
 
@@ -195,6 +215,11 @@ export function HouseCard({
               {graded ? 'Turned in · Graded' : 'Turned in'}
             </span>
           )}
+          {house.sharedRole && (
+            <span className="mono" style={{ fontSize: 9, color: 'var(--blueprint)', border: '1px solid var(--blueprint)', borderRadius: 5, padding: '2px 8px', textTransform: 'capitalize' }}>
+              Shared · {house.sharedRole}
+            </span>
+          )}
           <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{house.editedLabel}</span>
         </div>
       </Link>
@@ -245,6 +270,14 @@ export function HouseCard({
                 {onRename && <MenuItem onClick={startRename}>Rename</MenuItem>}
                 {isSubmission && onTurnIn && !(house.turnedIn && graded) && (
                   <MenuItem onClick={turnIn}>{house.turnedIn ? 'Undo turn in' : 'Turn in'}</MenuItem>
+                )}
+                {onGetShareLink && (
+                  <MenuItem onClick={getShareLink}>
+                    {house.shareToken ? 'Copy share link' : 'Get share link'}
+                  </MenuItem>
+                )}
+                {onRevokeShareLink && house.shareToken && (
+                  <MenuItem danger onClick={revokeShareLink}>Revoke share link</MenuItem>
                 )}
                 {onDelete &&
                   (confirmDelete ? (
