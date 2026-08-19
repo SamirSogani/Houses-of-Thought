@@ -432,6 +432,55 @@ export function reducer(state: State, action: Action): State {
       return next
     }
 
+    case 'APPLY_RERUN_RESULT': {
+      // Unlike APPLY_REASONING_RESULT, a rerun only ever fires on a house
+      // that already HAS a draft (the console is only reachable once a
+      // pipeline run finished) — so there is no "must be blank" guard here;
+      // instead every stage in the cascade gets its existing items cleared
+      // first, so the regenerated batch replaces rather than piles on top of
+      // whatever a person already claimed or hand-edited there.
+      if (!state.draft) return state
+      const next: State = { ...state }
+      for (const stage of action.stages) {
+        if (stage === 'concepts') next.concepts = []
+        else if (stage === 'perspectives') {
+          next.perspectives = []
+          next.activePerspective = null
+        } else if (stage === 'evidence') next.evidence = []
+        else if (stage === 'assumptions') next.assumptions = []
+        else if (stage === 'implications') {
+          next.pos = []
+          next.neg = []
+          next.unc = []
+          next.watchpoints = []
+        }
+      }
+      // action.actions is the FULL finished run mapped to actions (every
+      // packet, not just the cascade's) — deliberately not pre-filtered to
+      // just the cascaded stages. Upstream stages outside the cascade are
+      // untouched above, so their actions here name items already present
+      // and simply no-op via applyAiAction's own dedup check (aiActions.ts)
+      // — same safety net every other AI-actions surface already relies on,
+      // not a new mechanism. Same perspective-before-its-sub-elements
+      // ordering fix as APPLY_REASONING_RESULT above.
+      const targetsPerspectiveByName = new Set<AiAction['kind']>([
+        'add_subquestion',
+        'add_perspective_evidence',
+        'add_counter',
+      ])
+      const ordered = [...action.actions].sort(
+        (a, b) => Number(targetsPerspectiveByName.has(a.kind)) - Number(targetsPerspectiveByName.has(b.kind))
+      )
+      for (const a of ordered) applyAiAction(next, a)
+      next.draft = {
+        ...state.draft,
+        drafted: { ...state.draft.drafted, ...Object.fromEntries(action.stages.map((s) => [s, true])) },
+        claimed: { ...state.draft.claimed, ...Object.fromEntries(action.stages.map((s) => [s, false])) },
+      }
+      next.toast = `Rerun finished — review ${action.stages.map((s) => layerKey(DRAFT_STAGE_STEP[s])).join(', ')}`
+      return next
+    }
+
     case 'STOP_DRAFT':
       if (!state.draft || state.draft.stage === 'done') return state
       return {

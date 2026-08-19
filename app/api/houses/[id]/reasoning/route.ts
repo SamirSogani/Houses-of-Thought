@@ -75,7 +75,7 @@ import {
   questionContext,
 } from '@/lib/ai/reasoning/orchestrator-global'
 import { runMasterReview } from '@/lib/ai/reasoning/orchestrator-panel'
-import { persistRunStep, runStatusFrom } from '@/lib/ai/reasoning/persistence'
+import { persistRunStep, runStatusFrom, getReasoningRunByHouseId } from '@/lib/ai/reasoning/persistence'
 import {
   RequestSchema,
   failingStandardIds,
@@ -96,23 +96,18 @@ interface HouseAuthzRow {
   owner_id: string
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
-  const { id: houseIdParam } = await params
-  const houseIdParsed = HouseIdSchema.safeParse(houseIdParam)
-  if (!houseIdParsed.success) {
-    return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
-  }
-  const houseId = houseIdParsed.data
-
-  // ── Authorization: caller's OWN session, not service role (style matches
-  // app/api/collaborators/route.ts / app/api/share-link/route.ts) ───────────
-  const supabase = await createClient()
+// Shared by GET and POST (factored out 2026-08-19 for the new GET, plan doc
+// 28 — POST's own behavior is unchanged, this is a pure extraction). Caller's
+// OWN session, not service role (style matches app/api/collaborators/route.ts
+// / app/api/share-link/route.ts).
+async function authorize(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  houseId: string
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
-  }
+  if (!user) return { ok: false, error: 'unauthenticated', status: 401 }
 
   const { data: houseRow, error: houseError } = await supabase
     .from('houses')
@@ -121,11 +116,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .maybeSingle()
   if (houseError) {
     log.error('houses/reasoning', 'house lookup failed', { error: houseError.message })
-    return NextResponse.json({ error: 'server-error' }, { status: 500 })
+    return { ok: false, error: 'server-error', status: 500 }
   }
-  if (!houseRow) {
-    return NextResponse.json({ error: 'not-found' }, { status: 404 })
-  }
+  if (!houseRow) return { ok: false, error: 'not-found', status: 404 }
   const house = houseRow as HouseAuthzRow
 
   let canEdit = house.owner_id === user.id
@@ -138,20 +131,62 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .maybeSingle()
     if (collabError) {
       log.error('houses/reasoning', 'collaborator lookup failed', { error: collabError.message })
-      return NextResponse.json({ error: 'server-error' }, { status: 500 })
+      return { ok: false, error: 'server-error', status: 500 }
     }
     canEdit = (collabRow as { role: string } | null)?.role === 'editor'
   }
-  if (!canEdit) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  }
+  if (!canEdit) return { ok: false, error: 'forbidden', status: 403 }
 
   // Draft Mode's own restriction, applied identically here (plan doc 27 §2):
   // excludes students. Checked after ownership/editor status so a stranger
   // gets 'forbidden' rather than leaking whether they'd otherwise qualify.
   const caps = await getCallerCapabilities()
-  if (!caps.canAuthorDraft) {
-    return NextResponse.json({ error: 'draft-not-available' }, { status: 403 })
+  if (!caps.canAuthorDraft) return { ok: false, error: 'draft-not-available', status: 403 }
+
+  return { ok: true }
+}
+
+// Post-pipeline console (plan doc 28) — loads this house's most recent
+// finished reasoning run so /build/[id]/console has something to resume a
+// rerun from after a real navigation (no in-memory pipeline state survives
+// that the way it does inside BuildHousePage). Read-only; never advances the
+// step dispatcher itself.
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
+  const { id: houseIdParam } = await params
+  const houseIdParsed = HouseIdSchema.safeParse(houseIdParam)
+  if (!houseIdParsed.success) return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
+  const houseId = houseIdParsed.data
+
+  const supabase = await createClient()
+  const authz = await authorize(supabase, houseId)
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
+  const run = await getReasoningRunByHouseId(houseId)
+  if (!run) return NextResponse.json({ run: null })
+  return NextResponse.json({
+    run: {
+      runId: run.id,
+      originalQuery: run.originalQuery,
+      status: run.status,
+      lastStep: run.lastStep,
+      runState: run.runState,
+    },
+  })
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
+  const { id: houseIdParam } = await params
+  const houseIdParsed = HouseIdSchema.safeParse(houseIdParam)
+  if (!houseIdParsed.success) {
+    return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
+  }
+  const houseId = houseIdParsed.data
+
+  // ── Authorization: caller's OWN session, not service role ─────────────────
+  const supabase = await createClient()
+  const authz = await authorize(supabase, houseId)
+  if (!authz.ok) {
+    return NextResponse.json({ error: authz.error }, { status: authz.status })
   }
 
   // ── From here down: same step dispatcher as app/api/admin/reasoning/

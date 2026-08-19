@@ -34,6 +34,8 @@ import { MIN_N } from '@/lib/ai/reasoning/budget'
 import type { ContextGatherVerdict, EvidenceGatherUnit, SubElementFailure } from '@/lib/ai/reasoning/contracts'
 import type { RunState } from '@/components/admin/reasoning/ReasoningStagesList'
 import { mapReasoningRunToActions } from '@/lib/ai/reasoning/houseMapping'
+import { RERUN_STAGE_INFO, cascadeStages } from '@/lib/ai/console'
+import type { DraftStage } from '@/lib/ai/draft'
 
 export type ReasoningPipelinePhase = 'idle' | 'running' | 'paused' | 'awaiting-input' | 'halted' | 'done'
 
@@ -79,6 +81,8 @@ export interface ReasoningPipelineRunner {
   retryInfo: { attempt: number; waitMs: number } | null
   regenerationInfo: { attempt: number } | null
   start: (question: string) => void
+  // Post-pipeline console only (plan doc 28) — see its own comment above.
+  rerunFrom: (existingRun: RunState, stage: DraftStage, reason: string, guidance: string) => void
   pause: () => void
   resume: () => void
   reset: () => void
@@ -109,6 +113,10 @@ export function useReasoningPipelineRunner(
   const layerAttemptRef = useRef(1)
   const dispatchRef = useRef(dispatch)
   dispatchRef.current = dispatch
+  // Post-pipeline console only (plan doc 28) — null for a normal start(),
+  // the cascade (lib/ai/console.ts's cascadeStages) for a rerunFrom(); read
+  // once, at completion, to decide which action the finish dispatches.
+  const rerunStagesRef = useRef<DraftStage[] | null>(null)
 
   useEffect(() => {
     if (phase !== 'running' || !step || !houseId) return
@@ -210,7 +218,15 @@ export function useReasoningPipelineRunner(
             // header comment for why.
             const finished = { ...runRef.current, ...data.patch }
             const actions = mapReasoningRunToActions(finished)
-            if (actions.length > 0) {
+            // rerunStagesRef set only by rerunFrom() (plan doc 28) — a rerun
+            // must land via APPLY_RERUN_RESULT (clears the cascaded stages
+            // first, then applies), never APPLY_REASONING_RESULT (guarded on
+            // a blank house — state.draft already exists by definition here,
+            // the console is only reachable once a run finished, so that
+            // action would just no-op).
+            if (rerunStagesRef.current) {
+              dispatchRef.current({ type: 'APPLY_RERUN_RESULT', stages: rerunStagesRef.current, actions })
+            } else if (actions.length > 0) {
               dispatchRef.current({ type: 'APPLY_REASONING_RESULT', actions })
             }
             setPhase('done')
@@ -238,6 +254,7 @@ export function useReasoningPipelineRunner(
     const q = question.trim()
     if (!q || !houseId) return
     runIdRef.current = crypto.randomUUID()
+    rerunStagesRef.current = null
     setRun({ originalQuery: q })
     setErrorCode(null)
     setSubElementFailures(null)
@@ -248,6 +265,50 @@ export function useReasoningPipelineRunner(
     setPendingEvidenceGather(null)
     layerAttemptRef.current = 1
     setStep('context-gather-pre')
+    setPhase('running')
+  }
+
+  // Post-pipeline console (plan doc 28) — resumes an EXISTING, already-
+  // finished run at an earlier stage, instead of start()'s fresh one.
+  // Deliberately reuses this hook's own effect/retry/regeneration/gather
+  // handling rather than a parallel implementation: both entry points just
+  // seed run/step/phase differently, then the same loop takes over either
+  // way. Always mints a fresh runId (matching start()'s own behavior) rather
+  // than reusing the original one, so the pre-rerun run's persisted row
+  // (reasoning_runs) is never overwritten — getReasoningRunByHouseId always
+  // returns the most recent by house_id, so this naturally becomes "the"
+  // run for this house going forward without erasing the one before it.
+  function rerunFrom(existingRun: RunState, stage: DraftStage, reason: string, guidance: string): void {
+    if (!houseId) return
+    const info = RERUN_STAGE_INFO[stage]
+    runIdRef.current = crypto.randomUUID()
+    rerunStagesRef.current = cascadeStages(stage)
+    setRun({
+      ...existingRun,
+      consoleGuidance: guidance,
+      masterReview: info.masterReviewStep
+        ? {
+            forStep: info.masterReviewStep,
+            guidance: {
+              // Starts with "None" so appendMasterGuidance (prompts.ts) skips
+              // the conflicting-reviewers note entirely — there is no panel
+              // disagreement to report here, this came directly from the
+              // person.
+              contradictions: 'None — this regeneration was requested directly by the person, not the review panel.',
+              guidance: `${reason}\n\n${guidance}`,
+            },
+          }
+        : null,
+    })
+    setErrorCode(null)
+    setSubElementFailures(null)
+    setHaltReason(null)
+    setRetryInfo(null)
+    setRegenerationInfo(null)
+    setPendingGather(null)
+    setPendingEvidenceGather(null)
+    layerAttemptRef.current = 1
+    setStep(info.resumeStep)
     setPhase('running')
   }
 
@@ -274,6 +335,7 @@ export function useReasoningPipelineRunner(
     setPendingGather(null)
     setPendingEvidenceGather(null)
     layerAttemptRef.current = 1
+    rerunStagesRef.current = null
   }
 
   function resolvePendingGather(answers: (string | null)[]) {
@@ -322,6 +384,7 @@ export function useReasoningPipelineRunner(
     retryInfo,
     regenerationInfo,
     start,
+    rerunFrom,
     pause,
     resume,
     reset,

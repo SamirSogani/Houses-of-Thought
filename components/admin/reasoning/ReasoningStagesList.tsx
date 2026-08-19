@@ -29,6 +29,7 @@ import type {
   ImplicationsPacket,
   FinalAnswer,
   SubElementFailure,
+  MasterReviewGuidance,
 } from '@/lib/ai/reasoning/contracts'
 
 // Client-side mirror of the route's RunStateSchema (app/api/admin/reasoning/route.ts) —
@@ -75,6 +76,14 @@ export interface RunState {
   implications?: ImplicationsPacket | null
   implicationsVerdict?: ReviewPanelVerdict | null
   finalAnswer?: FinalAnswer | null
+  // Present on the server (route-schema.ts's RunStateSchema) since the
+  // master-review escalation landed, but never needed here until the
+  // post-pipeline console (plan doc 28) started writing it directly —
+  // useReasoningPipelineRunner.ts's rerunFrom(). Was already flowing through
+  // this client's run state at runtime via each step response's `patch`
+  // (StepResponse.patch: Partial<RunState>), just not nameable in TS before.
+  masterReview?: { forStep: StepId; guidance: MasterReviewGuidance } | null
+  consoleGuidance?: string | null
 }
 
 function stepDone(run: RunState, stepId: StepId): boolean {

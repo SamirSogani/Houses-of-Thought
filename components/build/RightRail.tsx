@@ -102,6 +102,7 @@ function RailBody({
   roster,
   tab,
   restrictAuthorship,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -114,6 +115,10 @@ function RailBody({
   tab: RailTab
   // See CopilotPanel's own doc comment — threaded through unchanged.
   restrictAuthorship?: boolean
+  // Post-pipeline console entry point (plan doc 28) — threaded through
+  // unchanged, same optionality as Canvas's own houseId (undefined on the
+  // localStorage /house builder, which has no row for a console to attach to).
+  houseId?: string
 }) {
   if (tab === 'team') {
     if (!team) {
@@ -140,6 +145,7 @@ function RailBody({
       interview={interview}
       pipelineRunner={pipelineRunner}
       restrictAuthorship={restrictAuthorship}
+      houseId={houseId}
     />
   )
 }
@@ -154,6 +160,7 @@ export function RightRail({
   team,
   roster,
   restrictAuthorship,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -172,6 +179,8 @@ export function RightRail({
   roster?: TeamRoster | null
   // See CopilotPanel's own doc comment — threaded through unchanged.
   restrictAuthorship?: boolean
+  // See RailBody's own doc comment — threaded through unchanged.
+  houseId?: string
 }) {
   const [tab, setTab] = useState<RailTab>('copilot')
   const [expanded, setExpanded] = useState(false)
@@ -182,7 +191,7 @@ export function RightRail({
     >
       <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
+        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
       </div>
     </aside>
   )
@@ -200,6 +209,7 @@ export function MobileRailDrawer({
   roster,
   onClose,
   restrictAuthorship,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -212,6 +222,8 @@ export function MobileRailDrawer({
   onClose: () => void
   // See CopilotPanel's own doc comment — threaded through unchanged.
   restrictAuthorship?: boolean
+  // See RailBody's own doc comment — threaded through unchanged.
+  houseId?: string
 }) {
   const [tab, setTab] = useState<RailTab>('copilot')
   // team-panel-v2 item 7, mobile case: "widen" becomes "go full-width" — there
@@ -271,7 +283,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} />
+          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
         </div>
       </div>
     </div>

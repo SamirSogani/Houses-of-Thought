@@ -28,7 +28,15 @@ export class AiError extends Error {
 // structured-output schema) but deliberately its own lane rather than reusing
 // 'drafter' — see router-lanes.ts's feedbackAttempts() for why it leads with
 // DeepInfra instead of Groq.
-export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis' | 'feedback'
+//
+// 'console' (2026-08-19) — the post-pipeline console
+// (app/api/houses/[id]/console/route.ts) only. Same DeepInfra-first shape as
+// 'feedback' (same AiAction vocabulary, now including remove_* too), but its
+// own lane rather than reusing 'feedback' — its prompt is whole-house, not
+// one layer, so it needs 'feedback's budget sized up front the way suggestor
+// only got after a real-verified live timeout (router-lanes.ts's
+// consoleAttempts() comment).
+export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis' | 'feedback' | 'console'
 
 // 'medium' added 2026-08-11 (Samir) — see reasoningEffortFor below for what
 // each tier actually does per model family.

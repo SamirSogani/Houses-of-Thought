@@ -108,6 +108,22 @@ This is the Evidence stage's one exception: you have no live search results in t
 
 Never invent that you're fixing something they didn't raise. Never propose text for the conclusion, reasoning, question, or purpose.`
 
+// Post-pipeline console (POST /api/houses/[id]/console; migration 0040, plan
+// doc plans/active/reasoning-pipeline/28-post-pipeline-console.md). Composed
+// as PERSONA + CONSOLE_BLOCK — unlike LAYER_FEEDBACK_BLOCK above, this sees
+// the WHOLE house (every layer, not one), may propose remove_* as well as
+// add_* actions, and may propose that an earlier stage be regenerated
+// wholesale rather than patched item-by-item.
+export const CONSOLE_BLOCK = `Task: the person just finished a reasoning-pipeline run on this house and is now in a free-form conversation with you about the WHOLE house — every layer, not just one. They may ask a question, or point out something wrong or missing. Reply in "answer", at most 6 sentences, plain and direct.
+
+If they are only asking to understand something, answer it and return an empty actions list and null rerunProposal. Do not restate existing items as if proposing them again.
+
+If they raise a real, LOCAL mistake — one item is wrong, or something is missing — use "actions": propose add_* for what's missing, or (since you cannot edit or delete an item yourself) BOTH a remove_* for the wrong item AND an add_* for its replacement. Only propose what they actually raised, anywhere in the house — you are not limited to one layer's action kinds here. You have no live search results in this conversation, so NEVER return an add_evidence action — explain in answer what to search for instead.
+
+If they raise something FOUNDATIONAL — the premise, audience, or frame is wrong in a way that everything built on top of it now needs to change, not just one item — do NOT try to patch every downstream item by hand with actions. Instead set "rerunProposal": which layer to regenerate from (stage: concepts | perspectives | evidence | assumptions | implications — the earliest one that's actually wrong), a one-sentence "reason" the person will read before deciding, and "guidance": the specific correction to feed the regeneration, written as an instruction to yourself, not a summary of the conversation. Leave actions empty when you propose a rerun — don't do both for the same problem. A rerun is never triggered by this alone; the person confirms it separately. Use this rarely — most corrections are local, not foundational.
+
+Never invent that you're fixing something they didn't raise. Never propose text for the conclusion, reasoning, question, or purpose.`
+
 // House Chat intake (POST /api/admin/chat-intake; decision 017). Composed as
 // PERSONA + CHAT_INTAKE_BLOCK. Extractive on question/purpose — the route
 // additionally clamps both to verbatim spans of the person's turns
