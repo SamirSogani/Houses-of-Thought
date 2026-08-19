@@ -7,8 +7,8 @@
 // (2026-08-10, swarm/synthesis — the reasoning pipeline's own dedicated
 // lanes, DeepInfra-led).
 //
-// Five lanes, keyed by role. Three are shared across the whole app
-// (suggestor, coach|critic, drafter); swarm and synthesis belong ONLY to the
+// Six lanes, keyed by role. Four are shared across the whole app (suggestor,
+// coach|critic, drafter, feedback); swarm and synthesis belong ONLY to the
 // reasoning pipeline (lib/ai/reasoning/*) — see swarmAttempts()/
 // synthesisAttempts() below for why they're separate from drafter/critic
 // rather than reusing them.
@@ -120,6 +120,11 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
   drafter: 20_000,
   swarm: 20_000, // same budget as drafter — real generation/review work, not a quick check
   synthesis: 8_000, // packaging only, same budget as coach
+  // Same 20s as drafter, not suggestor's 8s — this lane's primary is DeepInfra
+  // gpt-oss-20b (see feedbackAttempts() below), and this file's own header
+  // comment already documents that model's hidden-reasoning-token latency
+  // as too slow for the 8s budget tuned for Cerebras's custom hardware.
+  feedback: 20_000,
 }
 
 // DeepInfra-in-swarm-specific widen (2026-08-10, Samir, real-verified live):
@@ -243,6 +248,34 @@ function draftAttempts(): Attempt[] {
   ]
 }
 
+// Post-draft Q&A/correction thread (feedback role, 2026-08-18) — leads with
+// DeepInfra, then falls back to draftAttempts()'s own tail (Groq → Gemini →
+// Cerebras). Two reasons for DeepInfra-first here specifically, not just
+// reusing suggestorAttempts() or drafter's Groq-first order:
+//   (a) Real-verified live (2026-08-18): Cerebras returned a flat 402
+//       (Payment Required — account-level, not a rate limit) that broke
+//       suggestorAttempts() outright, because that lane only fails over on a
+//       429 (see its own comment above). The exact same 402 hit this lane's
+//       first real test.
+//   (b) DeepInfra is a paid account with no hard per-request rate ceiling
+//       (same rationale as swarmAttempts()/synthesisAttempts() above) — a
+//       better fit than Cerebras/Groq's free/on-demand tiers for a
+//       user-triggered, unpredictably-timed call like this one.
+// draftAttempts() (not a fresh Mistral-inclusive tail) because this role's
+// schema — an answer plus an AiAction[] batch, findings.ts's same
+// discriminated union drafter uses — is exactly the "more complex
+// structured-output schema" class the header comment already documents
+// Mistral reproducibly mangling under drafter traffic; no reason to expect
+// better here. Not DeepInfra-only like swarm/synthesis: those lanes are
+// deliberately single-provider for a clean A/B read on heavy, repeated
+// pipeline traffic (see that comment) — this is a light, one-shot call with
+// no such measurement goal, so keeping a real fallback tail (rather than
+// failing outright on a DeepInfra hiccup, the same failure mode this lane
+// exists to avoid) is the safer default.
+function feedbackAttempts(): Attempt[] {
+  return [{ ...TARGETS.deepinfra }, ...draftAttempts()]
+}
+
 // Reasoning-pipeline-only lane (lib/ai/reasoning/*, decision 019 addendum,
 // 2026-08-10): every generate/review call in the pipeline EXCEPT final
 // composition (see synthesisAttempts() below). Not used anywhere else in the
@@ -352,6 +385,7 @@ function synthesisAttempts(allowHighReasoning: boolean): Attempt[] {
 export function attemptsForRole(role: AiRole, allowHighReasoning = false): Attempt[] {
   if (role === 'drafter') return draftAttempts()
   if (role === 'suggestor') return suggestorAttempts()
+  if (role === 'feedback') return feedbackAttempts()
   if (role === 'swarm') return swarmAttempts(allowHighReasoning)
   if (role === 'synthesis') return synthesisAttempts(allowHighReasoning)
   return realtimeAttempts() // coach | critic

@@ -214,7 +214,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const { answer, actions } = await completeJSON({
-      role: 'suggestor',
+      role: 'feedback',
       system,
       user: userPrompt,
       schema: LayerFeedbackResponseSchema,
