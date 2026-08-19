@@ -110,13 +110,15 @@ afterEach(() => {
 })
 
 describe('lane order and 429 cascade', () => {
-  it('suggestor walks cerebras → mistral → groq on 429s and stops at first success', async () => {
+  it('suggestor walks deepinfra → mistral → groq on failures and stops at first success', async () => {
     script = (m) => {
-      if (m === MODELS.cerebras || m === MODELS.mistral) throw makeErr(429, 'rate limit')
+      if (m === MODELS.deepinfra || m === MODELS.mistral) throw makeErr(429, 'rate limit')
       return OK
     }
     await expect(ask('suggestor')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.cerebras, MODELS.mistral, MODELS.groqQwen])
+    // provider, not model — deepinfra and groq can share a model id (see
+    // MODELS comment above).
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'mistral', 'groq'])
   })
 
   it('realtime (coach|critic) tries deepinfra second, right after mistral, before groq', async () => {
@@ -532,7 +534,7 @@ describe('markdown code fence stripping', () => {
 })
 
 describe('reasoning_effort mapping', () => {
-  it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss/qwen capped at their floor; mistral omits', async () => {
+  it('gemini gets low (not passthrough high) and none (not undefined); mistral omits', async () => {
     // drafter now leads with Groq (gpt-oss-20b) — fail it so the chain reaches Gemini.
     script = (m) => {
       if (m === MODELS.groqOss) throw makeErr(429, 'rate limit')
@@ -547,14 +549,50 @@ describe('reasoning_effort mapping', () => {
 
     calls.length = 0
     script = () => OK
-    // gpt-oss capped at its floor ('low') regardless of requested effort — see
-    // reasoningEffortFor (router-shared.ts): 'high' was confirmed live to
-    // starve the actual JSON output of its token budget.
-    await ask('suggestor', { effort: 'high' }) // cerebras gpt-oss-120b primary
-    expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
-
-    calls.length = 0
     await ask('coach', { effort: 'high' }) // mistral primary
+    expect(calls.at(-1)?.params).not.toHaveProperty('reasoning_effort')
+  })
+
+  // gpt-oss/qwen used to both be reachable as the 'suggestor' role's primary
+  // (Cerebras gpt-oss-120b) or its tail (Groq qwen), which is what these two
+  // assertions rode before 2026-08-18's Cerebras→DeepInfra swap
+  // (router-lanes.ts's suggestorAttempts()) moved suggestor's primary off
+  // gpt-oss entirely. Split out here, each reached directly via its own
+  // role/lane rather than piggybacking on suggestor's now-unrelated chain.
+  it('gpt-oss capped at its floor (low) regardless of requested effort', async () => {
+    // drafter's own real primary is Groq gpt-oss-20b — no need to force a
+    // fallback the way the gemini case above does.
+    script = () => OK
+    await ask('drafter', { effort: 'high' })
+    // 'high' was confirmed live to starve the actual JSON output of its
+    // token budget (reasoningEffortFor, router-shared.ts) — capped to 'low'.
+    expect(calls.at(-1)?.model).toBe(MODELS.groqOss)
+    expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
+  })
+
+  it('qwen capped at its floor (none, not passthrough high) without allowHighReasoning', async () => {
+    // Force suggestor's new DeepInfra primary and Mistral both to fail so
+    // the chain reaches Groq's qwen fallback (same lane-order this file's
+    // 'suggestor walks deepinfra → mistral → groq' test already pins).
+    script = (m) => {
+      if (m === MODELS.deepinfra || m === MODELS.mistral) throw makeErr(429, 'rate limit')
+      return OK
+    }
+    await ask('suggestor', { effort: 'high' })
+    expect(calls.at(-1)?.model).toBe(MODELS.groqQwen)
+    expect(calls.at(-1)?.params.reasoning_effort).toBe('none')
+  })
+
+  // DeepInfra's current model (deepseek-ai/DeepSeek-V4-Flash-0731,
+  // TARGETS.deepinfra) matches neither the gpt-oss nor qwen branch of
+  // reasoningEffortFor — same "omits the param" behavior as Mistral, not a
+  // capped value. Documents this explicitly so a future DeepInfra model swap
+  // that lands on a gpt-oss/qwen-family model is a visible, deliberate
+  // decision (this test starts failing) rather than a silent behavior change.
+  it('deepinfra (suggestor primary) omits reasoning_effort — current model matches neither capped family', async () => {
+    script = () => OK
+    await ask('suggestor', { effort: 'high' })
+    expect(calls.at(-1)?.model).toBe(MODELS.deepinfra)
     expect(calls.at(-1)?.params).not.toHaveProperty('reasoning_effort')
   })
 })
