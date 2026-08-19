@@ -157,6 +157,12 @@ const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
   // layer-feedback/route.ts's own maxDuration is 30s, same convention as
   // those four routes (~4s headroom).
   feedback: 26_000,
+  // Same 55s as suggestor, not feedback's smaller 26s — see
+  // ATTEMPT_TIMEOUT_MS.console's comment (router-lanes.ts) for why this
+  // lane is sized like suggestor's post-real-verification budget from the
+  // start. app/api/houses/[id]/console/route.ts's own maxDuration is 60s,
+  // same ~5s headroom convention.
+  console: 55_000,
 }
 
 // Lets a caller that itself makes several sequential completeJSON calls

@@ -6,6 +6,7 @@
 // (invariant 2). See plans/active/ai/03-suggest-and-copilot.md.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import type { Action, State } from '@/lib/build/types'
 import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
@@ -62,6 +63,7 @@ export function CopilotPanel({
   interview,
   pipelineRunner,
   restrictAuthorship = false,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -92,6 +94,11 @@ export function CopilotPanel({
   // Learn-only elsewhere, so this reuses that signal rather than adding a
   // second, possibly-drifting one).
   restrictAuthorship?: boolean
+  // Post-pipeline console entry point (plan doc 28) — scopes the "Continue
+  // in full console" link below. Undefined on the localStorage /house
+  // builder, same gate as pipelineRunner above (no houseId, no console to
+  // link to).
+  houseId?: string
 }) {
   const kicker = layers[state.step - 1].kicker
   const step = state.step
@@ -208,6 +215,29 @@ export function CopilotPanel({
       </div>
 
       {pipelineRunner && <ReasoningConclusionSuggestion state={state} dispatch={dispatch} runner={pipelineRunner} />}
+
+      {/* Post-pipeline console entry (plan doc 28) — once the pipeline has
+          actually finished (state.draft.via is only ever set once
+          APPLY_REASONING_RESULT lands, never mid-run). Deliberately a plain
+          link, not another card — this rail's own intro tile already went
+          from a box to a one-line caption for taking up space it didn't
+          need; this shouldn't reintroduce that. */}
+      {houseId && state.draft?.via === 'reasoning-pipeline' && (
+        <Link
+          href={`/build/${houseId}/console`}
+          className="mono"
+          style={{
+            display: 'block',
+            marginBottom: 16,
+            fontSize: 10,
+            letterSpacing: '0.04em',
+            color: 'var(--blueprint)',
+            textDecoration: 'none',
+          }}
+        >
+          Continue in full console →
+        </Link>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 0 10px' }}>
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>Suggested for this layer</span>

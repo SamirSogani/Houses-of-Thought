@@ -7,11 +7,11 @@
 // (2026-08-10, swarm/synthesis — the reasoning pipeline's own dedicated
 // lanes, DeepInfra-led).
 //
-// Six lanes, keyed by role. Four are shared across the whole app (suggestor,
-// coach|critic, drafter, feedback); swarm and synthesis belong ONLY to the
-// reasoning pipeline (lib/ai/reasoning/*) — see swarmAttempts()/
-// synthesisAttempts() below for why they're separate from drafter/critic
-// rather than reusing them.
+// Seven lanes, keyed by role. Five are shared across the whole app
+// (suggestor, coach|critic, drafter, feedback, console); swarm and synthesis
+// belong ONLY to the reasoning pipeline (lib/ai/reasoning/*) — see
+// swarmAttempts()/synthesisAttempts() below for why they're separate from
+// drafter/critic rather than reusing them.
 //
 //   SIDEBAR SUGGESTIONS  (suggestor)
 //   DeepInfra-first (switched from Cerebras 2026-08-18, Samir's explicit call
@@ -144,6 +144,12 @@ export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
   // comment already documents that model's hidden-reasoning-token latency
   // as too slow for the 8s budget tuned for Cerebras's custom hardware.
   feedback: 20_000,
+  // Sized like suggestor's post-real-verification numbers (45s), not
+  // feedback's original 20s — a whole-house prompt (console) is at least as
+  // big as suggestor's per-layer-plus-whole-house one, likely bigger, so
+  // there's no reason to expect it to fit in feedback's smaller budget and
+  // then have to re-learn suggestor's exact lesson live.
+  console: 45_000,
 }
 
 // DeepInfra-in-swarm-specific widen (2026-08-10, Samir, real-verified live):
@@ -295,6 +301,20 @@ function feedbackAttempts(): Attempt[] {
   return [{ ...TARGETS.deepinfra }, ...draftAttempts()]
 }
 
+// Post-pipeline console (console role, 2026-08-19) — same DeepInfra-first
+// shape and same rationale as feedbackAttempts() immediately above (whole-
+// house AiAction vocabulary, structurally the same complexity class as
+// drafter's schemas, no A/B-measurement reason to go DeepInfra-only). Kept
+// as its own function rather than literally reusing feedbackAttempts()
+// because the two roles' ATTEMPT_TIMEOUT_MS/CHAIN_DEADLINE_MS already
+// diverge (this one sized like suggestor's, not feedback's smaller budget —
+// see ATTEMPT_TIMEOUT_MS's own comment) and giving them independent
+// functions keeps that divergence easy to see and to tune further without
+// the two roles' comments needing to stay in sync by hand.
+function consoleAttempts(): Attempt[] {
+  return [{ ...TARGETS.deepinfra }, ...draftAttempts()]
+}
+
 // Reasoning-pipeline-only lane (lib/ai/reasoning/*, decision 019 addendum,
 // 2026-08-10): every generate/review call in the pipeline EXCEPT final
 // composition (see synthesisAttempts() below). Not used anywhere else in the
@@ -405,6 +425,7 @@ export function attemptsForRole(role: AiRole, allowHighReasoning = false): Attem
   if (role === 'drafter') return draftAttempts()
   if (role === 'suggestor') return suggestorAttempts()
   if (role === 'feedback') return feedbackAttempts()
+  if (role === 'console') return consoleAttempts()
   if (role === 'swarm') return swarmAttempts(allowHighReasoning)
   if (role === 'synthesis') return synthesisAttempts(allowHighReasoning)
   return realtimeAttempts() // coach | critic

@@ -73,6 +73,27 @@ export const AiActionSchema = z.discriminatedUnion('kind', [
   // add_evidence is Research Mode ONLY (doc 06). The suggest route drops it
   // server-side (invariant 3: evidence cites only Brave results in the request).
   z.object({ kind: z.literal('add_evidence'), text: str, source: str, url: str }),
+
+  // remove_* — one per add_* kind above (post-pipeline console, plan doc 28,
+  // 2026-08-19). "Revise the house" decomposes into propose-remove-the-wrong-
+  // one + propose-add-the-corrected-one, both individually click-to-accept —
+  // deliberately NOT a free-form edit variant (invariant 2 stays: nothing
+  // enters or leaves the house without an explicit click either way). Each
+  // targets its item the same way its add_* counterpart's applicability check
+  // already matches one (case-insensitive text/name match against current
+  // state, lib/build/aiActions.ts) — there is no separate numeric id in the
+  // model's vocabulary to remove by. No remove_evidence-via-search-grounding
+  // concern the way add_evidence has (invariant 3) — removing never invents a
+  // claim, so it carries no url/source, just enough text to find the item.
+  z.object({ kind: z.literal('remove_concept'), term: str }),
+  z.object({ kind: z.literal('remove_perspective'), name: str }),
+  z.object({ kind: z.literal('remove_subquestion'), perspectiveName: str, q: str }),
+  z.object({ kind: z.literal('remove_perspective_evidence'), perspectiveName: str, text: longStr }),
+  z.object({ kind: z.literal('remove_counter'), perspectiveName: str, text: longStr }),
+  z.object({ kind: z.literal('remove_assumption'), text: str }),
+  z.object({ kind: z.literal('remove_implication'), ikind: z.enum(['pos', 'neg', 'unc']), text: str }),
+  z.object({ kind: z.literal('remove_watchpoint'), text: str }),
+  z.object({ kind: z.literal('remove_evidence'), text: str }),
 ])
 
 export const FindingSchema = z.object({

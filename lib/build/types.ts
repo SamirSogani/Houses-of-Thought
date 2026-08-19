@@ -166,4 +166,15 @@ export type Action =
   // review-and-claim UI Draft Mode already has takes over from here; no new
   // claim mechanism.
   | { type: 'APPLY_REASONING_RESULT'; actions: AiAction[] }
+  // Post-pipeline console (plan doc 28) — a confirmed rerun's cascade
+  // finishing. Unlike APPLY_REASONING_RESULT, this is NOT gated on a blank
+  // house (a rerun only ever fires on a house that already has a draft) —
+  // instead it clears each affected stage's OWN existing items first (so the
+  // regenerated batch replaces rather than piles onto whatever was there,
+  // claimed or not), then applies `actions` and re-opens `stages` for claim.
+  // `stages` is a cascade (lib/ai/console.ts's cascadeStages) — every stage
+  // from the one the person asked about, through everything that depends on
+  // it — matching how the pipeline itself actually depends on its own
+  // upstream output.
+  | { type: 'APPLY_RERUN_RESULT'; stages: DraftStage[]; actions: AiAction[] }
   | { type: 'SET_TOAST'; value: string }

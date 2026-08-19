@@ -448,6 +448,7 @@ export function BuildHousePage({
             team={team}
             roster={roster}
             restrictAuthorship={modeLocked}
+            houseId={houseId}
           />
         )}
       </div>
@@ -492,6 +493,7 @@ export function BuildHousePage({
           roster={roster}
           onClose={() => setRailOpen(false)}
           restrictAuthorship={modeLocked}
+          houseId={houseId}
         />
       )}
 

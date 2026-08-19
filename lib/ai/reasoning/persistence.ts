@@ -180,6 +180,37 @@ export async function getReasoningRun(id: string): Promise<ReasoningRunDetail | 
   }
 }
 
+// Post-pipeline console (plan doc 28) — the console page has no in-memory
+// pipeline state to fall back on (a real navigation to /build/[id]/console
+// doesn't carry React state across), so it loads the house's own finished
+// run by house_id instead of a runId it doesn't have. Most-recently-updated
+// row for this house — a house only ever has one reasoning-pipeline run in
+// flight/finished at a time in the current product (Draft Mode and the
+// pipeline are mutually exclusive per house, decision 016 §1 / plan doc 27),
+// so "most recent" is unambiguous today; revisit if that ever changes.
+export async function getReasoningRunByHouseId(houseId: string): Promise<ReasoningRunDetail | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .select('id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at, run_state')
+      .eq('house_id', houseId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    return { ...rowToSummary(data as ReasoningRunRow), runState: (data as { run_state: unknown }).run_state }
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to load run by house (non-fatal)', {
+      houseId,
+      error: (err as Error)?.message,
+    })
+    return null
+  }
+}
+
 // Test-only: drop the cached client so a test can force a fresh env re-read.
 export function __resetPersistenceClient(): void {
   service = null

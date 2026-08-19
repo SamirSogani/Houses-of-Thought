@@ -125,6 +125,21 @@ export const RunStateSchema = z.object({
       guidance: MasterReviewGuidanceSchema,
     })
     .nullish(),
+  // Post-pipeline console only (plan doc 28, 2026-08-19): free-text
+  // correction/context from a chat message, set when the person confirms a
+  // stage rerun. Folded into buildExtraContext below alongside
+  // contextGatherPost/adHocContextGathers — that function's output already
+  // threads into every downstream generate call across the WHOLE pipeline
+  // (perspectives-generate-stances included), which matters because
+  // perspectives has no masterReview channel of its own (no per-bundle
+  // review-driven regen path exists — see plan doc 28's table). masterReview
+  // still gets set too, for the four stages that DO have that channel — it
+  // gives the one stage actually being corrected a more precise "here's your
+  // prior output, revise it per this" framing; this field is what keeps the
+  // correction live through the rest of a cascading rerun, since
+  // masterReview.forStep only ever matches one step. Untouched by every
+  // existing caller (admin page, inline pipeline) — always null for them.
+  consoleGuidance: z.string().nullish(),
 })
 export type RunState = z.infer<typeof RunStateSchema>
 
@@ -197,6 +212,10 @@ export function buildExtraContext(run: RunState): string | null {
     const text = formatContextGatherAnswers(gather.verdict, gather.answers)
     if (text) parts.push(`${text}\n(asked while paused at: ${gather.atStep})`)
   }
+  // Post-pipeline console rerun guidance (plan doc 28) — see RunStateSchema's
+  // own comment on this field for why it's folded in here rather than only
+  // read via masterReview.
+  if (run.consoleGuidance) parts.push(`Correction from the person, mid-review:\n${run.consoleGuidance}`)
   return parts.length ? parts.join('\n\n') : null
 }
 
