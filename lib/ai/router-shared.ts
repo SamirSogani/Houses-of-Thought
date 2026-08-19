@@ -21,7 +21,14 @@ export class AiError extends Error {
 // (lib/ai/reasoning/*) only — see router.ts's swarmAttempts()/
 // synthesisAttempts() header comment. Every other feature in the app keeps
 // using suggestor/coach/critic/drafter exactly as before.
-export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis'
+//
+// 'feedback' (2026-08-18) — the post-draft Q&A/correction thread
+// (app/api/houses/[id]/layer-feedback/route.ts) only. Structurally closest to
+// 'drafter' (same AiAction/DraftStage vocabulary, similarly complex
+// structured-output schema) but deliberately its own lane rather than reusing
+// 'drafter' — see router-lanes.ts's feedbackAttempts() for why it leads with
+// DeepInfra instead of Groq.
+export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis' | 'feedback'
 
 // 'medium' added 2026-08-11 (Samir) — see reasoningEffortFor below for what
 // each tier actually does per model family.

@@ -146,6 +146,10 @@ const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
   drafter: 26_000,
   swarm: 260_000,
   synthesis: 260_000,
+  // Same 26s as suggestor/coach/critic/drafter — app/api/houses/[id]/
+  // layer-feedback/route.ts's own maxDuration is 30s, same convention as
+  // those four routes (~4s headroom).
+  feedback: 26_000,
 }
 
 // Lets a caller that itself makes several sequential completeJSON calls
