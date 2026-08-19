@@ -140,7 +140,14 @@ export {
 // plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
 // addendum.
 const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
-  suggestor: 26_000,
+  // 26s → 55s (2026-08-18, alongside ATTEMPT_TIMEOUT_MS.suggestor's same
+  // bump, router-lanes.ts) — must exceed the new 45s attempt timeout with
+  // real room left for a fallback attempt if DeepInfra genuinely fails
+  // rather than just running long; matches app/api/ai/suggest/route.ts's
+  // own maxDuration bump (30s → 60s) below. Only this role's budget moves —
+  // coach/critic/drafter/feedback are untouched, and no other route reads
+  // CHAIN_DEADLINE_MS.suggestor.
+  suggestor: 55_000,
   coach: 26_000,
   critic: 26_000,
   drafter: 26_000,

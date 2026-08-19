@@ -14,10 +14,17 @@
 // rather than reusing them.
 //
 //   SIDEBAR SUGGESTIONS  (suggestor)
-//   The most latency-sensitive surface, so it leads with Cerebras' ultra-fast
-//   custom hardware, then falls onto the real-time resilience tail.
-//     1. Cerebras  gpt-oss-120b           (primary — ultra-fast)
-//     2. Mistral   ministral-8b-latest    (on Cerebras 429)
+//   DeepInfra-first (switched from Cerebras 2026-08-18, Samir's explicit call
+//   after Cerebras's account started returning a flat 402 Payment Required —
+//   an account-level failure this lane's own fallback never covered, since it
+//   only ever chained off a 429, so a 402 broke suggestions outright). Not
+//   latency-optimal the way Cerebras's custom hardware was (this file's other
+//   DeepInfra targets are extensively documented spending real wall-clock time
+//   on hidden reasoning tokens even at low effort), but reliable over fast —
+//   Cerebras is out of this lane entirely, not just demoted, since Samir does
+//   not want suggestions tied to that account again.
+//     1. DeepInfra (TARGETS.deepinfra)    (primary)
+//     2. Mistral   ministral-8b-latest    (on DeepInfra failure)
 //     3. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
 //     4. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
 //
@@ -114,7 +121,19 @@ export interface Attempt extends Target {
 // as of 2026-08-12 — see CHAIN_DEADLINE_MS, router.ts, for how these two
 // numbers combine per role.
 export const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
-  suggestor: 8_000,
+  // 8s → 20s → 45s (2026-08-18, alongside the Cerebras→DeepInfra swap above).
+  // 8s was sized for Cerebras's custom hardware. 20s (matching drafter) was
+  // real-verified live still too tight: DeepInfra's own attempt hit a hard
+  // "Request timed out" on the very first real Suggest call, logged as
+  // neededTokens: 8710 — SUGGEST_BLOCK's fuller ask (2-4 findings, each with
+  // an observation/suggestion/Socratic question, findings.ts's schema) is a
+  // meaningfully bigger reasoning task than feedback's single-answer shape,
+  // which fit fine under 20s. Deliberately generous, same posture as this
+  // file's own DEEPINFRA_SWARM_TIMEOUT_MS history (45s → 60s → 200s, each
+  // bump real-verified against actual completion time, not guessed) — this
+  // is that same first generous bump, to be tuned down once real Suggest
+  // traffic shows the actual completion time.
+  suggestor: 45_000,
   coach: 8_000,
   critic: 8_000,
   drafter: 20_000,
@@ -215,12 +234,12 @@ function realtimeAttempts(): Attempt[] {
   return attempts
 }
 
-// Sidebar suggestions ride an ultra-fast Cerebras-first lane — its custom hardware
-// is the lowest-latency target, and suggestions are the most latency-sensitive
-// surface. On a Cerebras 429 it falls onto the standard real-time resilience tail
+// Sidebar suggestions ride a DeepInfra-first lane (see header comment above
+// for why Cerebras was pulled out of this lane entirely, 2026-08-18). On a
+// DeepInfra failure it falls onto the standard real-time resilience tail
 // (Mistral → Groq → Google), sharing the same Groq penalty box.
 function suggestorAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.cerebrasGptOss120b }, { ...TARGETS.mistral8b }]
+  const attempts: Attempt[] = [{ ...TARGETS.deepinfra }, { ...TARGETS.mistral8b }]
   if (groqCoolingDown()) {
     attempts.push({ ...TARGETS.geminiFlash })
   } else {
