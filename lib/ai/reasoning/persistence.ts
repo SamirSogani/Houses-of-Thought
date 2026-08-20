@@ -51,6 +51,12 @@ function serviceClient(): SupabaseClient | null {
 // single JSONB blob per run, not separate packet/verdict tables (the packet
 // shapes in 02-data-contracts.md already live inside RunState as-is; no
 // evidence yet of a query that needs to slice one packet type across runs).
+//
+// `houseId` (0038_reasoning_runs_house_id.sql, plan doc 27): optional and
+// defaults to null so the admin route's existing call sites (which never
+// pass it) keep working unmodified — admin-triggered runs are house_id: null
+// exactly as before this column existed. Only the new house-scoped route
+// (app/api/houses/[id]/reasoning/route.ts) ever passes a real value.
 export async function persistRunStep(
   runId: string,
   originalQuery: string,
@@ -58,7 +64,8 @@ export async function persistRunStep(
   step: StepId,
   status: ReasoningRunStatus,
   haltReason: string | undefined,
-  panelsOff: boolean
+  panelsOff: boolean,
+  houseId: string | null = null
 ): Promise<void> {
   const client = serviceClient()
   if (!client) return
@@ -72,6 +79,7 @@ export async function persistRunStep(
         halt_reason: haltReason ?? null,
         run_state: runState,
         panels_off: panelsOff,
+        house_id: houseId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
@@ -168,6 +176,37 @@ export async function getReasoningRun(id: string): Promise<ReasoningRunDetail | 
     return { ...rowToSummary(data as ReasoningRunRow), runState: (data as { run_state: unknown }).run_state }
   } catch (err) {
     log.error('ai/reasoning/persistence', 'failed to load run (non-fatal)', { runId: id, error: (err as Error)?.message })
+    return null
+  }
+}
+
+// Post-pipeline console (plan doc 28) — the console page has no in-memory
+// pipeline state to fall back on (a real navigation to /build/[id]/console
+// doesn't carry React state across), so it loads the house's own finished
+// run by house_id instead of a runId it doesn't have. Most-recently-updated
+// row for this house — a house only ever has one reasoning-pipeline run in
+// flight/finished at a time in the current product (Draft Mode and the
+// pipeline are mutually exclusive per house, decision 016 §1 / plan doc 27),
+// so "most recent" is unambiguous today; revisit if that ever changes.
+export async function getReasoningRunByHouseId(houseId: string): Promise<ReasoningRunDetail | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .select('id, original_query, status, last_step, halt_reason, panels_off, created_at, updated_at, run_state')
+      .eq('house_id', houseId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    return { ...rowToSummary(data as ReasoningRunRow), runState: (data as { run_state: unknown }).run_state }
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to load run by house (non-fatal)', {
+      houseId,
+      error: (err as Error)?.message,
+    })
     return null
   }
 }

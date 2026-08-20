@@ -8,7 +8,7 @@
 // which unmount this card — no longer destroys a half-finished interview.
 // See plans/active/ai/05-interviewer.md.
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import { serializeContent } from '@/lib/build/persistence'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
@@ -38,10 +38,19 @@ export function InterviewCard({
   state,
   dispatch,
   session,
+  autoStart = false,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
   session?: InterviewSession
+  // When true, this card starts itself instead of waiting for its own
+  // "Start" button click. Unused by any caller as of plan doc 27
+  // (2026-08-16) — the blank-house entry point that used to drive this
+  // (CopilotPanel's "Enter reasoning pipeline" button) now starts the real
+  // reasoning pipeline instead of an interview; kept as a general capability
+  // of this card rather than removed, since a future standalone auto-start
+  // use is still plausible.
+  autoStart?: boolean
 }) {
   // Hooks always run; the hoisted session (when provided) is the source of truth.
   const local = useInterviewSession()
@@ -117,6 +126,18 @@ export function InterviewCard({
   function retry() {
     runInterview(transcript, userTurns >= HARD_STOP_TURNS)
   }
+
+  // autoStart fires start() exactly once, only when nothing has happened yet
+  // (no active conversation, no transcript, no context already set) — a
+  // remount mid-conversation (drawer close/reopen, tab switch) sees active
+  // already true from the hoisted session and this is a no-op, so the
+  // consolidated entry point never restarts an interview in progress.
+  useEffect(() => {
+    if (autoStart && !active && transcript.length === 0 && !state.aiContext) start()
+    // Fires only off the autoStart trigger; start()/active/transcript/state
+    // are read fresh via closures, same pattern as the rest of this file.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart])
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--parchment)',

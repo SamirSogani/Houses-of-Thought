@@ -16,8 +16,8 @@ import { ConclusionLayer } from './layers/ConclusionLayer'
 import { ImplicationsLayer } from './layers/ImplicationsLayer'
 import { ReviewLayer } from './layers/ReviewLayer'
 
-export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action> }>(
-  function Canvas({ state, strength, dispatch }, ref) {
+export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action>; houseId?: string }>(
+  function Canvas({ state, strength, dispatch, houseId }, ref) {
     const { step } = state
     const layer = layers[step - 1]
     const activePerspective =
@@ -47,8 +47,8 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
             </div>
           )}
 
-          {/* Draft Mode claim pass (decision 016 §2) */}
-          {showStepHeader && <DraftClaimBanner state={state} dispatch={dispatch} />}
+          {/* Draft Mode claim pass (decision 016 §2) + post-draft Q&A (0039) */}
+          {showStepHeader && <DraftClaimBanner state={state} dispatch={dispatch} houseId={houseId} />}
 
           {/* Body */}
           {step === 1 && <FrameLayer state={state} dispatch={dispatch} />}

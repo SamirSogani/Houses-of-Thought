@@ -109,7 +109,10 @@ exists to locate the right file, not to invite broad exploration.
 - **Current contents:** `supabase/client.ts` (browser client),
   `supabase/server.ts` (server client). `ai/` holds the co-pilot core:
   `router.ts` (server-only multi-provider routing engine + `completeJSON`;
-  decisions 013–015), `groq.ts` (thin back-compat re-export of `router.ts`),
+  decisions 013–015, 020) plus its split-out modules — `router-config.ts`
+  (providers/targets), `router-lanes.ts` (per-role failover order, decision
+  020), `router-state.ts` (penalty box / daily map), `router-monitor.ts`
+  (admin snapshot) — `groq.ts` (thin back-compat re-export of `router.ts`),
   `serialize.ts` (house → prompt text, pure), `prompts.ts` (shared persona +
   capability blocks), `findings.ts` (client-safe zod schemas / `AiAction`
   contract), `draft.ts` (client-safe Draft Mode contract — stages, claim

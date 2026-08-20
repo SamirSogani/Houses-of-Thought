@@ -14,10 +14,13 @@ import {
   __resetRouterState,
   __setClientFactory,
 } from './router'
+import { supportsJsonSchema } from './router-shared'
+import { TARGETS } from './router-config'
 
 // Every default target must look configured (record()/laneStep read these).
 const KEY_ENVS = [
   'MISTRAL_MINISTRAL_8B_API_KEY',
+  'DEEP_INFRA_API_KEY',
   'GROQ_QWEN_3_POINT_6_27B_API_KEY',
   'GROQ_OPENAI_GPT_OSS_20B_API_KEY',
   'GEMINI_FLASH_2_POINT_5_API_KEY',
@@ -26,8 +29,17 @@ const KEY_ENVS = [
 ]
 for (const k of KEY_ENVS) process.env[k] = 'test-key'
 
+// deepinfra's entry is read live from TARGETS (router-config.ts), not
+// hand-typed — a hardcoded duplicate here already went stale once (2026-08-13,
+// the DeepSeek-V3 swap broke 4 assertions comparing recorded call.model
+// against this fixture) even though the ORIGINAL intent, per the comment this
+// replaced, was for this fixture not to need touching on a model swap.
+// Importing the real value is what actually delivers that intent going
+// forward — every other entry here stays a plain dummy string since nothing
+// asserts on their exact value the way deepinfra's does.
 const MODELS = {
   mistral: 'ministral-8b-latest',
+  deepinfra: TARGETS.deepinfra.model,
   groqQwen: 'qwen/qwen3.6-27b',
   groqOss: 'openai/gpt-oss-20b',
   gemini: 'gemini-2.5-flash',
@@ -44,9 +56,12 @@ interface Call {
 const OK = '{"ok":true}'
 const Schema = z.object({ ok: z.boolean() })
 
-// Per-test behavior: return content, or throw. Keyed off model (and call order
-// via the calls array when a test needs "first call fails, second succeeds").
-let script: (model: string, params: Record<string, unknown>) => string
+// Per-test behavior: return content, or throw. Keyed off model + provider (and
+// call order via the calls array when a test needs "first call fails, second
+// succeeds"). provider is threaded through (not just model) so tests stay
+// correct even if deepinfra and groq ever serve the same model id again — see
+// MODELS comment above.
+let script: (model: string, params: Record<string, unknown>, provider: string) => string
 const calls: Call[] = []
 
 function makeErr(status: number | undefined, message = 'provider error'): Error {
@@ -56,8 +71,8 @@ function makeErr(status: number | undefined, message = 'provider error'): Error 
 }
 
 function ask(
-  role: 'coach' | 'critic' | 'suggestor' | 'drafter',
-  overrides: { effort?: 'low' | 'high'; user?: string } = {}
+  role: 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis',
+  overrides: { effort?: 'low' | 'high'; user?: string; allowHighReasoning?: boolean } = {}
 ) {
   return completeJSON({
     role,
@@ -66,6 +81,7 @@ function ask(
     schema: Schema,
     schemaName: 'test',
     effort: overrides.effort ?? 'low',
+    allowHighReasoning: overrides.allowHighReasoning,
     maxTokens: 100,
   })
 }
@@ -79,7 +95,7 @@ beforeEach(() => {
       completions: {
         create: async (params: Record<string, unknown>) => {
           calls.push({ provider: t.provider, model: t.model, params })
-          const content = script(t.model, params)
+          const content = script(t.model, params, t.provider)
           return { choices: [{ message: { content } }] }
         },
       },
@@ -94,13 +110,116 @@ afterEach(() => {
 })
 
 describe('lane order and 429 cascade', () => {
-  it('suggestor walks cerebras → mistral → groq on 429s and stops at first success', async () => {
+  it('suggestor walks deepinfra → mistral → groq on failures and stops at first success', async () => {
     script = (m) => {
-      if (m === MODELS.cerebras || m === MODELS.mistral) throw makeErr(429, 'rate limit')
+      if (m === MODELS.deepinfra || m === MODELS.mistral) throw makeErr(429, 'rate limit')
       return OK
     }
     await expect(ask('suggestor')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.cerebras, MODELS.mistral, MODELS.groqQwen])
+    // provider, not model — deepinfra and groq can share a model id (see
+    // MODELS comment above).
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'mistral', 'groq'])
+  })
+
+  it('realtime (coach|critic) tries deepinfra second, right after mistral, before groq', async () => {
+    script = (m) => (m === MODELS.mistral ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('critic')).resolves.toEqual({ ok: true })
+    // provider, not model — deepinfra and groq now share the same model id.
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra'])
+  })
+})
+
+describe('swarm and synthesis lanes (reasoning pipeline only)', () => {
+  // 2026-08-12, Samir, verbatim: "it should always be using deep infra (no
+  // matter what for now)" — Groq/Gemini/Mistral/Cerebras removed from both
+  // lanes entirely (not just reordered). Deliberate, temporary loss of
+  // resilience — see router-lanes.ts's swarmAttempts()/synthesisAttempts()
+  // comment for the full rationale.
+  //
+  // Later the same day: real production traffic showed DeepInfra's own
+  // failures here (timeouts, empty completions) are intermittent, not a
+  // network/rate-limit problem (confirmed via DeepInfra's own dashboard —
+  // received, billed, no rate limit flagged) — so both lanes now retry the
+  // SAME target DEEPINFRA_SAME_TARGET_ATTEMPTS times before giving up. Still
+  // zero other providers — these cases assert exactly that: multiple calls,
+  // all to deepinfra, never anything else.
+
+  it('swarm succeeds via deepinfra alone on the first attempt', async () => {
+    script = () => OK
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
+
+  it('swarm retries deepinfra itself and recovers after a transient failure', async () => {
+    let n = 0
+    script = () => (n++ === 0 ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra'])
+  })
+
+  it('swarm exhausts every deepinfra attempt before failing — no other provider is ever tried', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('swarm')).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
+  })
+
+  it('swarm with allowHighReasoning (repair mode) also retries deepinfra itself, no fallback', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('swarm', { allowHighReasoning: true })).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
+  })
+
+  it('swarm ignores the shared groq penalty box — still deepinfra-only', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
+    // Open the penalty box via the realtime lane first (mirrors the 'groq
+    // penalty box' describe block below) — proves swarm no longer reads
+    // that shared, account-level Groq state at all now that Groq isn't in
+    // its chain.
+    script = (m) =>
+      m === MODELS.mistral || m === MODELS.deepinfra || m === MODELS.groqQwen
+        ? (() => { throw makeErr(429, 'rate limit') })()
+        : OK
+    await ask('coach')
+
+    calls.length = 0
+    script = () => OK
+    await expect(ask('swarm')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
+
+  it('synthesis succeeds via deepinfra alone on the first attempt', async () => {
+    script = () => OK
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
+  })
+
+  it('synthesis retries deepinfra itself and recovers after a transient failure', async () => {
+    let n = 0
+    script = () => (n++ === 0 ? (() => { throw makeErr(429, 'rate limit') })() : OK)
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra'])
+  })
+
+  it('synthesis exhausts every deepinfra attempt before failing — no other provider is ever tried', async () => {
+    script = () => { throw makeErr(429, 'rate limit') }
+    await expect(ask('synthesis')).rejects.toThrow()
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra', 'deepinfra', 'deepinfra'])
+  })
+
+  it('synthesis ignores the shared groq penalty box — still deepinfra-only', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
+    script = (m) =>
+      m === MODELS.mistral || m === MODELS.deepinfra || m === MODELS.groqQwen
+        ? (() => { throw makeErr(429, 'rate limit') })()
+        : OK
+    await ask('coach') // opens the shared penalty box
+
+    calls.length = 0
+    script = () => OK
+    await expect(ask('synthesis')).resolves.toEqual({ ok: true })
+    expect(calls.map((c) => c.provider)).toEqual(['deepinfra'])
   })
 })
 
@@ -109,34 +228,41 @@ describe('groq penalty box', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-16T12:00:00Z'))
 
-    // Call 1: mistral 429 → groq qwen 429 (opens penalty) → gemini serves.
-    script = (m) => {
-      if (m === MODELS.mistral || m === MODELS.groqQwen) throw makeErr(429, 'rate limit')
+    // Call 1: mistral 429 → deepinfra 429 (relief valve also down) → groq qwen
+    // 429 (opens penalty) → gemini serves. Checked by PROVIDER throughout this
+    // test, not model: deepinfra and groq's post-recovery fallback both serve
+    // openai/gpt-oss-20b (see MODELS comment above), which would misfire once
+    // groq recovers onto that model in call 3 below if checked by model alone.
+    script = (_m, _params, provider) => {
+      if (provider === 'mistral' || provider === 'deepinfra' || provider === 'groq') throw makeErr(429, 'rate limit')
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.at(-1)?.model).toBe(MODELS.gemini)
+    expect(calls.at(-1)?.provider).toBe('google')
 
-    // Call 2, inside the 30s box: groq is skipped entirely.
+    // Call 2, inside the 30s box: groq is skipped entirely (deepinfra also
+    // down this call, so the chain still needs to reach gemini to prove it).
     calls.length = 0
-    script = (m) => {
-      if (m === MODELS.mistral) throw makeErr(429, 'rate limit')
+    script = (_m, _params, provider) => {
+      if (provider === 'mistral' || provider === 'deepinfra') throw makeErr(429, 'rate limit')
       return OK
     }
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.gemini])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'google'])
 
     // Call 3, after the box clears: groq returns on the SAFER model until a
     // success clears recovery.
     vi.setSystemTime(new Date('2026-07-16T12:00:31Z'))
     calls.length = 0
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqOss])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'groq'])
+    expect(calls.at(-1)?.model).toBe(MODELS.groqOss) // the safer post-recovery model
 
     // Call 4: recovery cleared by the success — back on qwen.
     calls.length = 0
     await ask('coach')
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.provider)).toEqual(['mistral', 'deepinfra', 'groq'])
+    expect(calls.at(-1)?.model).toBe(MODELS.groqQwen)
   })
 })
 
@@ -209,7 +335,7 @@ describe('transient vs terminal errors', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it('timeout/network (no status) cascades', async () => {
@@ -227,13 +353,13 @@ describe('transient vs terminal errors', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it('empty generation cascades', async () => {
     script = (m) => (m === MODELS.mistral ? '' : OK)
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 
   it("Groq's json_validate_failed (its own generation failing strict-schema validation) cascades, not thrown as a terminal 400", async () => {
@@ -268,7 +394,7 @@ describe('transient vs terminal errors', () => {
       throw makeErr(503)
     }
     await expect(ask('coach')).rejects.toMatchObject({ status: 502, message: 'ai-upstream-error' })
-    expect(calls.length).toBe(4) // whole realtime lane tried, no airbag
+    expect(calls.length).toBe(5) // whole realtime lane tried (now incl. deepinfra), no airbag
   })
 })
 
@@ -292,7 +418,7 @@ describe('size-aware routing and overflow', () => {
       return OK
     }
     await expect(ask('coach')).resolves.toEqual({ ok: true })
-    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.groqQwen])
+    expect(calls.map((c) => c.model)).toEqual([MODELS.mistral, MODELS.deepinfra])
   })
 })
 
@@ -375,8 +501,40 @@ describe('json shape guardrail and defensive unwrap', () => {
   })
 })
 
+describe('markdown code fence stripping', () => {
+  // Defensive fix (2026-08-13) for the failure real-verified on DeepInfra's
+  // meta-llama/Llama-3.3-70B-Instruct-Turbo (see TARGETS.deepinfra's comment,
+  // router-config.ts): the model wrapped otherwise-valid JSON in a markdown
+  // code fence on 4/4 real attempts. Runs unconditionally in tryParse
+  // (router.ts, stripMarkdownFence), not gated to json_object-mode models.
+
+  it('parses JSON wrapped in a bare ``` fence, no retry needed', async () => {
+    script = () => '```\n{"ok":true}\n```'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1) // accepted on the first attempt
+  })
+
+  it('parses JSON wrapped in a ```json language-tagged fence, no retry needed', async () => {
+    script = () => '```json\n{"ok":true}\n```'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1)
+  })
+
+  it('tolerates surrounding whitespace/newlines around a fenced response', async () => {
+    script = () => '\n\n  ```json\n{"ok":true}\n```  \n\n'
+    await expect(ask('suggestor')).resolves.toEqual({ ok: true })
+    expect(calls.length).toBe(1)
+  })
+
+  it('a fenced response that still fails the schema goes through the normal retry path, not a silent pass', async () => {
+    script = () => '```json\n{"ok":"not-a-boolean"}\n```'
+    await expect(ask('suggestor')).rejects.toMatchObject({ status: 502, message: 'ai-invalid-output' })
+    expect(calls.length).toBe(2)
+  })
+})
+
 describe('reasoning_effort mapping', () => {
-  it('gemini gets low (not passthrough high) and none (not undefined); gpt-oss/qwen capped at their floor; mistral omits', async () => {
+  it('gemini gets low (not passthrough high) and none (not undefined); mistral omits', async () => {
     // drafter now leads with Groq (gpt-oss-20b) — fail it so the chain reaches Gemini.
     script = (m) => {
       if (m === MODELS.groqOss) throw makeErr(429, 'rate limit')
@@ -391,14 +549,50 @@ describe('reasoning_effort mapping', () => {
 
     calls.length = 0
     script = () => OK
-    // gpt-oss capped at its floor ('low') regardless of requested effort — see
-    // reasoningEffortFor (router-shared.ts): 'high' was confirmed live to
-    // starve the actual JSON output of its token budget.
-    await ask('suggestor', { effort: 'high' }) // cerebras gpt-oss-120b primary
-    expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
-
-    calls.length = 0
     await ask('coach', { effort: 'high' }) // mistral primary
+    expect(calls.at(-1)?.params).not.toHaveProperty('reasoning_effort')
+  })
+
+  // gpt-oss/qwen used to both be reachable as the 'suggestor' role's primary
+  // (Cerebras gpt-oss-120b) or its tail (Groq qwen), which is what these two
+  // assertions rode before 2026-08-18's Cerebras→DeepInfra swap
+  // (router-lanes.ts's suggestorAttempts()) moved suggestor's primary off
+  // gpt-oss entirely. Split out here, each reached directly via its own
+  // role/lane rather than piggybacking on suggestor's now-unrelated chain.
+  it('gpt-oss capped at its floor (low) regardless of requested effort', async () => {
+    // drafter's own real primary is Groq gpt-oss-20b — no need to force a
+    // fallback the way the gemini case above does.
+    script = () => OK
+    await ask('drafter', { effort: 'high' })
+    // 'high' was confirmed live to starve the actual JSON output of its
+    // token budget (reasoningEffortFor, router-shared.ts) — capped to 'low'.
+    expect(calls.at(-1)?.model).toBe(MODELS.groqOss)
+    expect(calls.at(-1)?.params.reasoning_effort).toBe('low')
+  })
+
+  it('qwen capped at its floor (none, not passthrough high) without allowHighReasoning', async () => {
+    // Force suggestor's new DeepInfra primary and Mistral both to fail so
+    // the chain reaches Groq's qwen fallback (same lane-order this file's
+    // 'suggestor walks deepinfra → mistral → groq' test already pins).
+    script = (m) => {
+      if (m === MODELS.deepinfra || m === MODELS.mistral) throw makeErr(429, 'rate limit')
+      return OK
+    }
+    await ask('suggestor', { effort: 'high' })
+    expect(calls.at(-1)?.model).toBe(MODELS.groqQwen)
+    expect(calls.at(-1)?.params.reasoning_effort).toBe('none')
+  })
+
+  // DeepInfra's current model (deepseek-ai/DeepSeek-V4-Flash-0731,
+  // TARGETS.deepinfra) matches neither the gpt-oss nor qwen branch of
+  // reasoningEffortFor — same "omits the param" behavior as Mistral, not a
+  // capped value. Documents this explicitly so a future DeepInfra model swap
+  // that lands on a gpt-oss/qwen-family model is a visible, deliberate
+  // decision (this test starts failing) rather than a silent behavior change.
+  it('deepinfra (suggestor primary) omits reasoning_effort — current model matches neither capped family', async () => {
+    script = () => OK
+    await ask('suggestor', { effort: 'high' })
+    expect(calls.at(-1)?.model).toBe(MODELS.deepinfra)
     expect(calls.at(-1)?.params).not.toHaveProperty('reasoning_effort')
   })
 })
@@ -410,7 +604,11 @@ describe('probes', () => {
     for (const call of calls) {
       const rf = call.params.response_format as { type: string }
       expect(rf).toBeDefined()
-      expect(rf.type).toBe(call.model.includes('gpt-oss') ? 'json_schema' : 'json_object')
+      // Real supportsJsonSchema() (router-shared.ts), not a re-derived guess
+      // here — this exact assertion went stale once already (2026-08-13, the
+      // DeepSeek-V3 swap) when it hardcoded 'gpt-oss' instead of importing
+      // the real classifier.
+      expect(rf.type).toBe(supportsJsonSchema(call.model) ? 'json_schema' : 'json_object')
     }
   })
 

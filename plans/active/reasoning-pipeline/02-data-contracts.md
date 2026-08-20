@@ -45,6 +45,63 @@ FinalAnswer
   // with a caveats section for anything that hit degraded: true
 ```
 
+## Evidence generation's intermediate contracts (2026-08-13, Samir's redesign)
+
+`PerspectiveBundle.evidence[]` and `GlobalEvidencePacket` above are the
+**final** shapes — unchanged. How they get populated changed: each is now
+built across 3 phases (strategy → populate → confidence, see
+[01](01-layers-and-standards.md) and
+[24-evidence-redesign-and-failure-tracking.md](24-evidence-redesign-and-failure-tracking.md)),
+each with its own intermediate contract that never reaches the client's
+final answer:
+
+```
+EvidenceStrategy              // strategy phase's only output
+  { search_queries[] (max 3), needs_user_input, questions_for_user[], reason }
+
+EvidenceGatherUnit             // aggregated for the client's pause UI when
+  { unitId, unitLabel, reason, questions[] }   // any strategy unit asked
+
+EvidenceItemDraft              // populate phase's output — no confidence yet
+  { claim_id, source_ref, caveats }            // (per-perspective)
+GlobalEvidenceItemDraft
+  { claim_id, source_ref }                     // (global — no caveats field)
+
+PerspectivePartialBundle       // PerspectiveBundle minus `evidence` — what
+  // = PerspectiveBundle.omit({ evidence: true })   the details fan-out
+                                                     // (sub_questions/
+                                                     // assumptions/
+                                                     // counterargument)
+                                                     // produces before
+                                                     // evidence is merged in
+```
+
+`EvidenceGatherUnitAnswers` (`(string | null)[]`, max 3) is the admin's
+answers to one unit's questions, index-aligned with that unit's
+`questions[]`; `null` means that question was skipped.
+
+## Sub-element failure tracking (2026-08-13)
+
+```
+SubElementFailure
+  { perspectiveId, stanceLabel, subElement, errorMessage }
+
+PERSPECTIVE_SUB_ELEMENTS = [
+  'sub_questions', 'assumptions', 'counterargument',
+  'evidence_strategy', 'evidence_populate', 'evidence_confidence',
+]
+```
+
+Every perspectives fan-out step (details, evidence-strategy, -populate,
+-confidence) now uses `Promise.allSettled` instead of `Promise.all` and
+collects a `SubElementFailure[]` for every rejected sub-element across every
+perspective, instead of surfacing only the first rejection — see
+[24-evidence-redesign-and-failure-tracking.md](24-evidence-redesign-and-failure-tracking.md)
+for why (Vercel Hobby's 1-hour log retention made root-causing a bare
+"ai-empty-output" hard to pin to a specific perspective/sub-element after
+the fact). `route.ts`'s error response carries this list back to the client
+as `subElementFailures` whenever a `PerspectivesGenerateError` is thrown.
+
 ## Notes
 
 - `overall_pass` on a `ReviewPanelVerdict` defaults to **all nine must pass**

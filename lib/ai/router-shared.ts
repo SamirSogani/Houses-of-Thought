@@ -17,7 +17,30 @@ export class AiError extends Error {
   }
 }
 
-export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter'
+// 'swarm' and 'synthesis' are dedicated to the reasoning pipeline
+// (lib/ai/reasoning/*) only — see router.ts's swarmAttempts()/
+// synthesisAttempts() header comment. Every other feature in the app keeps
+// using suggestor/coach/critic/drafter exactly as before.
+//
+// 'feedback' (2026-08-18) — the post-draft Q&A/correction thread
+// (app/api/houses/[id]/layer-feedback/route.ts) only. Structurally closest to
+// 'drafter' (same AiAction/DraftStage vocabulary, similarly complex
+// structured-output schema) but deliberately its own lane rather than reusing
+// 'drafter' — see router-lanes.ts's feedbackAttempts() for why it leads with
+// DeepInfra instead of Groq.
+//
+// 'console' (2026-08-19) — the post-pipeline console
+// (app/api/houses/[id]/console/route.ts) only. Same DeepInfra-first shape as
+// 'feedback' (same AiAction vocabulary, now including remove_* too), but its
+// own lane rather than reusing 'feedback' — its prompt is whole-house, not
+// one layer, so it needs 'feedback's budget sized up front the way suggestor
+// only got after a real-verified live timeout (router-lanes.ts's
+// consoleAttempts() comment).
+export type AiRole = 'coach' | 'critic' | 'suggestor' | 'drafter' | 'swarm' | 'synthesis' | 'feedback' | 'console'
+
+// 'medium' added 2026-08-11 (Samir) — see reasoningEffortFor below for what
+// each tier actually does per model family.
+export type AiEffort = 'low' | 'medium' | 'high'
 
 // ── Error classification ──────────────────────────────────────────────────────
 
@@ -74,6 +97,24 @@ export function isGroqJsonValidateFailed(err: unknown): boolean {
   return statusOf(err) === 400 && JSON_VALIDATE_FAILED_RE.test(errorText(err))
 }
 
+// Groq's account-level TPM ceiling can reject a single REQUEST outright —
+// 413 "Request too large... TPM: Limit 8000, Requested X" — before the model
+// ever runs, distinct from the ordinary 429 "already used this minute" case
+// (which the generic 429 branch in execute() already cascades past). Both
+// share the same body shape (`code: "rate_limit_exceeded"`), just a
+// different HTTP status. Real-verified live, 2026-08-12: a repair-mode call
+// using REPAIR_TOKEN_HEADROOM (lib/ai/reasoning/budget.ts) can request more
+// tokens in ONE call than Groq's account-level TPM ceiling allows, period —
+// uncaught, this fell through every classification below to the terminal
+// throw and killed the WHOLE fallback chain immediately, never even reaching
+// Gemini. Unlike a 429, this must NOT open the Groq penalty box (a temporary
+// cooldown fixes nothing about one request being structurally too big) —
+// just cascade past Groq for this call.
+const GROQ_TOKEN_LIMIT_RE = /rate_limit_exceeded/i
+export function isGroqTokenLimitExceeded(err: unknown): boolean {
+  return statusOf(err) === 413 && GROQ_TOKEN_LIMIT_RE.test(errorText(err))
+}
+
 // Map a non-transient (or terminal) error onto a status routes can surface.
 export function mapUpstream(err: unknown, provider: string): AiError {
   const status = statusOf(err)
@@ -99,34 +140,95 @@ export function estimateTokens(text: string): number {
 
 // ── Model-capability quirks ───────────────────────────────────────────────────
 
-// Groq's strict json_schema structured output is only reliable on the gpt-oss
-// family here; everything else uses json_object (schema embedded in the prompt).
+// Strict json_schema structured output is only reliable on specific model
+// families here; everything else uses json_object (schema embedded in the
+// prompt) — see mapUpstream's comment (router.ts) for which providers this
+// actually applies to. 'deepseek-v3' added 2026-08-13 alongside
+// TARGETS.deepinfra's model swap (router-config.ts) — DeepInfra's own docs
+// (docs.deepinfra.com/chat/structured-outputs) list DeepSeek-V3/V3.1 as
+// explicitly supported for strict schema; matched case-insensitively since
+// the real model id ('deepseek-ai/DeepSeek-V3') isn't all-lowercase the way
+// 'openai/gpt-oss-20b' happens to be. Deliberately matches only '-v3', not a
+// bare 'deepseek' substring — R1 and other DeepSeek variants haven't been
+// confirmed and shouldn't silently inherit this.
+//
+// meta-llama/Llama-3.3-70B-Instruct-Turbo (TARGETS.deepinfra, 2026-08-13) was
+// deliberately left off this list too — DeepInfra's docs don't explicitly
+// enumerate it — and running on this function's json_object fallback is
+// exactly what let it hit its real failure (see TARGETS.deepinfra's own
+// comment, router-config.ts): it wrapped otherwise-valid JSON in a markdown
+// code fence, something json_object mode has no constrained-decoding
+// guarantee against. That specific failure now also has a direct defensive
+// fix (router.ts strips a markdown fence from every completion before
+// JSON.parse — see stripMarkdownFence there), but that guard is a robustness
+// net, not a reason to grant strict schema mode without real confirmation.
+//
+// Qwen/Qwen3-235B-A22B-Instruct-2507 (TARGETS.deepinfra, 2026-08-13 swap from
+// Llama-3.3-70B) is likewise deliberately NOT included here: its DeepInfra
+// model page shows a "Supports" badge for JSON, but this codebase already
+// learned that badge alone isn't a reliable signal — Llama-3.3-70B carried
+// the identical badge and still failed. Left off pending real per-model
+// confirmation the same way every model except DeepSeek-V3 is — this is a
+// deliberate omission, not an oversight a future reader should "fix" without
+// first getting that confirmation.
 export function supportsJsonSchema(model: string): boolean {
-  return model.includes('gpt-oss')
+  const m = model.toLowerCase()
+  return m.includes('gpt-oss') || m.includes('deepseek-v3')
 }
 
 // reasoning_effort's vocabulary is per-model and a mismatch is a hard 400 (which
-// would NOT fall through — it surfaces as an error). gpt-oss takes low|high; the
-// qwen *reasoning* models (e.g. qwen3.6-27b) take none|default. qwen *coder*
-// models (qwen3-coder / qwen-2.5-coder) accept no such field — excluding 'coder'
-// is what keeps the OpenRouter airbag from 400-ing. Mistral: omit (undefined).
+// would NOT fall through — it surfaces as an error, mapUpstream treats 400 as
+// terminal/misconfiguration-shaped, not cascaded). gpt-oss takes
+// low|medium|high (real-verified live, 2026-08-11: DeepInfra's gpt-oss-20b
+// accepts all three, 200 not 400, and 'medium' at a realistic 900-token
+// budget produced genuine reasoning_content without exhausting it). qwen
+// *reasoning* models (e.g. qwen3.6-27b) take none|default only — no distinct
+// medium tier. qwen *coder* models (qwen3-coder / qwen-2.5-coder) accept no
+// such field — excluding 'coder' is what keeps the OpenRouter airbag from
+// 400-ing. Mistral: omit (undefined).
 //
-// gpt-oss/qwen are both capped at their family's floor regardless of the
-// caller's requested effort (2026-07-31): confirmed live that 'high' reasoning
-// on these models can consume the entire maxTokens budget on internal
-// reasoning tokens before emitting any answer content — reproduced on BOTH
-// qwen (Groq) and gpt-oss-20b (Groq) as an empty completion, surfaced by Groq
-// as json_validate_failed with an empty failed_generation. Gemini already had
-// this exact protection (below); these two didn't. qwen's vocabulary has no
-// 'low' tier, so 'none' is its floor.
-export function reasoningEffortFor(model: string, effort: 'low' | 'high'): string | undefined {
-  if (model.includes('gpt-oss')) return 'low'
-  if (model.includes('qwen') && !model.includes('coder')) return 'none'
+// gpt-oss/qwen's 'high' is capped to their family's floor by DEFAULT
+// regardless of the caller's requested effort (2026-07-31): confirmed live
+// that 'high' reasoning on these models can consume the entire maxTokens
+// budget on internal reasoning tokens before emitting any answer content —
+// reproduced on BOTH qwen (Groq) and gpt-oss-20b (Groq) as an empty
+// completion, surfaced by Groq as json_validate_failed with an empty
+// failed_generation. allowHighReasoning (2026-08-11, Samir) is an explicit
+// per-call opt-in past that floor — only the reasoning pipeline's repair/
+// regeneration calls (lib/ai/reasoning/*) set it, on the theory that
+// surgical revision-under-feedback benefits from real deliberation more than
+// first-pass generation does, and the empty-completion risk (rare, and
+// already cascades gracefully via the ai-empty-output → next-target path,
+// router.ts's execute()) is worth accepting there specifically. Every other
+// caller in the app keeps the original floor untouched by default — this is
+// additive, not a loosening of existing behavior. 'medium' has NO such gate:
+// it was never the tier found risky, so it's unconditionally available
+// wherever requested.
+// Gemini already had its own version of this protection (below); these two
+// didn't. qwen's vocabulary has no distinct 'medium', so both low and medium
+// floor to its 'none'.
+export function reasoningEffortFor(
+  model: string,
+  effort: AiEffort,
+  // Opt-in past gpt-oss/qwen's 'high' floor — see the comment above. Ignored
+  // for every other tier and every other model family.
+  allowHighReasoning = false
+): string | undefined {
+  if (model.includes('gpt-oss')) {
+    if (effort === 'high') return allowHighReasoning ? 'high' : 'low'
+    return effort // 'low' or 'medium' pass straight through — both real-verified safe
+  }
+  if (model.includes('qwen') && !model.includes('coder')) {
+    if (effort === 'high' && allowHighReasoning) return 'default'
+    return 'none'
+  }
   // Gemini 2.5's OpenAI-compat endpoint accepts reasoning_effort — and DEFAULTS
   // to dynamic thinking billed as output tokens, the priciest out-rate in the
   // fleet (~50–70% of drafter-lane cost when left on). 2.5 Flash supports 'none';
-  // map 'high' to 'low' rather than passing it through — dynamic/deep thinking
-  // has not earned its ~8× out-rate on these drafting tasks.
-  if (model.includes('gemini')) return effort === 'high' ? 'low' : 'none'
+  // map anything above 'low' down to 'low' rather than passing 'high' through —
+  // dynamic/deep thinking has not earned its ~8× out-rate on these drafting
+  // tasks. allowHighReasoning does NOT override this: Gemini's cap is about
+  // cost, not the empty-completion risk the flag exists for.
+  if (model.includes('gemini')) return effort === 'low' ? 'none' : 'low'
   return undefined
 }

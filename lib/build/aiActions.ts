@@ -36,6 +36,16 @@ export function aiActionApplicable(state: State, action: AiAction): boolean {
       if (!target) return false
       return !target.subQuestions.some((sq) => norm(sq.q) === norm(action.q))
     }
+    case 'add_perspective_evidence': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!target) return false
+      return !target.supportingEvidence.some((e) => norm(e.text) === norm(action.text))
+    }
+    case 'add_counter': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!target) return false
+      return !target.counters.some((c) => norm(c) === norm(action.text))
+    }
     case 'add_assumption':
       return !state.assumptions.some((a) => norm(a.text) === norm(action.text))
     case 'add_implication':
@@ -44,6 +54,38 @@ export function aiActionApplicable(state: State, action: AiAction): boolean {
       return !state.watchpoints.some((w) => norm(w) === norm(action.text))
     case 'add_evidence':
       return !state.evidence.some((e) => norm(e.text) === norm(action.text))
+
+    // remove_* — the inverse check: applicable only when the target still
+    // exists (post-pipeline console, plan doc 28). Same matching a stale
+    // proposal already needs elsewhere here — a chat reply generated against
+    // an earlier house snapshot naming something already removed by hand (or
+    // by an earlier remove click this same session) must say so instead of
+    // silently no-opping (bl-M2's rationale, same as every add_* case above).
+    case 'remove_concept':
+      return state.concepts.some((c) => norm(c.term) === norm(action.term))
+    case 'remove_perspective':
+      return state.perspectives.some((p) => norm(p.name) === norm(action.name))
+    case 'remove_subquestion': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      return !!target && target.subQuestions.some((sq) => norm(sq.q) === norm(action.q))
+    }
+    case 'remove_perspective_evidence': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      return !!target && target.supportingEvidence.some((e) => norm(e.text) === norm(action.text))
+    }
+    case 'remove_counter': {
+      const target = state.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      return !!target && target.counters.some((c) => norm(c) === norm(action.text))
+    }
+    case 'remove_assumption':
+      return state.assumptions.some((a) => norm(a.text) === norm(action.text))
+    case 'remove_implication':
+      return state[action.ikind].some((it) => norm(it.text) === norm(action.text))
+    case 'remove_watchpoint':
+      return state.watchpoints.some((w) => norm(w) === norm(action.text))
+    case 'remove_evidence':
+      return state.evidence.some((e) => norm(e.text) === norm(action.text))
+
     default:
       return false
   }
@@ -83,6 +125,24 @@ export function applyAiAction(draft: State, action: AiAction): string | null {
       return `Sub-question added to ${match.name}`
     }
 
+    case 'add_perspective_evidence': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, supportingEvidence: [...p.supportingEvidence, { text: action.text, source: action.source }] } : p
+      )
+      return `Evidence added to ${match.name}`
+    }
+
+    case 'add_counter': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, counters: [...p.counters, action.text] } : p
+      )
+      return `Counter added to ${match.name}`
+    }
+
     case 'add_assumption':
       draft.assumptions = [
         ...draft.assumptions,
@@ -116,6 +176,66 @@ export function applyAiAction(draft: State, action: AiAction): string | null {
         },
       ]
       return 'Evidence added'
+
+    // remove_* — same splice semantics as the reducer's own manual REMOVE_*
+    // actions (state.ts), just filtering by the same name/text match
+    // aiActionApplicable above just confirmed exists, since the model's
+    // vocabulary has no numeric id to remove by.
+    case 'remove_concept':
+      draft.concepts = draft.concepts.filter((c) => norm(c.term) !== norm(action.term))
+      return 'Concept removed'
+
+    case 'remove_perspective': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.name))
+      draft.perspectives = draft.perspectives.filter((p) => norm(p.name) !== norm(action.name))
+      if (match && draft.activePerspective === match.id) draft.activePerspective = null
+      return 'Perspective removed'
+    }
+
+    case 'remove_subquestion': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, subQuestions: p.subQuestions.filter((sq) => norm(sq.q) !== norm(action.q)) } : p
+      )
+      return `Sub-question removed from ${match.name}`
+    }
+
+    case 'remove_perspective_evidence': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id
+          ? { ...p, supportingEvidence: p.supportingEvidence.filter((e) => norm(e.text) !== norm(action.text)) }
+          : p
+      )
+      return `Evidence removed from ${match.name}`
+    }
+
+    case 'remove_counter': {
+      const match = draft.perspectives.find((p) => norm(p.name) === norm(action.perspectiveName))
+      if (!match) return null
+      draft.perspectives = draft.perspectives.map((p) =>
+        p.id === match.id ? { ...p, counters: p.counters.filter((c) => norm(c) !== norm(action.text)) } : p
+      )
+      return `Counter removed from ${match.name}`
+    }
+
+    case 'remove_assumption':
+      draft.assumptions = draft.assumptions.filter((a) => norm(a.text) !== norm(action.text))
+      return 'Assumption removed'
+
+    case 'remove_implication':
+      draft[action.ikind] = draft[action.ikind].filter((it) => norm(it.text) !== norm(action.text))
+      return 'Implication removed'
+
+    case 'remove_watchpoint':
+      draft.watchpoints = draft.watchpoints.filter((w) => norm(w) !== norm(action.text))
+      return 'Watchpoint removed'
+
+    case 'remove_evidence':
+      draft.evidence = draft.evidence.filter((e) => norm(e.text) !== norm(action.text))
+      return 'Evidence removed'
 
     default:
       return null

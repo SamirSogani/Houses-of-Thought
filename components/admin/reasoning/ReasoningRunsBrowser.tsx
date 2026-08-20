@@ -243,6 +243,26 @@ export function ReasoningRunsBrowser() {
                   </div>
                 )}
 
+                {/* 2026-08-13, Samir: durable record of which sub-element(s)
+                    a perspectives-generate-details attempt failed on — this
+                    is exactly what Vercel's own logs can't answer once
+                    their 1-hour Hobby retention has passed. Shown whenever
+                    the run's LAST recorded state includes one, regardless of
+                    overall status — a run that later succeeded on retry
+                    still had this happen. */}
+                {detail.runState.lastSubElementFailures && detail.runState.lastSubElementFailures.length > 0 && (
+                  <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', marginTop: 12 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Perspectives generation — sub-element failure</div>
+                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {detail.runState.lastSubElementFailures.map((f, i) => (
+                        <div key={i} style={{ ...mono, color: 'var(--ink-subtle)', textTransform: 'none', letterSpacing: 'normal' }}>
+                          {f.stanceLabel} — {f.subElement.replace('_', ' ')}: {f.errorMessage}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ marginTop: 12 }}>
                   <ReasoningStagesList run={detail.runState} currentStep={detail.lastStep} running={false} />
                 </div>

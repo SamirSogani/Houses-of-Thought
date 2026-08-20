@@ -6,14 +6,18 @@
 // (invariant 2). See plans/active/ai/03-suggest-and-copilot.md.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Action, AiMode, State } from '@/lib/build/types'
+import Link from 'next/link'
+import type { Action, State } from '@/lib/build/types'
 import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
 import { aiActionApplicable } from '@/lib/build/aiActions'
 import { serializeContent } from '@/lib/build/persistence'
-import { PlusIcon, SparkIcon } from '../buildIcons'
-import { InterviewCard, type InterviewSession } from './InterviewCard'
+import { PlusIcon } from '../buildIcons'
+import { InterviewCard, useInterviewSession, type InterviewSession } from './InterviewCard'
+import { houseIsBlank } from './DraftCard'
+import { ReasoningPipelineCard, ReasoningConclusionSuggestion } from './ReasoningPipelineCard'
+import type { ReasoningPipelineRunner } from '../useReasoningPipelineRunner'
 
 // snake_case finding kind → the mono tag shown on each card.
 const KIND_LABEL: Record<FindingKind, string> = {
@@ -57,6 +61,9 @@ export function CopilotPanel({
   draftCard,
   suggestCache,
   interview,
+  pipelineRunner,
+  restrictAuthorship = false,
+  houseId,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -69,18 +76,42 @@ export function CopilotPanel({
   // Hoisted interview session — same rationale: the transcript must survive
   // this panel unmounting (mobile drawer close, tab switch).
   interview?: InterviewSession
+  // House-scoped reasoning pipeline's runner (plan doc 27), hoisted in
+  // BuildHousePage for the same survives-unmounting reason as draftRunner/
+  // interview above. Undefined when there's no houseId to scope it to (the
+  // localStorage /house builder) — the consolidated entry point below falls
+  // back to the old interview+draft offer in that case.
+  pipelineRunner?: ReasoningPipelineRunner
+  // lib/auth/capabilities.ts: aiPosture 'coach' (students) is documented as
+  // "Socratic/withholding only... never get author output" (decision 007).
+  // Declutter item 3 made every FindingCard always show its question AND its
+  // observation/suggestion (previously mode-gated) — but the Add button must
+  // stay gated on this, not on mode, or a coach-posture account gets a
+  // one-click way to insert AI-authored content the product decision
+  // explicitly withholds from them. Sourced from BuildHousePage's existing
+  // `modeLocked` (true for students, and for a standard account's own
+  // assignment submission — both cases the codebase already treats as
+  // Learn-only elsewhere, so this reuses that signal rather than adding a
+  // second, possibly-drifting one).
+  restrictAuthorship?: boolean
+  // Post-pipeline console entry point (plan doc 28) — scopes the "Continue
+  // in full console" link below. Undefined on the localStorage /house
+  // builder, same gate as pipelineRunner above (no houseId, no console to
+  // link to).
+  houseId?: string
 }) {
   const kicker = layers[state.step - 1].kicker
   const step = state.step
-  // The model fills every rendering, so switching mode only re-renders the
-  // cached findings — no refetch (deps below are step-only).
-  const mode = state.mode
 
   // Cache keyed step → { findings, hash }, so moving between layers (or back),
   // switching tabs, or closing the mobile drawer doesn't refetch (the ref lives
   // in BuildHousePage when provided). Refresh is the explicit refetch path.
   const localCacheRef = useRef<SuggestCache>(new Map())
   const cacheRef = suggestCache ?? localCacheRef
+  // Hoisted interview session, same fallback pattern as the suggest cache above
+  // — the panel still works if ever rendered standalone, without BuildHousePage.
+  const localInterview = useInterviewSession()
+  const interviewSession = interview ?? localInterview
   const abortRef = useRef<AbortController | null>(null)
 
   const [fetchState, setFetchState] = useState<FetchState>({ status: 'idle' })
@@ -143,25 +174,70 @@ export function CopilotPanel({
 
   const stale = fetchState.status === 'success' && fetchState.hash !== liveHash
 
+  // Consolidated blank-house entry point (declutter item 1). draftCard mirrors
+  // BuildHousePage's canDraft (it's `canDraft ? <DraftCard .../> : null`), so
+  // checking it here keeps this in sync with that gate without needing it
+  // threaded down separately. Once state.draft exists (the runner has been
+  // kicked off — including automatically, see BuildHousePage) this always
+  // falls through to the unchanged branch below, where DraftCard's own
+  // progress/review UI takes over exactly as it did before this change.
+  const showConsolidatedEntry = houseIsBlank(state) && !state.draft && draftCard != null
+
   return (
     <div className="fade-in">
-      {/* Intro tile */}
-      <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 11, padding: 13, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', borderRadius: 8, flex: '0 0 auto' }}>
-          <SparkIcon size={14} fill="var(--amber)" />
-        </span>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Co-pilot · {kicker}</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-subtle)', marginTop: 3, lineHeight: 1.45 }}>
-            Suggestions for this layer only. It guides. You decide what enters the house.
-          </div>
-        </div>
+      {/* Intro caption — was a bordered icon+title+description tile; that
+          announced "this is Co-pilot" redundantly under a rail tab already
+          labeled Co-pilot, and cost real vertical space on every layer. Now
+          a single caption line, styled like "Suggested for this layer"
+          below. */}
+      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: '0.04em' }}>
+        Co-pilot · {kicker}
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <InterviewCard state={state} dispatch={dispatch} session={interview} />
-        {draftCard}
+      <div style={{ marginTop: 12 }}>
+        {showConsolidatedEntry && pipelineRunner ? (
+          // The real thing (plan doc 27): starts an actual pipeline run
+          // against POST /api/houses/[id]/reasoning, not the old
+          // interview→draft handoff. Falls through to the branch below once
+          // final-composition lands and APPLY_REASONING_RESULT flips the
+          // house out of "blank" — see ReasoningPipelineCard's own comment.
+          <ReasoningPipelineCard state={state} dispatch={dispatch} runner={pipelineRunner} />
+        ) : (
+          // No pipelineRunner (e.g. the localStorage /house builder, which has
+          // no houseId to scope a run to, or a non-blank house) — the
+          // pre-pipeline interview+draft path stays available exactly as it
+          // was.
+          <>
+            <InterviewCard state={state} dispatch={dispatch} session={interviewSession} />
+            {draftCard}
+          </>
+        )}
       </div>
+
+      {pipelineRunner && <ReasoningConclusionSuggestion state={state} dispatch={dispatch} runner={pipelineRunner} />}
+
+      {/* Post-pipeline console entry (plan doc 28) — once the pipeline has
+          actually finished (state.draft.via is only ever set once
+          APPLY_REASONING_RESULT lands, never mid-run). Deliberately a plain
+          link, not another card — this rail's own intro tile already went
+          from a box to a one-line caption for taking up space it didn't
+          need; this shouldn't reintroduce that. */}
+      {houseId && state.draft?.via === 'reasoning-pipeline' && (
+        <Link
+          href={`/build/${houseId}/console`}
+          className="mono"
+          style={{
+            display: 'block',
+            marginBottom: 16,
+            fontSize: 10,
+            letterSpacing: '0.04em',
+            color: 'var(--blueprint)',
+            textDecoration: 'none',
+          }}
+        >
+          Continue in full console →
+        </Link>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 0 10px' }}>
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>Suggested for this layer</span>
@@ -215,7 +291,7 @@ export function CopilotPanel({
         <FindingList
           findings={fetchState.findings}
           consumed={consumed}
-          mode={mode}
+          restrictAuthorship={restrictAuthorship}
           onAdd={(finding, idx) => {
             // A stale card (its target deleted/renamed since the fetch, or the
             // item already added) used to vanish silently while adding nothing
@@ -238,12 +314,12 @@ export function CopilotPanel({
 function FindingList({
   findings,
   consumed,
-  mode,
+  restrictAuthorship,
   onAdd,
 }: {
   findings: Finding[]
   consumed: Set<number>
-  mode: AiMode
+  restrictAuthorship: boolean
   onAdd: (finding: Finding, idx: number) => void
 }) {
   const visible = findings.map((f, idx) => ({ f, idx })).filter(({ idx }) => !consumed.has(idx))
@@ -259,13 +335,30 @@ function FindingList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {visible.map(({ f, idx }) => (
-        <FindingCard key={idx} finding={f} mode={mode} onAdd={() => onAdd(f, idx)} />
+        <FindingCard key={idx} finding={f} restrictAuthorship={restrictAuthorship} onAdd={() => onAdd(f, idx)} />
       ))}
     </div>
   )
 }
 
-function FindingCard({ finding, mode, onAdd }: { finding: Finding; mode: AiMode; onAdd: () => void }) {
+// Declutter item 3: always show the Socratic question AND the concrete
+// observation/suggestion — the model already fills all three on every finding
+// regardless of mode (lib/ai/findings.ts), so this was always a rendering
+// choice, never a data one. The Add button follows finding.action (null when
+// the model's move is "think", not "add") AND !restrictAuthorship — a
+// coach-posture account (student, or a standard account's own assignment
+// submission) sees the same question and suggestion text as anyone else, just
+// never the one-click insert (lib/auth/capabilities.ts's "never get author
+// output").
+function FindingCard({
+  finding,
+  restrictAuthorship,
+  onAdd,
+}: {
+  finding: Finding
+  restrictAuthorship: boolean
+  onAdd: () => void
+}) {
   const important = finding.severity === 'important'
   return (
     <div
@@ -277,19 +370,12 @@ function FindingCard({ finding, mode, onAdd }: { finding: Finding; mode: AiMode;
         padding: 13,
       }}
     >
-      {mode === 'learn' ? (
-        // Learn rendering: the Socratic question only — no suggestion, no Add.
-        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{finding.question}</div>
-      ) : (
-        // Decide rendering: observation + suggestion.
-        <>
-          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{finding.observation}</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{finding.suggestion}</div>
-        </>
-      )}
+      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{finding.question}</div>
+      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45, marginTop: 8 }}>{finding.observation}</div>
+      <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{finding.suggestion}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 }}>
         <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{KIND_LABEL[finding.kind]}</span>
-        {mode === 'decide' && finding.action && (
+        {finding.action && !restrictAuthorship && (
           <button
             type="button"
             onClick={onAdd}

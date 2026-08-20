@@ -13,7 +13,14 @@ import { PERSONA, SUGGEST_BLOCK } from '@/lib/ai/prompts'
 import { serializeHouseForPrompt, type HouseForPrompt } from '@/lib/ai/serialize'
 import { FindingsResponseSchema } from '@/lib/ai/findings'
 
-export const maxDuration = 30
+// 30 → 60 (2026-08-18, alongside the suggestor lane's Cerebras→DeepInfra
+// swap and its ATTEMPT_TIMEOUT_MS/CHAIN_DEADLINE_MS bump, router-lanes.ts /
+// router.ts): DeepInfra's own attempt real-verified live needing more than
+// 20s for this route's actual prompt size (SUGGEST_BLOCK's fuller ask).
+// Vercel Hobby + Fluid Compute's real ceiling is confirmed elsewhere in this
+// codebase (router-lanes.ts's DEEPINFRA_SWARM_TIMEOUT_MS history) to be
+// 300s, so 60s has real margin left.
+export const maxDuration = 60
 
 const MAX_BODY_BYTES = 100 * 1024
 

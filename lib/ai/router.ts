@@ -1,9 +1,11 @@
 // Multi-LLM API Routing Engine (server-only) — the execution core and public
-// facade. One controller owns provider selection, structured-output plumbing,
-// the Groq 30-second penalty box, the daily-blackout airbag, and error mapping.
-// Every AI route calls `completeJSON` with a `role`; the role decides which
-// failover lane the request rides. See decisions/006 (model choice), 012
-// (failover), 013 (multi-provider).
+// facade. One controller owns structured-output plumbing, the daily-blackout
+// airbag, and error mapping. Every AI route calls `completeJSON` with a
+// `role`; the role decides which failover lane the request rides — see
+// router-lanes.ts for the five lanes and why each is ordered the way it is
+// (decisions/006 model choice, 012 failover, 013 multi-provider, and 013's
+// 2026-08-10 addendum for swarm/synthesis, the reasoning pipeline's own
+// DeepInfra-led lanes).
 //
 // The module is split to honor the repo's 600-LOC rule; this file re-exports
 // the whole public API so callers import only '@/lib/ai/router':
@@ -11,56 +13,7 @@
 //   router-config.ts  — providers, targets, client construction (+ test seam)
 //   router-state.ts   — penalty box, per-provider daily map, health/event log
 //   router-monitor.ts — admin snapshot, probes, per-model detail
-//
-// Two lanes, keyed by role:
-//
-//   SIDEBAR SUGGESTIONS  (suggestor)
-//   The most latency-sensitive surface, so it leads with Cerebras' ultra-fast
-//   custom hardware, then falls onto the real-time resilience tail.
-//     1. Cerebras  gpt-oss-120b           (primary — ultra-fast)
-//     2. Mistral   ministral-8b-latest    (on Cerebras 429)
-//     3. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
-//     4. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
-//
-//   REAL-TIME BACKGROUND  (coach | critic)
-//   Latency-sensitive background events fired by user activity. Kept off the big
-//   models to preserve the shared Mistral 50k TPM budget.
-//     1. Mistral   ministral-8b-latest    (primary)
-//     2. Groq      qwen3.6-27b            (on Mistral 429)  ── stateful, see below
-//     3. Google    gemini-2.5-flash       (while Groq cools / on Groq 429)
-//     4. Cerebras  gpt-oss-120b           (multi-throttle bridge, on Google 429)
-//
-//   ON-DEMAND COMPLEX  (drafter)
-//   Heavy framework generation. Leads with Groq (Samir's call, 2026-07-31: no
-//   prior-project history of Groq itself failing — a problem here points at
-//   this app's setup, not the provider), then falls back to Gemini's large
-//   context and Cerebras. Mistral was tried here too and deliberately dropped
-//   (2026-07-31): under real drafter traffic it reproducibly returned
-//   malformed JSON on this role's more complex structured-output schemas
-//   (perspectives' multi-field packets) — wrapping array items in stray
-//   objects, or degenerating into repeated whitespace instead of finishing
-//   valid JSON — not a rate-limit or token-budget problem, just this model
-//   class under-provisioned for what drafter role actually asks of it.
-//   Mistral stays primary/fallback in the suggestor and real-time lanes,
-//   where the ask is simpler. Gemini stays in the chain (not primary) as the
-//   large-context escape hatch: size-aware routing already skips Groq/
-//   Cerebras's 128k windows for anything too big, landing on Gemini's ~1M
-//   regardless of nominal order.
-//
-//   Drafter's Groq attempt deliberately pins gpt-oss-20b, NOT the qwen model
-//   the other two lanes default to (currentGroqTarget()) — confirmed live
-//   (2026-07-31) the very first real run after Groq went primary here:
-//   supportsJsonSchema() (router-shared.ts) already documents that Groq's
-//   strict json_schema structured output "is only reliable on the gpt-oss
-//   family"; qwen gets the looser json_object mode (schema hinted in the
-//   prompt, not enforced), and Groq's own API-side validation in that mode
-//   400s with json_validate_failed when the model's freeform output doesn't
-//   parse. Exactly what hit perspectives-generate-stances immediately. Not a
-//   Groq reliability problem — a model-choice bug in what this lane asked
-//   Groq for.
-//     1. Groq      gpt-oss-20b            (primary — strict json_schema)
-//     2. Google    gemini-2.5-flash       (on Groq cooling / 429)
-//     3. Cerebras  gpt-oss-120b           (on Google 429)
+//   router-lanes.ts   — per-role failover order + the reasoning behind it
 //
 // Groq is special. A Groq 429 is read as an *org-wide* block, so we do NOT
 // immediately hop to gpt-oss-20b on the same account. Instead we open a strict
@@ -87,9 +40,11 @@
 // multi-target lane exists to survive. Only a genuine misconfiguration-shaped
 // error (400 / 401 / 403, everything else) is thrown immediately so a real bug
 // surfaces instead of being retried at full price four times.
-// Latency: every attempt carries a per-role timeout and the chain a shared
-// deadline (ATTEMPT_TIMEOUT_MS / CHAIN_DEADLINE_MS) so one slow-but-alive
-// provider cannot eat the route's entire 30s serverless budget.
+// Latency: every attempt carries a per-role timeout and the chain a shared,
+// per-role deadline (ATTEMPT_TIMEOUT_MS / CHAIN_DEADLINE_MS) so one slow-but-
+// alive provider cannot eat that role's route's entire serverless budget
+// (30s for most AI routes; 60s for the reasoning pipeline's swarm/synthesis,
+// see CHAIN_DEADLINE_MS below).
 
 import type OpenAI from 'openai'
 import { z } from 'zod'
@@ -101,24 +56,25 @@ import {
   isContextOverflow,
   isDailyQuota,
   isGroqJsonValidateFailed,
+  isGroqTokenLimitExceeded,
   mapUpstream,
   reasoningEffortFor,
   statusOf,
   supportsJsonSchema,
   TOKEN_SAFETY_MARGIN,
   type AiRole,
+  type AiEffort,
 } from './router-shared'
 import { clientFor, TARGETS, targetName, __resetClients, type Target } from './router-config'
 import {
   clearGroqRecovering,
-  currentGroqTarget,
-  groqCoolingDown,
   markDailyExhausted,
   openGroqPenalty,
   providerDailyExhausted,
   record,
   __resetRoutingState,
 } from './router-state'
+import { ATTEMPT_TIMEOUT_MS, attemptsForRole, type Attempt } from './router-lanes'
 
 // Fail loudly if this module is ever pulled into a client bundle — the API keys
 // must never ship to the browser.
@@ -128,7 +84,7 @@ if (typeof window !== 'undefined') {
 
 // ── Public facade re-exports ──────────────────────────────────────────────────
 
-export { AiError, type AiRole } from './router-shared'
+export { AiError, type AiRole, type AiEffort } from './router-shared'
 export { __setClientFactory } from './router-config'
 export {
   dailyLimitsExhausted,
@@ -152,84 +108,69 @@ export {
 } from './router-monitor'
 
 // ── Latency budgets ───────────────────────────────────────────────────────────
-// One slow-but-alive target must not eat the whole serverless budget
-// (maxDuration = 30 on every AI route). A timed-out attempt surfaces as a
-// no-status error and cascades like any transient failure — so the penalty box
-// and health log still see it, unlike a platform kill. The chain-wide deadline
-// is shared across completeJSON's parse-retry too, leaving ~4s headroom for
-// response serialization.
-const ATTEMPT_TIMEOUT_MS: Record<AiRole, number> = {
-  suggestor: 8_000,
-  coach: 8_000,
-  critic: 8_000,
-  drafter: 20_000,
-}
-const CHAIN_DEADLINE_MS = 26_000
-
-// ── Failover plans ────────────────────────────────────────────────────────────
-
-interface Attempt extends Target {
-  // Real-time Groq attempts open the penalty box on a (non-daily) 429 instead of
-  // hopping straight to another Groq model.
-  penaltyOnRateLimit?: boolean
-}
-
-// Real-time background lane (coach | critic): Mistral primary, then the Groq
-// penalty-aware bridge to Google / Cerebras.
-function realtimeAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.mistral8b }]
-  if (groqCoolingDown()) {
-    // Shock absorber: Groq penalty is open — skip it entirely.
-    attempts.push({ ...TARGETS.geminiFlash })
-    attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  } else {
-    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
-    // On a Groq 429 we do not chain to another Groq model; we bridge to Google
-    // then Cerebras while the freshly-opened penalty box holds.
-    attempts.push({ ...TARGETS.geminiFlash })
-    attempts.push({ ...TARGETS.cerebrasGptOss120b })
-  }
-  return attempts
-}
-
-// Sidebar suggestions ride an ultra-fast Cerebras-first lane — its custom hardware
-// is the lowest-latency target, and suggestions are the most latency-sensitive
-// surface. On a Cerebras 429 it falls onto the standard real-time resilience tail
-// (Mistral → Groq → Google), sharing the same Groq penalty box.
-function suggestorAttempts(): Attempt[] {
-  const attempts: Attempt[] = [{ ...TARGETS.cerebrasGptOss120b }, { ...TARGETS.mistral8b }]
-  if (groqCoolingDown()) {
-    attempts.push({ ...TARGETS.geminiFlash })
-  } else {
-    attempts.push({ ...currentGroqTarget(), penaltyOnRateLimit: true })
-    attempts.push({ ...TARGETS.geminiFlash })
-  }
-  return attempts
-}
-
-// On-demand complex generation (drafter): Groq leads (Samir's call, see the
-// header comment above), sharing the same Groq penalty box as the other two
-// lanes — while it's open, drafter traffic skips Groq entirely and leads
-// with Gemini instead, same as realtimeAttempts()/suggestorAttempts().
-// Pins gpt-oss-20b specifically (NOT currentGroqTarget()'s qwen default) —
-// see the header comment above for why. Mistral deliberately excluded, also
-// see the header comment above.
-function draftAttempts(): Attempt[] {
-  if (groqCoolingDown()) {
-    return [{ ...TARGETS.geminiFlash }, { ...TARGETS.cerebrasGptOss120b }]
-  }
-  return [
-    { ...TARGETS.groqGptOss20b, penaltyOnRateLimit: true },
-    { ...TARGETS.geminiFlash },
-    { ...TARGETS.cerebrasGptOss120b },
-  ]
+// One slow-but-alive target must not eat the whole serverless budget. A
+// timed-out attempt surfaces as a no-status error and cascades like any
+// transient failure — so the penalty box and health log still see it, unlike
+// a platform kill. The chain-wide deadline is shared across completeJSON's
+// parse-retry too. Per-role attempt budgets (ATTEMPT_TIMEOUT_MS) and the
+// failover order itself (attemptsForRole/Attempt) live in router-lanes.ts.
+//
+// Keyed per-role, not one flat number (2026-08-10, Samir) — because each
+// role's ROUTE has its own maxDuration, and this deadline must stay under
+// whatever that specific route can actually honor. Raising it for one role
+// without raising THAT role's route's maxDuration to match just trades a
+// graceful self-cutoff (still returns a clean error) for a hard platform
+// kill mid-response (no error, connection just dies). swarm/synthesis are
+// the reasoning pipeline's roles, both served ONLY by
+// app/api/admin/reasoning/route.ts. Every other role's route is still
+// maxDuration=30, so they keep the original ~4s headroom under that.
+//
+// swarm/synthesis raised 55s → 260s (2026-08-12, Samir, root-causing "the
+// pipeline consistently stops on perspectives-generate or global-
+// assumptions" on real Vercel Hobby traffic): the route's own maxDuration
+// went 60 → 280 the same session (confirmed live: Fluid Compute is enabled
+// on this Hobby project, raising the real platform ceiling to 300s — the old
+// 60s was this codebase's own self-imposed number, not a true Hobby limit).
+// 260s keeps the same ~20s headroom under 280 that 55s had under 60. This
+// budget matters most for generateWithOptionalSearch's multi-round evidence
+// chains (search.ts) — up to 3 sequential completeJSON rounds sharing ONE
+// deadline — which is exactly what was observed failing live at ~95-100s
+// under the old 55s ceiling (a round finishing just past its own share of a
+// too-small shared budget). Full real-verified diagnosis:
+// plans/active/reasoning-pipeline/20-deepinfra-tuning-real-verification.md's
+// addendum.
+const CHAIN_DEADLINE_MS: Record<AiRole, number> = {
+  // 26s → 55s (2026-08-18, alongside ATTEMPT_TIMEOUT_MS.suggestor's same
+  // bump, router-lanes.ts) — must exceed the new 45s attempt timeout with
+  // real room left for a fallback attempt if DeepInfra genuinely fails
+  // rather than just running long; matches app/api/ai/suggest/route.ts's
+  // own maxDuration bump (30s → 60s) below. Only this role's budget moves —
+  // coach/critic/drafter/feedback are untouched, and no other route reads
+  // CHAIN_DEADLINE_MS.suggestor.
+  suggestor: 55_000,
+  coach: 26_000,
+  critic: 26_000,
+  drafter: 26_000,
+  swarm: 260_000,
+  synthesis: 260_000,
+  // Same 26s as suggestor/coach/critic/drafter — app/api/houses/[id]/
+  // layer-feedback/route.ts's own maxDuration is 30s, same convention as
+  // those four routes (~4s headroom).
+  feedback: 26_000,
+  // Same 55s as suggestor, not feedback's smaller 26s — see
+  // ATTEMPT_TIMEOUT_MS.console's comment (router-lanes.ts) for why this
+  // lane is sized like suggestor's post-real-verification budget from the
+  // start. app/api/houses/[id]/console/route.ts's own maxDuration is 60s,
+  // same ~5s headroom convention.
+  console: 55_000,
 }
 
-// Built fresh per request so it reflects current penalty-box / recovery state.
-function attemptsForRole(role: AiRole): Attempt[] {
-  if (role === 'drafter') return draftAttempts()
-  if (role === 'suggestor') return suggestorAttempts()
-  return realtimeAttempts() // coach | critic
+// Lets a caller that itself makes several sequential completeJSON calls
+// (generateWithOptionalSearch's search rounds, search.ts) compute ONE
+// deadline up front and pass it to every round via completeJSON's own
+// deadlineAt option — see that option's comment for why this matters.
+export function chainDeadlineFor(role: AiRole): number {
+  return Date.now() + CHAIN_DEADLINE_MS[role]
 }
 
 // ── Execution ─────────────────────────────────────────────────────────────────
@@ -239,7 +180,10 @@ interface ExecuteOpts {
   user: string
   jsonSchema: Record<string, unknown>
   schemaName: string
-  effort: 'low' | 'high'
+  effort: AiEffort
+  // Opt-in past gpt-oss/qwen's 'high' floor — see reasoningEffortFor
+  // (router-shared.ts) for what this actually does and why it's gated.
+  allowHighReasoning?: boolean
   maxTokens: number
   neededTokens: number // estimated input + output; drives size-aware routing
   deadlineAt: number //  epoch ms; shared across the parse-retry (see completeJSON)
@@ -259,7 +203,7 @@ interface ExecuteOpts {
 //   - Deadline: attempts stop once opts.deadlineAt passes, throwing the most
 //     actionable error seen, so a slow chain degrades instead of platform-killing.
 async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: string; target: Target }> {
-  const attempts = attemptsForRole(role)
+  const attempts = attemptsForRole(role, opts.allowHighReasoning)
   let last429: AiError | null = null
   let lastTransient: AiError | null = null
   let anyProviderTried = false
@@ -288,9 +232,11 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
     if (!client) continue // no key → skip, don't abort
     anyProviderTried = true
     const started = Date.now()
+    // attempt.timeoutMs overrides the role's default when a specific target
+    // needs more (or less) room — see Attempt.timeoutMs (router-lanes.ts).
     const timeoutMs = Math.max(
       1_000,
-      Math.min(ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now())
+      Math.min(attempt.timeoutMs ?? ATTEMPT_TIMEOUT_MS[role], opts.deadlineAt - Date.now())
     )
     try {
       const content = await callProvider(client, attempt, opts, timeoutMs)
@@ -336,6 +282,16 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
         laneAllDaily = false
         lastTransient = mapUpstream(err, attempt.provider)
         record(attempt, 'error', 'json-validate-failed', latencyMs)
+        continue
+      }
+      // Groq's per-request TPM ceiling rejecting this request outright (see
+      // isGroqTokenLimitExceeded, router-shared.ts) — deliberately NOT routed
+      // through the 429 branch above: no penalty box, since waiting doesn't
+      // fix a single request being structurally too big.
+      if (isGroqTokenLimitExceeded(err)) {
+        laneAllDaily = false
+        lastTransient = mapUpstream(err, attempt.provider)
+        record(attempt, 'error', 'token-limit-exceeded', latencyMs)
         continue
       }
       // Transient provider incidents: 5xx, no-status (SDK timeout / network),
@@ -393,15 +349,32 @@ async function execute(role: AiRole, opts: ExecuteOpts): Promise<{ content: stri
   throw new AiError(429, 'ai-rate-limited')
 }
 
-// supportsJsonSchema() matches on 'gpt-oss' model name, not provider — Groq's
-// and Cerebras's gpt-oss targets both get strict response_format: json_schema.
-// Confirmed live (2026-08-02, plans/active/reasoning-pipeline/14): Cerebras's
-// enforcement of that shape is weaker than Groq's — Groq 400s as
+// supportsJsonSchema() matches on model name ('gpt-oss' or 'deepseek-v3' as
+// of 2026-08-13), not provider — Groq's and Cerebras's gpt-oss targets, and
+// now DeepInfra's DeepSeek-V3 target, all get strict response_format:
+// json_schema. Confirmed live (2026-08-02, plans/active/reasoning-pipeline/14):
+// Cerebras's enforcement of that shape is weaker than Groq's — Groq 400s as
 // json_validate_failed when its own generation doesn't conform (cascades
 // cleanly, see isGroqJsonValidateFailed above); Cerebras returned a 200 with
 // the correct object wrapped in a one-element array, which only our own zod
 // parse below catches. This costs nothing on providers that already enforce
 // the shape strictly, so it's unconditional rather than gated per-provider.
+// DeepInfra's own enforcement quality for DeepSeek-V3 is NOT yet
+// real-verified against either failure shape — isGroqJsonValidateFailed only
+// recognizes Groq's specific error text, so if DeepInfra's constrained
+// decoding fails in some other shape, it may not cascade as cleanly as
+// Groq's does today. Watch early real traffic on this target for it.
+//
+// A different DeepInfra failure shape WAS real-verified, on
+// meta-llama/Llama-3.3-70B-Instruct-Turbo (2026-08-13, TARGETS.deepinfra's
+// swap history, router-config.ts): running the json_object fallback (not
+// this guardrail's json_schema path — Llama was never granted
+// supportsJsonSchema()), it wrapped its JSON output in a markdown code fence
+// on 4/4 real attempts, which broke JSON.parse outright before zod ever got
+// a chance to validate anything. completeJSON's tryParse (below) now strips
+// a leading/trailing code fence unconditionally, on every completion
+// regardless of which json mode served it — see stripMarkdownFence's own
+// comment for why unconditional rather than gated to json_object mode.
 const JSON_SHAPE_GUARDRAIL =
   'Respond with exactly one JSON object matching the schema — do not wrap it in an array or add any extra nesting.'
 
@@ -421,7 +394,7 @@ async function callProvider(
         json_schema: { name: opts.schemaName, schema: opts.jsonSchema },
       })
     : ({ type: 'json_object' as const })
-  const reasoning_effort = reasoningEffortFor(attempt.model, opts.effort)
+  const reasoning_effort = reasoningEffortFor(attempt.model, opts.effort, opts.allowHighReasoning)
 
   let completion: OpenAI.Chat.Completions.ChatCompletion
   try {
@@ -482,6 +455,26 @@ async function callProvider(
   return content
 }
 
+// Strips a leading/trailing markdown code fence (``` or ```json, or any other
+// language tag) from a completion's raw content before JSON.parse ever sees
+// it. Real-world motivation (2026-08-13): DeepInfra's
+// meta-llama/Llama-3.3-70B-Instruct-Turbo — running the json_object fallback
+// path because its strict json_schema support isn't confirmed (see
+// supportsJsonSchema, router-shared.ts, and TARGETS.deepinfra's comment,
+// router-config.ts) — wrapped otherwise-valid JSON in a ```json ... ``` fence
+// on 4/4 real attempts, which JSON.parse rejected outright ("response was not
+// valid JSON") even though the content inside the fence was fine every time.
+// Runs unconditionally on EVERY completion in tryParse below, not gated to
+// json_object-mode models — a strict-schema model could theoretically do the
+// same thing, and there's no reason to leave that door open. Cheap either
+// way: a response that's already raw JSON simply doesn't match the fence
+// regex, and the original string is returned untouched.
+function stripMarkdownFence(raw: string): string {
+  const trimmed = raw.trim()
+  const match = trimmed.match(/^```[^\n`]*\n([\s\S]*?)\n?```$/)
+  return match ? match[1].trim() : raw
+}
+
 // ── Public facade ─────────────────────────────────────────────────────────────
 
 export async function completeJSON<T>(opts: {
@@ -490,8 +483,25 @@ export async function completeJSON<T>(opts: {
   user: string
   schema: z.ZodType<T> // zod schema; also converted to JSON Schema below
   schemaName: string // response_format json_schema name (a-z, 0-9, _, -)
-  effort: 'low' | 'high' // maps to reasoning_effort where the model accepts it
+  effort: AiEffort // maps to reasoning_effort where the model accepts it
+  // Opt-in past gpt-oss/qwen's 'high' floor — see reasoningEffortFor
+  // (router-shared.ts). Only meaningful when effort: 'high'; ignored otherwise.
+  allowHighReasoning?: boolean
   maxTokens: number
+  // Shared deadline (epoch ms) for a caller that itself makes several
+  // sequential completeJSON calls — generateWithOptionalSearch's search
+  // rounds (search.ts) being the one case today (2026-08-12). Without this,
+  // each call claims its own fresh CHAIN_DEADLINE_MS[role], so a 3-round
+  // sequence could legitimately run up to 3x that role's deadline — well
+  // past what the route's own maxDuration can actually honor (confirmed
+  // Hobby plan, ~60s hard ceiling regardless of Fluid Compute), so the
+  // platform kills the function outright instead of any of this file's own
+  // clean, classified timeout handling ever getting to run. Pass
+  // chainDeadlineFor(role)'s result, computed ONCE up front, into every
+  // round so the whole sequence shares one real budget and a late round
+  // fails fast (ai-timeout) rather than hanging for its own fresh window.
+  // Omitted (the default) preserves today's behavior for every other caller.
+  deadlineAt?: number
 }): Promise<T> {
   const jsonSchema = z.toJSONSchema(opts.schema, { target: 'draft-7' }) as Record<
     string,
@@ -510,17 +520,20 @@ export async function completeJSON<T>(opts: {
     jsonSchema,
     schemaName: opts.schemaName,
     effort: opts.effort,
+    allowHighReasoning: opts.allowHighReasoning,
     maxTokens: opts.maxTokens,
     neededTokens,
     // One deadline covers the first chain AND the parse-retry chain, so the
-    // whole completeJSON call stays inside the route's 30s function budget.
-    deadlineAt: Date.now() + CHAIN_DEADLINE_MS,
+    // whole completeJSON call stays inside its role's route's function budget.
+    // A caller-supplied deadlineAt (see the option's own comment above) wins
+    // over computing a fresh one here.
+    deadlineAt: opts.deadlineAt ?? Date.now() + CHAIN_DEADLINE_MS[opts.role],
   }
 
   function tryParse(raw: string): { ok: true; value: T } | { ok: false; error: string } {
     let parsed: unknown
     try {
-      parsed = JSON.parse(raw)
+      parsed = JSON.parse(stripMarkdownFence(raw))
     } catch {
       return { ok: false, error: 'response was not valid JSON' }
     }

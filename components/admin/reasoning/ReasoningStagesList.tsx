@@ -16,12 +16,20 @@ import type {
   ReviewPanelVerdict,
   BreadthScopingPacket,
   PerspectiveStance,
+  PerspectivePartialBundle,
   PerspectiveBundle,
+  EvidenceStrategy,
+  EvidenceGatherUnit,
+  EvidenceGatherUnitAnswers,
+  EvidenceItemDraft,
   GlobalAssumptionsPacket,
+  GlobalEvidenceItemDraft,
   GlobalEvidencePacket,
   ConclusionsPacket,
   ImplicationsPacket,
   FinalAnswer,
+  SubElementFailure,
+  MasterReviewGuidance,
 } from '@/lib/ai/reasoning/contracts'
 
 // Client-side mirror of the route's RunStateSchema (app/api/admin/reasoning/route.ts) —
@@ -42,10 +50,25 @@ export interface RunState {
   // scope) — zero, one, or many, at whatever step the admin was paused on.
   adHocContextGathers?: AdHocContextGather[] | null
   perspectiveStances?: PerspectiveStance[] | null
+  perspectivePartials?: PerspectivePartialBundle[] | null
+  perspectiveEvidenceStrategies?: EvidenceStrategy[] | null
+  perspectiveEvidenceGatherUnits?: EvidenceGatherUnit[] | null
+  perspectiveEvidenceGatherAnswers?: (EvidenceGatherUnitAnswers | null)[] | null
+  perspectiveEvidenceDrafts?: EvidenceItemDraft[][] | null
   perspectives?: PerspectiveBundle[] | null
   perspectiveVerdicts?: ReviewPanelVerdict[] | null
+  // 2026-08-13, Samir: which sub-element(s), for which perspective(s), the
+  // most recent perspectives fan-out step (generate-details, or any of the
+  // 3 evidence steps) failed on — set only on that specific failure
+  // (route.ts's PerspectivesGenerateError handling), cleared on the next
+  // success at whichever step set it.
+  lastSubElementFailures?: SubElementFailure[] | null
   globalAssumptions?: GlobalAssumptionsPacket | null
   globalAssumptionsVerdict?: ReviewPanelVerdict | null
+  globalEvidenceStrategy?: EvidenceStrategy | null
+  globalEvidenceGatherUnit?: EvidenceGatherUnit | null
+  globalEvidenceGatherAnswer?: EvidenceGatherUnitAnswers | null
+  globalEvidenceDraft?: GlobalEvidenceItemDraft[] | null
   globalEvidence?: GlobalEvidencePacket | null
   globalEvidenceVerdict?: ReviewPanelVerdict | null
   conclusions?: ConclusionsPacket | null
@@ -53,6 +76,14 @@ export interface RunState {
   implications?: ImplicationsPacket | null
   implicationsVerdict?: ReviewPanelVerdict | null
   finalAnswer?: FinalAnswer | null
+  // Present on the server (route-schema.ts's RunStateSchema) since the
+  // master-review escalation landed, but never needed here until the
+  // post-pipeline console (plan doc 28) started writing it directly —
+  // useReasoningPipelineRunner.ts's rerunFrom(). Was already flowing through
+  // this client's run state at runtime via each step response's `patch`
+  // (StepResponse.patch: Partial<RunState>), just not nameable in TS before.
+  masterReview?: { forStep: StepId; guidance: MasterReviewGuidance } | null
+  consoleGuidance?: string | null
 }
 
 function stepDone(run: RunState, stepId: StepId): boolean {
@@ -73,6 +104,12 @@ function stepDone(run: RunState, stepId: StepId): boolean {
     case 'perspectives-generate-stances':
       return run.perspectiveStances != null
     case 'perspectives-generate-details':
+      return run.perspectivePartials != null
+    case 'perspectives-evidence-strategy':
+      return run.perspectiveEvidenceStrategies != null
+    case 'perspectives-evidence-populate':
+      return run.perspectiveEvidenceDrafts != null
+    case 'perspectives-evidence-confidence':
       return run.perspectives != null
     case 'perspectives-review':
       // "Done" means every bundle has settled — passed, or gave up and
@@ -84,7 +121,11 @@ function stepDone(run: RunState, stepId: StepId): boolean {
       return run.globalAssumptions != null
     case 'global-assumptions-review':
       return run.globalAssumptionsVerdict?.overall_pass === true
-    case 'global-evidence-generate':
+    case 'global-evidence-strategy':
+      return run.globalEvidenceStrategy != null
+    case 'global-evidence-populate':
+      return run.globalEvidenceDraft != null
+    case 'global-evidence-confidence':
       return run.globalEvidence != null
     case 'global-evidence-review':
       return run.globalEvidenceVerdict?.overall_pass === true
@@ -154,6 +195,52 @@ function ContextGatherNote({
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10.5, marginTop: 4 }}>{verdict.search_findings}</pre>
         </details>
       )}
+    </div>
+  )
+}
+
+// 2026-08-13, Samir: evidence-strategy's own version of ContextGatherNote
+// above — same read-only, both-render-paths convention. `units` is already
+// filtered to only the ones that asked something (route.ts's
+// collectEvidenceGatherUnits, or a single-entry array for global evidence).
+function EvidenceGatherNote({
+  units,
+  answers,
+}: {
+  units: EvidenceGatherUnit[] | null | undefined
+  answers?: (EvidenceGatherUnitAnswers | null)[] | null
+}) {
+  if (!units || units.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2, marginBottom: 2 }}>
+      {units.map((unit, ui) => (
+        <div
+          key={unit.unitId}
+          style={{
+            padding: '8px 10px',
+            borderRadius: 7,
+            border: '1px solid var(--amber)',
+            background: 'var(--amber-tint)',
+            fontSize: 11.5,
+            color: 'var(--ink)',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {unit.unitLabel} — {unit.reason}
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {unit.questions.map((q, qi) => {
+              const answer = answers?.[ui]?.[qi]
+              return (
+                <li key={qi}>
+                  {q.question}
+                  {answer && <div style={{ color: 'var(--ink-subtle)', fontStyle: 'italic', marginTop: 1 }}>→ {answer}</div>}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
     </div>
   )
 }
@@ -264,6 +351,9 @@ export function ReasoningStagesList({
                 artifact={run.globalAssumptions}
               />
             )}
+            {group.id === 'global-evidence' && run.globalEvidenceGatherUnit && (
+              <EvidenceGatherNote units={[run.globalEvidenceGatherUnit]} answers={[run.globalEvidenceGatherAnswer ?? null]} />
+            )}
             {group.id === 'global-evidence' && run.globalEvidenceVerdict && (
               <ReviewPanelVerdictPanel
                 label="Global evidence review"
@@ -282,6 +372,9 @@ export function ReasoningStagesList({
               />
             )}
 
+            {group.id === 'perspectives' && (
+              <EvidenceGatherNote units={run.perspectiveEvidenceGatherUnits} answers={run.perspectiveEvidenceGatherAnswers} />
+            )}
             {group.id === 'perspectives' && run.perspectives && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginLeft: 24 }}>
                 {run.perspectives.map((p, i) => {

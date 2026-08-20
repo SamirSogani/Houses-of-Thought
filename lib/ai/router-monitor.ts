@@ -46,6 +46,8 @@ export interface RouterSnapshot {
     suggestor: LaneStep[] // sidebar suggestions — Cerebras-first
     realtime: LaneStep[] // coach | critic
     drafter: LaneStep[]
+    swarm: LaneStep[] // reasoning pipeline only — DeepInfra-first
+    synthesis: LaneStep[] // reasoning pipeline only — final composition
   }
   groq: {
     coolingDown: boolean
@@ -62,7 +64,13 @@ export interface RouterSnapshot {
 
 // The intended failover chains (nominal order). Single source of truth reused by
 // both the snapshot and the per-model detail (so neighbours/transitions line up).
-function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: LaneStep[] } {
+function buildLanes(): {
+  suggestor: LaneStep[]
+  realtime: LaneStep[]
+  drafter: LaneStep[]
+  swarm: LaneStep[]
+  synthesis: LaneStep[]
+} {
   return {
     suggestor: [
       laneStep('Primary — ultra-fast', TARGETS.cerebrasGptOss120b),
@@ -72,7 +80,8 @@ function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: L
     ],
     realtime: [
       laneStep('Primary', TARGETS.mistral8b),
-      laneStep('Secondary (Mistral 429)', TARGETS.groqQwen, 'post-cooldown → gpt-oss-20b'),
+      laneStep('Paid relief valve (Mistral 429)', TARGETS.deepinfra),
+      laneStep('Secondary (DeepInfra failure)', TARGETS.groqQwen, 'post-cooldown → gpt-oss-20b'),
       laneStep('Shock absorber (Groq cooling)', TARGETS.geminiFlash),
       laneStep('Multi-throttle bridge (Google 429)', TARGETS.cerebrasGptOss120b),
     ],
@@ -81,6 +90,18 @@ function buildLanes(): { suggestor: LaneStep[]; realtime: LaneStep[]; drafter: L
       laneStep('Fallback (Groq cooling / 429) — large context', TARGETS.geminiFlash),
       laneStep('Fallback (Gemini 429)', TARGETS.cerebrasGptOss120b),
     ],
+    // Reasoning pipeline only (lib/ai/reasoning/*) — every generate/review call
+    // except final composition. See router-lanes.ts's swarmAttempts().
+    // DELIBERATE, TEMPORARY, DeepInfra-only — no OTHER provider (2026-08-12,
+    // Samir). Retried against itself up to DEEPINFRA_SAME_TARGET_ATTEMPTS
+    // times on a transient failure (real production traffic showed DeepInfra's
+    // own failures here are intermittent) — still zero other providers, see
+    // swarmAttempts()'s comment for the full rationale.
+    swarm: [laneStep('Only target — retried on itself, no other provider (deliberate, temporary)', TARGETS.deepinfra)],
+    // Reasoning pipeline only, final-composition step ONLY. See
+    // router-lanes.ts's synthesisAttempts(). Same DeepInfra-only, retry-on-
+    // itself posture as swarm above, same reason.
+    synthesis: [laneStep('Only target — retried on itself, no other provider (deliberate, temporary)', TARGETS.deepinfra)],
   }
 }
 
@@ -199,7 +220,7 @@ export async function probeOne(name: string): Promise<ProbeResult | null> {
 // ── Per-model detail (for the model page) ─────────────────────────────────────
 
 export interface LanePosition {
-  lane: 'suggestor' | 'realtime' | 'drafter'
+  lane: 'suggestor' | 'realtime' | 'drafter' | 'swarm' | 'synthesis'
   index: number
   total: number
   // The model this one falls back FROM (upstream) / TO (downstream on failure).
@@ -227,7 +248,7 @@ export function getTargetDetail(name: string): TargetDetail {
 
   const lanes = buildLanes()
   const positions: LanePosition[] = []
-  for (const laneName of ['suggestor', 'realtime', 'drafter'] as const) {
+  for (const laneName of ['suggestor', 'realtime', 'drafter', 'swarm', 'synthesis'] as const) {
     const steps = lanes[laneName]
     const i = steps.findIndex((s) => `${s.provider}/${s.model}` === name)
     if (i < 0) continue

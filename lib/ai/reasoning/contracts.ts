@@ -105,6 +105,77 @@ export const BreadthScopingPacketSchema = z.object({
 })
 export type BreadthScopingPacket = z.infer<typeof BreadthScopingPacketSchema>
 
+// ── Evidence generation (2026-08-13, Samir) — split from one call into
+// strategy → [optional pause to ask the user] → populate → confidence, on
+// Samir's explicit design: the strategy call stays simple (decide whether to
+// search and/or ask the user, nothing else); the populate call works from
+// REAL search results/the user's answer, so it never has to reason about
+// "is this citation real or hypothetical" the old single-call version did;
+// confidence is scored by a call that's seen nothing but the finished
+// items, not asked to juggle sourcing and judgment in the same breath.
+// Shared shapes for BOTH per-perspective evidence (n units, one per
+// perspective) and global/question-level evidence (1 unit, unitId
+// 'global') — the task is structurally identical, just scoped differently
+// (ONE stance vs. ALL vetted perspectives — see prompts.ts). The FINAL
+// merged shape (PerspectiveEvidenceItemSchema / GlobalEvidencePacketSchema's
+// question_level_evidence, both below) is unchanged from before this split —
+// only how it gets populated changed, so perspectives-review/
+// global-evidence-review and everything downstream never has to know this
+// split happened.
+export const EvidenceStrategySchema = z.object({
+  search_queries: z.array(str).max(3),
+  needs_user_input: z.boolean(),
+  questions_for_user: z.array(ContextGatherQuestionSchema).max(3),
+  reason: str,
+})
+export type EvidenceStrategy = z.infer<typeof EvidenceStrategySchema>
+
+// One paused unit's worth of questions, aggregated (1 entry for global-
+// evidence, up to n for perspectives — only the units that actually asked
+// something) into ONE combined pause the admin resolves in one screen —
+// mirrors ContextGatherVerdict's pause/resume UX (Phase 3 item 1, decision
+// 019) but per-unit, so an admin's answer can route back to the right
+// unit's populate call afterward.
+export const EvidenceGatherUnitSchema = z.object({
+  unitId: str, // perspective_id, or the literal 'global'
+  unitLabel: str, // stance_label, or a fixed label for global-evidence
+  reason: str,
+  questions: z.array(ContextGatherQuestionSchema).max(3),
+})
+export type EvidenceGatherUnit = z.infer<typeof EvidenceGatherUnitSchema>
+
+// One answer per entry in ONE unit's `questions`, same index alignment as
+// ContextGatherAnswersSchema — null means skipped, never ''.
+export const EvidenceGatherUnitAnswersSchema = z.array(str.nullable()).max(3)
+export type EvidenceGatherUnitAnswers = z.infer<typeof EvidenceGatherUnitAnswersSchema>
+
+// The populate call's own output — claim_id/source_ref/caveats only, no
+// confidence (that's the NEXT call's entire job, ConfidenceSchema below).
+// Two variants, matching the pre-existing (unchanged) asymmetry between the
+// two FINAL shapes below: PerspectiveEvidenceItemSchema carries caveats,
+// GlobalEvidencePacketSchema's items never have — not something this split
+// introduces, just preserved.
+export const EvidenceItemDraftSchema = z.object({
+  claim_id: str,
+  source_ref: str,
+  caveats: str.nullable(),
+})
+export type EvidenceItemDraft = z.infer<typeof EvidenceItemDraftSchema>
+export const EvidencePopulateSchema = z.object({ evidence: z.array(EvidenceItemDraftSchema).max(8) })
+
+export const GlobalEvidenceItemDraftSchema = z.object({ claim_id: str, source_ref: str })
+export type GlobalEvidenceItemDraft = z.infer<typeof GlobalEvidenceItemDraftSchema>
+export const GlobalEvidencePopulateSchema = z.object({ evidence: z.array(GlobalEvidenceItemDraftSchema).max(8) })
+
+// Matched back to the populate step's items by claim_id (not array
+// position) — the orchestrator does the matching, not the model; a
+// confidence entry with no matching claim_id is dropped, and an item with
+// no matching confidence entry falls back to 'medium' with a logged
+// warning, rather than either side needing to stay positionally in sync.
+export const EvidenceConfidenceSchema = z.object({
+  confidence: z.array(z.object({ claim_id: str, confidence: ConfidenceSchema })).max(8),
+})
+
 // ── Perspectives (the one fan-out layer) ────────────────────────────────────
 export const PerspectiveEvidenceItemSchema = z.object({
   claim_id: str,
@@ -135,10 +206,19 @@ export const PerspectiveBundleSchema = z.object({
 })
 export type PerspectiveBundle = z.infer<typeof PerspectiveBundleSchema>
 
+// perspectives-generate-details' own output (2026-08-13: evidence moved out
+// to its own 3 steps — runPerspectivesEvidenceConfidence,
+// orchestrator-perspectives.ts, merges this back with the assembled evidence
+// into a full PerspectiveBundle). Persisted under RunState's
+// `perspectivePartials` field.
+export const PerspectivePartialBundleSchema = PerspectiveBundleSchema.omit({ evidence: true })
+export type PerspectivePartialBundle = z.infer<typeof PerspectivePartialBundleSchema>
+
 // The round-1 output of perspectives-generate-stances — just enough for round
-// 2 (sub-questions/assumptions/evidence/counterargument) to build on. Split
-// out because the client resends this between the two generate steps (see
-// lib/ai/reasoning/steps.ts for why perspectives-generate is itself two steps).
+// 2 (sub-questions/assumptions/counterargument, and evidence's own 3 steps)
+// to build on. Split out because the client resends this between generate
+// steps (see lib/ai/reasoning/steps.ts for why perspectives-generate is
+// itself several steps).
 export const PerspectiveStanceSchema = PerspectiveBundleSchema.pick({
   perspective_id: true,
   stance_label: true,
@@ -146,6 +226,41 @@ export const PerspectiveStanceSchema = PerspectiveBundleSchema.pick({
   key_claims: true,
 })
 export type PerspectiveStance = z.infer<typeof PerspectiveStanceSchema>
+
+// ── Perspectives sub-element failure tracking (2026-08-13, Samir) ──────────
+// perspectives-generate-details (and, after the evidence split above, the
+// three perspectives-evidence-* steps too) fan out n-ways in parallel — when
+// one of these steps fails, this is what actually tells you WHICH sub-
+// element, for WHICH perspective, failed, instead of one opaque "the step
+// failed." Motivated directly by having to chase this down through Vercel
+// logs that had already expired (Hobby's 1-hour retention —
+// plans/active/reasoning-pipeline/23-deepinfra-intermittent-reliability-and-same-target-retry.md)
+// — this makes the failure durable (persisted to RunState, not just logged)
+// and visible in both the live run and Past Runs. Built in
+// orchestrator-perspectives.ts's PerspectivesGenerateError (reused by all
+// four fan-out steps, not just perspectives-generate-details); read by
+// app/api/admin/reasoning/route.ts and the client.
+export const PERSPECTIVE_SUB_ELEMENTS = [
+  'sub_questions',
+  'assumptions',
+  'counterargument',
+  'evidence_strategy',
+  'evidence_populate',
+  'evidence_confidence',
+] as const
+export type PerspectiveSubElement = (typeof PERSPECTIVE_SUB_ELEMENTS)[number]
+
+export const SubElementFailureSchema = z.object({
+  perspectiveId: str,
+  stanceLabel: str,
+  subElement: z.enum(PERSPECTIVE_SUB_ELEMENTS),
+  // The underlying error's message (e.g. 'ai-empty-output', 'ai-upstream-error')
+  // — not the full detail Vercel's own logs carry (finishReason, maxTokens,
+  // etc.), just enough to say what kind of failure it was without needing
+  // those logs to still exist.
+  errorMessage: z.string().min(1).max(500),
+})
+export type SubElementFailure = z.infer<typeof SubElementFailureSchema>
 
 // ── Review panel — the generic shape reused at every 9-standard gate ───────
 // (decisions/019 §3: called "review panel" / "standard reviewer" throughout,
@@ -239,6 +354,27 @@ export const ImplicationsPacketSchema = z.object({
   caveats_from_degraded_layers: z.array(str).max(6),
 })
 export type ImplicationsPacket = z.infer<typeof ImplicationsPacketSchema>
+
+// ── Master review (arbitration after MAX_REGENERATION_ATTEMPTS, 2026-08-11,
+// Samir) — one more call examining all 9 standard verdicts from a layer's
+// final failed attempt TOGETHER, something no single standard-reviewer ever
+// does (each grades blind to the other 8, orchestrator-panel.ts). Looks for
+// genuine contradictions between the 9 notes and synthesizes one clear,
+// prioritized set of instructions for exactly one more regeneration attempt
+// before the layer truly halts. Only the 5 hard-block layers get this (frame,
+// global-assumptions, global-evidence, conclusions, implications) — the one
+// layer with real redundancy (perspectives, degrade-and-continue per bundle)
+// doesn't need a last-resort save the same way. See app/api/admin/reasoning/
+// route.ts for the halt-vs-escalate decision this feeds.
+export const MasterReviewGuidanceSchema = z.object({
+  // "none identified" (or equivalent) is a valid, EXPECTED answer — most
+  // failures are independent notes on genuinely separate problems, not
+  // reviewers actively disagreeing with each other. Don't invent tension that
+  // isn't there just to have something to report here.
+  contradictions: z.string().min(1).max(800),
+  guidance: z.string().min(1).max(1500),
+})
+export type MasterReviewGuidance = z.infer<typeof MasterReviewGuidanceSchema>
 
 // ── Final composition (packaging only, no review panel) ─────────────────────
 export const FinalAnswerSchema = z.object({

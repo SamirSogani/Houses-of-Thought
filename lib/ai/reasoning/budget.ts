@@ -1,5 +1,12 @@
 // Cost model for the reasoning pipeline (decisions/019, subagent count model:
-// generators `5n+9`, review panel `9n+45`, total `14n+54`). Client-safe.
+// generators `7n+11`, review panel `9n+45`, total `16n+56`). Client-safe.
+// Generators went 5n+9 → 7n+11 on 2026-08-13 (Samir): evidence generation
+// (per-perspective AND global) split from 1 call into 3 (strategy →
+// populate → confidence — see steps.ts) — +2 per perspective, +2 fixed for
+// the global-evidence trio replacing its old single call. Review-gate count
+// is unchanged (9n+45) — evidence still isn't independently reviewed, it's
+// reviewed as part of the whole bundle/packet at perspectives-review /
+// global-evidence-review, same as before.
 //
 // clampN() is Phase 1's static clamp; clampNForStress() below is Phase 2's
 // dynamic one (03-orchestration-and-failure-handling.md's "Budget
@@ -26,12 +33,36 @@ export const MIN_N = 2
 // before it degrades (perspectives) or halts the pipeline (everything else).
 export const MAX_REGENERATION_ATTEMPTS = 3
 
+// One further attempt a hard-block layer earns after MAX_REGENERATION_ATTEMPTS
+// still fails (2026-08-11, Samir addendum) — a master reviewer synthesizes
+// guidance from all 9 standards' verdicts together (something the blind panel
+// structurally can't do itself) for exactly this one extra try before the
+// layer genuinely halts. Perspectives doesn't use this (it already degrades
+// instead of halting — real redundancy from the other bundles). See
+// app/api/admin/reasoning/route.ts's tryMasterReviewOrHalt.
+export const MASTER_REVIEW_ATTEMPT = MAX_REGENERATION_ATTEMPTS + 1
+
+// Repair calls opt into 'high' reasoning effort (router-shared.ts's
+// allowHighReasoning) on the theory that a genuine revision needs real
+// deliberation — but on gpt-oss-20b, 'high' effort's internal reasoning
+// tokens draw from the SAME maxTokens budget as the final JSON answer.
+// Real-verified live (2026-08-12, testing this branch): every repair call in
+// a perspectives-generate-details batch (subquestions/assumptions/
+// counterargument — evidence moved out to its own steps 2026-08-13, still
+// gets this same headroom on its populate/confidence calls) exhausted its
+// first-pass maxTokens on reasoning alone
+// before emitting any output — finishReason 'length', empty completion — on
+// BOTH DeepInfra and Groq (same underlying model, so the failure cascaded
+// through both rather than one covering for the other). Added on top of each
+// call's own first-pass maxTokens only when that call is in repair mode.
+export const REPAIR_TOKEN_HEADROOM = 3000
+
 // panelsOff (decision 019 verification stage 3, A/B the review panel): every
 // runReviewPanel call short-circuits to an auto-pass verdict instead of its 9
 // real reviewer calls (orchestrator-panel.ts's autoPassVerdict) — generation
 // is unaffected, only the 9n+45 reviewer cost disappears.
 export function estimatePipelineCost(n: number, panelsOff = false): { generators: number; reviewers: number; total: number } {
-  const generators = 5 * n + 9
+  const generators = 7 * n + 11
   const reviewers = panelsOff ? 0 : 9 * n + 45
   return { generators, reviewers, total: generators + reviewers }
 }

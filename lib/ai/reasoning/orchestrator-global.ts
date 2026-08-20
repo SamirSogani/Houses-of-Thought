@@ -11,8 +11,12 @@ import {
   type PerspectiveBundle,
   GlobalAssumptionsPacketSchema,
   type GlobalAssumptionsPacket,
-  GlobalEvidencePacketSchema,
   type GlobalEvidencePacket,
+  EvidenceStrategySchema,
+  type EvidenceStrategy,
+  GlobalEvidencePopulateSchema,
+  type GlobalEvidenceItemDraft,
+  EvidenceConfidenceSchema,
   ConclusionsPacketSchema,
   type ConclusionsPacket,
   ImplicationsPacketSchema,
@@ -20,27 +24,41 @@ import {
   FinalAnswerSchema,
   type FinalAnswer,
   type ReviewPanelVerdict,
+  type MasterReviewGuidance,
 } from './contracts'
 import {
   REASONING_PERSONA,
   GLOBAL_ASSUMPTIONS_BLOCK,
-  GLOBAL_EVIDENCE_BLOCK,
+  GLOBAL_EVIDENCE_STRATEGY_BLOCK,
+  GLOBAL_EVIDENCE_POPULATE_BLOCK,
+  GLOBAL_EVIDENCE_CONFIDENCE_BLOCK,
   CONCLUSIONS_BLOCK,
   IMPLICATIONS_BLOCK,
   FINAL_COMPOSITION_BLOCK,
   serializeFrame,
   serializePerspectives,
   appendRegenerationFeedback,
+  appendMasterGuidance,
 } from './prompts'
+import { REPAIR_TOKEN_HEADROOM } from './budget'
 
 // Shared shape for "regenerate this after a failed panel verdict" across the
-// four hard-block global/conclusions/implications generators below.
+// hard-block global/conclusions/implications generators below.
 interface Repair<T> {
   priorArtifact: T
   priorVerdict: ReviewPanelVerdict
 }
+
+// Shared shape for the ONE extra attempt a hard-block layer earns after
+// exhausting MAX_REGENERATION_ATTEMPTS still failing (route.ts's master-
+// review escalation) — takes priority over Repair<T>'s raw per-standard notes
+// when present (the two are never both set on the same call).
+interface MasterGuided<T> {
+  priorArtifact: T
+  guidance: MasterReviewGuidance
+}
 import { runReviewPanel } from './orchestrator-panel'
-import { generateWithOptionalSearch } from './search'
+import { runSearches } from './search'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/orchestrator-global.ts is server-only and must not run in the browser')
@@ -51,7 +69,7 @@ if (typeof window !== 'undefined') {
 // buildExtraContext. Threaded through every function in this file that builds
 // a context string, so an answer re-contextualizes everything downstream of
 // wherever it was given, not just the very next call.
-function questionContext(frame: FramePacket, bundles: PerspectiveBundle[], extraContext?: string | null): string {
+export function questionContext(frame: FramePacket, bundles: PerspectiveBundle[], extraContext?: string | null): string {
   return `${serializeFrame(frame, extraContext)}\n\n## Vetted perspectives\n${serializePerspectives(bundles)}`
 }
 
@@ -60,7 +78,8 @@ export async function runGlobalAssumptionsGenerate(
   bundles: PerspectiveBundle[],
   dryRun: boolean,
   repair?: Repair<GlobalAssumptionsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalAssumptionsPacket>
 ): Promise<GlobalAssumptionsPacket> {
   if (dryRun) {
     return {
@@ -68,14 +87,23 @@ export async function runGlobalAssumptionsGenerate(
       cross_perspective_notes: '[dry run] cross-perspective note.',
     }
   }
+  const context = questionContext(frame, bundles, extraContext)
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${GLOBAL_ASSUMPTIONS_BLOCK}`,
-    user: appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: GlobalAssumptionsPacketSchema,
     schemaName: 'global_assumptions_packet',
-    effort: 'high',
-    maxTokens: 900,
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 900 + REPAIR_TOKEN_HEADROOM : 900,
   })
 }
 
@@ -97,31 +125,135 @@ export async function runGlobalAssumptionsReview(
   )
 }
 
-export async function runGlobalEvidenceGenerate(
+// ── Global evidence, 3 phases (2026-08-13, Samir) — replaces the old single
+// runGlobalEvidenceGenerate (one generateWithOptionalSearch call juggling
+// search-vs-ask, epistemic hedging about real-vs-hypothetical sourcing, AND
+// confidence all at once). Mirrors orchestrator-perspectives.ts's evidence
+// split exactly, just for the ONE question-level unit instead of n
+// per-perspective ones — see that file's comments for the full rationale.
+// No PerspectivesGenerateError-style aggregation needed here: a single unit
+// failing IS the whole failure, no ambiguity about "which one" the way n
+// parallel perspective calls have.
+export async function runGlobalEvidenceStrategy(
   frame: FramePacket,
   bundles: PerspectiveBundle[],
   dryRun: boolean,
+  // Dev-testing only (mirrors runContextGather's forceNeedsInput,
+  // orchestrator-setup.ts, and runPerspectivesEvidenceStrategy's own copy of
+  // this) — forces the dry-run strategy to ask a question, so the
+  // single-unit pause UI can be exercised for free. No effect outside
+  // dryRun.
+  forceNeedsInput = false,
   repair?: Repair<GlobalEvidencePacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
+): Promise<EvidenceStrategy> {
+  if (dryRun) {
+    if (forceNeedsInput) {
+      return {
+        search_queries: [],
+        needs_user_input: true,
+        questions_for_user: [{ question: '[dry run] Anything specific the global evidence pass should look for?', options: [] }],
+        reason: '[dry run] simulated clarification need, for UI testing only.',
+      }
+    }
+    return { search_queries: [], needs_user_input: false, questions_for_user: [], reason: '[dry run] no evidence strategy needed.' }
+  }
+  const context = questionContext(frame, bundles, extraContext)
+  return completeJSON({
+    role: 'swarm',
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_STRATEGY_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
+    schema: EvidenceStrategySchema,
+    schemaName: 'global_evidence_strategy',
+    // Deciding search-vs-ask is a simple call by design (Samir's explicit
+    // scoping) — 'medium' always, no repair-mode 'high' bump; mirrors
+    // orchestrator-perspectives.ts's runPerspectivesEvidenceStrategy.
+    effort: 'medium',
+    maxTokens: 500,
+  })
+}
+
+// Runs the strategy's requested search (if any) via runSearches (search.ts)
+// — ONE round, not generateWithOptionalSearch's old multi-round loop (that
+// loop no longer exists anywhere in evidence generation: strategy decides
+// search terms ONCE, up front, so there's nothing left to iterate on — this
+// also resolves the multi-round CHAIN_DEADLINE_MS-sharing complexity doc
+// 20/22 flagged as a known gap for this exact call).
+export async function runGlobalEvidencePopulate(
+  frame: FramePacket,
+  bundles: PerspectiveBundle[],
+  strategy: EvidenceStrategy,
+  // The admin's answer, if strategy asked and they answered (Phase 3 item
+  // 1's pattern, extended — EvidenceGatherUnit/Answers, contracts.ts).
+  userAnswer: string | null,
+  dryRun: boolean,
+  repair?: Repair<GlobalEvidencePacket>,
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
+): Promise<GlobalEvidenceItemDraft[]> {
+  if (dryRun) return [{ claim_id: '[dry run] claim', source_ref: '[dry run] source' }]
+  const isRepair = !!repair || !!masterGuidance
+  let context = questionContext(frame, bundles, extraContext)
+  const searchFindings = strategy.search_queries.length ? await runSearches(strategy.search_queries) : null
+  if (searchFindings) context += `\n\n## Real search results\n${searchFindings}`
+  if (userAnswer) context += `\n\n## The person's answer to your question\n${userAnswer}`
+  const out = await completeJSON({
+    role: 'swarm',
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_POPULATE_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
+    schema: GlobalEvidencePopulateSchema,
+    schemaName: 'global_evidence_populate',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11 split,
+    // still applies to this call now that it's populate's own job.
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
+    // 2400 (carried over from the old single-call version's 2026-08-10
+    // finding): gpt-oss-20b's evidence items (citations) run long.
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 2400 + REPAIR_TOKEN_HEADROOM : 2400,
+  })
+  return out.evidence
+}
+
+// Sees ONLY the finished items — scoring how well each item's OWN source
+// backs its OWN claim, nothing else ("a separate request/subagent," Samir).
+// Matches confidence entries back to drafts by claim_id, not array
+// position — a missing match falls back to 'medium' with the item kept
+// anyway, rather than either side needing to stay positionally in sync.
+export async function runGlobalEvidenceConfidence(
+  frame: FramePacket,
+  draft: GlobalEvidenceItemDraft[],
+  dryRun: boolean,
+  repair?: Repair<GlobalEvidencePacket>,
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<GlobalEvidencePacket>
 ): Promise<GlobalEvidencePacket> {
   if (dryRun) {
-    return { question_level_evidence: [{ claim_id: '[dry run] claim', source_ref: '[dry run] source', confidence: 'low' }] }
+    return { question_level_evidence: draft.map((d) => ({ ...d, confidence: 'medium' as const })) }
   }
-  return generateWithOptionalSearch({
-    role: 'drafter',
-    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_BLOCK}`,
-    buildUser: (searchContext) => appendRegenerationFeedback(questionContext(frame, bundles, extraContext), repair) + searchContext,
-    baseSchema: GlobalEvidencePacketSchema,
-    schemaName: 'global_evidence_packet',
-    // 900 -> 1800, third instance of the exact same fix this session
-    // (conclusions_packet, implications_packet): up to 8 items, each with a
-    // 600-char claim_id AND a 600-char source_ref. Confirmed live: Gemini
-    // truncated mid-JSON on the 2nd evidence item, twice in a row, at this
-    // cap - immediately after global_assumptions_packet (smaller max, no
-    // truncation seen) passed clean, isolating this as the schema-shape
-    // issue, not a fluke of that particular call.
-    maxTokens: 1800,
+  if (draft.length === 0) return { question_level_evidence: [] }
+  const isRepair = !!repair || !!masterGuidance
+  const itemsBlock = `## Evidence items\n${JSON.stringify(draft, null, 2)}\n\n${serializeFrame(frame, extraContext)}`
+  const out = await completeJSON({
+    role: 'swarm',
+    system: `${REASONING_PERSONA}\n\n${GLOBAL_EVIDENCE_CONFIDENCE_BLOCK}`,
+    user: masterGuidance
+      ? appendMasterGuidance(itemsBlock, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(itemsBlock, repair),
+    schema: EvidenceConfidenceSchema,
+    schemaName: 'global_evidence_confidence',
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
+    maxTokens: isRepair ? 800 + REPAIR_TOKEN_HEADROOM : 800,
   })
+  const byId = new Map(out.confidence.map((c) => [c.claim_id, c.confidence]))
+  const question_level_evidence = draft.map((d) => ({ ...d, confidence: byId.get(d.claim_id) ?? ('medium' as const) }))
+  return { question_level_evidence }
 }
 
 export async function runGlobalEvidenceReview(
@@ -148,23 +280,32 @@ export async function runConclusionsGenerate(
   globalEvidence: GlobalEvidencePacket,
   dryRun: boolean,
   repair?: Repair<ConclusionsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<ConclusionsPacket>
 ): Promise<ConclusionsPacket> {
   if (dryRun) return { conclusions: ['[dry run] conclusion.'], supporting_chain: ['[dry run] supporting step.'] }
   const context = `${questionContext(frame, bundles, extraContext)}\n\n## Global assumptions\n${globalAssumptions.question_level_assumptions.map((a) => `- ${a}`).join('\n')}\n\n## Global evidence\n${globalEvidence.question_level_evidence.map((e) => `- ${e.claim_id} (${e.source_ref}, ${e.confidence})`).join('\n')}`
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${CONCLUSIONS_BLOCK}`,
-    user: appendRegenerationFeedback(context, repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: ConclusionsPacketSchema,
     schemaName: 'conclusions_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 900 -> 1800 (real traffic 2026-08-02): ConclusionsPacketSchema's own
     // bounds allow up to 4 conclusions + 8 supporting_chain items at 600 chars
     // each - 900 tokens can't cover that even at typical (non-maxed) length.
     // Confirmed live: Gemini's raw output truncated mid-JSON on the 3rd
     // conclusion, twice in a row, at exactly this cap.
-    maxTokens: 1800,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 1800 + REPAIR_TOKEN_HEADROOM : 1800,
   })
 }
 
@@ -191,7 +332,8 @@ export async function runImplicationsGenerate(
   degradedNotes: string[],
   dryRun: boolean,
   repair?: Repair<ImplicationsPacket>,
-  extraContext?: string | null
+  extraContext?: string | null,
+  masterGuidance?: MasterGuided<ImplicationsPacket>
 ): Promise<ImplicationsPacket> {
   if (dryRun) {
     return {
@@ -204,20 +346,28 @@ export async function runImplicationsGenerate(
     }
   }
   const context = `${serializeFrame(frame, extraContext)}\n\n## Conclusions\n${conclusions.conclusions.map((c) => `- ${c}`).join('\n')}\n\n## Supporting chain\n${conclusions.supporting_chain.map((s) => `- ${s}`).join('\n')}${degradedNotes.length ? `\n\n## Degraded upstream layers\n${degradedNotes.map((d) => `- ${d}`).join('\n')}` : ''}`
+  const isRepair = !!repair || !!masterGuidance
   return completeJSON({
-    role: 'drafter',
+    role: 'swarm',
     system: `${REASONING_PERSONA}\n\n${IMPLICATIONS_BLOCK}`,
-    user: appendRegenerationFeedback(context, repair),
+    user: masterGuidance
+      ? appendMasterGuidance(context, masterGuidance.priorArtifact, masterGuidance.guidance)
+      : appendRegenerationFeedback(context, repair),
     schema: ImplicationsPacketSchema,
     schemaName: 'implications_packet',
-    effort: 'high',
+    // medium(first pass)/high(repair or master-guided) — 2026-08-11, Samir:
+    // same split as every generate call in the pipeline; see
+    // reasoningEffortFor's allowHighReasoning (router-shared.ts).
+    effort: isRepair ? 'high' : 'medium',
+    allowHighReasoning: isRepair,
     // 900 -> 1800, same fix and same evidence shape as conclusions_packet
     // above: ImplicationsPacketSchema allows up to 8 implications (each with
     // a 600-char text AND a 600-char who) plus 6 caveats at 600 chars -
     // structurally larger than conclusions_packet's own bounds, so it needed
     // at least the same headroom. Confirmed live: Gemini truncated mid-JSON
     // on the first implication's text field, twice in a row, at this cap.
-    maxTokens: 1800,
+    // +REPAIR_TOKEN_HEADROOM on repair only — see budget.ts for why.
+    maxTokens: isRepair ? 1800 + REPAIR_TOKEN_HEADROOM : 1800,
   })
 }
 
@@ -253,12 +403,16 @@ export async function runFinalComposition(
   }
   const context = `${serializeFrame(frame, extraContext)}\n\n## Implications\n${implications.implications.map((i) => `- (${i.ikind}) ${i.text} — ${i.who}, ${i.horizon}`).join('\n')}\n\nConfidence: ${implications.confidence}${implications.caveats_from_degraded_layers.length ? `\nDegraded upstream: ${implications.caveats_from_degraded_layers.join('; ')}` : ''}`
   return completeJSON({
-    role: 'coach',
+    role: 'synthesis',
     system: `${REASONING_PERSONA}\n\n${FINAL_COMPOSITION_BLOCK}`,
     user: context,
     schema: FinalAnswerSchema,
     schemaName: 'final_answer',
-    effort: 'low',
+    // 'medium' (was 'low', 2026-08-11) — no repair path exists for final
+    // composition (packaging only, no review panel), so every call here is a
+    // "first-pass" call by definition; matches the medium-first-pass default
+    // every other generate call now uses.
+    effort: 'medium',
     maxTokens: 1200,
   })
 }

@@ -35,6 +35,13 @@ documentation. For what lives where, see
 - Preserve existing behavior unless the user asks you to change it.
 - Ask clarifying questions whenever requirements are ambiguous.
 - When a file's contents contradict how it was described, surface that before acting.
+- **Never trust `references/*.pdf` (the `Migration_v2_*` files).** They are raw
+  exports from Lovable, the tool used on this project before it moved to
+  Claude Code — Lovable hallucinated heavily, which is why the project moved.
+  Do not cite these PDFs as fact, do not carry terminology or claims from them
+  into code, docs, or decisions without independently verifying against the
+  actual codebase first, and flag it explicitly if a request appears to
+  originate from one of them.
 
 ## Communication
 
