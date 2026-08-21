@@ -30,6 +30,23 @@ const rebuttalStr = z.string().min(1).max(1000)
 // 600-char `str` cap rejected this immediately on real traffic (2026-08-02):
 // even one query's worth of real results routinely exceeds it, let alone 3.
 const searchFindingsStr = z.string().min(1).max(4000)
+// original_query is a different kind of field from the rest of this file: not
+// AI-generated content that needs an output-length cap, but the caller's own
+// question passed straight through unchanged (runFrameGenerate,
+// orchestrator-setup.ts, returns `{ ...modelOut, original_query: originalQuery
+// }` with no re-validation). It must therefore match its actual source's own
+// ceiling — RunStateSchema.originalQuery (app/api/admin/reasoning/route-
+// schema.ts) is z.string().min(1).max(2000) — not the generic 600-char `str`
+// meant for constrained model output. 2026-08-20, Claude, real-verified live
+// on production (housesofthought.org): any question over 600 characters (no
+// client-side limit exists on the co-pilot's question textarea) generated a
+// frame successfully, then hard-failed on the very next request — frame-
+// review — with a 400 on this exact field, every single time; retry re-posted
+// the same too-long value and failed identically in well under 100ms (no AI
+// call reached), which is also why retry barely appeared to try. Same bug
+// shape as the EvidencePopulateSchema/PerspectiveBundleSchema cap mismatch
+// fixed earlier the same day, different field.
+const originalQueryStr = z.string().min(1).max(2000)
 const HorizonSchema = z.enum(['Near-term', 'Long-term'])
 const ConfidenceSchema = z.enum(['low', 'medium', 'high'])
 
@@ -89,7 +106,7 @@ export type AdHocContextGather = z.infer<typeof AdHocContextGatherSchema>
 
 // ── Frame ───────────────────────────────────────────────────────────────────
 export const FramePacketSchema = z.object({
-  original_query: str,
+  original_query: originalQueryStr,
   core_question: str,
   definitions: z.array(z.object({ term: str, definition: str })).max(6),
   purpose: str,
