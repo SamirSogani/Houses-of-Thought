@@ -205,7 +205,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const parsed = RequestSchema.safeParse(json)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
+    // Mirrors app/api/admin/reasoning/route.ts's own 2026-08-20 fix — see
+    // that file's comment on this same branch for why (real-verified live:
+    // a genuine RunState shape bug surfaced as this exact response with zero
+    // field-level info). Not gating-related, so mirrored here per this
+    // file's own header comment.
+    return NextResponse.json(
+      {
+        error: 'invalid-request',
+        detail: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      },
+      { status: 400 }
+    )
   }
   const { step, run, runId, atStep } = parsed.data
   const dryRun = parsed.data.dryRun ?? false
