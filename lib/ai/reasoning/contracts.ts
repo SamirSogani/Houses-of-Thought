@@ -161,7 +161,20 @@ export const EvidenceItemDraftSchema = z.object({
   caveats: str.nullable(),
 })
 export type EvidenceItemDraft = z.infer<typeof EvidenceItemDraftSchema>
-export const EvidencePopulateSchema = z.object({ evidence: z.array(EvidenceItemDraftSchema).max(8) })
+// max(8) → max(6) (2026-08-20, Claude, real-verified live): this cap must
+// match PerspectiveBundleSchema.evidence's own max(6) below — nothing
+// between populate and the final assembled PerspectiveBundle truncates the
+// array, so a populate call that used the old max(8) headroom (which
+// DeepSeek-V4-Flash-0731 did, live, on its first real off-nonprofit test
+// question) produced a bundle that was already invalid the moment
+// runPerspectivesEvidenceConfidence assembled it — surfacing only later, as
+// a generic 400 'invalid-request' with zero detail when the client posted
+// that bundle back on perspectives-review. GlobalEvidencePopulateSchema
+// just below is NOT part of this bug — its own final shape
+// (GlobalEvidencePacketSchema.question_level_evidence) is also max(8), so
+// that pair was already consistent; only the per-perspective path had the
+// mismatch.
+export const EvidencePopulateSchema = z.object({ evidence: z.array(EvidenceItemDraftSchema).max(6) })
 
 export const GlobalEvidenceItemDraftSchema = z.object({ claim_id: str, source_ref: str })
 export type GlobalEvidenceItemDraft = z.infer<typeof GlobalEvidenceItemDraftSchema>
@@ -172,8 +185,12 @@ export const GlobalEvidencePopulateSchema = z.object({ evidence: z.array(GlobalE
 // confidence entry with no matching claim_id is dropped, and an item with
 // no matching confidence entry falls back to 'medium' with a logged
 // warning, rather than either side needing to stay positionally in sync.
+// max(8) → max(6) alongside EvidencePopulateSchema above, same reason: this
+// call only ever scores confidence for what populate actually drafted
+// (drafts[i], orchestrator-perspectives.ts), so it can never legitimately
+// need more room than populate's own cap.
 export const EvidenceConfidenceSchema = z.object({
-  confidence: z.array(z.object({ claim_id: str, confidence: ConfidenceSchema })).max(8),
+  confidence: z.array(z.object({ claim_id: str, confidence: ConfidenceSchema })).max(6),
 })
 
 // ── Perspectives (the one fan-out layer) ────────────────────────────────────

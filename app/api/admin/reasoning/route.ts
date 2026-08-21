@@ -100,7 +100,20 @@ export async function POST(req: Request): Promise<Response> {
 
   const parsed = RequestSchema.safeParse(json)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
+    // Was just { error: 'invalid-request' } with parsed.error thrown away —
+    // 2026-08-20, real-verified live: a genuine RunState shape bug (evidence
+    // array over its cap, contracts.ts) surfaced as this exact response with
+    // zero field-level info, costing real diagnostic effort (client-side
+    // fetch interception + a hand-written validator was the only way to find
+    // it). issues is Zod's own path+message per violation — safe to return:
+    // it describes the shape of what the CALLER already sent, not new data.
+    return NextResponse.json(
+      {
+        error: 'invalid-request',
+        detail: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      },
+      { status: 400 }
+    )
   }
   const { step, run, runId, atStep } = parsed.data
   const dryRun = parsed.data.dryRun ?? false

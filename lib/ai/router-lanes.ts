@@ -209,17 +209,37 @@ const DEEPINFRA_SWARM_TIMEOUT_MS = 200_000
 // Groq call instead.
 //
 // 50s → 75s (2026-08-12, same session as DEEPINFRA_SWARM_TIMEOUT_MS's 45→60
-// widen above — see that comment for the corrected Hobby/Fluid-Compute
-// ceiling this is now measured against). Repair-mode calls carry
-// REPAIR_TOKEN_HEADROOM (budget.ts) on top of their first-pass maxTokens and
-// run at 'high' reasoning effort — genuinely slower than a first-pass call by
-// construction, hence the extra margin over the 60s sibling above. This is
-// also the per-round budget generateWithOptionalSearch (search.ts) uses for
-// perspective_evidence/global_evidence's search rounds when repairing — up
-// to 3 rounds sharing ONE CHAIN_DEADLINE_MS=260s, so 75s/round comfortably
-// fits 3 rounds (225s) with real margin, unlike the old 50s/round against a
-// 55s TOTAL chain deadline that could only ever fit one round.
-const DEEPINFRA_SWARM_LARGE_TIMEOUT_MS = 75_000
+// widen above). Repair-mode calls carry REPAIR_TOKEN_HEADROOM (budget.ts) on
+// top of their first-pass maxTokens and run at 'high' reasoning effort —
+// genuinely slower than a first-pass call by construction, hence the extra
+// margin this constant is supposed to carry over its first-pass sibling
+// immediately above.
+//
+// 75s → 240s (2026-08-20, Claude code review during a real pipeline run —
+// flagged to Samir, fix applied on request): DEEPINFRA_SWARM_TIMEOUT_MS was
+// separately bumped 60s→200s on 2026-08-13 (see that constant's own "TEMP
+// diagnostic bump" history above) to survive DeepSeek-V3's per-call latency,
+// but this sibling was never revisited alongside it — leaving repair-mode
+// calls, which are supposed to carry MORE margin than first-pass ones by the
+// reasoning above, capped at 75s while first-pass calls got 200s. That
+// inverted the stated intent for months of model swaps (Llama-3.3-70B →
+// Qwen3-235B → DeepSeek-V4-Flash-0731, router-config.ts) without anyone
+// hitting it in practice, most likely because the swarm/synthesis lane's
+// three same-target retries (DEEPINFRA_SAME_TARGET_ATTEMPTS below) plus
+// execute()'s own deadlineAt clamp (router.ts) meant a too-short repair
+// timeout degraded into "fewer, shorter retries" rather than an outright
+// failure. 240s restores real margin over the 200s first-pass sibling (same
+// ~20% relative margin the original 60s→75s split used) while staying 20s
+// under CHAIN_DEADLINE_MS.swarm/.synthesis's 260s shared budget — the same
+// ~20s-headroom convention this file already uses elsewhere (e.g. that 260s
+// itself sits 20s under the route's 280s maxDuration). Because
+// execute()'s Math.min(attempt.timeoutMs, deadlineAt - Date.now()) clamps
+// every attempt to whatever's actually left of that shared 260s budget
+// regardless of this constant's nominal value, this change cannot make any
+// single call run longer than the route already allows — it only stops
+// repair-mode attempts from being cut off earlier than first-pass ones for
+// no documented reason.
+const DEEPINFRA_SWARM_LARGE_TIMEOUT_MS = 240_000
 
 // Real-time background lane (coach | critic): Mistral primary, then the paid
 // DeepInfra relief valve (see header comment above), then the Groq
