@@ -211,6 +211,56 @@ export async function getReasoningRunByHouseId(houseId: string): Promise<Reasoni
   }
 }
 
+// Single-flight per house (doc 30's Loop B item 1a,
+// plans/active/reasoning-pipeline/30-console-subagent-loops.md) — finds the
+// most-recently-updated 'running' row for this house that is NOT the
+// incoming request's own run (excludeRunId), so
+// app/api/houses/[id]/reasoning/route.ts can decide whether an in-flight run
+// elsewhere blocks a NEW start. The `.neq('id', excludeRunId)` is the whole
+// trick: a continuation step of the caller's own run always resends its own
+// runId, so it can never see itself here regardless of whether that row has
+// even been persisted yet (persistRunStep runs in `after()`, fire-and-forget
+// — this function never needs to race it). runLockBlocks (lib/ai/console.ts)
+// turns this row (or its absence) plus the caller's runId into an allow/deny
+// decision; staleness (a row whose updated_at is old enough that its run was
+// clearly abandoned, e.g. a closed tab) is also decided there, not here.
+//
+// Same fail-open posture as every other read in this module: a lookup
+// failure returns null (no lock found) rather than blocking a legitimate run
+// over an infrastructure hiccup — this is a cost/consistency control, not a
+// security boundary, so an outage here should never be the reason a real
+// pipeline run can't start.
+export interface RunningRunLock {
+  id: string
+  updatedAt: string
+}
+
+export async function getConflictingRunningRun(houseId: string, excludeRunId: string): Promise<RunningRunLock | null> {
+  const client = serviceClient()
+  if (!client) return null
+  try {
+    const { data, error } = await client
+      .from('reasoning_runs')
+      .select('id, updated_at')
+      .eq('house_id', houseId)
+      .eq('status', 'running')
+      .neq('id', excludeRunId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    const row = data as { id: string; updated_at: string }
+    return { id: row.id, updatedAt: row.updated_at }
+  } catch (err) {
+    log.error('ai/reasoning/persistence', 'failed to check run lock (non-fatal, fails open)', {
+      houseId,
+      error: (err as Error)?.message,
+    })
+    return null
+  }
+}
+
 // Test-only: drop the cached client so a test can force a fresh env re-read.
 export function __resetPersistenceClient(): void {
   service = null

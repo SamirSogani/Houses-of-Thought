@@ -36,6 +36,7 @@ import {
   CONSOLE_MESSAGE_MAX,
   MAX_ACTIVE_CHATS_PER_HOUSE,
   MAX_CHAT_BRANCH_DEPTH,
+  MAX_REVISE_ITERATIONS,
   type ConsoleTurn,
   type RerunProposal,
 } from '@/lib/ai/console'
@@ -83,6 +84,8 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [confirmingRerun, setConfirmingRerun] = useState<{ turnId: string; proposal: RerunProposal } | null>(null)
   const [branchingMessageId, setBranchingMessageId] = useState<string | null>(null)
+  const [revisingMessageId, setRevisingMessageId] = useState<string | null>(null)
+  const [reviseError, setReviseError] = useState<{ turnId: string; message: string } | null>(null)
   const [creatingChat, setCreatingChat] = useState(false)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const revRef = useRef<string | undefined>(undefined)
@@ -134,6 +137,8 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
     setAdded(new Set())
     setConfirmingRerun(null)
     setSendState('idle')
+    setRevisingMessageId(null)
+    setReviseError(null)
     fetch(`/api/houses/${houseId}/console?chatId=${chatId}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data: { turns: ConsoleTurn[] }) => {
@@ -170,8 +175,37 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
 
   useEffect(() => {
     if (runner.phase !== 'done') return
+    // ConsolePage only ever calls runner.rerunFrom (never runner.start), so
+    // every 'done' observed here IS a confirmed rerun completing — read the
+    // stage BEFORE clearing confirmingRerun below, it's the last chance to.
+    const rerunStage = confirmingRerun?.proposal.stage ?? null
     setConfirmingRerun(null)
     void save()
+    if (rerunStage) {
+      // Loop B item 1b (doc 30) — the rerun completes client-side (this
+      // effect), so the marker has to be requested from here; which chats
+      // are active and the marker text itself stay server-side
+      // (app/api/houses/[id]/console/rerun-complete/route.ts). Best-effort:
+      // the house write above already landed either way, so a failure here
+      // just means the marker is missing, not that anything was lost.
+      fetch(`/api/houses/${houseId}/console/rerun-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: rerunStage }),
+      })
+        .then(() => {
+          chats.refresh()
+          if (chatId) {
+            fetch(`/api/houses/${houseId}/console?chatId=${chatId}`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data: { turns: ConsoleTurn[] } | null) => {
+                if (data) setTurns(data.turns)
+              })
+              .catch(() => {})
+          }
+        })
+        .catch(() => {})
+    }
     fetch(`/api/houses/${houseId}/reasoning`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { run: PersistedRun | null } | null) => {
@@ -189,7 +223,17 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
     const optimisticId = `optimistic-${Date.now()}`
     setTurns((prev) => [
       ...prev,
-      { id: optimisticId, role: 'user', message, actions: null, rerunProposal: null, createdAt: new Date().toISOString() },
+      {
+        id: optimisticId,
+        role: 'user',
+        message,
+        actions: null,
+        rerunProposal: null,
+        createdAt: new Date().toISOString(),
+        revisesMessageId: null,
+        revisionIteration: 0,
+        critique: null,
+      },
     ])
     setDraft('')
     try {
@@ -209,6 +253,47 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
       chats.refresh()
     } catch {
       setSendState('error')
+    }
+  }
+
+  // Loop A, bounded revise (doc 30) — no optimistic turn (unlike handleSend):
+  // the instruction and the revision both land as real rows in one response,
+  // so there's nothing useful to show optimistically beyond the "Revising…"
+  // busy state ConsoleTranscript's own ReviseControl already renders.
+  async function handleRevise(targetTurnId: string, instruction: string) {
+    if (!chatId || revisingMessageId) return
+    setRevisingMessageId(targetTurnId)
+    setReviseError(null)
+    try {
+      const res = await fetch(`/api/houses/${houseId}/console/revise`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'revise',
+          chatId,
+          targetTurnId,
+          instruction,
+          house: JSON.parse(serializeContent(state)),
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        const message =
+          body.error === RATE_LIMITED_CODE
+            ? RATE_LIMITED_COPY
+            : body.error === 'revise-cap-reached'
+              ? `${MAX_REVISE_ITERATIONS} revisions is the limit for this answer.`
+              : "Couldn't revise that — try again."
+        setReviseError({ turnId: targetTurnId, message })
+        return
+      }
+      const { userTurn, assistantTurn } = (await res.json()) as { userTurn: ConsoleTurn; assistantTurn: ConsoleTurn }
+      setTurns((prev) => [...prev, userTurn, assistantTurn])
+      chats.refresh()
+    } catch {
+      setReviseError({ turnId: targetTurnId, message: "Couldn't revise that — try again." })
+    } finally {
+      setRevisingMessageId(null)
     }
   }
 
@@ -360,6 +445,9 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
               onPreviewRerun={(turnId, proposal) => setConfirmingRerun({ turnId, proposal })}
               onBranchFromMessage={handleBranchFromMessage}
               branchingMessageId={branchingMessageId}
+              onRevise={handleRevise}
+              revisingMessageId={revisingMessageId}
+              reviseError={reviseError}
             />
 
             {confirmingRerun && (

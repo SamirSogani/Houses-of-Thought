@@ -5,16 +5,28 @@
 // the routes (app/api/houses/[id]/console/chats/*) are thin wrappers over
 // these same functions, exercised against Supabase rows they fetch
 // themselves.
+//
+// Phase 2 (plan doc plans/active/reasoning-pipeline/30-console-subagent-
+// loops.md) adds coverage for the same reason: the single-flight rerun
+// lock's staleness window, the revise loop's iteration cap, the
+// rerun-completion marker's stage targeting, and the revision-chain
+// collapse grouping — all pure, all DB-free.
 
 import { describe, expect, it } from 'vitest'
 import {
   MAX_ACTIVE_CHATS_PER_HOUSE,
   MAX_CHAT_BRANCH_DEPTH,
+  MAX_REVISE_ITERATIONS,
+  STALE_RUN_LOCK_MS,
   canBranchFrom,
   chatDepth,
+  groupRevisionChains,
   hasRoomForNewChat,
   messagesToFork,
   reparentChildren,
+  rerunMarkerMessage,
+  revisionCapReached,
+  runLockBlocks,
   titleFromMessage,
   toChronological,
   type ChatNode,
@@ -150,5 +162,121 @@ describe('titleFromMessage', () => {
     const title = titleFromMessage(long)
     expect(title.length).toBeLessThanOrEqual(121)
     expect(title.endsWith('…')).toBe(true)
+  })
+})
+
+describe('runLockBlocks (Loop B item 1a — single-flight rerun lock)', () => {
+  const now = Date.parse('2026-08-22T12:00:00.000Z')
+
+  it('never blocks when there is no other running row', () => {
+    expect(runLockBlocks(null, 'incoming-run', now)).toBe(false)
+  })
+
+  it('never blocks a continuation of the SAME run, even if somehow passed in', () => {
+    // The real caller (getConflictingRunningRun) already excludes the
+    // incoming runId via its own query — this asserts the function's own
+    // contract holds independent of that, per its header comment: "the one
+    // line the whole lock's correctness rests on."
+    const ownRow = { id: 'run-a', updatedAt: new Date(now).toISOString() }
+    expect(runLockBlocks(ownRow, 'run-a', now)).toBe(false)
+  })
+
+  it('blocks a DIFFERENT run that is still fresh', () => {
+    const other = { id: 'run-b', updatedAt: new Date(now - 60_000).toISOString() } // 1 minute old
+    expect(runLockBlocks(other, 'run-a', now)).toBe(true)
+  })
+
+  it('does not block a DIFFERENT run once it is stale (>= STALE_RUN_LOCK_MS old)', () => {
+    const justUnderStale = { id: 'run-b', updatedAt: new Date(now - (STALE_RUN_LOCK_MS - 1)).toISOString() }
+    const exactlyStale = { id: 'run-b', updatedAt: new Date(now - STALE_RUN_LOCK_MS).toISOString() }
+    expect(runLockBlocks(justUnderStale, 'run-a', now)).toBe(true)
+    expect(runLockBlocks(exactlyStale, 'run-a', now)).toBe(false)
+  })
+})
+
+describe('rerunMarkerMessage (Loop B item 1b — marker targeting)', () => {
+  it('matches doc 30\'s own example text for the perspectives stage', () => {
+    expect(rerunMarkerMessage('perspectives')).toBe(
+      'Perspectives onward were regenerated; answers above may refer to the previous version.'
+    )
+  })
+
+  it('names the SAME layer label RerunPanel already shows on the confirm card (concepts renders as "Frame")', () => {
+    expect(rerunMarkerMessage('concepts')).toBe('Frame onward were regenerated; answers above may refer to the previous version.')
+  })
+
+  it('produces a distinct message per stage — the marker names what actually cascaded, not a generic notice', () => {
+    const messages = new Set(
+      (['concepts', 'perspectives', 'evidence', 'assumptions', 'implications'] as const).map(rerunMarkerMessage)
+    )
+    expect(messages.size).toBe(5)
+  })
+})
+
+describe('revisionCapReached (Loop A — hard cap of MAX_REVISE_ITERATIONS)', () => {
+  it('allows revising an original answer and every iteration below the cap', () => {
+    for (let i = 0; i < MAX_REVISE_ITERATIONS; i++) {
+      expect(revisionCapReached(i)).toBe(false)
+    }
+  })
+
+  it('blocks at and above the cap', () => {
+    expect(revisionCapReached(MAX_REVISE_ITERATIONS)).toBe(true)
+    expect(revisionCapReached(MAX_REVISE_ITERATIONS + 1)).toBe(true)
+  })
+})
+
+describe('groupRevisionChains (Loop A — earlier attempts collapse under a disclosure)', () => {
+  it('returns nothing for a transcript with no revisions', () => {
+    const turns = [
+      { id: 'u1', revisesMessageId: null },
+      { id: 'a1', revisesMessageId: null },
+    ]
+    expect(groupRevisionChains(turns)).toEqual([])
+  })
+
+  it('groups a single revision under its head, oldest-first', () => {
+    const turns = [
+      { id: 'a1', revisesMessageId: null }, // original answer
+      { id: 'a2', revisesMessageId: 'a1' }, // one revision
+    ]
+    expect(groupRevisionChains(turns)).toEqual([{ headId: 'a2', earlierIds: ['a1'] }])
+  })
+
+  it('walks a full 3-iteration chain back to its root, in chronological order', () => {
+    const turns = [
+      { id: 'a1', revisesMessageId: null },
+      { id: 'a2', revisesMessageId: 'a1' },
+      { id: 'a3', revisesMessageId: 'a2' },
+      { id: 'a4', revisesMessageId: 'a3' }, // the cap: a1 -> a2 -> a3 -> a4 is 3 revisions
+    ]
+    expect(groupRevisionChains(turns)).toEqual([{ headId: 'a4', earlierIds: ['a1', 'a2', 'a3'] }])
+  })
+
+  it('handles two independent chains in the same transcript', () => {
+    const turns = [
+      { id: 'a1', revisesMessageId: null },
+      { id: 'a2', revisesMessageId: 'a1' },
+      { id: 'b1', revisesMessageId: null },
+      { id: 'b2', revisesMessageId: 'b1' },
+    ]
+    const groups = groupRevisionChains(turns)
+    expect(groups).toHaveLength(2)
+    expect(groups.find((g) => g.headId === 'a2')?.earlierIds).toEqual(['a1'])
+    expect(groups.find((g) => g.headId === 'b2')?.earlierIds).toEqual(['b1'])
+  })
+
+  it('a corrupt cyclic chain does not infinite-loop (bounded by the seen guard)', () => {
+    // x <-> y cycle back into each other; z is the genuine head (nothing
+    // revises it) but walking backward from it hits the cycle.
+    const turns = [
+      { id: 'x', revisesMessageId: 'y' },
+      { id: 'y', revisesMessageId: 'x' },
+      { id: 'z', revisesMessageId: 'x' },
+    ]
+    const groups = groupRevisionChains(turns)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].headId).toBe('z')
+    expect(groups[0].earlierIds.length).toBeLessThanOrEqual(2)
   })
 })

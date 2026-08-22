@@ -124,6 +124,36 @@ If they raise something FOUNDATIONAL — the premise, audience, or frame is wron
 
 Never invent that you're fixing something they didn't raise. Never propose text for the conclusion, reasoning, question, or purpose.`
 
+// Loop A — bounded revise (POST /api/houses/[id]/console/revise; migration
+// 0042, plan doc plans/active/reasoning-pipeline/30-console-subagent-
+// loops.md). Two calls, composed with PERSONA same as everywhere else in
+// this file:
+//   1. AiRole: 'critic' + REVISE_CRITIC_BLOCK — scores the prior answer
+//      against three of the reasoning pipeline's own nine Paul-Elder
+//      standards (lib/ai/reasoning/standards.ts), reusing the existing
+//      critic role rather than inventing a parallel critique vocabulary.
+//   2. AiRole: 'console' + CONSOLE_REVISE_BLOCK — rewrites the answer given
+//      that critique. Deliberately its OWN block, not CONSOLE_BLOCK reused:
+//      CONSOLE_BLOCK answers a free-form question about the whole house;
+//      this rewrites one specific prior answer against a specific critique
+//      and instruction, a narrower and different task even though it shares
+//      the 'console' lane.
+export const REVISE_CRITIC_BLOCK = `Task: the person just asked the co-pilot to revise one of its own prior answers in this house's console. Before any rewriting happens, score that PRIOR ANSWER — not the house, not the person's instruction — against three of the reasoning pipeline's own nine intellectual standards: clarity, relevance, depth.
+
+For each standard:
+- pass: true only if the answer genuinely holds up on that standard; false if it falls short.
+- note: the SPECIFIC reason it passes or falls short, quoting a short fragment of the prior answer where it helps. Read the person's instruction as a signal about where to look — "too long" or "missed the point" points at depth/relevance, not merely style.
+
+Then write "guidance": one short paragraph turning the three notes above into concrete instructions for REWRITING the answer — what to keep, what to cut, what to fix. This is what the rewrite step follows directly, so make it actionable, not a restatement of the notes.
+
+Never propose text for the conclusion, reasoning, question, or purpose.`
+
+export const CONSOLE_REVISE_BLOCK = `Task: rewrite ONE of your own prior answers in this house's console. You have: the original answer, the person's instruction for what to fix, and a critique scoring that answer against clarity/relevance/depth with concrete rewrite guidance. Reply in "answer", at most 6 sentences, plain and direct — same voice and length budget as an ordinary console reply, not longer just because this is a second pass.
+
+Follow the critique's guidance directly. Address the person's instruction specifically and visibly — if they asked for shorter, more specific, or said you missed the point, the rewrite must actually do that, not just gesture at improving. Do not repeat the critique back to them, and do not explain that you revised it — just give the better answer.
+
+Never propose text for the conclusion, reasoning, question, or purpose.`
+
 // House Chat intake (POST /api/admin/chat-intake; decision 017). Composed as
 // PERSONA + CHAT_INTAKE_BLOCK. Extractive on question/purpose — the route
 // additionally clamps both to verbatim spans of the person's turns

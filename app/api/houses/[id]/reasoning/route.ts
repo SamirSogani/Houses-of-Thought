@@ -75,7 +75,8 @@ import {
   questionContext,
 } from '@/lib/ai/reasoning/orchestrator-global'
 import { runMasterReview } from '@/lib/ai/reasoning/orchestrator-panel'
-import { persistRunStep, runStatusFrom, getReasoningRunByHouseId } from '@/lib/ai/reasoning/persistence'
+import { persistRunStep, runStatusFrom, getReasoningRunByHouseId, getConflictingRunningRun } from '@/lib/ai/reasoning/persistence'
+import { runLockBlocks } from '@/lib/ai/console'
 import {
   RequestSchema,
   failingStandardIds,
@@ -224,6 +225,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
   const devForceNeedsInput = parsed.data.devForceNeedsInput ?? false
+
+  // Single-flight per house (doc 30's Loop B item 1a,
+  // plans/active/reasoning-pipeline/30-console-subagent-loops.md). This is
+  // THE SAME route every step of an in-flight run resends to
+  // (useReasoningPipelineRunner's effect, one POST per step) — a naive
+  // "refuse if a run is running for this house" check would block the
+  // running pipeline's own next step and break the normal build flow. The
+  // guard against that: getConflictingRunningRun already excludes the
+  // incoming runId from its query, and runLockBlocks re-checks that same
+  // rule as a pure function — so a continuation step of THIS SAME run (same
+  // runId on every step, minted once by start()/rerunFrom()) can never find
+  // itself here and always passes straight through. Only a DIFFERENT,
+  // still-fresh running row for this house — a genuine second run/rerun
+  // starting concurrently — blocks. Skipped for dryRun, matching persist()
+  // below: a dry run never becomes a real 'running' row, so it has nothing
+  // to gate and nothing to protect against.
+  if (!dryRun) {
+    const conflicting = await getConflictingRunningRun(houseId, runId)
+    if (runLockBlocks(conflicting, runId)) {
+      return NextResponse.json({ error: 'reasoning-run-in-progress' }, { status: 409 })
+    }
+  }
+
   const extraContext = buildExtraContext(run)
 
   // Same persistence pattern as the admin route (see its own header comment

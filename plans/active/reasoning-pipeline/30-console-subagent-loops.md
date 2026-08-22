@@ -101,11 +101,11 @@ unchanged 30-turn window are what hold that down.
 
 ## Suggested phasing
 
-| phase | contents |
-|---|---|
-| 1 | Migration 0041, chats API, sidebar, fork + seed, soft delete/restore, doc 29's two bug fixes, the `ConsolePage` split |
-| 2 | Loop B's three additions, the `enforceAiLimit` units change, then Loop A |
-| 3 | Loop C — sandbox rerun and diff: branching the house, not just the chat |
+| phase | contents | status |
+|---|---|---|
+| 1 | Migration 0041, chats API, sidebar, fork + seed, soft delete/restore, doc 29's two bug fixes, the `ConsolePage` split | **Implemented**, `feat/console-multi-chat` |
+| 2 | Loop B's three additions, the `enforceAiLimit` units change, then Loop A | **Implemented**, `feat/console-loops` (migration 0042 not yet applied) |
+| 3 | Loop C — sandbox rerun and diff: branching the house, not just the chat | Not started |
 
 Phase 1 is shippable alone and is what the ask actually was. Phase 2 is what
 makes several chats *safe* rather than merely possible — without it, two

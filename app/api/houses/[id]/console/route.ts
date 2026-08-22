@@ -74,6 +74,13 @@ interface ConsoleRow {
   actions: unknown
   rerun_proposal: unknown
   created_at: string
+  // Loop A columns (migration 0042, plan doc 30) — null/0 on every row this
+  // route itself ever writes; only app/api/houses/[id]/console/revise/
+  // route.ts sets them, but a GET here has to be able to READ what that
+  // route wrote, so every row this route selects carries them too.
+  revises_message_id: string | null
+  revision_iteration: number
+  critique: unknown
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
@@ -94,7 +101,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // OLDEST TRANSCRIPT_LIMIT before this fix) — see module header comment.
   const { data, error } = await supabase
     .from('house_console_messages')
-    .select('id, role, message, actions, rerun_proposal, created_at')
+    .select('id, role, message, actions, rerun_proposal, created_at, revises_message_id, revision_iteration, critique')
     .eq('house_id', houseId)
     .eq('chat_id', chatId)
     .order('created_at', { ascending: false })
@@ -111,6 +118,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     actions: (row.actions as ConsoleTurn['actions']) ?? null,
     rerunProposal: (row.rerun_proposal as RerunProposal) ?? null,
     createdAt: row.created_at,
+    revisesMessageId: row.revises_message_id ?? null,
+    revisionIteration: row.revision_iteration ?? 0,
+    critique: (row.critique as ConsoleTurn['critique']) ?? null,
   }))
   return NextResponse.json({ turns })
 }
@@ -258,6 +268,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       actions: finalActions.length > 0 ? finalActions : null,
       rerunProposal: finalRerun,
       createdAt: reply.created_at,
+      // This route never writes a revision — only .../console/revise/
+      // route.ts does — so these are always the "ordinary turn" values.
+      revisesMessageId: null,
+      revisionIteration: 0,
+      critique: null,
     }
     return NextResponse.json({ turn })
   } catch (err) {

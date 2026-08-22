@@ -56,6 +56,10 @@ export function RerunPanel({
         Anything you&apos;ve edited by hand in those layers is replaced, not merged. Layers before this point are
         untouched.
       </div>
+      <div style={{ fontSize: 11.5, color: 'var(--ink-subtle)', marginTop: 4, lineHeight: 1.5 }}>
+        This changes the house for every chat, not just this one — once it finishes, every active chat gets a note
+        that these layers were regenerated.
+      </div>
 
       {!rerunActive && (
         <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
