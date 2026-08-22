@@ -137,12 +137,18 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
       try {
         const res = await fetch(`/api/houses/${houseId}/console/chats/${chatId}`, { method: 'DELETE' })
         if (!res.ok) return { ok: false, chats: null }
-        return { ok: true, chats: await refresh() }
+        const remaining = await refresh()
+        // The just-deleted chat now belongs in "Recently deleted" — reload
+        // that list if it has ever been opened, or an already-loaded
+        // disclosure keeps showing a stale set the new deletion is missing
+        // from. Mirrors restoreChat's own reload, for the same reason.
+        if (deletedLoadState === 'loaded') loadDeleted()
+        return { ok: true, chats: remaining }
       } catch {
         return { ok: false, chats: null }
       }
     },
-    [houseId, refresh]
+    [houseId, refresh, deletedLoadState, loadDeleted]
   )
 
   const restoreChat = useCallback(
