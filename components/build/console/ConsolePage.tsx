@@ -42,6 +42,7 @@ import {
 } from '@/lib/ai/console'
 import { useReasoningPipelineRunner } from '../useReasoningPipelineRunner'
 import { useIsMobile } from '../useIsMobile'
+import { useSidebarCollapsed } from './useSidebarCollapsed'
 import type { RunState } from '@/components/admin/reasoning/ReasoningStagesList'
 import { createClient } from '@/lib/supabase/client'
 import { useConsoleChats } from './useConsoleChats'
@@ -72,6 +73,7 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   const searchParams = useSearchParams()
   const chatId = searchParams.get('chat')
   const isMobile = useIsMobile()
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
 
   const chats = useConsoleChats(houseId)
   const bootstrapping = useRef(false)
@@ -100,6 +102,9 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
     revRef.current = await saveHouse(supabase, houseId, stateRef.current, revRef.current)
   }, [houseId])
 
+  // Content key for the chat list — see the bootstrap effect's dep comment.
+  const chatIdsKey = chats.chats.map((c) => c.id).join(',')
+
   // Resolve a real chat to view: an already-valid ?chat= param is left
   // alone; otherwise jump to the most-recently-active chat, or — a house
   // with no chats at all yet — bootstrap exactly one 'new' chat and jump
@@ -120,11 +125,13 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
         router.replace(`/build/${houseId}/console?chat=${result.chat.id}`, { scroll: false })
       }
     })
-    // chats.chats/createChat are recreated each render off the same fetch
-    // cycle; keying on loadState + the id list (via chatId's own presence
-    // check above) is enough to avoid re-running this per keystroke.
+    // chatIdsKey, not chats.chats: the array identity changes on every
+    // refetch, but its CONTENT is what this effect cares about. Without it
+    // the effect never re-ran when a chat left the list, so deleting the
+    // chat you were viewing left ?chat= pointing at it — the transcript
+    // stayed on screen and the delete looked like it had done nothing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chats.loadState, chatId, houseId, router])
+  }, [chats.loadState, chatIdsKey, chatId, houseId, router])
 
   // Transcript for the selected chat — reset on every chat switch, not just
   // on mount (unlike the pre-multi-chat version of this file, which loaded
@@ -344,15 +351,26 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   }
 
   async function handleDeleteChat(id: string) {
-    const ok = await chats.deleteChat(id)
-    if (ok && id === chatId) router.replace(`/build/${houseId}/console`, { scroll: false })
+    const { ok, chats: remaining } = await chats.deleteChat(id)
+    if (!ok) {
+      dispatch({ type: 'SET_TOAST', value: 'Could not delete that chat — try again.' })
+      return
+    }
+    if (id !== chatId) return
+    // Jump to what's actually left, read from the refreshed list rather than
+    // from `chats.chats` (which this delete's own refetch may not have
+    // written yet). Clearing ?chat= and letting the bootstrap effect choose
+    // used to race that refetch and land back on the chat just deleted.
+    const next = remaining?.find((c) => c.id !== id) ?? null
+    router.replace(next ? `/build/${houseId}/console?chat=${next.id}` : `/build/${houseId}/console`, { scroll: false })
   }
 
   const rerunActive = runner.phase !== 'idle'
   const selectedChat = chats.chats.find((c) => c.id === chatId) ?? null
 
-  const sidebar = (
+  const renderSidebar = (onCollapse?: () => void) => (
     <ChatSidebar
+      onCollapse={onCollapse}
       chats={chats.chats}
       selectedChatId={chatId}
       onSelect={goToChat}
@@ -397,9 +415,42 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
       </header>
 
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        {!isMobile && (
+        {!isMobile && !sidebarCollapsed && (
           <aside style={{ flex: '0 0 240px', borderRight: '1px solid var(--rule)', background: 'var(--white)', minHeight: 0 }}>
-            {sidebar}
+            {renderSidebar(toggleSidebar)}
+          </aside>
+        )}
+
+        {!isMobile && sidebarCollapsed && (
+          <aside
+            style={{
+              flex: '0 0 44px',
+              borderRight: '1px solid var(--rule)',
+              background: 'var(--white)',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              paddingTop: 12,
+              gap: 10,
+            }}
+          >
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="Expand chat list"
+              title={`Chats · ${chats.chats.length}`}
+              style={{ width: 26, height: 26, color: 'var(--ink-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
+            >
+              ››
+            </button>
+            <span
+              className="mono"
+              aria-hidden="true"
+              style={{ fontSize: 10, color: 'var(--ink-subtle)', writingMode: 'vertical-rl', letterSpacing: '0.08em' }}
+            >
+              Chats · {chats.chats.length}
+            </span>
           </aside>
         )}
 
@@ -413,7 +464,7 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
               aria-label="Chats"
               style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(85vw, 300px)', background: 'var(--white)', boxShadow: '24px 0 60px rgba(20,33,58,0.24)' }}
             >
-              {sidebar}
+              {renderSidebar()}
             </div>
           </div>
         )}

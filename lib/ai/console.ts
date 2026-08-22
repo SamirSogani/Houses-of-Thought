@@ -483,3 +483,54 @@ export function transcriptLine(role: string, message: string): string {
   if (role === 'system') return `[System note] ${message}`
   return `Co-pilot: ${message}`
 }
+
+// ── Sidebar tree (components/build/console/ChatSidebar.tsx renders these) ──
+export function chatLabel(title: string): string {
+  return title.trim().length > 0 ? title : 'Untitled chat'
+}
+
+export interface SidebarRow {
+  chat: ChatSummary
+  // TRUE nesting depth, not a flattened 0/1. Doc 29 originally specified a
+  // single indent regardless of real depth; testing showed that makes a
+  // branch-of-a-branch sit at the same level as a branch of the root, so a
+  // sub-branch reads as though it had been branched off the original parent
+  // instead of off the chat it actually came from. Depth is bounded by
+  // MAX_CHAT_BRANCH_DEPTH server-side, so this cannot run away.
+  depth: number
+  // Direct parent's title, shown as "branched from …" on any nested row.
+  parentTitle: string | null
+}
+
+// Depth-first walk, so every chat renders directly beneath its own parent.
+// A chat whose parent is missing from the active set (soft-deleted, or an
+// edge case) is treated as a root rather than being dropped.
+export function buildSidebarRows(chats: ChatSummary[]): SidebarRow[] {
+  const byId = new Map(chats.map((c) => [c.id, c]))
+
+  const byLastMessageDesc = (a: ChatSummary, b: ChatSummary) =>
+    new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+
+  const childrenOf = new Map<string | null, ChatSummary[]>()
+  for (const chat of chats) {
+    const key = chat.parentChatId && byId.has(chat.parentChatId) ? chat.parentChatId : null
+    childrenOf.set(key, [...(childrenOf.get(key) ?? []), chat])
+  }
+  for (const list of childrenOf.values()) list.sort(byLastMessageDesc)
+
+  const rows: SidebarRow[] = []
+  // A parent cycle can only come from corrupt data, but a recursive walk is
+  // exactly where that would hang the page rather than just look wrong.
+  const placed = new Set<string>()
+
+  function walk(parentId: string | null, depth: number, parentTitle: string | null) {
+    for (const chat of childrenOf.get(parentId) ?? []) {
+      if (placed.has(chat.id)) continue
+      placed.add(chat.id)
+      rows.push({ chat, depth, parentTitle })
+      walk(chat.id, depth + 1, chatLabel(chat.title))
+    }
+  }
+  walk(null, 0, null)
+  return rows
+}

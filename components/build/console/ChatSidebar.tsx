@@ -5,66 +5,26 @@
 // this forces" + its UI section). Renders the branch-indented tree, the row
 // menu (Rename · Branch · Delete), and the "Recently deleted" disclosure.
 // State/CRUD lives one level up in useConsoleChats.ts — this file is
-// rendering + the one piece of presentation-only logic doc 29 asks for
-// ("Branch children indent one level under their parent regardless of real
-// depth; deeper chains show 'branched from …' instead of nesting further"),
-// which is UI grouping, not a data-model rule, so it stays local here rather
-// than in lib/ai/console.ts's DB-independent, unit-tested helpers.
+// rendering + the tree-building that turns a flat chat list into nested rows
+// (buildSidebarRows below), which is UI grouping rather than a data-model
+// rule, so it stays local here rather than in lib/ai/console.ts's
+// DB-independent, unit-tested helpers. Doc 29 originally called for a single
+// flattened indent; see buildSidebarRows for why real depth replaced it.
+//
+// The tree-building itself (buildSidebarRows) lives in lib/ai/console.ts
+// with this surface's other pure, unit-tested helpers — same place
+// groupRevisionChains sits for the same reason: it is UI grouping, but it is
+// also the part with real logic in it, and the flattening bug it replaced
+// was only visible in that logic.
+//
+// The pane can be collapsed on desktop (useSidebarCollapsed) — this file
+// renders the expanded state only; the collapsed rail lives in
+// ConsolePage.tsx, which owns the layout.
 
 import { useState } from 'react'
 import type { ChatSummary } from '@/lib/ai/console'
-import { MAX_ACTIVE_CHATS_PER_HOUSE } from '@/lib/ai/console'
+import { MAX_ACTIVE_CHATS_PER_HOUSE, buildSidebarRows, chatLabel } from '@/lib/ai/console'
 import type { DeletedListLoadState } from './useConsoleChats'
-
-function chatLabel(title: string): string {
-  return title.trim().length > 0 ? title : 'Untitled chat'
-}
-
-interface SidebarRow {
-  chat: ChatSummary
-  indent: 0 | 1
-  // Direct parent's title, shown as "branched from …" — only set on an
-  // indented row, and always the REAL direct parent even when that parent
-  // is itself several forks deep (doc 29: "deeper chains show 'branched
-  // from …' instead of nesting further").
-  parentTitle: string | null
-}
-
-// Two-tier grouping: every root-origin chat (or one whose parent isn't in
-// the active set — soft-deleted/edge case) starts a cluster; every other
-// chat is placed under its cluster's root, at a single indent, regardless of
-// how many real fork hops separate it from that root.
-function buildSidebarRows(chats: ChatSummary[]): SidebarRow[] {
-  const byId = new Map(chats.map((c) => [c.id, c]))
-
-  function rootOf(chat: ChatSummary): ChatSummary {
-    let current = chat
-    const seen = new Set<string>()
-    while (current.parentChatId && byId.has(current.parentChatId) && !seen.has(current.id)) {
-      seen.add(current.id)
-      current = byId.get(current.parentChatId)!
-    }
-    return current
-  }
-
-  const byLastMessageDesc = (a: ChatSummary, b: ChatSummary) =>
-    new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-
-  const roots = chats.filter((c) => c.parentChatId === null || !byId.has(c.parentChatId)).sort(byLastMessageDesc)
-
-  const rows: SidebarRow[] = []
-  for (const root of roots) {
-    rows.push({ chat: root, indent: 0, parentTitle: null })
-    const descendants = chats
-      .filter((c) => c.id !== root.id && rootOf(c).id === root.id)
-      .sort(byLastMessageDesc)
-    for (const chat of descendants) {
-      const parent = chat.parentChatId ? (byId.get(chat.parentChatId) ?? null) : null
-      rows.push({ chat, indent: 1, parentTitle: parent ? chatLabel(parent.title) : null })
-    }
-  }
-  return rows
-}
 
 export function ChatSidebar({
   chats,
@@ -78,6 +38,7 @@ export function ChatSidebar({
   deletedLoadState,
   onOpenDeleted,
   onRestore,
+  onCollapse,
   creating,
 }: {
   chats: ChatSummary[]
@@ -91,6 +52,9 @@ export function ChatSidebar({
   deletedLoadState: DeletedListLoadState
   onOpenDeleted: () => void
   onRestore: (chatId: string) => void
+  // Desktop only — the mobile drawer has its own dismiss, so it passes none
+  // and no collapse control renders.
+  onCollapse?: () => void
   creating: boolean
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -127,6 +91,28 @@ export function ChatSidebar({
         <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', letterSpacing: '0.04em' }}>
           Chats · {chats.length}/{MAX_ACTIVE_CHATS_PER_HOUSE}
         </span>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse chat list"
+            title="Collapse chat list"
+            style={{
+              marginLeft: 'auto',
+              marginRight: 6,
+              width: 22,
+              height: 22,
+              lineHeight: '20px',
+              color: 'var(--ink-subtle)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            ‹‹
+          </button>
+        )}
         <button
           type="button"
           onClick={onCreateNew}
@@ -149,11 +135,11 @@ export function ChatSidebar({
       </div>
 
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '6px 8px' }}>
-        {rows.map(({ chat, indent, parentTitle }) => {
+        {rows.map(({ chat, depth, parentTitle }) => {
           const active = chat.id === selectedChatId
           const renaming = renamingId === chat.id
           return (
-            <div key={chat.id} style={{ position: 'relative', marginLeft: indent * 14, marginBottom: 2 }}>
+            <div key={chat.id} style={{ position: 'relative', marginLeft: depth * 12, marginBottom: 2 }}>
               {renaming ? (
                 <div style={{ display: 'flex', gap: 6, padding: '6px 8px' }}>
                   <input

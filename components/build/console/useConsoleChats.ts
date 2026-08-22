@@ -9,7 +9,7 @@
 // MAX_ACTIVE_CHATS_PER_HOUSE of these, so a refetch is cheap and keeps the
 // sidebar authoritative instead of risking drift from a hand-rolled patch.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatSummary, CreateChatRequest } from '@/lib/ai/console'
 
 export type ChatListLoadState = 'loading' | 'loaded' | 'error'
@@ -21,16 +21,26 @@ export interface CreateChatResult {
   error?: string
 }
 
+// deleteChat hands back the list as it stands AFTER the delete, because its
+// caller has to decide which chat to show next and cannot read that off
+// `chats` state — the refetch this same call triggers hasn't written it yet.
+// Reading the stale list there is what made a deleted chat re-select itself
+// and look like the delete had silently failed.
+export interface DeleteChatResult {
+  ok: boolean
+  chats: ChatSummary[] | null
+}
+
 export interface UseConsoleChats {
   chats: ChatSummary[]
   loadState: ChatListLoadState
   deletedChats: ChatSummary[]
   deletedLoadState: DeletedListLoadState
   loadDeleted: () => void
-  refresh: () => void
+  refresh: () => Promise<ChatSummary[] | null>
   createChat: (body: CreateChatRequest) => Promise<CreateChatResult>
   renameChat: (chatId: string, title: string) => Promise<boolean>
-  deleteChat: (chatId: string) => Promise<boolean>
+  deleteChat: (chatId: string) => Promise<DeleteChatResult>
   restoreChat: (chatId: string) => Promise<boolean>
 }
 
@@ -39,26 +49,38 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
   const [loadState, setLoadState] = useState<ChatListLoadState>('loading')
   const [deletedChats, setDeletedChats] = useState<ChatSummary[]>([])
   const [deletedLoadState, setDeletedLoadState] = useState<DeletedListLoadState>('idle')
+  // Replaces the old per-call `active` flag: refresh() is now awaited by its
+  // callers, so the guard has to outlive one invocation.
+  const mountedRef = useRef(true)
+  useEffect(
+    () => () => {
+      mountedRef.current = false
+    },
+    []
+  )
 
-  const refresh = useCallback(() => {
-    let active = true
+  // Resolves with the freshly-loaded list as well as writing it to state, so
+  // a mutation that must act on what REMAINS (deleteChat below) can await the
+  // real answer instead of racing its own setState.
+  const refresh = useCallback(async (): Promise<ChatSummary[] | null> => {
     setLoadState((s) => (s === 'loaded' ? 'loaded' : 'loading'))
-    fetch(`/api/houses/${houseId}/console/chats`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((data: { chats: ChatSummary[] }) => {
-        if (!active) return
-        setChats(data.chats)
-        setLoadState('loaded')
-      })
-      .catch(() => {
-        if (active) setLoadState('error')
-      })
-    return () => {
-      active = false
+    try {
+      const res = await fetch(`/api/houses/${houseId}/console/chats`)
+      if (!res.ok) throw new Error('chat list load failed')
+      const data = (await res.json()) as { chats: ChatSummary[] }
+      if (!mountedRef.current) return data.chats
+      setChats(data.chats)
+      setLoadState('loaded')
+      return data.chats
+    } catch {
+      if (mountedRef.current) setLoadState('error')
+      return null
     }
   }, [houseId])
 
-  useEffect(() => refresh(), [refresh])
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   const loadDeleted = useCallback(() => {
     setDeletedLoadState('loading')
@@ -84,7 +106,7 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
           return { ok: false, error: errBody.error ?? 'server-error' }
         }
         const { chat } = (await res.json()) as { chat: ChatSummary }
-        refresh()
+        void refresh()
         return { ok: true, chat }
       } catch {
         return { ok: false, error: 'network-error' }
@@ -101,7 +123,7 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
         })
-        if (res.ok) refresh()
+        if (res.ok) void refresh()
         return res.ok
       } catch {
         return false
@@ -111,13 +133,13 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
   )
 
   const deleteChat = useCallback(
-    async (chatId: string): Promise<boolean> => {
+    async (chatId: string): Promise<DeleteChatResult> => {
       try {
         const res = await fetch(`/api/houses/${houseId}/console/chats/${chatId}`, { method: 'DELETE' })
-        if (res.ok) refresh()
-        return res.ok
+        if (!res.ok) return { ok: false, chats: null }
+        return { ok: true, chats: await refresh() }
       } catch {
-        return false
+        return { ok: false, chats: null }
       }
     },
     [houseId, refresh]
@@ -132,7 +154,7 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
           body: JSON.stringify({ deletedAt: null }),
         })
         if (res.ok) {
-          refresh()
+          void refresh()
           // The restored chat leaves "Recently deleted" — reload it too so
           // the disclosure doesn't keep showing a chat that's active again.
           if (deletedLoadState === 'loaded') loadDeleted()

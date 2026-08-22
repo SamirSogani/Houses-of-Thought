@@ -31,6 +31,7 @@ import {
   toChronological,
   type ChatNode,
   transcriptLine,
+  buildSidebarRows,
 } from './console'
 
 describe('chatDepth / canBranchFrom', () => {
@@ -295,5 +296,44 @@ describe('transcriptLine', () => {
     const line = transcriptLine('system', 'Frame onward was regenerated.')
     expect(line).toBe('[System note] Frame onward was regenerated.')
     expect(line).not.toContain('Co-pilot')
+  })
+})
+
+describe('buildSidebarRows', () => {
+  const chat = (id: string, parentChatId: string | null, lastMessageAt: string, title = '') =>
+    ({ id, parentChatId, lastMessageAt, title }) as Parameters<typeof buildSidebarRows>[0][number]
+
+  it('nests a branch under its own parent, not under the root', () => {
+    // The bug this replaced: root > branch > sub-branch all rendered at one
+    // flattened indent, so a sub-branch read as a branch of the original.
+    const rows = buildSidebarRows([
+      chat('root', null, '2026-08-22T10:00:00Z', 'Root'),
+      chat('branch', 'root', '2026-08-22T10:01:00Z', 'Branch'),
+      chat('sub', 'branch', '2026-08-22T10:02:00Z', 'Sub'),
+    ])
+    expect(rows.map((r) => [r.chat.id, r.depth])).toEqual([
+      ['root', 0],
+      ['branch', 1],
+      ['sub', 2],
+    ])
+    expect(rows[2].parentTitle).toBe('Branch')
+  })
+
+  it('treats a chat whose parent is gone as a root rather than dropping it', () => {
+    const rows = buildSidebarRows([
+      chat('a', null, '2026-08-22T10:00:00Z', 'A'),
+      chat('orphan', 'deleted-parent', '2026-08-22T10:05:00Z', 'Orphan'),
+    ])
+    expect(rows.map((r) => r.chat.id).sort()).toEqual(['a', 'orphan'])
+    expect(rows.every((r) => r.depth === 0)).toBe(true)
+  })
+
+  it('terminates on a parent cycle instead of recursing forever', () => {
+    const rows = buildSidebarRows([
+      chat('x', 'y', '2026-08-22T10:00:00Z', 'X'),
+      chat('y', 'x', '2026-08-22T10:01:00Z', 'Y'),
+    ])
+    // Neither is reachable from a real root; the walk must simply not hang.
+    expect(rows.length).toBeLessThanOrEqual(2)
   })
 })
