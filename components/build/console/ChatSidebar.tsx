@@ -245,11 +245,14 @@ export function ChatSidebar({
         <button
           type="button"
           onClick={() => {
-            setDeletedOpen((open) => {
-              const next = !open
-              if (next && deletedLoadState === 'idle') onOpenDeleted()
-              return next
-            })
+            // The fetch is kicked off OUTSIDE the updater. A setState updater
+            // must be pure — React may run it during a render pass, and
+            // onOpenDeleted sets state in the parent, which is exactly the
+            // "Cannot update a component while rendering a different
+            // component" error this produced.
+            const next = !deletedOpen
+            setDeletedOpen(next)
+            if (next && deletedLoadState === 'idle') onOpenDeleted()
           }}
           className="mono"
           style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 10.5, color: 'var(--ink-subtle)', letterSpacing: '0.03em', background: 'none', border: 'none', padding: '10px 14px', cursor: 'pointer' }}

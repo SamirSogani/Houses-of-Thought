@@ -51,13 +51,20 @@ export function useConsoleChats(houseId: string): UseConsoleChats {
   const [deletedLoadState, setDeletedLoadState] = useState<DeletedListLoadState>('idle')
   // Replaces the old per-call `active` flag: refresh() is now awaited by its
   // callers, so the guard has to outlive one invocation.
+  //
+  // It MUST be re-armed on mount, not just disarmed on unmount. React's dev
+  // StrictMode mounts, cleans up, then mounts again; a ref that is only ever
+  // set to false stays false for the rest of the page's life, and every
+  // later refresh() then fetches successfully and returns without writing
+  // state — the chat list silently stays empty and loadState never leaves
+  // 'loading'.
   const mountedRef = useRef(true)
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
       mountedRef.current = false
-    },
-    []
-  )
+    }
+  }, [])
 
   // Resolves with the freshly-loaded list as well as writing it to state, so
   // a mutation that must act on what REMAINS (deleteChat below) can await the

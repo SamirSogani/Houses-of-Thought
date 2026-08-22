@@ -98,13 +98,46 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     for (const r of msgRows as { chat_id: string }[]) counts.set(r.chat_id, (counts.get(r.chat_id) ?? 0) + 1)
   }
 
+  // Titles for chats that have messages but no title of their own. A chat
+  // normally gets its title from its first message as that message is sent
+  // (POST .../console), so the only way to end up here is to have acquired
+  // messages some other way — which is exactly what 0041's backfill did to
+  // every console conversation that predates multi-chat. Those came back as
+  // "Untitled chat" and were, in practice, unfindable.
+  //
+  // Derived at read time rather than written by a migration so it uses
+  // titleFromMessage itself — one definition of what a derived title looks
+  // like, instead of a second one reimplemented in SQL that could drift.
+  // Costs one extra query only when such a chat exists, and none at all in
+  // the normal case (a brand-new empty chat has no user message, so it stays
+  // "Untitled chat", which is correct).
+  const untitledIds = rows.filter((r) => r.title.trim() === '' && (counts.get(r.id) ?? 0) > 0).map((r) => r.id)
+  const derivedTitles = new Map<string, string>()
+  if (untitledIds.length > 0) {
+    const { data: firstRows, error: firstError } = await supabase
+      .from('house_console_messages')
+      .select('chat_id, message, created_at')
+      .in('chat_id', untitledIds)
+      .eq('role', 'user')
+      .order('created_at', { ascending: true })
+    if (firstError) {
+      // Non-fatal: a missing derived title is a cosmetic loss, not a reason
+      // to fail the whole list.
+      log.error('houses/console/chats', 'title derivation load failed (non-fatal)', { error: firstError.message })
+    } else {
+      for (const r of firstRows as { chat_id: string; message: string }[]) {
+        if (!derivedTitles.has(r.chat_id)) derivedTitles.set(r.chat_id, titleFromMessage(r.message))
+      }
+    }
+  }
+
   // "stale" only means anything for the active list — a deleted chat isn't
   // shown with a live composer to warn.
   const currentRunId = wantDeleted ? null : (await getReasoningRunByHouseId(houseId))?.id ?? null
 
   const chats: ChatSummary[] = rows.map((row) => ({
     id: row.id,
-    title: row.title,
+    title: row.title.trim() === '' ? (derivedTitles.get(row.id) ?? '') : row.title,
     origin: row.origin,
     parentChatId: row.parent_chat_id,
     branchedFromMessageId: row.branched_from_message_id,
