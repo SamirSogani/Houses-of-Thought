@@ -11,15 +11,30 @@
 // lock's staleness window, the revise loop's iteration cap, the
 // rerun-completion marker's stage targeting, and the revision-chain
 // collapse grouping — all pure, all DB-free.
+//
+// Phase 3 (plan doc plans/active/reasoning-pipeline/31-console-sandbox-
+// reruns.md, Loop C) adds coverage for candidate isolation
+// (candidateBlocksNewSandbox — "one live candidate at a time"), staleness
+// (candidateIsStale), and diff derivation
+// (computeCandidateHouseState/diffCandidateStages — Trap 4: the diff must
+// come from the SAME reducer action a real rerun's completion applies).
 
 import { describe, expect, it } from 'vitest'
+import { emptyDraft } from './draft'
+import type { AiAction } from './findings'
+import { blankState } from '@/lib/build/persistence'
+import type { State } from '@/lib/build/types'
 import {
   MAX_ACTIVE_CHATS_PER_HOUSE,
   MAX_CHAT_BRANCH_DEPTH,
   MAX_REVISE_ITERATIONS,
   STALE_RUN_LOCK_MS,
   canBranchFrom,
+  candidateBlocksNewSandbox,
+  candidateIsStale,
   chatDepth,
+  computeCandidateHouseState,
+  diffCandidateStages,
   groupRevisionChains,
   hasRoomForNewChat,
   messagesToFork,
@@ -335,5 +350,99 @@ describe('buildSidebarRows', () => {
     ])
     // Neither is reachable from a real root; the walk must simply not hang.
     expect(rows.length).toBeLessThanOrEqual(2)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// Loop C — sandbox reruns with a diff (doc 31)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('candidateBlocksNewSandbox (Trap 2 — one live candidate at a time)', () => {
+  const now = Date.parse('2026-08-22T12:00:00.000Z')
+
+  it('never blocks when there is no live candidate', () => {
+    expect(candidateBlocksNewSandbox(null, 'incoming-run', now)).toBe(false)
+  })
+
+  it('never blocks a continuation of the SAME candidate run', () => {
+    const own = { id: 'run-a', updatedAt: new Date(now).toISOString() }
+    expect(candidateBlocksNewSandbox(own, 'run-a', now)).toBe(false)
+  })
+
+  it('blocks a DIFFERENT house starting a second sandbox while one is fresh', () => {
+    const other = { id: 'run-b', updatedAt: new Date(now - 60_000).toISOString() }
+    expect(candidateBlocksNewSandbox(other, 'run-a', now)).toBe(true)
+  })
+
+  it('stops blocking once the abandoned candidate ages past STALE_RUN_LOCK_MS — same window runLockBlocks uses', () => {
+    const stale = { id: 'run-b', updatedAt: new Date(now - STALE_RUN_LOCK_MS).toISOString() }
+    expect(candidateBlocksNewSandbox(stale, 'run-a', now)).toBe(false)
+  })
+})
+
+describe('candidateIsStale', () => {
+  it('is false when the current content matches the candidate\'s baseline exactly', () => {
+    const json = JSON.stringify({ concepts: [{ term: 'Equity', definition: '' }] })
+    expect(candidateIsStale(json, json)).toBe(false)
+  })
+
+  it('is true once the house content has changed since the baseline was captured', () => {
+    const base = JSON.stringify({ concepts: [] })
+    const current = JSON.stringify({ concepts: [{ term: 'New', definition: '' }] })
+    expect(candidateIsStale(base, current)).toBe(true)
+  })
+})
+
+describe('computeCandidateHouseState / diffCandidateStages (Trap 4 — diff derived from the reducer)', () => {
+  // A drafted, non-null draft is required — lib/build/state.ts's own
+  // APPLY_RERUN_RESULT case no-ops on a null draft (a rerun only ever fires
+  // on a house that already has one), so a bare blankState() alone would
+  // make computeCandidateHouseState a silent no-op, hiding a real bug
+  // behind a passing-looking test.
+  function baseHouse(): State {
+    return {
+      ...blankState(),
+      draft: emptyDraft(),
+      concepts: [{ term: 'Academic integrity', definition: '' }],
+      assumptions: [{ id: 1, text: 'Old assumption', owner: 'you' }],
+    }
+  }
+
+  it('regenerates only the cascaded stage(s) — upstream stages are byte-identical', () => {
+    const base = baseHouse()
+    const actions: AiAction[] = [{ kind: 'add_assumption', text: 'New assumption' }]
+    const candidate = computeCandidateHouseState(base, ['assumptions'], actions)
+    // Cascaded stage: cleared then repopulated.
+    expect(candidate.assumptions.map((a) => a.text)).toEqual(['New assumption'])
+    // Untouched stage: identical to base.
+    expect(candidate.concepts).toEqual(base.concepts)
+  })
+
+  it('diffs only the cascaded stage — removed is the old item, added is the new one', () => {
+    const base = baseHouse()
+    const actions: AiAction[] = [{ kind: 'add_assumption', text: 'New assumption' }]
+    const candidate = computeCandidateHouseState(base, ['assumptions'], actions)
+    const diff = diffCandidateStages(base, candidate, ['assumptions'])
+    expect(diff).toEqual([{ stage: 'assumptions', removed: ['Old assumption'], added: ['New assumption'] }])
+  })
+
+  it('an item the regeneration reproduces verbatim (same normalized text) is neither added nor removed', () => {
+    const base = baseHouse()
+    // Same text as the existing assumption, different case/whitespace —
+    // same normalized-text matching aiActionApplicable already uses.
+    const actions: AiAction[] = [{ kind: 'add_assumption', text: '  OLD ASSUMPTION  ' }]
+    const candidate = computeCandidateHouseState(base, ['assumptions'], actions)
+    const diff = diffCandidateStages(base, candidate, ['assumptions'])
+    expect(diff).toEqual([{ stage: 'assumptions', removed: [], added: [] }])
+  })
+
+  it('a layer outside the cascade never appears as changed, even if it happens to differ', () => {
+    const base = baseHouse()
+    const candidate = computeCandidateHouseState(base, ['assumptions'], [{ kind: 'add_assumption', text: 'New' }])
+    // concepts was never touched by the cascade, so diffing it against
+    // itself (the only thing computeCandidateHouseState could have changed
+    // is what's IN `stages`) always comes back empty.
+    const diff = diffCandidateStages(base, candidate, ['concepts'])
+    expect(diff).toEqual([{ stage: 'concepts', removed: [], added: [] }])
   })
 })

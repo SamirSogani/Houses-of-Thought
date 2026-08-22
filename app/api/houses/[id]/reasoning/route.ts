@@ -75,8 +75,14 @@ import {
   questionContext,
 } from '@/lib/ai/reasoning/orchestrator-global'
 import { runMasterReview } from '@/lib/ai/reasoning/orchestrator-panel'
-import { persistRunStep, runStatusFrom, getReasoningRunByHouseId, getConflictingRunningRun } from '@/lib/ai/reasoning/persistence'
-import { runLockBlocks } from '@/lib/ai/console'
+import {
+  persistRunStep,
+  runStatusFrom,
+  getReasoningRunByHouseId,
+  getConflictingRunningRun,
+  getLiveCandidateRun,
+} from '@/lib/ai/reasoning/persistence'
+import { runLockBlocks, candidateBlocksNewSandbox } from '@/lib/ai/console'
 import {
   RequestSchema,
   failingStandardIds,
@@ -183,6 +189,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const houseId = houseIdParsed.data
 
+  // Loop C, sandbox reruns with a diff (plan doc
+  // plans/active/reasoning-pipeline/31-console-sandbox-reruns.md). A query
+  // param, not a body field: RequestSchema is shared verbatim with
+  // app/api/admin/reasoning/route.ts (route-schema.ts's own header comment:
+  // "must NOT reinvent the step sequencing"), and candidate-ness is a
+  // house-route-only, gating-adjacent concern, not a pipeline-step field —
+  // exactly the kind of thing that file's own contract shouldn't have to
+  // carry. useReasoningPipelineRunner's rerunSandbox() sets this on every
+  // step of a sandbox run.
+  const isCandidate = new URL(req.url).searchParams.get('candidate') === 'true'
+
   // ── Authorization: caller's OWN session, not service role ─────────────────
   const supabase = await createClient()
   const authz = await authorize(supabase, houseId)
@@ -248,11 +265,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
+  // Loop C's own guard, on top of the one above (plan doc
+  // plans/active/reasoning-pipeline/31-console-sandbox-reruns.md, Trap 2's
+  // second half): a candidate that already FINISHED (status: 'done', so the
+  // 'running'-only lock above never sees it) but hasn't been promoted or
+  // discarded yet still blocks starting ANOTHER sandbox run for this house —
+  // "one candidate at a time." Gated on isCandidate so a normal fresh
+  // pipeline run or a normal (non-sandbox) rerun never pays this extra
+  // query. Runs BEFORE any orchestrator call, unlike the migration's own
+  // partial unique index (belt-and-suspenders on the data, not the cost) —
+  // this is the check that actually saves the wasted AI spend.
+  if (!dryRun && isCandidate) {
+    const liveCandidate = await getLiveCandidateRun(houseId)
+    if (candidateBlocksNewSandbox(liveCandidate, runId)) {
+      return NextResponse.json({ error: 'candidate-exists' }, { status: 409 })
+    }
+  }
+
   const extraContext = buildExtraContext(run)
 
   // Same persistence pattern as the admin route (see its own header comment
   // for the after()/Vercel-timing rationale) — the only difference is the
-  // trailing houseId argument (persistence.ts's new optional param, 0038).
+  // trailing houseId/isCandidate arguments (persistence.ts's optional
+  // params, 0038 and 0043).
   function persist(patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string): void {
     if (dryRun) return
     after(() =>
@@ -264,7 +299,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         runStatusFrom(nextStep, isHalted),
         haltReason,
         panelsOff,
-        houseId
+        houseId,
+        isCandidate
       )
     )
   }
