@@ -24,7 +24,6 @@
 // chat.
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { reducer } from '@/lib/build/state'
 import type { State } from '@/lib/build/types'
@@ -49,6 +48,7 @@ import { useConsoleChats } from './useConsoleChats'
 import { useConsoleCandidate } from './useConsoleCandidate'
 import { useConsoleSandbox } from './useConsoleSandbox'
 import { ChatSidebar } from './ChatSidebar'
+import { ConsoleShell } from './ConsoleShell'
 import { ConsoleTranscript } from './ConsoleTranscript'
 import { RerunPanel } from './RerunPanel'
 import { SandboxPanel } from './SandboxPanel'
@@ -433,88 +433,17 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--parchment)', display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '14px 20px',
-          borderBottom: '1px solid var(--rule)',
-          background: 'var(--white)',
-        }}
-      >
-        <Link href={`/build/${houseId}`} style={{ fontSize: 13, color: 'var(--blueprint)', textDecoration: 'none', fontWeight: 600 }}>
-          ‹ Back to house
-        </Link>
-        <span style={{ color: 'var(--rule)' }}>·</span>
-        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>Full console</span>
-        {isMobile && (
-          <button
-            type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            style={{ marginLeft: 'auto', fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer' }}
-          >
-            Chats
-          </button>
-        )}
-      </header>
-
-      <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        {!isMobile && !sidebarCollapsed && (
-          <aside style={{ flex: '0 0 240px', borderRight: '1px solid var(--rule)', background: 'var(--white)', minHeight: 0 }}>
-            {renderSidebar(toggleSidebar)}
-          </aside>
-        )}
-
-        {!isMobile && sidebarCollapsed && (
-          <aside
-            style={{
-              flex: '0 0 44px',
-              borderRight: '1px solid var(--rule)',
-              background: 'var(--white)',
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              paddingTop: 12,
-              gap: 10,
-            }}
-          >
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              aria-label="Expand chat list"
-              title={`Chats · ${chats.chats.length}`}
-              style={{ width: 26, height: 26, color: 'var(--ink-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
-            >
-              ››
-            </button>
-            <span
-              className="mono"
-              aria-hidden="true"
-              style={{ fontSize: 10, color: 'var(--ink-subtle)', writingMode: 'vertical-rl', letterSpacing: '0.08em' }}
-            >
-              Chats · {chats.chats.length}
-            </span>
-          </aside>
-        )}
-
-        {isMobile && mobileDrawerOpen && (
-          <div onClick={() => setMobileDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20,33,58,0.42)' }}>
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="fade-in"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Chats"
-              style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(85vw, 300px)', background: 'var(--white)', boxShadow: '24px 0 60px rgba(20,33,58,0.24)' }}
-            >
-              {renderSidebar()}
-            </div>
-          </div>
-        )}
-
+    <ConsoleShell
+      houseId={houseId}
+      isMobile={isMobile}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={toggleSidebar}
+      chatCount={chats.chats.length}
+      mobileDrawerOpen={mobileDrawerOpen}
+      onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+      onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
+      renderSidebar={renderSidebar}
+    >
         <div style={{ flex: '1 1 auto', maxWidth: 720, width: '100%', margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ fontSize: 13, color: 'var(--ink-subtle)', lineHeight: 1.5, marginBottom: 16 }}>
             Ask about the house, or point out what it got wrong. Proposed changes are click-to-accept, same as
@@ -625,7 +554,6 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
             </button>
           </form>
         </div>
-      </div>
-    </div>
+    </ConsoleShell>
   )
 }
