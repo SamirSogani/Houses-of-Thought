@@ -261,6 +261,8 @@ export function ConsoleTranscript({
   onRevise,
   revisingMessageId,
   reviseError,
+  onPreviewSandbox,
+  sandboxDisabledReason,
 }: {
   turns: ConsoleTurn[]
   state: State
@@ -281,6 +283,14 @@ export function ConsoleTranscript({
   onRevise: (turnId: string, instruction: string) => void
   revisingMessageId: string | null
   reviseError: { turnId: string; message: string } | null
+  // Loop C (plan doc 31) — sibling to onPreviewRerun, same shape, opens
+  // SandboxPanel instead of RerunPanel. sandboxDisabledReason is non-null
+  // whenever a live candidate already exists for the house (Trap 2: "one
+  // candidate at a time") OR a sandbox run is already active — the trigger
+  // disables and shows the reason as its title, rather than silently doing
+  // nothing on click.
+  onPreviewSandbox: (turnId: string, proposal: RerunProposal) => void
+  sandboxDisabledReason: string | null
 }) {
   // Loop A's collapse grouping (doc 30) — turns that some LATER turn
   // revises are hidden from their own chronological spot and folded into
@@ -385,25 +395,47 @@ export function ConsoleTranscript({
                   </div>
                 )}
                 {hasPersistedRun && confirmingTurnId !== t.id && (
-                  <button
-                    type="button"
-                    disabled={rerunActive}
-                    onClick={() => onPreviewRerun(t.id, t.rerunProposal!)}
-                    style={{
-                      marginTop: 8,
-                      fontWeight: 600,
-                      fontSize: 12,
-                      color: 'var(--ink)',
-                      background: 'var(--white)',
-                      border: '1px solid var(--ink)',
-                      borderRadius: 6,
-                      padding: '5px 11px',
-                      cursor: rerunActive ? 'default' : 'pointer',
-                      opacity: rerunActive ? 0.5 : 1,
-                    }}
-                  >
-                    Preview this rerun
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      disabled={rerunActive}
+                      onClick={() => onPreviewRerun(t.id, t.rerunProposal!)}
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: 'var(--ink)',
+                        background: 'var(--white)',
+                        border: '1px solid var(--ink)',
+                        borderRadius: 6,
+                        padding: '5px 11px',
+                        cursor: rerunActive ? 'default' : 'pointer',
+                        opacity: rerunActive ? 0.5 : 1,
+                      }}
+                    >
+                      Preview this rerun
+                    </button>
+                    {/* Loop C (doc 31) — writes nothing to the house; shows a
+                        diff instead, promoted or discarded explicitly. */}
+                    <button
+                      type="button"
+                      disabled={rerunActive || sandboxDisabledReason !== null}
+                      title={sandboxDisabledReason ?? undefined}
+                      onClick={() => onPreviewSandbox(t.id, t.rerunProposal!)}
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: 'var(--ink)',
+                        background: 'none',
+                        border: '1px solid var(--rule)',
+                        borderRadius: 6,
+                        padding: '5px 11px',
+                        cursor: rerunActive || sandboxDisabledReason !== null ? 'default' : 'pointer',
+                        opacity: rerunActive || sandboxDisabledReason !== null ? 0.5 : 1,
+                      }}
+                    >
+                      Preview as sandbox
+                    </button>
+                  </div>
                 )}
               </div>
             )}

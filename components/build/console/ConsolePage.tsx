@@ -24,7 +24,6 @@
 // chat.
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { reducer } from '@/lib/build/state'
 import type { State } from '@/lib/build/types'
@@ -46,9 +45,13 @@ import { useSidebarCollapsed } from './useSidebarCollapsed'
 import type { RunState } from '@/components/admin/reasoning/ReasoningStagesList'
 import { createClient } from '@/lib/supabase/client'
 import { useConsoleChats } from './useConsoleChats'
+import { useConsoleCandidate } from './useConsoleCandidate'
+import { useConsoleSandbox } from './useConsoleSandbox'
 import { ChatSidebar } from './ChatSidebar'
+import { ConsoleShell } from './ConsoleShell'
 import { ConsoleTranscript } from './ConsoleTranscript'
 import { RerunPanel } from './RerunPanel'
+import { SandboxPanel } from './SandboxPanel'
 
 interface PersistedRun {
   runId: string
@@ -101,6 +104,15 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
     const supabase = createClient()
     revRef.current = await saveHouse(supabase, houseId, stateRef.current, revRef.current)
   }, [houseId])
+
+  // Loop C, sandbox reruns with a diff (plan doc
+  // plans/active/reasoning-pipeline/31-console-sandbox-reruns.md). The
+  // candidate is house-scoped (at most one live at a time, 0043's partial
+  // unique index), so it loads once here, same as persistedRun below —
+  // never re-fetched on a chat switch (the diff card itself only RENDERS in
+  // the owning chat; see candidate.chatId checks in the JSX).
+  const candidateHook = useConsoleCandidate(houseId)
+  const sandbox = useConsoleSandbox({ runner, dispatch, save, stateRef, candidateHook })
 
   // Content key for the chat list — see the bootstrap effect's dep comment.
   const chatIdsKey = chats.chats.map((c) => c.id).join(',')
@@ -182,9 +194,18 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
 
   useEffect(() => {
     if (runner.phase !== 'done') return
-    // ConsolePage only ever calls runner.rerunFrom (never runner.start), so
-    // every 'done' observed here IS a confirmed rerun completing — read the
-    // stage BEFORE clearing confirmingRerun below, it's the last chance to.
+    // Loop C (plan doc 31, Trap 3): a sandbox run's completion must NOT
+    // save the house or post the rerun-complete marker — it finalizes into
+    // a candidate instead (useConsoleSandbox's own finalizeIfSandbox), and
+    // stops here. Checked FIRST, before any of the real-rerun logic below.
+    if (runner.sandboxMode) {
+      void sandbox.finalizeIfSandbox()
+      return
+    }
+    // ConsolePage only ever calls runner.rerunFrom (never runner.start) for
+    // a non-sandbox run, so every OTHER 'done' observed here IS a confirmed
+    // rerun completing — read the stage BEFORE clearing confirmingRerun
+    // below, it's the last chance to.
     const rerunStage = confirmingRerun?.proposal.stage ?? null
     setConfirmingRerun(null)
     void save()
@@ -322,6 +343,22 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
     runner.rerunFrom(persistedRun.runState, proposal.stage, proposal.reason, proposal.guidance)
   }
 
+  // Loop C (plan doc 31) — mirrors handleConfirmRerun's own shape
+  // (persistedRun.runState is the same real starting point either way), but
+  // opens sandbox.confirmingSandbox instead of starting the run immediately
+  // — SandboxPanel's own "Run as sandbox" button is what actually calls
+  // runner.rerunSandbox (via handleStartSandbox below), matching RerunPanel's
+  // own confirm-then-run split.
+  function handlePreviewSandbox(turnId: string, proposal: RerunProposal) {
+    if (!chatId) return
+    sandbox.previewSandbox(turnId, proposal, chatId)
+  }
+
+  function handleStartSandbox() {
+    if (!persistedRun) return
+    sandbox.startSandbox(persistedRun.runState)
+  }
+
   async function goToChat(id: string) {
     setMobileDrawerOpen(false)
     router.push(`/build/${houseId}/console?chat=${id}`, { scroll: false })
@@ -368,6 +405,15 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   const rerunActive = runner.phase !== 'idle'
   const selectedChat = chats.chats.find((c) => c.id === chatId) ?? null
 
+  // Loop C (plan doc 31, "one candidate at a time") — house-wide, not
+  // chat-scoped: only one sandbox cascade can be in flight or awaiting a
+  // decision per house at all, regardless of which chat is open.
+  const sandboxDisabledReason = candidateHook.candidate
+    ? 'A sandbox candidate is already pending — promote or discard it first.'
+    : sandbox.confirmingSandbox
+      ? 'A sandbox rerun is already in progress.'
+      : null
+
   const renderSidebar = (onCollapse?: () => void) => (
     <ChatSidebar
       onCollapse={onCollapse}
@@ -387,88 +433,17 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--parchment)', display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '14px 20px',
-          borderBottom: '1px solid var(--rule)',
-          background: 'var(--white)',
-        }}
-      >
-        <Link href={`/build/${houseId}`} style={{ fontSize: 13, color: 'var(--blueprint)', textDecoration: 'none', fontWeight: 600 }}>
-          ‹ Back to house
-        </Link>
-        <span style={{ color: 'var(--rule)' }}>·</span>
-        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>Full console</span>
-        {isMobile && (
-          <button
-            type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            style={{ marginLeft: 'auto', fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer' }}
-          >
-            Chats
-          </button>
-        )}
-      </header>
-
-      <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        {!isMobile && !sidebarCollapsed && (
-          <aside style={{ flex: '0 0 240px', borderRight: '1px solid var(--rule)', background: 'var(--white)', minHeight: 0 }}>
-            {renderSidebar(toggleSidebar)}
-          </aside>
-        )}
-
-        {!isMobile && sidebarCollapsed && (
-          <aside
-            style={{
-              flex: '0 0 44px',
-              borderRight: '1px solid var(--rule)',
-              background: 'var(--white)',
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              paddingTop: 12,
-              gap: 10,
-            }}
-          >
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              aria-label="Expand chat list"
-              title={`Chats · ${chats.chats.length}`}
-              style={{ width: 26, height: 26, color: 'var(--ink-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}
-            >
-              ››
-            </button>
-            <span
-              className="mono"
-              aria-hidden="true"
-              style={{ fontSize: 10, color: 'var(--ink-subtle)', writingMode: 'vertical-rl', letterSpacing: '0.08em' }}
-            >
-              Chats · {chats.chats.length}
-            </span>
-          </aside>
-        )}
-
-        {isMobile && mobileDrawerOpen && (
-          <div onClick={() => setMobileDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20,33,58,0.42)' }}>
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="fade-in"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Chats"
-              style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 'min(85vw, 300px)', background: 'var(--white)', boxShadow: '24px 0 60px rgba(20,33,58,0.24)' }}
-            >
-              {renderSidebar()}
-            </div>
-          </div>
-        )}
-
+    <ConsoleShell
+      houseId={houseId}
+      isMobile={isMobile}
+      sidebarCollapsed={sidebarCollapsed}
+      onToggleSidebar={toggleSidebar}
+      chatCount={chats.chats.length}
+      mobileDrawerOpen={mobileDrawerOpen}
+      onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+      onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
+      renderSidebar={renderSidebar}
+    >
         <div style={{ flex: '1 1 auto', maxWidth: 720, width: '100%', margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ fontSize: 13, color: 'var(--ink-subtle)', lineHeight: 1.5, marginBottom: 16 }}>
             Ask about the house, or point out what it got wrong. Proposed changes are click-to-accept, same as
@@ -499,6 +474,8 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
               onRevise={handleRevise}
               revisingMessageId={revisingMessageId}
               reviseError={reviseError}
+              onPreviewSandbox={handlePreviewSandbox}
+              sandboxDisabledReason={sandboxDisabledReason}
             />
 
             {confirmingRerun && (
@@ -509,6 +486,29 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
                 rerunActive={rerunActive}
                 onConfirm={handleConfirmRerun}
                 onClose={() => setConfirmingRerun(null)}
+              />
+            )}
+
+            {/* Loop C (plan doc 31) — renders whenever a "Preview as
+                sandbox" click is pending/running for THIS render, OR a
+                finalized candidate exists that belongs to the chat
+                currently open. A candidate from a DIFFERENT chat never
+                renders its diff here — only the disabled trigger
+                (sandboxDisabledReason) shows elsewhere. */}
+            {(sandbox.confirmingSandbox || candidateHook.candidate?.chatId === chatId) && (
+              <SandboxPanel
+                proposal={sandbox.confirmingSandbox?.proposal ?? null}
+                candidate={candidateHook.candidate?.chatId === chatId ? candidateHook.candidate : null}
+                runner={runner}
+                sandboxActive={runner.sandboxMode && runner.phase !== 'idle'}
+                currentContentJson={serializeContent(state)}
+                onStartSandbox={handleStartSandbox}
+                onPromote={sandbox.promote}
+                onDiscard={sandbox.discard}
+                onClose={sandbox.closeSandboxPreview}
+                promoting={sandbox.promoting}
+                discarding={sandbox.discarding}
+                actionError={sandbox.actionError}
               />
             )}
           </div>
@@ -554,7 +554,6 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
             </button>
           </form>
         </div>
-      </div>
-    </div>
+    </ConsoleShell>
   )
 }

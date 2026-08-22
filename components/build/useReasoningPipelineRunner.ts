@@ -26,6 +26,20 @@
 //    hook itself dispatches APPLY_REASONING_RESULT with the mapped actions
 //    (lib/ai/reasoning/houseMapping.ts) — the admin page has no house to
 //    write into, so it has nothing analogous.
+//
+// Loop C, sandbox reruns with a diff (plan doc
+// plans/active/reasoning-pipeline/31-console-sandbox-reruns.md, Trap 3):
+// rerunSandbox() is a third entry point, alongside start()/rerunFrom() —
+// same shape (seed run/step/phase, let the SAME effect loop take over), but
+// it marks the run as a candidate (?candidate=true on every step's fetch,
+// read by app/api/houses/[id]/reasoning/route.ts to set is_candidate on the
+// persisted row) and, critically, its own completion dispatches NOTHING —
+// neither APPLY_REASONING_RESULT nor APPLY_RERUN_RESULT. A sandbox run must
+// write to reasoning_runs (so it can be finalized into an addressable
+// candidate and diffed) and NEVER to the house; ConsolePage reads
+// `sandboxMode` once phase reaches 'done' to know it must finalize the
+// candidate instead of saving. start()/rerunFrom() and this effect's
+// existing retry/regeneration/gather handling are otherwise untouched.
 
 import { useEffect, useRef, useState } from 'react'
 import type { Action } from '@/lib/build/types'
@@ -80,9 +94,25 @@ export interface ReasoningPipelineRunner {
   haltReason: string | null
   retryInfo: { attempt: number; waitMs: number } | null
   regenerationInfo: { attempt: number } | null
+  // Loop C (plan doc 31) — true for the run currently in `run`/`phase` iff
+  // it was started via rerunSandbox(), not start()/rerunFrom(). Reactive
+  // (not just an internal ref) because ConsolePage/SandboxPanel need to
+  // render differently while it's true and to decide, once phase reaches
+  // 'done', whether to save the house (false) or finalize a candidate
+  // (true).
+  sandboxMode: boolean
+  // The active run's own id (minted by start()/rerunFrom()/rerunSandbox()).
+  // Empty string when idle. Loop C's finalize step (POST
+  // .../console/candidate) needs this to know which reasoning_runs row a
+  // just-finished sandbox run wrote to.
+  runId: string
   start: (question: string) => void
   // Post-pipeline console only (plan doc 28) — see its own comment above.
   rerunFrom: (existingRun: RunState, stage: DraftStage, reason: string, guidance: string) => void
+  // Loop C (plan doc 31) — see this file's own header comment. Same
+  // signature as rerunFrom; the only difference is what happens at
+  // completion.
+  rerunSandbox: (existingRun: RunState, stage: DraftStage, reason: string, guidance: string) => void
   pause: () => void
   resume: () => void
   reset: () => void
@@ -106,6 +136,14 @@ export function useReasoningPipelineRunner(
   const [haltReason, setHaltReason] = useState<string | null>(null)
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; waitMs: number } | null>(null)
   const [regenerationInfo, setRegenerationInfo] = useState<{ attempt: number } | null>(null)
+  // Loop C (plan doc 31) — reactive twin of sandboxModeRef below, for
+  // rendering; see the interface's own doc comment.
+  const [sandboxMode, setSandboxMode] = useState(false)
+  // Reactive twin of runIdRef, exposed for Loop C: ConsolePage needs the
+  // just-finished sandbox run's own id to finalize it into a candidate
+  // (POST .../console/candidate), and had no way to read it before this —
+  // nothing needed it until now.
+  const [runId, setRunId] = useState('')
 
   const runIdRef = useRef('')
   const runRef = useRef(run)
@@ -117,6 +155,11 @@ export function useReasoningPipelineRunner(
   // the cascade (lib/ai/console.ts's cascadeStages) for a rerunFrom(); read
   // once, at completion, to decide which action the finish dispatches.
   const rerunStagesRef = useRef<DraftStage[] | null>(null)
+  // Loop C (plan doc 31) — the ref the async effect below actually reads
+  // (avoids a stale closure the way runRef/rerunStagesRef already do for
+  // their own fields); sandboxMode (state) exists only so the rest of the
+  // component tree can react to it.
+  const sandboxModeRef = useRef(false)
 
   useEffect(() => {
     if (phase !== 'running' || !step || !houseId) return
@@ -126,7 +169,11 @@ export function useReasoningPipelineRunner(
     ;(async () => {
       for (let attempt = 1; attempt <= MAX_STEP_ATTEMPTS; attempt++) {
         try {
-          const res = await fetch(`/api/houses/${houseId}/reasoning`, {
+          // Loop C (plan doc 31): every step of a sandbox run carries
+          // ?candidate=true, read by the route to mark the persisted row
+          // is_candidate — from the FIRST step, not just at completion.
+          const url = sandboxModeRef.current ? `/api/houses/${houseId}/reasoning?candidate=true` : `/api/houses/${houseId}/reasoning`
+          const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -211,6 +258,17 @@ export function useReasoningPipelineRunner(
             return
           }
           if (data.nextStep === null) {
+            // Loop C, Trap 3 (plan doc 31): a sandbox run dispatches
+            // NOTHING — no APPLY_REASONING_RESULT, no APPLY_RERUN_RESULT.
+            // Its finished run_state is already durable in reasoning_runs
+            // (persisted per-step by the route, is_candidate: true); the
+            // house stays untouched, and the caller (ConsolePage) reads
+            // `run`/`sandboxMode` from here to finalize a candidate instead
+            // of saving.
+            if (sandboxModeRef.current) {
+              setPhase('done')
+              return
+            }
             // final-composition just landed — map every finished packet into
             // the house as one unclaimed draft batch (plan doc 27 §3) before
             // settling. mapReasoningRunToActions deliberately never touches
@@ -254,7 +312,10 @@ export function useReasoningPipelineRunner(
     const q = question.trim()
     if (!q || !houseId) return
     runIdRef.current = crypto.randomUUID()
+    setRunId(runIdRef.current)
     rerunStagesRef.current = null
+    sandboxModeRef.current = false
+    setSandboxMode(false)
     setRun({ originalQuery: q })
     setErrorCode(null)
     setSubElementFailures(null)
@@ -282,7 +343,10 @@ export function useReasoningPipelineRunner(
     if (!houseId) return
     const info = RERUN_STAGE_INFO[stage]
     runIdRef.current = crypto.randomUUID()
+    setRunId(runIdRef.current)
     rerunStagesRef.current = cascadeStages(stage)
+    sandboxModeRef.current = false
+    setSandboxMode(false)
     setRun({
       ...existingRun,
       consoleGuidance: guidance,
@@ -294,6 +358,46 @@ export function useReasoningPipelineRunner(
               // the conflicting-reviewers note entirely — there is no panel
               // disagreement to report here, this came directly from the
               // person.
+              contradictions: 'None — this regeneration was requested directly by the person, not the review panel.',
+              guidance: `${reason}\n\n${guidance}`,
+            },
+          }
+        : null,
+    })
+    setErrorCode(null)
+    setSubElementFailures(null)
+    setHaltReason(null)
+    setRetryInfo(null)
+    setRegenerationInfo(null)
+    setPendingGather(null)
+    setPendingEvidenceGather(null)
+    layerAttemptRef.current = 1
+    setStep(info.resumeStep)
+    setPhase('running')
+  }
+
+  // Loop C (plan doc plans/active/reasoning-pipeline/31-console-sandbox-
+  // reruns.md, Trap 3) — identical seeding to rerunFrom() (same
+  // RERUN_STAGE_INFO/cascadeStages/masterReview construction; a sandbox
+  // rerun targets the exact same stage/guidance a real one would, the only
+  // difference is what happens to the result), plus sandboxModeRef/
+  // sandboxMode set true so the effect above skips both dispatches at
+  // completion and appends ?candidate=true to every step's fetch.
+  function rerunSandbox(existingRun: RunState, stage: DraftStage, reason: string, guidance: string): void {
+    if (!houseId) return
+    const info = RERUN_STAGE_INFO[stage]
+    runIdRef.current = crypto.randomUUID()
+    setRunId(runIdRef.current)
+    rerunStagesRef.current = cascadeStages(stage)
+    sandboxModeRef.current = true
+    setSandboxMode(true)
+    setRun({
+      ...existingRun,
+      consoleGuidance: guidance,
+      masterReview: info.masterReviewStep
+        ? {
+            forStep: info.masterReviewStep,
+            guidance: {
               contradictions: 'None — this regeneration was requested directly by the person, not the review panel.',
               guidance: `${reason}\n\n${guidance}`,
             },
@@ -336,6 +440,8 @@ export function useReasoningPipelineRunner(
     setPendingEvidenceGather(null)
     layerAttemptRef.current = 1
     rerunStagesRef.current = null
+    sandboxModeRef.current = false
+    setSandboxMode(false)
   }
 
   function resolvePendingGather(answers: (string | null)[]) {
@@ -383,8 +489,11 @@ export function useReasoningPipelineRunner(
     haltReason,
     retryInfo,
     regenerationInfo,
+    sandboxMode,
+    runId,
     start,
     rerunFrom,
+    rerunSandbox,
     pause,
     resume,
     reset,
