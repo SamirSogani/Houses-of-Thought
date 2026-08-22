@@ -48,6 +48,7 @@ import {
   CONSOLE_MESSAGE_MAX,
   titleFromMessage,
   toChronological,
+  transcriptLine,
   type ConsoleTurn,
   type RerunProposal,
 } from '@/lib/ai/console'
@@ -201,7 +202,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // No focusStep — the whole house, every layer.
   const houseText = serializeHouseForPrompt(house)
   const transcriptText = toChronological(priorTurns as { role: string; message: string }[])
-    .map((t) => `${t.role === 'user' ? 'Person' : 'Co-pilot'}: ${t.message}`)
+    .map((t) => transcriptLine(t.role, t.message))
     .join('\n')
   const userPrompt = `${houseText}\n\n## Conversation so far\n${transcriptText}`
   const system = `${PERSONA}\n\n${CONSOLE_BLOCK}`

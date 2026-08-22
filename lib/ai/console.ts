@@ -468,3 +468,18 @@ export function groupRevisionChains(turns: { id: string; revisesMessageId: strin
   }
   return groups
 }
+
+// One line of the "Conversation so far" block the console POST sends the
+// model (app/api/houses/[id]/console/route.ts). Three roles, not two: doc
+// 30's Loop B added product-generated `system` markers ("Frame onward was
+// regenerated…") that neither party actually said. Labelling those
+// `Co-pilot:` — what a two-way `role === 'user' ? … : …` mapping does with
+// any non-user row — tells the model it said something it never said, and
+// invites it to refer back to that as its own prior statement. A marker is
+// context about the house changing underneath the conversation, so it is
+// framed as exactly that.
+export function transcriptLine(role: string, message: string): string {
+  if (role === 'user') return `Person: ${message}`
+  if (role === 'system') return `[System note] ${message}`
+  return `Co-pilot: ${message}`
+}

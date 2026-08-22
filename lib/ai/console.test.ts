@@ -30,6 +30,7 @@ import {
   titleFromMessage,
   toChronological,
   type ChatNode,
+  transcriptLine,
 } from './console'
 
 describe('chatDepth / canBranchFrom', () => {
@@ -278,5 +279,21 @@ describe('groupRevisionChains (Loop A — earlier attempts collapse under a disc
     expect(groups).toHaveLength(1)
     expect(groups[0].headId).toBe('z')
     expect(groups[0].earlierIds.length).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('transcriptLine', () => {
+  it('labels the person and the co-pilot as themselves', () => {
+    expect(transcriptLine('user', 'why is this here?')).toBe('Person: why is this here?')
+    expect(transcriptLine('assistant', 'because X')).toBe('Co-pilot: because X')
+  })
+
+  it('never presents a system marker as something the co-pilot said', () => {
+    // Loop B's rerun markers are product-generated; a two-way
+    // user/not-user mapping would file them under 'Co-pilot:' and let the
+    // model refer back to a line it never wrote.
+    const line = transcriptLine('system', 'Frame onward was regenerated.')
+    expect(line).toBe('[System note] Frame onward was regenerated.')
+    expect(line).not.toContain('Co-pilot')
   })
 })
