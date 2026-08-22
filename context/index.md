@@ -45,6 +45,10 @@ behind it — not implementation detail, which lives in code.
 
 - [tech-stack.md](architecture/tech-stack.md) — React/Next.js + Supabase, env var
   config, key architectural boundaries.
+- [data-model/index.md](architecture/data-model/index.md) — the full Supabase
+  schema: every table, the RLS/grant rules that guard them, the non-table app
+  shapes (house `State`, the reasoning pipeline's `RunState`), and the edge
+  cases this schema has already cost someone time on.
 
 ---
 
