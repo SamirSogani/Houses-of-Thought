@@ -12,8 +12,14 @@
 // (console/layer-feedback/reasoning) already enforces server-side. A caller
 // who wouldn't pass that gate is sent back to the house itself rather than
 // shown a console that would just 403 on every action.
+//
+// ConsolePage wraps in <Suspense> below because it reads the `?chat=` URL
+// param via next/navigation's useSearchParams (plan doc
+// plans/active/reasoning-pipeline/29-console-multi-chat.md) — Next requires
+// that hook's caller to sit under a Suspense boundary or the build opts the
+// whole page out of static rendering with a warning.
 
-import { use, useEffect, useState } from 'react'
+import { Suspense, use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { loadHouse } from '@/lib/build/persistence'
@@ -69,5 +75,9 @@ export default function ConsoleRoute({ params }: { params: Promise<{ id: string 
     return <CenterNotice>Loading the console…</CenterNotice>
   }
 
-  return <ConsolePage houseId={id} initialState={loaded} />
+  return (
+    <Suspense fallback={<CenterNotice>Loading the console…</CenterNotice>}>
+      <ConsolePage houseId={id} initialState={loaded} />
+    </Suspense>
+  )
 }

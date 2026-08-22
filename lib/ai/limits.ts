@@ -95,9 +95,43 @@ export function getRouteCounts(): { route: string; count: number }[] {
     .sort((a, b) => b.count - a.count)
 }
 
+// Calls the existing single-argument `increment_ai_usage` RPC `units` times
+// rather than adding a defaulted second Postgres parameter (doc 30's Loop A
+// "Cost and rate limiting" gap, plans/active/reasoning-pipeline/
+// 30-console-subagent-loops.md). `create or replace function
+// increment_ai_usage(sub, units default 1)` would create an OVERLOAD of the
+// existing one-argument function, not replace it — every existing
+// single-argument call site across the whole app (suggest, critique,
+// draft, feedback, console, chat-intake, ...) then becomes ambiguous at the
+// Postgres level, on a function that is on the hot path of every AI route
+// and lives in the database this app SHARES with production. `units` is
+// always small (Loop A's critic+revise pair is 2, capped at 3), so a loop of
+// real RPC calls is cheap and needs no migration at all. Returns the LAST
+// call's count (the running total after all `units` increments), or null if
+// any call in the loop failed — the caller fails open on null, the exact
+// same posture a single failed call always had.
+async function incrementUsageBy(sub: string, units: number): Promise<number | null> {
+  let count: number | null = null
+  for (let i = 0; i < units; i++) {
+    const { data, error } = await serviceClient().rpc('increment_ai_usage', { sub })
+    if (error) {
+      log.error('ai/limits', 'increment failed, failing open', { error: error.message })
+      return null
+    }
+    if (typeof data === 'number') count = data
+  }
+  return count
+}
+
 // Throws AiError(429) when the caller is over their daily cap. Fails OPEN on any
 // limiter outage — an infrastructure problem here must not take down the co-pilot.
-export async function enforceAiLimit(req: Request): Promise<void> {
+//
+// `units` (default 1, doc 30's Loop A): how many model calls THIS request
+// makes, so a route that itself calls completeJSON more than once (Loop A's
+// revise route: one critic call + one console-role rewrite = 2) charges the
+// day's counter for what it actually spends, not "one request, one call" —
+// see incrementUsageBy's own comment for why this is a loop, not a wider RPC.
+export async function enforceAiLimit(req: Request, units: number = 1): Promise<void> {
   try {
     const path = new URL(req.url).pathname
     routeCounts.set(path, (routeCounts.get(path) ?? 0) + 1)
@@ -132,12 +166,12 @@ export async function enforceAiLimit(req: Request): Promise<void> {
   }
 
   try {
-    const { data, error } = await serviceClient().rpc('increment_ai_usage', { sub: subject })
-    if (error) {
-      log.error('ai/limits', 'increment failed, failing open', { error: error.message })
-      return
-    }
-    if (typeof data === 'number' && data > cap) {
+    const count = await incrementUsageBy(subject, units)
+    // A null count means the increment itself failed (already logged inside
+    // incrementUsageBy) — fail open exactly as the pre-units code did: return
+    // immediately, without attempting the IP ceiling below either.
+    if (count === null) return
+    if (count > cap) {
       throw new AiError(429, 'rate-limited')
     }
 
@@ -146,13 +180,8 @@ export async function enforceAiLimit(req: Request): Promise<void> {
     if (!subject.startsWith('user:')) {
       const ipSub = ipSubject(req)
       if (ipSub !== subject) {
-        const { data: ipCount, error: ipError } = await serviceClient().rpc(
-          'increment_ai_usage',
-          { sub: ipSub }
-        )
-        if (ipError) {
-          log.error('ai/limits', 'ip ceiling failed, failing open', { error: ipError.message })
-        } else if (typeof ipCount === 'number' && ipCount > ANON_IP_DAILY_CAP) {
+        const ipCount = await incrementUsageBy(ipSub, units)
+        if (ipCount !== null && ipCount > ANON_IP_DAILY_CAP) {
           throw new AiError(429, 'rate-limited')
         }
       }
