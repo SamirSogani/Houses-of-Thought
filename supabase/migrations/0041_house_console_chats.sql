@@ -113,9 +113,19 @@ create policy house_console_chats_insert on public.house_console_chats
 -- of can_access_house over the narrower can_edit_house for this kind of
 -- table. Real write authorization is the route's own authorize() gate, not
 -- this policy.
+--
+-- BOTH halves are needed, and this is the first UPDATE policy in the repo so
+-- there was no precedent to copy: `using` decides which rows may be updated,
+-- `with check` decides what they may be updated TO. Without the second half,
+-- an authenticated caller hitting PostgREST directly could rewrite one of
+-- their own chats' house_id to a house they have no standing on — passing
+-- `using` on the way in (they can access the row today) and landing it
+-- somewhere they can't. No route does this; the policy shouldn't permit it
+-- either.
 drop policy if exists house_console_chats_update on public.house_console_chats;
 create policy house_console_chats_update on public.house_console_chats
-  for update using (public.can_access_house(house_id));
+  for update using (public.can_access_house(house_id))
+  with check (public.can_access_house(house_id));
 
 grant select, insert, update on public.house_console_chats to authenticated;
 

@@ -197,8 +197,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (body.mode === 'fork') {
     // No cross-table transaction is available without a new RPC (out of
     // scope for this phase) — on a copy failure the empty chat row created
-    // above is deleted as a best-effort cleanup so a failed fork doesn't
-    // leave an orphaned, message-less chat behind.
+    // above is retired as a best-effort cleanup so a failed fork doesn't
+    // leave an orphaned, message-less chat sitting in the list and counting
+    // against the 20-active-chats cap.
+    //
+    // Retired by SOFT delete, not `.delete()`: this table grants only
+    // select/insert/update to `authenticated` (migration 0041), deliberately
+    // — chats are never hard-deleted in this product — so a `.delete()` here
+    // would fail on the grant and silently leave the orphan behind, which is
+    // the exact thing this cleanup exists to prevent.
     const { data: sourceRows, error: sourceError } = await supabase
       .from('house_console_messages')
       .select('id, role, message, actions, rerun_proposal, created_by, created_at')
@@ -206,13 +213,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .order('created_at', { ascending: true })
     if (sourceError) {
       log.error('houses/console/chats', 'fork source load failed', { error: sourceError.message })
-      await supabase.from('house_console_chats').delete().eq('id', newChat.id)
+      await supabase.from('house_console_chats').update({ deleted_at: new Date().toISOString() }).eq('id', newChat.id)
       return NextResponse.json({ error: 'server-error' }, { status: 500 })
     }
 
     const toCopy = messagesToFork(sourceRows as MessageCopyRow[], body.fromMessageId)
     if (toCopy.length === 0) {
-      await supabase.from('house_console_chats').delete().eq('id', newChat.id)
+      await supabase.from('house_console_chats').update({ deleted_at: new Date().toISOString() }).eq('id', newChat.id)
       return NextResponse.json({ error: 'invalid-request' }, { status: 400 })
     }
 
@@ -230,7 +237,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { error: copyError } = await supabase.from('house_console_messages').insert(rowsToInsert)
     if (copyError) {
       log.error('houses/console/chats', 'fork copy failed', { error: copyError.message })
-      await supabase.from('house_console_chats').delete().eq('id', newChat.id)
+      await supabase.from('house_console_chats').update({ deleted_at: new Date().toISOString() }).eq('id', newChat.id)
       return NextResponse.json({ error: 'server-error' }, { status: 500 })
     }
 
