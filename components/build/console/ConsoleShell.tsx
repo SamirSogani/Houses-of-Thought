@@ -70,8 +70,14 @@ export function ConsoleShell({
       </header>
 
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
+        {/* minWidth: 0 on the panes below is load-bearing, not tidying. A flex
+            item defaults to min-width: auto, so it can never render narrower
+            than its min-content — and the chat rows are nowrap. Once chats
+            started carrying real derived titles instead of "Untitled chat",
+            that min-content grew to the width of the longest title and forced
+            the pane open to ~824px despite its fixed 240px basis. */}
         {!isMobile && !sidebarCollapsed && (
-          <aside style={{ flex: '0 0 240px', borderRight: '1px solid var(--rule)', background: 'var(--white)', minHeight: 0 }}>
+          <aside style={{ flex: '0 0 240px', minWidth: 0, borderRight: '1px solid var(--rule)', background: 'var(--white)', minHeight: 0 }}>
             {renderSidebar(onToggleSidebar)}
           </aside>
         )}
@@ -80,6 +86,8 @@ export function ConsoleShell({
           <aside
             style={{
               flex: '0 0 44px',
+              // Same reason as the expanded pane above.
+              minWidth: 0,
               borderRight: '1px solid var(--rule)',
               background: 'var(--white)',
               minHeight: 0,
