@@ -130,6 +130,10 @@ export function useConsoleSandbox({
       const result = await candidateHook.promote(runId)
       if (!result.ok) setActionError('Applied to the house, but could not mark the candidate resolved — refresh to check.')
       setPromoting(false)
+      // Same reason as discard() below: the finished sandbox run leaves the
+      // shared runner at phase 'done', which keeps every rerun/sandbox
+      // trigger disabled until the page reloads.
+      runner.reset()
     })()
     // Intentionally scoped to pendingPromoteRunId only — same shape as
     // ConsolePage's own runner.phase effect (deliberately not exhaustive:
@@ -144,6 +148,13 @@ export function useConsoleSandbox({
     const result = await candidateHook.discard()
     if (!result.ok) setActionError('Could not discard — try again.')
     setDiscarding(false)
+    // The sandbox run left the shared runner parked at phase 'done'. Nothing
+    // else clears it, and ConsolePage derives rerunActive from it — so
+    // without this both "Preview this rerun" and "Preview as sandbox" stay
+    // disabled for the rest of the page's life, and only a reload frees
+    // them. closeSandboxPreview already does this for the cancel path;
+    // resolving a candidate has to as well.
+    runner.reset()
   }
 
   return {
