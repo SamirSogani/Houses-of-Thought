@@ -6,6 +6,7 @@
 // Same role, and the same reason, as router-shared.ts plays for the router
 // split.
 
-// Same order-of-magnitude as layer-feedback's message cap — this is a chat
-// turn, not an essay.
-export const CONSOLE_MESSAGE_MAX = 500
+// Double layer-feedback's message cap (LAYER_FEEDBACK_MESSAGE_MAX, 500) —
+// still a chat turn, not an essay, but a whole-house correction can need more
+// room than a single-layer one.
+export const CONSOLE_MESSAGE_MAX = 1000
