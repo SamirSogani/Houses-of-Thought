@@ -1,10 +1,28 @@
 # Houses of Thought
 
-A Next.js application built on the Houses of Thought reasoning method.
+**Reason through it, don't just ask.**
 
-This README covers **running the project locally**. For anything else:
+[houses-of-thought.vercel.app](https://houses-of-thought.vercel.app)
 
-- What the product is and who it's for → [context/index.md](context/index.md)
+Houses of Thought is a critical-thinking tool for students, teachers, and anyone
+facing a hard question. It turns a question into structured, defensible reasoning —
+concepts, perspectives, cited evidence, assumptions, and a conclusion you build
+yourself, with AI that guides instead of deciding.
+
+It is built on John Trapasso's classroom model, itself derived from the Paul-Elder
+framework for critical thinking. Always free, with no paid tier.
+
+The AI asks sharpening questions, surfaces missed perspectives, gathers cited
+evidence, and stress-tests a conclusion once you reach one. It never writes the
+conclusion — a type-level constraint in the codebase, not a prompt instruction.
+
+`app/llms.txt/route.ts` is the canonical machine-readable summary of the product and
+its vocabulary (*house*, *House Strength*, *Research Mode*, *Learn/Decide mode*); the
+seven reasoning layers are defined in `lib/marketing/constellation.ts`. For deeper
+product knowledge see [context/index.md](context/index.md).
+
+The rest of this README covers **running the project locally**. For anything else:
+
 - Where files live → [docs/repository/file-structure.md](docs/repository/file-structure.md)
 - Past decisions and their rationale → [`decisions/`](decisions/)
 - Operational runbooks → [`docs/operations/`](docs/operations/)
@@ -47,6 +65,9 @@ and `ADMIN_*` for the `/admin` monitor, the AI provider keys for the routing eng
 (`lib/ai/router.ts`), and `BRAVE_SEARCH_API_KEY` for evidence research. Expect those
 features to fail until their keys are set.
 
+`NEXT_PUBLIC_SITE_URL` is optional locally. `lib/site.ts` resolves the canonical URL
+from it, then `VERCEL_PROJECT_PRODUCTION_URL`, then `localhost:3000`.
+
 ## Database
 
 There is no local Supabase stack in this repo — `supabase/` contains migrations only,
@@ -76,3 +97,7 @@ With the Supabase keys set, the dev server should start in about a second and:
 
 That redirect is the expected signed-out behavior for protected routes
 (`/dashboard`, `/build`, `/profile`, `/classroom`, `/classes`, `/join`).
+
+Public marketing routes — `/how-it-works`, `/examples`, `/educators`, `/faq`,
+`/story`, `/try` — render without authentication. `/try` builds a Mini House with no
+account, which makes it the quickest end-to-end check that AI routing is configured.
