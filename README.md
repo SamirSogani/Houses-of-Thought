@@ -2,7 +2,7 @@
 
 **Reason through it, don't just ask.**
 
-[houses-of-thought.vercel.app](https://houses-of-thought.vercel.app)
+[www.housesofthought.org](https://www.housesofthought.org)
 
 Houses of Thought is a critical-thinking tool for students, teachers, and anyone
 facing a hard question. It turns a question into structured, defensible reasoning —
