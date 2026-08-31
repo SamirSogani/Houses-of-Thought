@@ -93,7 +93,20 @@ export default function MarketingHeader() {
                 </Link>
               )
             })}
-            <Link href="/login" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 15, color: 'var(--dusk-ink-subtle)' }}>
+            {/* Matches the nav links' reserved underline space (2px border +
+                4px padding) so its text sits on their baseline — without it,
+                align-items:center drops "Log in" 3px below the row. */}
+            <Link
+              href="/login"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 15,
+                color: 'var(--dusk-ink-subtle)',
+                borderBottom: '2px solid transparent',
+                paddingBottom: 4,
+              }}
+            >
               Log in
             </Link>
             <Link
