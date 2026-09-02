@@ -71,8 +71,12 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
     }, [activeId])
 
     // ── Scroll → focus (scroll-spy) ────────────────────────────────────────
+    // The spy reads the current step only after its debounce, so syncing the
+    // ref in an effect (not during render) is early enough and lint-clean.
     const stepRef = useRef(step)
-    stepRef.current = step
+    useEffect(() => {
+      stepRef.current = step
+    }, [step])
     useEffect(() => {
       const root = mainRef.current
       if (!root || typeof IntersectionObserver === 'undefined') return
