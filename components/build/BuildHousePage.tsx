@@ -8,13 +8,12 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { reducer } from '@/lib/build/state'
 import { computeStrength } from '@/lib/build/strength'
-import { draftGateLocked } from '@/lib/ai/draft'
-import { deriveStatus, serializeContent, type PersistedContent } from '@/lib/build/persistence'
+import { DRAFT_STAGES, unclaimedDraftStages } from '@/lib/ai/draft'
+import { serializeContent, type PersistedContent } from '@/lib/build/persistence'
 import type { Action, State } from '@/lib/build/types'
 import { AppBar } from './AppBar'
-import { ContextBar, type SaveStatus } from './ContextBar'
-import { BlueprintRail } from './BlueprintRail'
-import { MobileStepStrip } from './MobileStepStrip'
+import { SAVE_STATUS_TEXT, type SaveStatus } from './ContextBar'
+import { LayerNav } from './LayerNav'
 import { Canvas } from './Canvas'
 import { RightRail, MobileRailDrawer, type TeamContext } from './RightRail'
 import { useTeamRoster } from './useTeamRoster'
@@ -320,10 +319,8 @@ export function BuildHousePage({
     return () => document.removeEventListener('keydown', onKey)
   }, [undo])
 
-  // Every navigation scrolls the canvas to top (02 §10).
-  useEffect(() => {
-    canvasRef.current?.scrollTo({ top: 0 })
-  }, [state.step, state.activePerspective])
+  // Scrolling now belongs to Canvas: a step change scrolls that layer's section
+  // into view in the stacked document (builder-workspace-redesign plan §1).
 
   // "Start with an AI draft" arrival: on mobile the rail starts open so the
   // draft card (which drives the flow) is visible immediately.
@@ -336,11 +333,28 @@ export function BuildHousePage({
     [feedback, contentKey]
   )
 
+  // Status row copy (replaces the ContextBar eyebrow + strength pill): the live
+  // save state, plus the draft gate's own count while AI-drafted layers await
+  // their claim (decision 016 §2).
+  const effReadOnly = readOnly || lockedByOtherTab
+  const save = effReadOnly ? null : SAVE_STATUS_TEXT[saveStatus]
+  const draftedCount = state.draft ? DRAFT_STAGES.filter((s) => state.draft!.drafted[s]).length : 0
+  const unclaimedCount = unclaimedDraftStages(state.draft).length
+
   return (
     <div className="vh-shell" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--parchment)' }}>
-      {/* Header (app bar + context bar) */}
+      {/* Header (app bar + status row) */}
       <header style={{ flex: '0 0 auto' }}>
-        <AppBar userEmail={userEmail} onSignOut={() => void handleSignOut()} />
+        <AppBar
+          userEmail={userEmail}
+          title={state.title}
+          question={state.question}
+          readOnly={effReadOnly}
+          roster={roster}
+          currentUserId={team?.currentUserId ?? null}
+          onTitleChange={(v) => guardedDispatch({ type: 'SET_TITLE', value: v })}
+          onSignOut={() => void handleSignOut()}
+        />
         {(readOnly || strawman) && (
           <div
             className="mono bhp-readonly-banner"
@@ -413,33 +427,38 @@ export function BuildHousePage({
             </button>
           </div>
         )}
-        <ContextBar
-          title={state.title}
-          question={state.question}
-          strength={strength}
-          readOnly={readOnly || lockedByOtherTab}
-          draftLocked={draftGateLocked(state.draft)}
-          scored={deriveStatus(state) !== 'empty'}
-          saveStatus={readOnly || lockedByOtherTab ? null : saveStatus}
-          roster={roster}
-          currentUserId={team?.currentUserId ?? null}
-          onTitleChange={(v) => guardedDispatch({ type: 'SET_TITLE', value: v })}
-          onOpenReview={() => guardedDispatch({ type: 'GO_STEP', n: 7 })}
-        />
+        {/* Status row: layer nav + save state + draft gate count. One nav for
+            every viewport (builder-workspace-redesign plan §2). */}
+        <div className="bhp-status-row" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '6px 24px', background: 'var(--white)', borderBottom: '1px solid var(--rule)' }}>
+          <LayerNav state={state} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />
+          <div
+            className="mono bhp-status-meta"
+            role={save?.alert ? 'status' : undefined}
+            style={{ marginLeft: 'auto', flex: '0 0 auto', whiteSpace: 'nowrap', fontSize: 10, letterSpacing: '0.06em', color: save?.alert ? 'var(--warning-text)' : 'var(--ink-subtle)' }}
+          >
+            {effReadOnly ? 'Read-only' : save?.text}
+            {unclaimedCount > 0 && (
+              <>
+                <span aria-hidden="true"> · </span>
+                <span style={{ color: 'var(--amber-text)' }}>
+                  {unclaimedCount} of {draftedCount} drafted {draftedCount === 1 ? 'layer' : 'layers'} unclaimed
+                </span>
+              </>
+            )}
+          </div>
+        </div>
         {houseId && feedback && (
           <SubmissionFeedback houseId={houseId} mode={feedback} house={feedbackHouse} />
         )}
-        {/* Mobile step navigator — replaces the BlueprintRail column. */}
-        {isMobile && <MobileStepStrip state={state} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
       </header>
 
-      {/* Three-zone row (desktop) / canvas only (mobile) */}
+      {/* Two-column row (desktop) / document only (mobile) */}
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        {!isMobile && <BlueprintRail state={state} strength={strength} onGo={(n) => dispatch({ type: 'GO_STEP', n })} />}
         <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} houseId={houseId} />
         {!isMobile && (
           <RightRail
             state={state}
+            strength={strength}
             dispatch={guardedDispatch}
             draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
             suggestCache={suggestCacheRef}
@@ -484,6 +503,7 @@ export function BuildHousePage({
       {isMobile && railOpen && (
         <MobileRailDrawer
           state={state}
+          strength={strength}
           dispatch={guardedDispatch}
           draftCard={canDraft ? <DraftCard state={state} dispatch={dispatch} runner={draftRunner} /> : null}
           suggestCache={suggestCacheRef}

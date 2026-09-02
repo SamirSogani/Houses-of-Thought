@@ -11,11 +11,23 @@ const monoLabel: React.CSSProperties = {
   color: 'var(--ink-subtle)',
 }
 
-export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
+export function FrameLayer({
+  state,
+  dispatch,
+  conceptsOnly = false,
+}: {
+  state: State
+  dispatch: React.Dispatch<Action>
+  // The document view (builder-workspace-redesign plan §2) renders purpose and
+  // the question in the document header above every section, so its Frame
+  // section holds only the concepts. The wizard-style full layer stays the
+  // default for any other caller.
+  conceptsOnly?: boolean
+}) {
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22, marginTop: 26 }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22, marginTop: conceptsOnly ? 14 : 26 }}>
       {/* Purpose */}
-      <div>
+      {!conceptsOnly && <div>
         <div style={monoLabel}>Purpose</div>
         <div
           style={{
@@ -37,10 +49,10 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
             onChange={(value) => dispatch({ type: 'SET_PURPOSE', value })}
           />
         </div>
-      </div>
+      </div>}
 
       {/* Overarching question */}
-      <div>
+      {!conceptsOnly && <div>
         <div style={monoLabel}>Overarching question</div>
         <div
           style={{
@@ -63,11 +75,11 @@ export function FrameLayer({ state, dispatch }: { state: State; dispatch: React.
             onChange={(value) => dispatch({ type: 'SET_QUESTION', value })}
           />
         </div>
-      </div>
+      </div>}
 
       {/* Concepts / definitions */}
       <div>
-        <div style={monoLabel}>Concepts / definitions</div>
+        {!conceptsOnly && <div style={monoLabel}>Concepts / definitions</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
           {state.concepts.map((c, i) => (
             <div

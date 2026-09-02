@@ -1,11 +1,23 @@
-// Center canvas: step header + active layer body + Back/Next footer.
-// See handoff 02 §6 / 05 §5 / 05 §10b.
+'use client'
 
-import { forwardRef } from 'react'
+// Center canvas as a single scrolling document (builder-workspace-redesign
+// plan §1): the document header (question + purpose), then all seven layers
+// stacked as sections, each with its own heading and Draft Mode claim banner.
+// This replaced the one-layer-at-a-time wizard with its Back/Next footer.
+//
+// state.step still means "the focused layer". Two things move it: LayerNav
+// (and the reducer's APPLY_DRAFT_STAGE, so the view follows a live draft) —
+// this component scrolls the matching section into view; and this component's
+// own scroll-spy, which dispatches GO_STEP as the reader scrolls. The two are
+// kept from feeding each other by remembering which step the spy last chose
+// and skipping the programmatic scroll for that one.
+
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
-import { layers, layerKey } from '@/lib/build/content'
-import { ChevronLeft, LongArrow } from './buildIcons'
+import { documentHeading, layers } from '@/lib/build/content'
+import { draftGateLocked } from '@/lib/ai/draft'
+import { InlineText } from './Editable'
 import { DraftClaimBanner } from './DraftClaimBanner'
 import { FrameLayer } from './layers/FrameLayer'
 import { PerspectivesLayer } from './layers/PerspectivesLayer'
@@ -16,99 +28,189 @@ import { ConclusionLayer } from './layers/ConclusionLayer'
 import { ImplicationsLayer } from './layers/ImplicationsLayer'
 import { ReviewLayer } from './layers/ReviewLayer'
 
+const SPY_DEBOUNCE_MS = 180
+// How long a programmatic smooth scroll is allowed to settle before the spy is
+// trusted again (a smooth scroll fires many intersection changes on the way).
+const PROGRAMMATIC_SCROLL_MS = 700
+
+const sectionId = (step: number) => `layer-${step}`
+
 export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action>; houseId?: string }>(
   function Canvas({ state, strength, dispatch, houseId }, ref) {
-    const { step } = state
-    const layer = layers[step - 1]
+    const mainRef = useRef<HTMLElement>(null)
+    useImperativeHandle(ref, () => mainRef.current as HTMLElement)
+
+    const { step, activePerspective: activeId } = state
     const activePerspective =
-      step === 2 && state.activePerspective != null
-        ? state.perspectives.find((p) => p.id === state.activePerspective) ?? null
-        : null
-    const showStepHeader = !activePerspective
+      activeId != null ? state.perspectives.find((p) => p.id === activeId) ?? null : null
+
+    // ── Focus → scroll ─────────────────────────────────────────────────────
+    const spyStepRef = useRef<number | null>(null)
+    const programmaticUntilRef = useRef(0)
+    useEffect(() => {
+      if (spyStepRef.current === step) {
+        // The spy chose this step from the reader's own scrolling; don't yank.
+        spyStepRef.current = null
+        return
+      }
+      const el = mainRef.current?.querySelector<HTMLElement>(`#${sectionId(step)}`)
+      if (!el) return
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      programmaticUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_MS
+      el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    }, [step])
+
+    // Opening a perspective's detail should bring the Perspectives section into
+    // view even when the focused layer was already 2 (no step change to react to).
+    useEffect(() => {
+      if (activeId == null) return
+      const el = mainRef.current?.querySelector<HTMLElement>(`#${sectionId(2)}`)
+      if (!el) return
+      programmaticUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_MS
+      el.scrollIntoView({ behavior: 'auto', block: 'start' })
+    }, [activeId])
+
+    // ── Scroll → focus (scroll-spy) ────────────────────────────────────────
+    const stepRef = useRef(step)
+    stepRef.current = step
+    useEffect(() => {
+      const root = mainRef.current
+      if (!root || typeof IntersectionObserver === 'undefined') return
+      const visible = new Map<number, number>() // step → top offset within root
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      const settle = () => {
+        timer = null
+        if (Date.now() < programmaticUntilRef.current) return
+        if (visible.size === 0) return
+        // The intersecting section nearest the top of the reading band wins.
+        let best: number | null = null
+        let bestTop = Infinity
+        visible.forEach((top, s) => {
+          if (top < bestTop) {
+            bestTop = top
+            best = s
+          }
+        })
+        if (best !== null && best !== stepRef.current) {
+          spyStepRef.current = best
+          dispatch({ type: 'GO_STEP', n: best })
+        }
+      }
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            const s = Number((e.target as HTMLElement).dataset.step)
+            if (e.isIntersecting) visible.set(s, e.boundingClientRect.top)
+            else visible.delete(s)
+          }
+          if (timer) clearTimeout(timer)
+          timer = setTimeout(settle, SPY_DEBOUNCE_MS)
+        },
+        // A band from 20% down the viewport to 45% up from the bottom: a
+        // section counts as "being read" once its box crosses that band.
+        { root, rootMargin: '-20% 0px -45% 0px', threshold: 0 }
+      )
+      root.querySelectorAll<HTMLElement>('section[data-step]').forEach((el) => io.observe(el))
+      return () => {
+        io.disconnect()
+        if (timer) clearTimeout(timer)
+      }
+      // Sections are static (always seven); observing once on mount is enough.
+    }, [dispatch])
+
+    const counts = { perspectives: state.perspectives.length, evidence: state.evidence.length }
+    const isDraft = draftGateLocked(state.draft)
 
     return (
-      <main
-        ref={ref}
-        className="build-scroll"
-        style={{ flex: '1 1 auto', overflowY: 'auto', minWidth: 0 }}
-      >
-        <div className="bhp-canvas-inner" style={{ maxWidth: 760, margin: '0 auto', padding: '30px 36px 120px' }}>
-          {showStepHeader && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--amber-text)' }}>Layer {step} / 7</span>
-                <span style={{ width: 16, height: 1, background: 'var(--rule)' }} />
-                <span className="mono" style={{ fontSize: 11, color: 'var(--ink-subtle)' }}>{layer.kicker}</span>
-              </div>
-              <h1 className="bhp-canvas-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 32, letterSpacing: '-0.015em', color: 'var(--ink)', marginTop: 12 }}>
-                {layer.title}
-              </h1>
-              <p style={{ fontSize: 16, color: 'var(--ink-mid)', lineHeight: 1.55, marginTop: 10, maxWidth: '60ch' }}>{layer.blurb}</p>
-            </div>
-          )}
+      <main ref={mainRef} className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', minWidth: 0 }}>
+        <div className="bhp-canvas-inner" style={{ maxWidth: 760, margin: '0 auto', padding: '34px 36px 160px' }}>
+          {/* ── The seven layers, stacked ─────────────────────────────────── */}
+          {layers.map((l) => {
+            const s = l.step
+            const h = documentHeading(s, counts)
+            return (
+              <section key={s} id={sectionId(s)} data-step={s} aria-labelledby={`${sectionId(s)}-title`} className="bhp-doc-section" style={{ marginTop: s === 1 ? 0 : 44 }}>
+                {/* Frame IS the question, its purpose, and the concepts — so the
+                    document header lives inside this first section. Jumping to
+                    "Frame" lands on the question, and the scroll-spy reads the
+                    top of the document as Frame. */}
+                {s === 1 && <DocumentHeader state={state} dispatch={dispatch} isDraft={isDraft} />}
 
-          {/* Draft Mode claim pass (decision 016 §2) + post-draft Q&A (0039) */}
-          {showStepHeader && <DraftClaimBanner state={state} dispatch={dispatch} houseId={houseId} />}
+                <div className="bhp-doc-section-head" style={{ display: 'flex', alignItems: 'baseline', gap: 10, paddingBottom: 10, borderBottom: '1px solid var(--rule-soft)', marginTop: s === 1 ? 36 : 0 }}>
+                  <span className="mono" style={{ fontSize: 10, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--ink-subtle)', flex: '0 0 auto' }}>
+                    {h.eyebrow}
+                  </span>
+                  <h2 id={`${sectionId(s)}-title`} style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 22, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>
+                    {h.title}
+                  </h2>
+                </div>
 
-          {/* Body */}
-          {step === 1 && <FrameLayer state={state} dispatch={dispatch} />}
-          {step === 2 &&
-            (activePerspective ? (
-              <PerspectiveDetail perspective={activePerspective} dispatch={dispatch} onBack={() => dispatch({ type: 'CLOSE_PERSPECTIVE' })} />
-            ) : (
-              <PerspectivesLayer state={state} dispatch={dispatch} />
-            ))}
-          {step === 3 && <EvidenceLayer state={state} dispatch={dispatch} />}
-          {step === 4 && <AssumptionsLayer state={state} dispatch={dispatch} />}
-          {step === 5 && <ConclusionLayer state={state} dispatch={dispatch} />}
-          {step === 6 && <ImplicationsLayer state={state} dispatch={dispatch} />}
-          {step === 7 && <ReviewLayer state={state} strength={strength} dispatch={dispatch} />}
+                {/* Draft Mode claim pass (decision 016 §2) + post-draft Q&A (0039), per section. */}
+                {!(s === 2 && activePerspective) && <DraftClaimBanner state={state} dispatch={dispatch} houseId={houseId} step={s} />}
 
-          {/* Footer */}
-          <Footer step={step} dispatch={dispatch} />
+                {s === 1 && <FrameLayer state={state} dispatch={dispatch} conceptsOnly />}
+                {s === 2 &&
+                  (activePerspective ? (
+                    <PerspectiveDetail perspective={activePerspective} dispatch={dispatch} onBack={() => dispatch({ type: 'CLOSE_PERSPECTIVE' })} />
+                  ) : (
+                    <PerspectivesLayer state={state} dispatch={dispatch} />
+                  ))}
+                {s === 3 && <EvidenceLayer state={state} dispatch={dispatch} />}
+                {s === 4 && <AssumptionsLayer state={state} dispatch={dispatch} />}
+                {s === 5 && <ConclusionLayer state={state} dispatch={dispatch} />}
+                {s === 6 && <ImplicationsLayer state={state} dispatch={dispatch} />}
+                {s === 7 && <ReviewLayer state={state} strength={strength} dispatch={dispatch} />}
+              </section>
+            )
+          })}
         </div>
       </main>
     )
   }
 )
 
-function Footer({
-  step,
-  dispatch,
-}: {
-  step: number
-  dispatch: React.Dispatch<Action>
-}) {
-  const backDisabled = step === 1
-  const backLabel = backDisabled ? 'Back' : layerKey(step - 1)
-  const isLast = step === 7
-
+// The question and its purpose — the top of the document, inside the Frame
+// section (see the note at its call site).
+function DocumentHeader({ state, dispatch, isDraft }: { state: State; dispatch: React.Dispatch<Action>; isDraft: boolean }) {
   return (
-    <div className="bhp-canvas-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--rule)', marginTop: 34, paddingTop: 20 }}>
-      <button
-        type="button"
-        disabled={backDisabled}
-        onClick={() => { if (!backDisabled) dispatch({ type: 'GO_STEP', n: step - 1 }) }}
-        className="bhp-footer-back"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14, color: backDisabled ? 'var(--rule)' : 'var(--ink)', cursor: backDisabled ? 'default' : 'pointer', background: 'transparent' }}
-      >
-        <ChevronLeft size={14} stroke={backDisabled ? 'var(--rule)' : 'var(--ink)'} />
-        {backLabel}
-      </button>
-      {/* Review is the terminal layer — its "To strengthen this house" list is
-          the next action, so there is no forward button on the last step. */}
-      {!isLast && (
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'GO_STEP', n: step + 1 })}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 20px', background: 'var(--ink)', color: 'var(--parchment)', borderRadius: 8, fontWeight: 600, fontSize: 14 }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--ink-mid)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--ink)')}
-        >
-          Next · {layerKey(step + 1)}
-          <LongArrow size={16} stroke="var(--parchment)" />
-        </button>
-      )}
-    </div>
+    <header className="bhp-doc-header">
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--amber-text)' }}>
+              Your house{isDraft ? ' · Draft' : ''}
+            </div>
+            <h1
+              className="bhp-doc-h1"
+              style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 34, lineHeight: 1.18, letterSpacing: '-0.015em', color: 'var(--ink)', marginTop: 10 }}
+            >
+              <InlineText
+                ariaLabel="Overarching question"
+                multiline
+                value={state.question}
+                placeholder="What's a question you can't crack?"
+                onChange={(value) => dispatch({ type: 'SET_QUESTION', value })}
+              />
+            </h1>
+            <div
+              style={{
+                marginTop: 18,
+                padding: '12px 16px',
+                background: 'var(--amber-tint)',
+                borderLeft: '3px solid var(--amber)',
+                borderRadius: '0 10px 10px 0',
+              }}
+            >
+              <div className="mono" style={{ fontSize: 9, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--amber-text)' }}>Purpose</div>
+              <div style={{ fontSize: 14, color: 'var(--ink-mid)', lineHeight: 1.55, marginTop: 5 }}>
+                <InlineText
+                  ariaLabel="Purpose"
+                  multiline
+                  value={state.purpose}
+                  placeholder="Why does this question matter, and who does the reasoning have to hold up to?"
+                  onChange={(value) => dispatch({ type: 'SET_PURPOSE', value })}
+                />
+              </div>
+            </div>
+          </header>
   )
 }

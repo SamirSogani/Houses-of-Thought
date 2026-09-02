@@ -19,6 +19,7 @@ export function DraftClaimBanner({
   state,
   dispatch,
   houseId,
+  step: stepProp,
 }: {
   state: State
   dispatch: React.Dispatch<Action>
@@ -28,11 +29,17 @@ export function DraftClaimBanner({
   // there, same gate CopilotPanel already applies to the reasoning pipeline
   // entry point.
   houseId?: string
+  // Which layer this banner belongs to. The stacked document (builder-
+  // workspace-redesign plan §1) mounts one banner per section, so the layer
+  // can no longer be inferred from state.step (the *focused* layer). Defaults
+  // to state.step for any remaining single-layer caller.
+  step?: number
 }) {
   const draft = state.draft
   if (!draft) return null
 
-  const stage = stageForStep(state.step)
+  const step = stepProp ?? state.step
+  const stage = stageForStep(step)
 
   // Drafted layer awaiting its claim.
   const claimBanner =
@@ -110,7 +117,7 @@ export function DraftClaimBanner({
         </button>
       </div>
     ) : // Conclusion step: the layer the AI never drafts (016 §1).
-    state.step === 5 ? (
+    step === 5 ? (
       <div
         className="fade-in mono"
         style={{

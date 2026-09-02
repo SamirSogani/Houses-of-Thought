@@ -71,6 +71,53 @@ export const layers: LayerMeta[] = [
 
 export const layerKey = (step: number): string => layers[step - 1]?.key ?? ''
 
+// Document-view section headings (builder-workspace-redesign plan §2). The
+// stacked document reads each layer as an eyebrow + a short serif title that
+// reflects what is actually there ("Four angles on the question", "5 things
+// worth knowing"), rather than the wizard's imperative titles above. Kept
+// beside `layers` so builder copy stays in one file.
+export interface DocumentHeading {
+  eyebrow: string
+  title: string
+}
+
+const SMALL_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
+const countWord = (n: number): string => (n <= 10 ? SMALL_WORDS[n] : String(n))
+
+export function documentHeading(
+  step: number,
+  counts: { perspectives: number; evidence: number }
+): DocumentHeading {
+  switch (step) {
+    case 1:
+      return { eyebrow: 'Concepts', title: 'Key ideas' }
+    case 2: {
+      const n = counts.perspectives
+      return {
+        eyebrow: 'Perspectives',
+        title: n === 0 ? 'No perspectives yet' : `${countWord(n)} ${n === 1 ? 'angle' : 'angles'} on the question`,
+      }
+    }
+    case 3: {
+      const n = counts.evidence
+      return {
+        eyebrow: 'Evidence',
+        title: n === 0 ? 'Nothing sourced yet' : `${n} ${n === 1 ? 'thing' : 'things'} worth knowing`,
+      }
+    }
+    case 4:
+      return { eyebrow: 'Assumptions', title: "What you're taking for granted" }
+    case 5:
+      return { eyebrow: 'Conclusion', title: 'Where it lands' }
+    case 6:
+      return { eyebrow: 'Implications', title: 'What follows' }
+    case 7:
+      return { eyebrow: 'Review', title: 'House strength' }
+    default:
+      return { eyebrow: '', title: '' }
+  }
+}
+
 // 07 §6.1 Frame prose.
 export const framePurpose =
   'Decide whether K-12 schools should adopt AI tools, and under what guardrails, so the reasoning holds up to teachers, parents, and administrators.'

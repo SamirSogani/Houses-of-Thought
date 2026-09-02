@@ -19,11 +19,12 @@
     display: none !important;
   }
 
-  /* — App bar: condense, drop the decorative Framework/Collab chrome. */
+  /* — App bar: condense. Never wraps — the title input has a zero flex-basis
+       (AppBar.tsx) so it shrinks instead of pushing Sign out to a new row. */
   .bhp-appbar {
-    padding: 10px 16px !important;
-    gap: 12px !important;
-    flex-wrap: wrap;
+    padding: 8px 12px !important;
+    gap: 10px !important;
+    flex-wrap: nowrap;
   }
   .bhp-appbar-nav {
     display: none !important;
@@ -64,12 +65,35 @@
     padding: 10px 16px !important;
   }
 
+  /* — Status row (document view): the layer nav takes the full width and
+       the save/draft-gate line drops beneath it. */
+  .bhp-status-row {
+    padding: 4px 12px 6px !important;
+    gap: 6px !important;
+    flex-wrap: wrap;
+  }
+  .bhp-status-meta {
+    flex: 1 1 100% !important;
+    margin-left: 0 !important;
+    white-space: normal !important;
+    padding: 2px 8px 0;
+  }
+  .bhp-appbar-crumb {
+    display: none !important;
+  }
+
   /* — Canvas */
   .bhp-canvas-inner {
-    padding: 20px 16px 120px !important;
+    padding: 20px 16px 140px !important;
   }
   .bhp-canvas-title {
     font-size: 26px !important;
+  }
+  .bhp-doc-h1 {
+    font-size: 26px !important;
+  }
+  .bhp-doc-section {
+    margin-top: 34px !important;
   }
   .bhp-canvas-footer {
     flex-wrap: wrap;
@@ -104,6 +128,13 @@
 }
 
 @media (max-width: 767px) {
+  /* Document section headings: eyebrow stacks above the title once a title
+     wraps to two lines beside it. */
+  .bhp-doc-section-head {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
   /* Implications: the three registers stack. minmax(0, 1fr), not bare 1fr,
      so long unbreakable content can't blow the auto track min past the
      viewport. */
@@ -126,8 +157,8 @@
   }
 }
 
-/* — Mobile step strip (only mounted <1024px, so no media query needed).
-     Hidden scrollbar; momentum scrolling on iOS. */
+/* — Layer nav strip (document view, every viewport) and the older mobile
+     step strip share this: hidden scrollbar; momentum scrolling on iOS. */
 .bhp-step-strip {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;

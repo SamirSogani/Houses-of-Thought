@@ -29,7 +29,9 @@ const presenceOrder: PersonKey[] = ['you', 'ai']
 // controller has actually observed.
 export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'failed' | 'conflict' | 'signed-out'
 
-const SAVE_STATUS_TEXT: Record<SaveStatus, { text: string; alert: boolean }> = {
+// Exported for the document-view status row in BuildHousePage, which took
+// over this bar's save indicator (builder-workspace-redesign plan §2).
+export const SAVE_STATUS_TEXT: Record<SaveStatus, { text: string; alert: boolean }> = {
   saved: { text: 'Saved', alert: false },
   dirty: { text: 'Edited', alert: false },
   saving: { text: 'Saving…', alert: false },
@@ -174,29 +176,46 @@ export function ContextBar({
 
       {/* Right cluster: who is actually in the house. */}
       <div className="bhp-context-actions" style={{ display: 'flex', alignItems: 'center', gap: 14, marginLeft: 'auto' }}>
-        {roster && (roster.owner || roster.collaborators.length > 0) ? (
-          <RealPresence roster={roster} currentUserId={currentUserId ?? null} />
-        ) : (
-          <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
-            {presenceOrder.map((k) => (
-              <Avatar
-                key={k}
-                who={k}
-                size={30}
-                ring
-                title={`${people[k].name} · ${people[k].role}`}
-                style={{ marginLeft: -7 }}
-              />
-            ))}
-            {/* The avatars carry their identity only in a `title` tooltip, which
-                keyboard and touch users never see (a11y S7). State it in text for
-                assistive tech instead. */}
-            <span className="sr-only">
-              In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
-            </span>
-          </div>
-        )}
+        <Presence roster={roster} currentUserId={currentUserId ?? null} />
       </div>
+    </div>
+  )
+}
+
+// Who is in the house: real owner + collaborators when a roster exists,
+// otherwise the 'you'/'ai' fallback pair. Exported so the document-view
+// AppBar can show the same presence stack this bar did (builder-workspace-
+// redesign plan §2) without a second copy of the fallback logic.
+export function Presence({
+  roster,
+  currentUserId,
+  size = 30,
+}: {
+  roster?: TeamRoster | null
+  currentUserId: string | null
+  size?: number
+}) {
+  if (roster && (roster.owner || roster.collaborators.length > 0)) {
+    return <RealPresence roster={roster} currentUserId={currentUserId} size={size} />
+  }
+  return (
+    <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
+      {presenceOrder.map((k) => (
+        <Avatar
+          key={k}
+          who={k}
+          size={size}
+          ring
+          title={`${people[k].name} · ${people[k].role}`}
+          style={{ marginLeft: -7 }}
+        />
+      ))}
+      {/* The avatars carry their identity only in a `title` tooltip, which
+          keyboard and touch users never see (a11y S7). State it in text for
+          assistive tech instead. */}
+      <span className="sr-only">
+        In this house: {presenceOrder.map((k) => `${people[k].name} (${people[k].role})`).join(', ')}
+      </span>
     </div>
   )
 }
@@ -207,7 +226,7 @@ export function ContextBar({
 // PersonHoverCard: full color when recently active, faded when not, with a
 // small card (name, email, activity) on hover/click/focus — Google Docs/
 // Word-style, replacing the old plain browser title-tooltip treatment.
-function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUserId: string | null }) {
+function RealPresence({ roster, currentUserId, size = 30 }: { roster: TeamRoster; currentUserId: string | null; size?: number }) {
   const people_ = [...(roster.owner ? [roster.owner] : []), ...roster.collaborators]
   return (
     <div className="bhp-presence" style={{ display: 'flex', alignItems: 'center', paddingLeft: 7 }}>
@@ -223,13 +242,13 @@ function RealPresence({ roster, currentUserId }: { roster: TeamRoster; currentUs
             roleLabel={p.role}
             lastSeenIso={roster.presence[p.userId]}
             isSelf={isSelf}
-            size={30}
+            size={size}
             ring
             style={{ marginLeft: -7 }}
           />
         )
       })}
-      <Avatar who="ai" size={30} ring title={`${people.ai.name} · ${people.ai.role}`} style={{ marginLeft: -7 }} />
+      <Avatar who="ai" size={size} ring title={`${people.ai.name} · ${people.ai.role}`} style={{ marginLeft: -7 }} />
       {/* The hover cards carry identity in a dialog that only opens on
           hover/click/focus, which assistive tech may never trigger passively
           (a11y S7). State it in text unconditionally, same as before. */}

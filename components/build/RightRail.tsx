@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Action, State } from '@/lib/build/types'
+import type { Strength } from '@/lib/build/strength'
 import { XIcon } from '@/components/icons'
 import { ChevronLeft, ChevronRight } from './buildIcons'
 import { useFocusTrap } from '@/components/useFocusTrap'
@@ -26,6 +27,7 @@ import { CopilotPanel, type SuggestCache } from './rail/CopilotPanel'
 import type { InterviewSession } from './rail/InterviewCard'
 import type { ReasoningPipelineRunner } from './useReasoningPipelineRunner'
 import { TeamPanel } from './rail/TeamPanel'
+import { OverviewPanel } from './rail/OverviewPanel'
 
 // Passed only when the current user has real standing on this house (owner or
 // an existing collaborator) — see module comment.
@@ -35,7 +37,10 @@ export interface TeamContext {
   isOwner: boolean
 }
 
-type RailTab = 'copilot' | 'team'
+// Overview (builder-workspace-redesign plan §3) is the at-a-glance tab of the
+// document view and the default: score, and — from phase 2 — next steps and
+// suggestions. Co-pilot and Team keep their existing content.
+type RailTab = 'overview' | 'copilot' | 'team'
 
 function RailHeader({
   team,
@@ -51,6 +56,7 @@ function RailHeader({
   onToggleExpand: () => void
 }) {
   const tabs: { key: RailTab; label: string }[] = [
+    { key: 'overview', label: 'Overview' },
     { key: 'copilot', label: 'Co-pilot' },
     { key: 'team', label: 'Team' },
   ]
@@ -93,6 +99,7 @@ function RailHeader({
 
 function RailBody({
   state,
+  strength,
   dispatch,
   draftCard,
   suggestCache,
@@ -105,6 +112,7 @@ function RailBody({
   houseId,
 }: {
   state: State
+  strength: Strength
   dispatch: React.Dispatch<Action>
   draftCard?: React.ReactNode
   suggestCache?: React.RefObject<SuggestCache>
@@ -120,6 +128,9 @@ function RailBody({
   // localStorage /house builder, which has no row for a console to attach to).
   houseId?: string
 }) {
+  if (tab === 'overview') {
+    return <OverviewPanel state={state} strength={strength} />
+  }
   if (tab === 'team') {
     if (!team) {
       // team-panel-v2 item 2: teacher-viewing-a-student's-house and the
@@ -152,6 +163,7 @@ function RailBody({
 
 export function RightRail({
   state,
+  strength,
   dispatch,
   draftCard,
   suggestCache,
@@ -163,6 +175,7 @@ export function RightRail({
   houseId,
 }: {
   state: State
+  strength: Strength
   dispatch: React.Dispatch<Action>
   // Draft Mode card, created in BuildHousePage (where its runner lives).
   draftCard?: React.ReactNode
@@ -182,7 +195,7 @@ export function RightRail({
   // See RailBody's own doc comment — threaded through unchanged.
   houseId?: string
 }) {
-  const [tab, setTab] = useState<RailTab>('copilot')
+  const [tab, setTab] = useState<RailTab>('overview')
   const [expanded, setExpanded] = useState(false)
   return (
     <aside
@@ -191,7 +204,7 @@ export function RightRail({
     >
       <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
+        <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
       </div>
     </aside>
   )
@@ -200,6 +213,7 @@ export function RightRail({
 // Mobile (<1024px) shell: scrim + right slide-over holding the same tabs.
 export function MobileRailDrawer({
   state,
+  strength,
   dispatch,
   draftCard,
   suggestCache,
@@ -212,6 +226,7 @@ export function MobileRailDrawer({
   houseId,
 }: {
   state: State
+  strength: Strength
   dispatch: React.Dispatch<Action>
   draftCard?: React.ReactNode
   suggestCache?: React.RefObject<SuggestCache>
@@ -225,7 +240,7 @@ export function MobileRailDrawer({
   // See RailBody's own doc comment — threaded through unchanged.
   houseId?: string
 }) {
-  const [tab, setTab] = useState<RailTab>('copilot')
+  const [tab, setTab] = useState<RailTab>('overview')
   // team-panel-v2 item 7, mobile case: "widen" becomes "go full-width" — there
   // is no room to widen a slide-over further on a small viewport.
   const [expanded, setExpanded] = useState(false)
@@ -283,7 +298,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
+          <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
         </div>
       </div>
     </div>
