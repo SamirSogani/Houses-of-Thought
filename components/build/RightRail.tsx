@@ -108,6 +108,7 @@ function RailBody({
   team,
   roster,
   tab,
+  onTab,
   restrictAuthorship,
   houseId,
 }: {
@@ -121,6 +122,8 @@ function RailBody({
   team?: TeamContext | null
   roster?: TeamRoster | null
   tab: RailTab
+  // Lets the Overview's "more in Co-pilot →" switch tabs.
+  onTab: (t: RailTab) => void
   // See CopilotPanel's own doc comment — threaded through unchanged.
   restrictAuthorship?: boolean
   // Post-pipeline console entry point (plan doc 28) — threaded through
@@ -129,7 +132,16 @@ function RailBody({
   houseId?: string
 }) {
   if (tab === 'overview') {
-    return <OverviewPanel state={state} strength={strength} />
+    return (
+      <OverviewPanel
+        state={state}
+        strength={strength}
+        dispatch={dispatch}
+        suggestCache={suggestCache}
+        restrictAuthorship={restrictAuthorship}
+        onOpenCopilot={() => onTab('copilot')}
+      />
+    )
   }
   if (tab === 'team') {
     if (!team) {
@@ -204,7 +216,7 @@ export function RightRail({
     >
       <RailHeader team={team} tab={tab} onTab={setTab} expanded={expanded} onToggleExpand={() => setExpanded((e) => !e)} />
       <div className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px' }}>
-        <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
+        <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} onTab={setTab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
       </div>
     </aside>
   )
@@ -298,7 +310,7 @@ export function MobileRailDrawer({
           className="build-scroll bhp-drawer-body"
           style={{ flex: '1 1 auto', overflowY: 'auto', padding: '18px 16px calc(18px + env(safe-area-inset-bottom))' }}
         >
-          <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
+          <RailBody state={state} strength={strength} dispatch={dispatch} draftCard={draftCard} suggestCache={suggestCache} interview={interview} pipelineRunner={pipelineRunner} team={team} roster={roster} tab={tab} onTab={setTab} restrictAuthorship={restrictAuthorship} houseId={houseId} />
         </div>
       </div>
     </div>

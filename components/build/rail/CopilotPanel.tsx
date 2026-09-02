@@ -5,55 +5,21 @@
 // to dispatch APPLY_AI_ACTION — nothing enters the house without that click
 // (invariant 2). See plans/active/ai/03-suggest-and-copilot.md.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Action, State } from '@/lib/build/types'
-import type { Finding, FindingKind } from '@/lib/ai/findings'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { layers } from '@/lib/build/content'
-import { aiActionApplicable } from '@/lib/build/aiActions'
-import { serializeContent } from '@/lib/build/persistence'
-import { PlusIcon } from '../buildIcons'
 import { InterviewCard, useInterviewSession, type InterviewSession } from './InterviewCard'
 import { houseIsBlank } from './DraftCard'
 import { ReasoningPipelineCard, ReasoningConclusionSuggestion } from './ReasoningPipelineCard'
 import type { ReasoningPipelineRunner } from '../useReasoningPipelineRunner'
+import { useSuggestions, type SuggestCache } from './useSuggestions'
+import { FindingList, SkeletonCards } from './FindingCards'
 
-// snake_case finding kind → the mono tag shown on each card.
-const KIND_LABEL: Record<FindingKind, string> = {
-  framing: 'Framing',
-  vague_concept: 'Concept',
-  missing_perspective: 'Perspective',
-  weak_perspective: 'Perspective',
-  missing_evidence: 'Evidence',
-  single_source: 'Evidence',
-  hidden_assumption: 'Assumption',
-  load_bearing: 'Assumption',
-  conclusion_gap: 'Conclusion',
-  unexamined_implication: 'Implication',
-}
-
-// Cheap, stable content fingerprint (djb2) so we can tell "the house changed since
-// this fetch" without diffing — protects tokens while the user types.
-function hashString(s: string): string {
-  let h = 5381
-  for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i)
-  return (h >>> 0).toString(36)
-}
-
-type FetchState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'error'; code: string }
-  | { status: 'success'; findings: Finding[]; hash: string }
-
-// Suggestion cache, keyed by step. Owned by BuildHousePage (like the draft
-// runner) so tab switches and the mobile drawer don't discard it — every
-// discard used to refetch on remount, and suggest is the biggest per-student
-// cost driver (~15–30 calls per assignment walk before this). `consumed` (the
-// indexes the user Added) lives in the entry so a step revisit doesn't re-offer
-// already-added cards for a second, duplicate Add (bl-M1).
-export type SuggestCache = Map<number, { findings: Finding[]; hash: string; consumed: number[] }>
+// The suggestion fetch/cache/consumed logic and the cards moved to
+// useSuggestions.ts and FindingCards.tsx (phase 2) so the Overview tab can
+// show the same suggestions. Re-exported so existing importers keep working.
+export type { SuggestCache }
 
 export function CopilotPanel({
   state,
@@ -103,76 +69,14 @@ export function CopilotPanel({
   const kicker = layers[state.step - 1].kicker
   const step = state.step
 
-  // Cache keyed step → { findings, hash }, so moving between layers (or back),
-  // switching tabs, or closing the mobile drawer doesn't refetch (the ref lives
-  // in BuildHousePage when provided). Refresh is the explicit refetch path.
-  const localCacheRef = useRef<SuggestCache>(new Map())
-  const cacheRef = suggestCache ?? localCacheRef
-  // Hoisted interview session, same fallback pattern as the suggest cache above
-  // — the panel still works if ever rendered standalone, without BuildHousePage.
+  // Suggestions for the focused layer: fetch, per-step cache (the ref lives in
+  // BuildHousePage when provided), Added/Skipped bookkeeping. Refresh is the
+  // explicit refetch path.
+  const { fetchState, visible, stale, refresh, add, skip } = useSuggestions({ state, dispatch, step, suggestCache })
+  // Hoisted interview session, same fallback pattern as the suggest cache — the
+  // panel still works if ever rendered standalone, without BuildHousePage.
   const localInterview = useInterviewSession()
   const interviewSession = interview ?? localInterview
-  const abortRef = useRef<AbortController | null>(null)
-
-  const [fetchState, setFetchState] = useState<FetchState>({ status: 'idle' })
-  // Findings the user has Added this session are hidden; keyed by array index of
-  // the currently-shown findings, reset whenever the finding set changes.
-  const [consumed, setConsumed] = useState<Set<number>>(new Set())
-
-  // Live fingerprint of the persistable house — recomputed each render so a
-  // "house changed" hint can appear as the user types, without refetching.
-  const liveHash = hashString(serializeContent(state))
-
-  const runFetch = useCallback(
-    async (targetStep: number) => {
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      const content = serializeContent(state)
-      const hash = hashString(content)
-      setFetchState({ status: 'loading' })
-      setConsumed(new Set())
-
-      try {
-        const res = await fetch('/api/ai/suggest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ house: JSON.parse(content), step: targetStep, mode: state.mode }),
-          signal: controller.signal,
-        })
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string }
-          setFetchState({ status: 'error', code: body.error ?? 'ai-upstream-error' })
-          return
-        }
-        const { findings } = (await res.json()) as { findings: Finding[] }
-        cacheRef.current.set(targetStep, { findings, hash, consumed: [] })
-        setFetchState({ status: 'success', findings, hash })
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return
-        setFetchState({ status: 'error', code: 'ai-network-error' })
-      }
-    },
-    [state]
-  )
-
-  // Auto-fetch on mount / step change: serve cache if present, else fetch once.
-  useEffect(() => {
-    const cached = cacheRef.current.get(step)
-    if (cached) {
-      setFetchState({ status: 'success', findings: cached.findings, hash: cached.hash })
-      // Restore what was already Added — a revisit must not re-offer it (bl-M1).
-      setConsumed(new Set(cached.consumed))
-      return
-    }
-    runFetch(step)
-    return () => abortRef.current?.abort()
-    // Only step drives (re)fetching; typing must not. runFetch reads live state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step])
-
-  const stale = fetchState.status === 'success' && fetchState.hash !== liveHash
 
   // Consolidated blank-house entry point (declutter item 1). draftCard mirrors
   // BuildHousePage's canDraft (it's `canDraft ? <DraftCard .../> : null`), so
@@ -244,7 +148,7 @@ export function CopilotPanel({
         {fetchState.status !== 'loading' && (
           <button
             type="button"
-            onClick={() => runFetch(step)}
+            onClick={refresh}
             className="mono"
             style={{ fontSize: 10, color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
@@ -258,7 +162,7 @@ export function CopilotPanel({
           House changed —{' '}
           <button
             type="button"
-            onClick={() => runFetch(step)}
+            onClick={refresh}
             style={{ color: 'var(--blueprint)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }}
           >
             refresh suggestions
@@ -277,7 +181,7 @@ export function CopilotPanel({
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>Couldn&apos;t reach the co-pilot.</div>
               <button
                 type="button"
-                onClick={() => runFetch(step)}
+                onClick={refresh}
                 style={{ marginTop: 10, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--white)', border: '1px solid var(--ink)', borderRadius: 6, padding: '5px 13px', cursor: 'pointer' }}
               >
                 Retry
@@ -288,118 +192,8 @@ export function CopilotPanel({
       )}
 
       {fetchState.status === 'success' && (
-        <FindingList
-          findings={fetchState.findings}
-          consumed={consumed}
-          restrictAuthorship={restrictAuthorship}
-          onAdd={(finding, idx) => {
-            // A stale card (its target deleted/renamed since the fetch, or the
-            // item already added) used to vanish silently while adding nothing
-            // (bl-M2). Say so and KEEP the card unconsumed.
-            if (finding.action && !aiActionApplicable(state, finding.action)) {
-              dispatch({ type: 'SET_TOAST', value: 'That suggestion no longer applies here.' })
-              return
-            }
-            if (finding.action) dispatch({ type: 'APPLY_AI_ACTION', action: finding.action })
-            setConsumed((prev) => new Set(prev).add(idx))
-            const entry = cacheRef.current.get(step)
-            if (entry && !entry.consumed.includes(idx)) entry.consumed.push(idx)
-          }}
-        />
+        <FindingList items={visible} restrictAuthorship={restrictAuthorship} onAdd={add} onSkip={skip} />
       )}
-    </div>
-  )
-}
-
-function FindingList({
-  findings,
-  consumed,
-  restrictAuthorship,
-  onAdd,
-}: {
-  findings: Finding[]
-  consumed: Set<number>
-  restrictAuthorship: boolean
-  onAdd: (finding: Finding, idx: number) => void
-}) {
-  const visible = findings.map((f, idx) => ({ f, idx })).filter(({ idx }) => !consumed.has(idx))
-
-  if (visible.length === 0) {
-    return (
-      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-subtle)', padding: '20px 0', lineHeight: 1.5 }}>
-        No open suggestions for this layer. Refresh once you&apos;ve made changes.
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {visible.map(({ f, idx }) => (
-        <FindingCard key={idx} finding={f} restrictAuthorship={restrictAuthorship} onAdd={() => onAdd(f, idx)} />
-      ))}
-    </div>
-  )
-}
-
-// Declutter item 3: always show the Socratic question AND the concrete
-// observation/suggestion — the model already fills all three on every finding
-// regardless of mode (lib/ai/findings.ts), so this was always a rendering
-// choice, never a data one. The Add button follows finding.action (null when
-// the model's move is "think", not "add") AND !restrictAuthorship — a
-// coach-posture account (student, or a standard account's own assignment
-// submission) sees the same question and suggestion text as anyone else, just
-// never the one-click insert (lib/auth/capabilities.ts's "never get author
-// output").
-function FindingCard({
-  finding,
-  restrictAuthorship,
-  onAdd,
-}: {
-  finding: Finding
-  restrictAuthorship: boolean
-  onAdd: () => void
-}) {
-  const important = finding.severity === 'important'
-  return (
-    <div
-      className="pop"
-      style={{
-        border: '1px solid var(--rule)',
-        borderLeft: important ? '3px solid var(--amber)' : '1px solid var(--rule)',
-        borderRadius: 11,
-        padding: 13,
-      }}
-    >
-      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{finding.question}</div>
-      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45, marginTop: 8 }}>{finding.observation}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-subtle)', lineHeight: 1.45, marginTop: 5 }}>{finding.suggestion}</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 11 }}>
-        <span className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)' }}>{KIND_LABEL[finding.kind]}</span>
-        {finding.action && !restrictAuthorship && (
-          <button
-            type="button"
-            onClick={onAdd}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600, fontSize: 12, color: 'var(--ink)', background: 'var(--amber-tint)', border: '1px solid var(--amber)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer' }}
-          >
-            <PlusIcon size={12} />
-            Add
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SkeletonCards() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{ border: '1px solid var(--rule)', borderRadius: 11, padding: 13, opacity: 0.6 }}>
-          <div style={{ height: 11, background: 'var(--rule)', borderRadius: 4, width: '92%' }} />
-          <div style={{ height: 11, background: 'var(--rule)', borderRadius: 4, width: '70%', marginTop: 7 }} />
-          <div style={{ height: 9, background: 'var(--parchment)', borderRadius: 4, width: '40%', marginTop: 12 }} />
-        </div>
-      ))}
     </div>
   )
 }
