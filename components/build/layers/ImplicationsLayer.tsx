@@ -1,16 +1,21 @@
-// Layer 6 — Implications. See handoff 05 §10 / 04 §8 / 07 §6.3.
+// Layer 6 — Implications as stacked rows (builder-workspace-redesign plan §3,
+// phase 3): one group per register (positive / negative / uncertain), each row
+// with its glyph, the consequence, and its horizon and bearer as chips. The
+// three-column board is gone; every action is unchanged. Watchpoints keep
+// their block beneath.
 
 import type { Action, Implication, ImplicationKind, State } from '@/lib/build/types'
 import { EyeIcon } from '../buildIcons'
 import { InlineText, RemoveButton } from '../Editable'
+import { AddRow } from './PerspectiveDetail'
 
-const columns: { kind: ImplicationKind; label: string; accent: string }[] = [
-  { kind: 'pos', label: 'Positive', accent: 'var(--green-text)' },
-  { kind: 'neg', label: 'Negative', accent: 'var(--warning-text)' },
-  { kind: 'unc', label: 'Uncertain', accent: 'var(--green-mid)' },
+const groups: { kind: ImplicationKind; label: string; accent: string; tint: string; glyph: string }[] = [
+  { kind: 'pos', label: 'Positive', accent: 'var(--green-text)', tint: 'rgba(63,143,91,0.08)', glyph: '+' },
+  { kind: 'neg', label: 'Negative', accent: 'var(--warning-text)', tint: 'rgba(194,104,43,0.08)', glyph: '−' },
+  { kind: 'unc', label: 'Uncertain', accent: 'var(--ink-subtle)', tint: 'var(--parchment)', glyph: '?' },
 ]
 
-const metaChip: React.CSSProperties = {
+const chip: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: 8,
   textTransform: 'uppercase',
@@ -19,88 +24,73 @@ const metaChip: React.CSSProperties = {
   border: '1px solid var(--rule)',
   borderRadius: 4,
   padding: '2px 6px',
+  background: 'transparent',
 }
 
 export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
-  const total = state.pos.length + state.neg.length + state.unc.length
-
   return (
-    <div className="fade-in" style={{ marginTop: 24 }}>
-      {/* Framing row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)', background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 20, padding: '5px 11px' }}>
-          {total} implications mapped
-        </span>
-        <span style={{ fontSize: 14, color: 'var(--ink-subtle)' }}>Sorted by register and tagged with time horizon and who it lands on.</span>
-      </div>
-
-      {/* Columns */}
-      <div className="bhp-impl-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {columns.map(({ kind, label, accent }) => {
-          const items = state[kind] as Implication[]
-          return (
-            <div key={kind} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderTop: `3px solid ${accent}`, borderRadius: 11, padding: 15 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="mono" style={{ fontSize: 10, color: accent }}>{label} · {items.length}</span>
-                <button
-                  type="button"
-                  title={`Add ${label.toLowerCase()} implication`}
-                  onClick={() => dispatch({ type: 'ADD_IMPLICATION', kind })}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--ink-subtle)', lineHeight: 1 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-subtle)')}
-                >
-                  +
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-                {items.map((it) => (
-                  <div key={it.id} className="pop" style={{ border: '1px solid var(--rule-soft)', borderRadius: 9, padding: '11px 12px' }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>
-                        <InlineText
-                          ariaLabel={`${label} implication`}
-                          multiline
-                          value={it.text}
-                          placeholder="What follows if the conclusion holds?"
-                          onChange={(value) => dispatch({ type: 'EDIT_IMPLICATION', kind, id: it.id, field: 'text', value })}
-                        />
-                      </div>
-                      <RemoveButton title="Remove implication" onClick={() => dispatch({ type: 'REMOVE_IMPLICATION', kind, id: it.id })} style={{ width: 16, height: 16, fontSize: 13 }} />
+    <div className="fade-in" style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {groups.map(({ kind, label, accent, tint, glyph }) => {
+        const items = state[kind] as Implication[]
+        return (
+          <div key={kind}>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '0.11em', textTransform: 'uppercase', color: accent, marginBottom: 8 }}>
+              {label} · {items.length}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.map((it) => (
+                <div key={it.id} className="pop" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: tint, border: '1px solid var(--rule-soft)', borderRadius: 10, padding: '10px 12px' }}>
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 20, height: 20, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: 'var(--white)', border: `1.5px solid ${accent}`, color: accent, fontWeight: 700, fontSize: 12, lineHeight: 1, marginTop: 1 }}
+                  >
+                    {glyph}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>
+                      <InlineText
+                        ariaLabel={`${label} implication`}
+                        multiline
+                        value={it.text}
+                        placeholder="What follows if the conclusion holds?"
+                        onChange={(value) => dispatch({ type: 'EDIT_IMPLICATION', kind, id: it.id, field: 'text', value })}
+                      />
                     </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                       <button
                         type="button"
                         title="Toggle time horizon"
                         onClick={() => dispatch({ type: 'TOGGLE_IMPLICATION_HORIZON', kind, id: it.id })}
-                        style={{ ...metaChip, cursor: 'pointer', background: 'transparent' }}
+                        style={{ ...chip, cursor: 'pointer' }}
                       >
                         {it.horizon}
                       </button>
-                      <span style={{ ...metaChip, display: 'inline-flex' }}>
+                      <span style={{ ...chip, display: 'inline-flex' }}>
                         <input
                           className="bhp-input16" aria-label="Who it lands on"
                           value={it.who}
                           placeholder="Who"
-                          size={Math.max(it.who.length || 5, 3)}
+                          size={Math.max(Math.min(it.who.length || 5, 24), 3)}
                           onChange={(e) => dispatch({ type: 'EDIT_IMPLICATION', kind, id: it.id, field: 'who', value: e.target.value })}
-                          style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', padding: 0, width: 'auto' }}
+                          style={{ background: 'transparent', border: 'none', outline: 'none', font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', padding: 0, width: 'auto', maxWidth: '100%' }}
                         />
                       </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <RemoveButton title="Remove implication" onClick={() => dispatch({ type: 'REMOVE_IMPLICATION', kind, id: it.id })} style={{ width: 20, height: 20, fontSize: 13 }} />
+                </div>
+              ))}
+              <AddRow label={`+ Add a ${label.toLowerCase()} implication`} onClick={() => dispatch({ type: 'ADD_IMPLICATION', kind })} />
             </div>
-          )
-        })}
-      </div>
+          </div>
+        )
+      })}
 
       {/* Watchpoints */}
-      <div style={{ marginTop: 22, background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <EyeIcon size={16} />
-          <span className="mono" style={{ fontSize: 10, color: 'var(--ink-mid)' }}>Signals to watch · would change the conclusion</span>
+          <span className="mono" style={{ fontSize: 10, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--ink-mid)' }}>Signals to watch · would change the conclusion</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           {state.watchpoints.map((w, i) => (
@@ -118,16 +108,7 @@ export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch:
               <RemoveButton title="Remove signal" onClick={() => dispatch({ type: 'REMOVE_WATCHPOINT', idx: i })} style={{ width: 16, height: 16, fontSize: 13 }} />
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => dispatch({ type: 'ADD_WATCHPOINT' })}
-            className="mono"
-            style={{ alignSelf: 'flex-start', fontSize: 10, color: 'var(--ink-subtle)', background: 'transparent', border: '1px dashed var(--rule)', borderRadius: 7, padding: '5px 10px', marginTop: 2 }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.borderColor = 'var(--ink)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ink-subtle)'; e.currentTarget.style.borderColor = 'var(--rule)' }}
-          >
-            + Add signal
-          </button>
+          <AddRow label="+ Add a signal" onClick={() => dispatch({ type: 'ADD_WATCHPOINT' })} />
         </div>
       </div>
     </div>

@@ -1,34 +1,28 @@
-// Layer 4 — Assumptions. See handoff 05 §9 / 04 §6.
+// Layer 4 — Assumptions as a grid of cards (builder-workspace-redesign plan
+// §3, phase 3). The prototype labels each card with a category (Unstated /
+// Foundational / Unknown unknown) that is not in the data model; cards carry
+// their number instead.
 
 import type { Action, State } from '@/lib/build/types'
 import { Avatar } from '../Avatar'
+import { people } from '@/lib/build/people'
 import { InlineText, RemoveButton } from '../Editable'
+import { AddRow } from './PerspectiveDetail'
 
 export function AssumptionsLayer({ state, dispatch }: { state: State; dispatch: React.Dispatch<Action> }) {
   return (
-    <div className="fade-in" style={{ marginTop: 24 }}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
-        <span className="mono" style={{ fontSize: 10, color: 'var(--ink-subtle)' }}>{state.assumptions.length} foundational assumptions</span>
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'ADD_ASSUMPTION' })}
-          style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)', border: '1px solid var(--ink)', borderRadius: 7, padding: '7px 12px', background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ink)'; e.currentTarget.style.color = 'var(--parchment)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink)' }}
-        >
-          + Add assumption
-        </button>
-      </div>
-
-      {/* List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div className="fade-in" style={{ marginTop: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
         {state.assumptions.map((a, i) => (
-          <div key={a.id} className="pop" style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span className="mono" style={{ width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--rule)', borderRadius: 6, fontSize: 9, color: 'var(--ink-subtle)', flex: '0 0 auto' }}>
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <span style={{ fontSize: 14, color: 'var(--ink)', flex: 1, minWidth: 0 }}>
+          <div key={a.id} className="pop" style={{ background: 'var(--amber-tint)', border: '1px solid rgba(242,176,33,0.45)', borderRadius: 11, padding: '11px 12px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="mono" style={{ fontSize: 9, letterSpacing: '0.11em', color: 'var(--amber-text)', flex: '1 1 auto' }}>
+                Assumption {String(i + 1).padStart(2, '0')}
+              </span>
+              <Avatar who={a.owner} size={18} title={people[a.owner].name} />
+              <RemoveButton title="Remove assumption" onClick={() => dispatch({ type: 'REMOVE_ASSUMPTION', id: a.id })} style={{ width: 20, height: 20, fontSize: 13 }} />
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
               <InlineText
                 ariaLabel="Assumption"
                 multiline
@@ -36,11 +30,12 @@ export function AssumptionsLayer({ state, dispatch }: { state: State; dispatch: 
                 placeholder="What has to be true for the reasoning to hold?"
                 onChange={(value) => dispatch({ type: 'EDIT_ASSUMPTION', id: a.id, value })}
               />
-            </span>
-            <Avatar who={a.owner} size={22} />
-            <RemoveButton title="Remove assumption" onClick={() => dispatch({ type: 'REMOVE_ASSUMPTION', id: a.id })} />
+            </div>
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <AddRow label="+ Add an assumption" onClick={() => dispatch({ type: 'ADD_ASSUMPTION' })} />
       </div>
     </div>
   )

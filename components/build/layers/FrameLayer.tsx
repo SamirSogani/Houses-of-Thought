@@ -2,6 +2,7 @@
 
 import type { Action, State } from '@/lib/build/types'
 import { InlineText, RemoveButton } from '../Editable'
+import { AddRow } from './PerspectiveDetail'
 
 const monoLabel: React.CSSProperties = {
   fontFamily: 'var(--font-mono)',
@@ -77,15 +78,16 @@ export function FrameLayer({
         </div>
       </div>}
 
-      {/* Concepts / definitions */}
+      {/* Concepts / definitions — compact "key ideas" cards in a grid (phase 3):
+          the term in bold, its definition beneath, both editable. */}
       <div>
         {!conceptsOnly && <div style={monoLabel}>Concepts / definitions</div>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginTop: conceptsOnly ? 0 : 10 }}>
           {state.concepts.map((c, i) => (
             <div
               key={i}
               className="pop"
-              style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '12px 14px' }}
+              style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '10px 12px', minWidth: 0 }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
@@ -102,7 +104,7 @@ export function FrameLayer({
                   style={{ width: 16, height: 16, fontSize: 13 }}
                 />
               </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, marginTop: 6 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink-mid)', lineHeight: 1.5, marginTop: 4 }}>
                 <InlineText
                   ariaLabel="Definition"
                   multiline
@@ -113,30 +115,9 @@ export function FrameLayer({
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => dispatch({ type: 'ADD_CONCEPT' })}
-            className="mono"
-            style={{
-              alignSelf: 'flex-start',
-              fontSize: 10,
-              color: 'var(--ink-subtle)',
-              background: 'transparent',
-              border: '1px dashed var(--rule)',
-              borderRadius: 20,
-              padding: '7px 14px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--ink)'
-              e.currentTarget.style.borderColor = 'var(--ink)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--ink-subtle)'
-              e.currentTarget.style.borderColor = 'var(--rule)'
-            }}
-          >
-            + Concept
-          </button>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <AddRow label="+ Add a concept" onClick={() => dispatch({ type: 'ADD_CONCEPT' })} />
         </div>
       </div>
     </div>

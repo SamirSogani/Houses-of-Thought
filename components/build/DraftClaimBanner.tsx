@@ -52,17 +52,17 @@ export function DraftClaimBanner({
           justifyContent: 'space-between',
           gap: 14,
           flexWrap: 'wrap',
-          marginTop: 18,
-          padding: '12px 16px',
+          marginTop: 14,
+          padding: '9px 12px 9px 14px',
           background: 'var(--amber-tint)',
           border: '1px solid var(--amber)',
-          borderRadius: 11,
+          borderRadius: 10,
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <SparkIcon size={14} fill="var(--amber-hover)" />
+          <SparkIcon size={13} fill="var(--amber-hover)" />
           <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>
-            Drafted by the co-pilot — read it, edit anything that is off, then claim it as yours.
+            AI-drafted · <strong>Review and claim</strong> to make this layer yours. Edit anything that is off first.
           </span>
         </span>
         <button
@@ -70,10 +70,11 @@ export function DraftClaimBanner({
           onClick={() => dispatch({ type: 'CLAIM_DRAFT_LAYER', stage })}
           style={{
             flex: '0 0 auto',
-            height: 34,
+            height: 32,
             padding: '0 14px',
-            background: 'var(--ink)',
-            color: 'var(--parchment)',
+            background: 'var(--amber)',
+            color: 'var(--ink)',
+            border: 'none',
             borderRadius: 7,
             fontWeight: 600,
             fontSize: 13,
