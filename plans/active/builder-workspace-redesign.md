@@ -1,6 +1,6 @@
 # Plan — Builder workspace redesign (document + sidebar)
 
-**Scoped:** 2026-09-01 · **Status:** Active, phase 1 in progress
+**Scoped:** 2026-09-01 · **Status:** Active — phases 1–3 open as PRs #8 → #9 → #10 (stacked; merge in that order)
 **Source:** Samir's "House UI Prototype" artifact (two variations, A/B).
 **Decided with the user (2026-09-01):** Variation **B** (document left, persistent
 panel right); Learn/Decide toggle stays **hidden** per

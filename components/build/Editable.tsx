@@ -26,6 +26,7 @@ export function InlineText({
   ariaLabel,
   style,
   onClick,
+  autoFocus,
 }: {
   value: string
   onChange: (value: string) => void
@@ -34,6 +35,9 @@ export function InlineText({
   ariaLabel?: string
   style?: React.CSSProperties
   onClick?: (e: React.MouseEvent) => void
+  // Focus on mount — for a field revealed by an explicit "write this" action
+  // (the conclusion's empty state), so the caret lands where the person asked.
+  autoFocus?: boolean
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -57,6 +61,7 @@ export function InlineText({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         onClick={onClick}
+        autoFocus={autoFocus}
         className="bhp-input16"
         style={{ ...base, resize: 'none', overflow: 'hidden', lineHeight: 'inherit', ...style }}
       />
@@ -69,6 +74,7 @@ export function InlineText({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onClick={onClick}
+      autoFocus={autoFocus}
       className="bhp-input16"
       style={{ ...base, ...style }}
     />
