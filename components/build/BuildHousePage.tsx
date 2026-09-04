@@ -27,6 +27,7 @@ import { useHouseTabLock } from './useHouseTabLock'
 import { DraftCard } from './rail/DraftCard'
 import type { SuggestCache } from './rail/CopilotPanel'
 import { useInterviewSession } from './rail/InterviewCard'
+import { useSectors } from './sectors/useSectors'
 
 const UNDO_CAP = 30
 const UNDO_CHIP_MS = 6_000
@@ -112,6 +113,10 @@ export function BuildHousePage({
   // never disagree about who's on this house. No-ops when team is null
   // (teacher view, strawman attack).
   const roster = useTeamRoster(team)
+  // Sector deep-dive analyses (implications / perspectives). Managed outside
+  // the house reducer because sectors live in their own DB table and don't
+  // affect the house save controller.
+  const sectors = useSectors(houseId)
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -454,7 +459,7 @@ export function BuildHousePage({
 
       {/* Two-column row (desktop) / document only (mobile) */}
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} houseId={houseId} />
+        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} houseId={houseId} sectors={sectors} />
         {!isMobile && (
           <RightRail
             state={state}

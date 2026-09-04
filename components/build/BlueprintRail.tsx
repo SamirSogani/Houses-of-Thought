@@ -110,7 +110,7 @@ export function BlueprintRail({
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Badge step={step} active={active} done={isDone} />
                   <span>
-                    <span style={{ display: 'block', fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>
                       {layerKey(step)}
                     </span>
                     <span className="mono" style={{ display: 'block', fontSize: 9, color: 'var(--ink-subtle)', marginTop: 2 }}>

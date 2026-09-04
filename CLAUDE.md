@@ -5,14 +5,6 @@ documentation. For what lives where, see
 [docs/repository/file-structure.md](docs/repository/file-structure.md) and
 [docs/repository/navigation.md](docs/repository/navigation.md).
 
-## Scope
-
-- Read only the files the user explicitly requests.
-- Never scan, crawl, or recursively explore the repository unless instructed.
-- Ask permission before expanding scope beyond the requested files.
-- A user-provided file list always takes precedence over your own judgment.
-- When unsure whether to read more, name the specific file(s) and ask first.
-
 ## Documentation
 
 - Keep Markdown files under ~150 lines whenever practical.

@@ -27,6 +27,14 @@ import { AssumptionsLayer } from './layers/AssumptionsLayer'
 import { ConclusionLayer } from './layers/ConclusionLayer'
 import { ImplicationsLayer } from './layers/ImplicationsLayer'
 import { ReviewLayer } from './layers/ReviewLayer'
+import { SectorShell } from './sectors/SectorShell'
+import { ImplicationsSector } from './sectors/ImplicationsSector'
+import { PerspectivesSector } from './sectors/PerspectivesSector'
+import { SectorButton } from './sectors/SectorButton'
+import { FindingsBanner } from './sectors/SectorFindings'
+import { SECTOR_META } from '@/lib/sectors/types'
+import type { SectorsState } from './sectors/useSectors'
+import type { ImplicationsSectorAnalysis, PerspectivesSectorAnalysis } from '@/lib/sectors/types'
 
 const SPY_DEBOUNCE_MS = 180
 // How long a programmatic smooth scroll is allowed to settle before the spy is
@@ -35,8 +43,8 @@ const PROGRAMMATIC_SCROLL_MS = 700
 
 const sectionId = (step: number) => `layer-${step}`
 
-export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action>; houseId?: string }>(
-  function Canvas({ state, strength, dispatch, houseId }, ref) {
+export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action>; houseId?: string; sectors?: SectorsState }>(
+  function Canvas({ state, strength, dispatch, houseId, sectors }, ref) {
     const mainRef = useRef<HTMLElement>(null)
     useImperativeHandle(ref, () => mainRef.current as HTMLElement)
 
@@ -127,6 +135,48 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
     const counts = { perspectives: state.perspectives.length, evidence: state.evidence.length }
     const isDraft = draftGateLocked(state.draft)
 
+    // Reset scroll when entering or leaving a sector deep-dive. Without this
+    // the <main> element's scrollTop carries over from the house view (which
+    // may be scrolled several screens down), making the sector appear blank.
+    const activeSectorType = sectors?.activeSector ?? null
+    useEffect(() => {
+      if (mainRef.current) mainRef.current.scrollTop = 0
+    }, [activeSectorType])
+
+    // Sector deep-dive view: replaces normal canvas content when active.
+    if (sectors?.activeSector) {
+      const sType = sectors.activeSector
+      const sRow = sectors.sectors[sType]
+      const isLoading = sectors.generating === sType || (sRow?.status === 'generating')
+      const sError = sRow?.status === 'failed' ? (sRow.error ?? 'Unknown error') : null
+      return (
+        <main ref={mainRef} className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', minWidth: 0 }}>
+          <div className="bhp-canvas-inner" style={{ maxWidth: 760, margin: '0 auto', padding: '30px 36px 120px' }}>
+            <SectorShell
+              sectorType={sType}
+              loading={isLoading}
+              error={sError}
+              onBack={sectors.closeSector}
+              onRegenerate={() => sectors.regenerate(sType)}
+            >
+              {sType === 'implications' && sRow?.analysis && (
+                <ImplicationsSector analysis={sRow.analysis as ImplicationsSectorAnalysis} />
+              )}
+              {sType === 'perspectives' && sRow?.analysis && (
+                <PerspectivesSector analysis={sRow.analysis as PerspectivesSectorAnalysis} />
+              )}
+            </SectorShell>
+          </div>
+        </main>
+      )
+    }
+
+    // Sector findings + button helpers for eligible layers.
+    const implSector = sectors?.sectors.implications
+    const perspSector = sectors?.sectors.perspectives
+    const implFindings = implSector?.status === 'complete' && Array.isArray(implSector.findings) ? implSector.findings : []
+    const perspFindings = perspSector?.status === 'complete' && Array.isArray(perspSector.findings) ? perspSector.findings : []
+
     return (
       <main ref={mainRef} className="build-scroll" style={{ flex: '1 1 auto', overflowY: 'auto', minWidth: 0 }}>
         <div className="bhp-canvas-inner" style={{ maxWidth: 760, margin: '0 auto', padding: '34px 36px 160px' }}>
@@ -153,6 +203,46 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
 
                 {/* Draft Mode claim pass (decision 016 §2) + post-draft Q&A (0039), per section. */}
                 {!(s === 2 && activePerspective) && <DraftClaimBanner state={state} dispatch={dispatch} houseId={houseId} step={s} />}
+
+                {/* Sector button + findings banner for eligible layers (perspectives § 2, implications § 6). */}
+                {s === 2 && !activePerspective && sectors && houseId && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                      <SectorButton
+                        sectorType="perspectives"
+                        sector={perspSector}
+                        generating={sectors.generating === 'perspectives'}
+                        onClick={() => sectors.openSector('perspectives')}
+                      />
+                    </div>
+                    {perspFindings.length > 0 && (
+                      <FindingsBanner
+                        findings={perspFindings}
+                        sectorLabel={SECTOR_META.perspectives.label}
+                        onOpenSector={() => sectors.openSector('perspectives')}
+                      />
+                    )}
+                  </>
+                )}
+                {s === 6 && sectors && houseId && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                      <SectorButton
+                        sectorType="implications"
+                        sector={implSector}
+                        generating={sectors.generating === 'implications'}
+                        onClick={() => sectors.openSector('implications')}
+                      />
+                    </div>
+                    {implFindings.length > 0 && (
+                      <FindingsBanner
+                        findings={implFindings}
+                        sectorLabel={SECTOR_META.implications.label}
+                        onOpenSector={() => sectors.openSector('implications')}
+                      />
+                    )}
+                  </>
+                )}
 
                 {s === 1 && <FrameLayer state={state} dispatch={dispatch} conceptsOnly />}
                 {s === 2 &&
