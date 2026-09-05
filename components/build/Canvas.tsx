@@ -15,6 +15,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { Action, State } from '@/lib/build/types'
 import type { Strength } from '@/lib/build/strength'
+import { stepLabelsForMode, type PipelineMode } from '@/lib/ai/reasoning/steps'
 import { documentHeading, layers } from '@/lib/build/content'
 import { draftGateLocked } from '@/lib/ai/draft'
 import { InlineText } from './Editable'
@@ -35,6 +36,9 @@ import { FindingsBanner } from './sectors/SectorFindings'
 import { SECTOR_META } from '@/lib/sectors/types'
 import type { SectorsState } from './sectors/useSectors'
 import type { ImplicationsSectorAnalysis, PerspectivesSectorAnalysis } from '@/lib/sectors/types'
+import { houseIsBlank } from './rail/DraftCard'
+import { PipelineLayerIndicator, layerPipelineStatus } from './PipelineLayerStatus'
+import type { ReasoningPipelineRunner } from './useReasoningPipelineRunner'
 
 const SPY_DEBOUNCE_MS = 180
 // How long a programmatic smooth scroll is allowed to settle before the spy is
@@ -43,8 +47,19 @@ const PROGRAMMATIC_SCROLL_MS = 700
 
 const sectionId = (step: number) => `layer-${step}`
 
-export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength; dispatch: React.Dispatch<Action>; houseId?: string; sectors?: SectorsState }>(
-  function Canvas({ state, strength, dispatch, houseId, sectors }, ref) {
+export const Canvas = forwardRef<
+  HTMLElement,
+  {
+    state: State
+    strength: Strength
+    dispatch: React.Dispatch<Action>
+    houseId?: string
+    sectors?: SectorsState
+    pipelineMode?: PipelineMode
+    pipelineRunner?: ReasoningPipelineRunner
+  }
+>(
+  function Canvas({ state, strength, dispatch, houseId, sectors, pipelineMode, pipelineRunner }, ref) {
     const mainRef = useRef<HTMLElement>(null)
     useImperativeHandle(ref, () => mainRef.current as HTMLElement)
 
@@ -184,6 +199,13 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
           {layers.map((l) => {
             const s = l.step
             const h = documentHeading(s, counts)
+            // Pipeline inline status (Level 2 redesign)
+            const pipelineStatus = pipelineRunner && pipelineMode
+              ? layerPipelineStatus(s, pipelineRunner, pipelineMode)
+              : null
+            const activeStepLabel = pipelineStatus === 'active' && pipelineRunner?.step
+              ? stepLabelsForMode(pipelineMode ?? 'thorough')[pipelineRunner.step] ?? null
+              : null
             return (
               <section key={s} id={sectionId(s)} data-step={s} aria-labelledby={`${sectionId(s)}-title`} className="bhp-doc-section" style={{ marginTop: s === 1 ? 0 : 44 }}>
                 {/* Frame IS the question, its purpose, and the concepts — so the
@@ -192,12 +214,58 @@ export const Canvas = forwardRef<HTMLElement, { state: State; strength: Strength
                     top of the document as Frame. */}
                 {s === 1 && <DocumentHeader state={state} dispatch={dispatch} isDraft={isDraft} />}
 
-                <div className="bhp-doc-section-head" style={{ display: 'flex', alignItems: 'baseline', gap: 10, paddingBottom: 10, borderBottom: '1px solid var(--rule-soft)', marginTop: s === 1 ? 36 : 0 }}>
+                {/* Inline pipeline prompt — minimal entry point (Level 2 redesign).
+                    Shows when the house is blank, pipeline is idle, and runner is available. */}
+                {s === 1 && pipelineRunner && houseIsBlank(state) && !state.draft && pipelineRunner.phase === 'idle' && (
+                  <div style={{ marginTop: 16, marginBottom: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = state.question.trim()
+                        if (q) pipelineRunner.start(q)
+                      }}
+                      disabled={!state.question.trim()}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: state.question.trim() ? 'var(--ink)' : 'var(--ink-subtle)',
+                        background: state.question.trim() ? 'var(--amber-tint)' : 'var(--white)',
+                        border: `1px solid ${state.question.trim() ? 'var(--amber)' : 'var(--rule)'}`,
+                        borderRadius: 8,
+                        padding: '8px 16px',
+                        cursor: state.question.trim() ? 'pointer' : 'not-allowed',
+                        opacity: state.question.trim() ? 1 : 0.5,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      Build this house with AI →
+                    </button>
+                  </div>
+                )}
+
+                {/* Pipeline running status line — shows in the Frame area during pipeline execution */}
+                {s === 1 && pipelineRunner && ['running', 'paused', 'awaiting-input', 'halted'].includes(pipelineRunner.phase) && (
+                  <div style={{ marginTop: 16, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {pipelineRunner.phase === 'running' && <span className="mini-spinner" style={{ width: 14, height: 14 }} />}
+                    <span style={{ fontSize: 13, color: 'var(--ink-subtle)' }}>
+                      {pipelineRunner.phase === 'running'
+                        ? 'Building your house…'
+                        : pipelineRunner.phase === 'paused'
+                          ? 'Pipeline paused — open Co-pilot to continue'
+                          : pipelineRunner.phase === 'awaiting-input'
+                            ? 'Waiting for your input — open Co-pilot'
+                            : 'Pipeline halted — open Co-pilot for details'}
+                    </span>
+                  </div>
+                )}
+
+                <div className="bhp-doc-section-head" style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10, borderBottom: '1px solid var(--rule-soft)', marginTop: s === 1 ? 36 : 0 }}>
                   <span className="mono" style={{ fontSize: 10, letterSpacing: '0.11em', textTransform: 'uppercase', color: 'var(--ink-subtle)', flex: '0 0 auto' }}>
                     {h.eyebrow}
                   </span>
+                  {pipelineStatus && <PipelineLayerIndicator status={pipelineStatus} />}
                   <h2 id={`${sectionId(s)}-title`} style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 22, letterSpacing: '-0.01em', color: 'var(--ink)', margin: 0 }}>
-                    {h.title}
+                    {pipelineStatus === 'active' && activeStepLabel ? activeStepLabel : h.title}
                   </h2>
                 </div>
 

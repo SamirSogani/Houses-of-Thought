@@ -11,7 +11,7 @@
 
 import { createClient as createServiceClient, type SupabaseClient } from '@supabase/supabase-js'
 import { log } from '@/lib/log'
-import type { StepId } from './steps'
+import type { StepId, PipelineMode } from './steps'
 
 if (typeof window !== 'undefined') {
   throw new Error('lib/ai/reasoning/persistence.ts is server-only and must not run in the browser')
@@ -67,6 +67,12 @@ function serviceClient(): SupabaseClient | null {
 // rows from "the house's current run" for their entire lifetime, not only
 // once finished, so a candidate run in progress can never be mistaken for
 // one even mid-flight.
+// `mode` (0046_reasoning_runs_mode.sql, Express Mode 2026-09-02): defaults to
+// 'thorough' so every existing call site (dispatch.ts's house-scoped route,
+// this file's own test) keeps writing exactly what it wrote before this
+// param existed. Only the admin route ever passes 'express' today. Same
+// tier as panels_off (0032) — a run-level fact set once, not derived from
+// run_state.
 export async function persistRunStep(
   runId: string,
   originalQuery: string,
@@ -76,7 +82,8 @@ export async function persistRunStep(
   haltReason: string | undefined,
   panelsOff: boolean,
   houseId: string | null = null,
-  isCandidate: boolean = false
+  isCandidate: boolean = false,
+  mode: PipelineMode = 'thorough'
 ): Promise<void> {
   const client = serviceClient()
   if (!client) return
@@ -92,6 +99,7 @@ export async function persistRunStep(
         panels_off: panelsOff,
         house_id: houseId,
         is_candidate: isCandidate,
+        mode,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

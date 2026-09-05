@@ -39,7 +39,7 @@ import { AiError } from '@/lib/ai/router'
 import { createClient } from '@/lib/supabase/server'
 import { getCallerCapabilities } from '@/lib/auth/account'
 import { log } from '@/lib/log'
-import { type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
+import { type StepId, type PipelineMode, nextStepForMode, isReviewStep, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
 import { MAX_N_PHASE1 } from '@/lib/ai/reasoning/budget'
 import { type ReviewPanelVerdict } from '@/lib/ai/reasoning/contracts'
 import {
@@ -211,6 +211,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
   const devForceNeedsInput = parsed.data.devForceNeedsInput ?? false
+  // Pipeline mode (plan doc 32): 'thorough' is the default for both
+  // the public hook and the admin surface; 'express' is admin-only.
+  const mode: PipelineMode = parsed.data.mode ?? 'thorough'
 
   // Single-flight per house (doc 30's Loop B item 1a,
   // plans/active/reasoning-pipeline/30-console-subagent-loops.md). This is
@@ -269,13 +272,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         haltReason,
         panelsOff,
         houseId,
-        isCandidate
+        isCandidate,
+        mode
       )
     )
   }
 
   function ok(step: StepId, patch: Record<string, unknown>): Response {
-    const nextStep = nextStepAfter(step)
+    const nextStep = nextStepForMode(step, mode)
     persist(step, patch, nextStep, false)
     return NextResponse.json({ step, patch, nextStep, halted: false })
   }
@@ -286,7 +290,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'ai-upstream-error', subElementFailures: err.failures }, { status: 502 })
   }
 
+  // Express mode has no review panels (steps.ts's EXPRESS_STEP_ORDER omits
+  // every *-review step), so nothing in this route should ever call
+  // retryStep() for an express run. Defensive guard, same as admin route.
   function retryStep(step: StepId, generateStep: StepId, patch: Record<string, unknown>): Response {
+    if (mode === 'express' && isReviewStep(step)) {
+      log.error('houses/reasoning', 'retryStep called for a review step in express mode', { step })
+      return NextResponse.json(
+        { error: 'invalid-request', detail: `${step} has no review panel in express mode` },
+        { status: 400 }
+      )
+    }
     persist(step, patch, generateStep, false)
     return NextResponse.json({ step, patch, nextStep: generateStep, halted: false, retry: true })
   }
@@ -328,6 +342,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       attempt,
       devForceNeedsInput,
       extraContext,
+      mode,
       ok,
       persist,
       retryStep,

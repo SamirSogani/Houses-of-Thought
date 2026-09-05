@@ -29,7 +29,7 @@ import { NextResponse, after } from 'next/server'
 import { AiError, drafterLaneStress } from '@/lib/ai/router'
 import { isCallerAdmin } from '@/lib/auth/admin'
 import { log } from '@/lib/log'
-import { type StepId, nextStep as nextStepAfter, STEP_FAILURE_MODE } from '@/lib/ai/reasoning/steps'
+import { type StepId, STEP_FAILURE_MODE, type PipelineMode, nextStepForMode, isReviewStep } from '@/lib/ai/reasoning/steps'
 import { MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
 import { serializeFrame, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
 import { type ReviewPanelVerdict } from '@/lib/ai/reasoning/contracts'
@@ -121,6 +121,10 @@ export async function POST(req: Request): Promise<Response> {
   const capN = parsed.data.capN ?? MAX_N_PHASE1
   const attempt = parsed.data.attempt ?? 1
   const devForceNeedsInput = parsed.data.devForceNeedsInput ?? false
+  // Express Mode (2026-09-02): the 7-step variant (see steps.ts's
+  // EXPRESS_STEP_ORDER) — 'thorough' is the original 22-step pipeline and
+  // stays the default for every existing caller that has never sent `mode`.
+  const mode: PipelineMode = parsed.data.mode ?? 'thorough'
   // Phase 3 item 1's confirmed re-contextualization mechanism: context-gather-
   // post's + any ad-hoc calls' answers so far, folded into one block threaded
   // through every downstream generate/review call via serializeFrame's
@@ -155,12 +159,28 @@ export async function POST(req: Request): Promise<Response> {
   function persist(patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string): void {
     if (dryRun) return
     after(() =>
-      persistRunStep(runId, run.originalQuery, { ...run, ...patch }, patchStep, runStatusFrom(nextStep, isHalted), haltReason, panelsOff)
+      // houseId/isCandidate stay null/false — same as every existing
+      // admin-route call (see 0038's own comment: admin-triggered runs are
+      // house_id: null exactly as before that column existed); `mode` is
+      // this request's, threaded through so Past Runs can tell an express
+      // run from a thorough one without parsing run_state.
+      persistRunStep(
+        runId,
+        run.originalQuery,
+        { ...run, ...patch },
+        patchStep,
+        runStatusFrom(nextStep, isHalted),
+        haltReason,
+        panelsOff,
+        null,
+        false,
+        mode
+      )
     )
   }
 
   function ok(step: StepId, patch: Record<string, unknown>): Response {
-    const nextStep = nextStepAfter(step)
+    const nextStep = nextStepForMode(step, mode)
     persist(step, patch, nextStep, false)
     return NextResponse.json({ step, patch, nextStep, halted: false })
   }
@@ -187,6 +207,18 @@ export async function POST(req: Request): Promise<Response> {
   // ReasoningPipelinePage.tsx) — two review steps in the same STEP_ORDER
   // position (a fresh pass vs. a loop-back) would otherwise be indistinguishable.
   function retryStep(step: StepId, generateStep: StepId, patch: Record<string, unknown>): Response {
+    // Express mode has no review panels (steps.ts's EXPRESS_STEP_ORDER omits
+    // every *-review step), so nothing in this route should ever call
+    // retryStep() for an express run — the client can't even send a review
+    // step. Defensive only: guards against a future bug (or a malformed
+    // client request) reaching this path under mode: 'express' anyway.
+    if (mode === 'express' && isReviewStep(step)) {
+      log.error('ai/reasoning/route', 'retryStep called for a review step in express mode', { step })
+      return NextResponse.json(
+        { error: 'invalid-request', detail: `${step} has no review panel in express mode` },
+        { status: 400 }
+      )
+    }
     persist(step, patch, generateStep, false)
     return NextResponse.json({ step, patch, nextStep: generateStep, halted: false, retry: true })
   }
@@ -607,7 +639,22 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       case 'conclusions-generate': {
-        if (!run.frame || !run.perspectives || !run.globalAssumptions || !run.globalEvidence) {
+        // Express mode (EXPRESS_STEP_ORDER, steps.ts) has no
+        // perspectives-evidence-* or perspectives-review steps, so
+        // run.perspectives (the evidence-bearing bundles set by
+        // perspectives-evidence-confidence) is never populated — fall back
+        // to perspectivePartials (the same bundle shape minus `evidence`,
+        // PerspectivePartialBundleSchema) with an empty evidence array.
+        // Express also has no global-assumptions/global-evidence layers at
+        // all — runConclusionsGenerate treats both as optional and omits
+        // their context sections when absent (orchestrator-global.ts).
+        const perspectivesForConclusions =
+          run.perspectives ??
+          (mode === 'express' && run.perspectivePartials
+            ? run.perspectivePartials.map((p) => ({ ...p, evidence: [] }))
+            : undefined)
+        if (!run.frame || !perspectivesForConclusions) return missing('frame/perspectives')
+        if (mode === 'thorough' && (!run.globalAssumptions || !run.globalEvidence)) {
           return missing('frame/perspectives/globalAssumptions/globalEvidence')
         }
         const masterGuidance =
@@ -618,11 +665,16 @@ export async function POST(req: Request): Promise<Response> {
           !masterGuidance && run.conclusions && run.conclusionsVerdict && !run.conclusionsVerdict.overall_pass
             ? { priorArtifact: run.conclusions, priorVerdict: run.conclusionsVerdict }
             : undefined
+        // Express mode never runs global-assumptions or global-evidence steps, so
+        // both fields are undefined. Provide empty fallbacks — the orchestrator
+        // serialises them into the context string; empty arrays produce no items.
+        const ga = run.globalAssumptions ?? { question_level_assumptions: [], cross_perspective_notes: '' }
+        const ge = run.globalEvidence ?? { question_level_evidence: [] }
         const packet = await runConclusionsGenerate(
           run.frame,
-          run.perspectives,
-          run.globalAssumptions,
-          run.globalEvidence,
+          perspectivesForConclusions,
+          ga,
+          ge,
           dryRun,
           repair,
           extraContext,

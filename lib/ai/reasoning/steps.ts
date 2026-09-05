@@ -136,6 +136,62 @@ export const LAYER_GROUPS: readonly LayerGroup[] = [
   { id: 'final-composition', label: 'Final composition', stepIds: ['final-composition'], hasPanel: false },
 ]
 
+// Express Mode (decision TBD): a streamlined 7-step variant of the pipeline —
+// generators only, no review panels, no evidence gathering, no
+// context-gather pauses. Added alongside STEP_ORDER; existing thorough-mode
+// callers are untouched.
+export type PipelineMode = 'thorough' | 'express'
+
+export const EXPRESS_STEP_ORDER = [
+  'frame-generate',
+  'breadth-scoping',
+  'perspectives-generate-stances',
+  'perspectives-generate-details',
+  'conclusions-generate',
+  'implications-generate',
+  'final-composition',
+] as const
+
+export type ExpressStepId = (typeof EXPRESS_STEP_ORDER)[number]
+
+export const EXPRESS_STEP_LABELS: Record<ExpressStepId, string> = {
+  'frame-generate': 'Framing the core question…',
+  'breadth-scoping': 'Deciding how many perspectives to explore…',
+  'perspectives-generate-stances': 'Staking out independent perspectives…',
+  'perspectives-generate-details': 'Drafting sub-questions, assumptions, and counterarguments…',
+  'conclusions-generate': 'Drawing conclusions…',
+  'implications-generate': 'Mapping implications…',
+  'final-composition': 'Composing the final answer…',
+}
+
+export const EXPRESS_LAYER_GROUPS: readonly LayerGroup[] = [
+  { id: 'frame', label: 'Frame', stepIds: ['frame-generate'], hasPanel: false },
+  { id: 'breadth-scoping', label: 'Breadth scoping', stepIds: ['breadth-scoping'], hasPanel: false },
+  { id: 'perspectives', label: 'Perspectives', stepIds: ['perspectives-generate-stances', 'perspectives-generate-details'], hasPanel: false },
+  { id: 'conclusions', label: 'Conclusions', stepIds: ['conclusions-generate'], hasPanel: false },
+  { id: 'implications', label: 'Implications', stepIds: ['implications-generate'], hasPanel: false },
+  { id: 'final-composition', label: 'Final composition', stepIds: ['final-composition'], hasPanel: false },
+]
+
+export function stepOrderForMode(mode: PipelineMode): readonly StepId[] {
+  return mode === 'express' ? EXPRESS_STEP_ORDER : STEP_ORDER
+}
+
+export function nextStepForMode(step: StepId, mode: PipelineMode): StepId | null {
+  const order = stepOrderForMode(mode)
+  const i = order.indexOf(step)
+  if (i === -1 || i >= order.length - 1) return null
+  return order[i + 1] as StepId
+}
+
+export function layerGroupsForMode(mode: PipelineMode): readonly LayerGroup[] {
+  return mode === 'express' ? EXPRESS_LAYER_GROUPS : LAYER_GROUPS
+}
+
+export function stepLabelsForMode(mode: PipelineMode): Record<string, string> {
+  return mode === 'express' ? EXPRESS_STEP_LABELS : STEP_LABELS
+}
+
 export type StepFailureMode = 'hard-block' | 'degrade'
 
 // Which review-gated steps hard-block-and-halt vs. degrade-and-continue on a

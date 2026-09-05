@@ -21,7 +21,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { drafterLaneStress } from '@/lib/ai/router'
 import { log } from '@/lib/log'
-import { type StepId } from '@/lib/ai/reasoning/steps'
+import { type StepId, type PipelineMode } from '@/lib/ai/reasoning/steps'
 import { MAX_REGENERATION_ATTEMPTS, clampNForStress } from '@/lib/ai/reasoning/budget'
 import { serializeFrame, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
 import { type ReviewPanelVerdict } from '@/lib/ai/reasoning/contracts'
@@ -80,6 +80,10 @@ export interface StepDispatchContext {
   attempt: number
   devForceNeedsInput: boolean
   extraContext: string | null
+  // Express Mode (plan doc 32): the dispatch needs to know this for the
+  // conclusions-generate case, which must fall back to perspectivePartials
+  // when run.perspectives is absent (express skips evidence + review).
+  mode: PipelineMode
   ok: (step: StepId, patch: Record<string, unknown>) => Response
   persist: (patchStep: StepId, patch: Record<string, unknown>, nextStep: StepId | null, isHalted: boolean, haltReason?: string) => void
   retryStep: (step: StepId, generateStep: StepId, patch: Record<string, unknown>) => Response
@@ -105,6 +109,7 @@ export async function dispatchStep(ctx: StepDispatchContext): Promise<Response> 
     attempt,
     devForceNeedsInput,
     extraContext,
+    mode,
     ok,
     persist,
     retryStep,
@@ -457,7 +462,21 @@ export async function dispatchStep(ctx: StepDispatchContext): Promise<Response> 
       }
 
       case 'conclusions-generate': {
-        if (!run.frame || !run.perspectives || !run.globalAssumptions || !run.globalEvidence) {
+        // Express mode (EXPRESS_STEP_ORDER, steps.ts) has no
+        // perspectives-evidence-* or perspectives-review steps, so
+        // run.perspectives (the evidence-bearing bundles set by
+        // perspectives-evidence-confidence) is never populated — fall back
+        // to perspectivePartials (same bundle shape minus `evidence`) with
+        // an empty evidence array. Express also has no global-assumptions/
+        // global-evidence layers — runConclusionsGenerate treats both as
+        // optional and omits their context sections when absent.
+        const perspectivesForConclusions =
+          run.perspectives ??
+          (mode === 'express' && run.perspectivePartials
+            ? run.perspectivePartials.map((p) => ({ ...p, evidence: [] }))
+            : undefined)
+        if (!run.frame || !perspectivesForConclusions) return missing('frame/perspectives')
+        if (mode === 'thorough' && (!run.globalAssumptions || !run.globalEvidence)) {
           return missing('frame/perspectives/globalAssumptions/globalEvidence')
         }
         const masterGuidance =
@@ -468,11 +487,16 @@ export async function dispatchStep(ctx: StepDispatchContext): Promise<Response> 
           !masterGuidance && run.conclusions && run.conclusionsVerdict && !run.conclusionsVerdict.overall_pass
             ? { priorArtifact: run.conclusions, priorVerdict: run.conclusionsVerdict }
             : undefined
+        // Express mode never runs global-assumptions or global-evidence steps,
+        // so both fields are undefined. Provide empty fallbacks — the
+        // orchestrator serialises them into the context string.
+        const ga = run.globalAssumptions ?? { question_level_assumptions: [], cross_perspective_notes: '' }
+        const ge = run.globalEvidence ?? { question_level_evidence: [] }
         const packet = await runConclusionsGenerate(
           run.frame,
-          run.perspectives,
-          run.globalAssumptions,
-          run.globalEvidence,
+          perspectivesForConclusions,
+          ga,
+          ge,
           dryRun,
           repair,
           extraContext,

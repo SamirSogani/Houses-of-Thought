@@ -43,7 +43,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Action } from '@/lib/build/types'
-import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
+import { isReviewStep, type StepId, type PipelineMode } from '@/lib/ai/reasoning/steps'
 import { MIN_N } from '@/lib/ai/reasoning/budget'
 import type { ContextGatherVerdict, EvidenceGatherUnit, SubElementFailure } from '@/lib/ai/reasoning/contracts'
 import type { RunState } from '@/components/admin/reasoning/ReasoningStagesList'
@@ -106,6 +106,9 @@ export interface ReasoningPipelineRunner {
   // .../console/candidate) needs this to know which reasoning_runs row a
   // just-finished sandbox run wrote to.
   runId: string
+  // The pipeline mode this runner uses. The public hook defaults to
+  // 'thorough'; express mode is admin-only.
+  mode: PipelineMode
   start: (question: string) => void
   // Post-pipeline console only (plan doc 28) — see its own comment above.
   rerunFrom: (existingRun: RunState, stage: DraftStage, reason: string, guidance: string) => void
@@ -124,7 +127,8 @@ export interface ReasoningPipelineRunner {
 
 export function useReasoningPipelineRunner(
   dispatch: React.Dispatch<Action>,
-  houseId: string | undefined
+  houseId: string | undefined,
+  mode: PipelineMode = 'thorough'
 ): ReasoningPipelineRunner {
   const [phase, setPhase] = useState<ReasoningPipelinePhase>('idle')
   const [step, setStep] = useState<StepId | null>(null)
@@ -182,6 +186,7 @@ export function useReasoningPipelineRunner(
               capN: HOUSE_PIPELINE_N,
               attempt: layerAttemptRef.current,
               run: runRef.current,
+              mode,
             }),
             signal: controller.signal,
           })
@@ -306,7 +311,7 @@ export function useReasoningPipelineRunner(
       cancelled = true
       controller.abort()
     }
-  }, [phase, step, houseId])
+  }, [phase, step, houseId, mode])
 
   function start(question: string) {
     const q = question.trim()
@@ -325,7 +330,10 @@ export function useReasoningPipelineRunner(
     setPendingGather(null)
     setPendingEvidenceGather(null)
     layerAttemptRef.current = 1
-    setStep('context-gather-pre')
+    // Express mode skips context-gather-pre (no pre-flight check, no
+    // pausing for user input before the frame) — jump straight to
+    // frame-generate. Thorough mode starts at context-gather-pre as before.
+    setStep(mode === 'express' ? 'frame-generate' : 'context-gather-pre')
     setPhase('running')
   }
 
@@ -491,6 +499,7 @@ export function useReasoningPipelineRunner(
     regenerationInfo,
     sandboxMode,
     runId,
+    mode,
     start,
     rerunFrom,
     rerunSandbox,

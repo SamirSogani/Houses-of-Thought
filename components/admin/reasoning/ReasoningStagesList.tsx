@@ -7,7 +7,7 @@
 // review-panel outcome (pass / degraded).
 
 import { CheckIcon } from '@/components/icons'
-import { LAYER_GROUPS, STEP_LABELS, type StepId } from '@/lib/ai/reasoning/steps'
+import { STEP_LABELS, layerGroupsForMode, type PipelineMode, type StepId } from '@/lib/ai/reasoning/steps'
 import { ReviewPanelVerdictPanel } from './ReviewPanelVerdictPanel'
 import type {
   ContextGatherVerdict,
@@ -287,14 +287,17 @@ export function ReasoningStagesList({
   run,
   currentStep,
   running,
+  mode,
 }: {
   run: RunState
   currentStep: StepId | null
   running: boolean
+  mode?: PipelineMode
 }) {
+  const groups = layerGroupsForMode(mode ?? 'thorough')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {LAYER_GROUPS.map((group) => {
+      {groups.map((group) => {
         const allDone = group.stepIds.every((s) => stepDone(run, s))
         const isCurrent = currentStep != null && group.stepIds.includes(currentStep)
 

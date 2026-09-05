@@ -10,7 +10,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { STEP_ORDER, type StepId } from '@/lib/ai/reasoning/steps'
+import { STEP_ORDER, type StepId, type PipelineMode } from '@/lib/ai/reasoning/steps'
 import { MIN_N, MAX_N_PHASE1, MASTER_REVIEW_ATTEMPT } from '@/lib/ai/reasoning/budget'
 import { serializeFrame, serializePerspectives, formatContextGatherAnswers } from '@/lib/ai/reasoning/prompts'
 import {
@@ -187,6 +187,7 @@ export const RequestSchema = z.object({
   // before it genuinely halts — see budget.ts.
   attempt: z.number().int().min(1).max(MASTER_REVIEW_ATTEMPT).nullish(),
   run: RunStateSchema,
+  mode: z.enum(['thorough', 'express']).optional().default('thorough'),
 })
 
 export function failingStandardIds(verdict: ReviewPanelVerdict): string[] {

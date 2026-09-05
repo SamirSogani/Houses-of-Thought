@@ -204,7 +204,7 @@ export function ReasoningPipelineCard({
         <div style={{ fontSize: 12, color: 'var(--ink)', marginTop: 10, lineHeight: 1.45 }}>{runner.haltReason}</div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 11, flexWrap: 'wrap' }}>
         {runner.phase === 'running' && (
           <button type="button" onClick={runner.pause} style={smallBtn}>
             Pause

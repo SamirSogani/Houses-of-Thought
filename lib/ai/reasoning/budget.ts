@@ -67,6 +67,16 @@ export function estimatePipelineCost(n: number, panelsOff = false): { generators
   return { generators, reviewers, total: generators + reviewers }
 }
 
+// Express mode: no review panels, no evidence steps, no context-gather.
+// Generators only: frame(1) + breadthScoping(1) + stances(n) + details(n) +
+// conclusions(1) + implications(1) + finalComposition(1) = 2n + 5.
+// No concurrent review calls — peak concurrency is just the n parallel
+// perspective calls.
+export function estimateExpressCost(n: number): { generators: number; reviewers: number; total: number } {
+  const generators = 2 * n + 5
+  return { generators, reviewers: 0, total: generators }
+}
+
 export function clampN(n: number): number {
   return Math.min(MAX_N_PHASE1, Math.max(MIN_N, Math.round(n)))
 }

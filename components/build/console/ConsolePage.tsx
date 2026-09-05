@@ -98,7 +98,10 @@ export function ConsolePage({ houseId, initialState }: { houseId: string; initia
   stateRef.current = state
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const runner = useReasoningPipelineRunner(dispatch, houseId)
+  // Console reruns always use thorough mode — a rerun restarts from an
+  // earlier stage of a thorough-mode run that already completed, and
+  // RERUN_STAGE_INFO/cascadeStages reference thorough-mode steps.
+  const runner = useReasoningPipelineRunner(dispatch, houseId, 'thorough')
 
   const save = useCallback(async () => {
     const supabase = createClient()

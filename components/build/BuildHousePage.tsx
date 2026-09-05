@@ -11,6 +11,7 @@ import { computeStrength } from '@/lib/build/strength'
 import { DRAFT_STAGES, unclaimedDraftStages } from '@/lib/ai/draft'
 import { serializeContent, type PersistedContent } from '@/lib/build/persistence'
 import type { Action, State } from '@/lib/build/types'
+import type { PipelineMode } from '@/lib/ai/reasoning/steps'
 import { AppBar } from './AppBar'
 import { SAVE_STATUS_TEXT, type SaveStatus } from './ContextBar'
 import { LayerNav } from './LayerNav'
@@ -117,6 +118,19 @@ export function BuildHousePage({
   // the house reducer because sectors live in their own DB table and don't
   // affect the house save controller.
   const sectors = useSectors(houseId)
+  // Pipeline progress lives inline in the canvas (Level 2 redesign) — no
+  // full-screen view state needed. Express mode only, for now.
+  const pipelineMode: PipelineMode = 'thorough'
+  // Toast when the pipeline finishes — no view transition needed since
+  // progress is inline in the canvas (Level 2 redesign).
+  const prevPipelinePhaseRef = useRef(reasoningPipelineRunner.phase)
+  useEffect(() => {
+    const prev = prevPipelinePhaseRef.current
+    prevPipelinePhaseRef.current = reasoningPipelineRunner.phase
+    if (prev !== 'done' && reasoningPipelineRunner.phase === 'done') {
+      dispatch({ type: 'SET_TOAST', value: 'Your house is ready — review and refine each layer' })
+    }
+  }, [reasoningPipelineRunner.phase])
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
@@ -459,7 +473,16 @@ export function BuildHousePage({
 
       {/* Two-column row (desktop) / document only (mobile) */}
       <div style={{ flex: '1 1 auto', display: 'flex', minHeight: 0 }}>
-        <Canvas ref={canvasRef} state={state} strength={strength} dispatch={guardedDispatch} houseId={houseId} sectors={sectors} />
+        <Canvas
+          ref={canvasRef}
+          state={state}
+          strength={strength}
+          dispatch={guardedDispatch}
+          houseId={houseId}
+          sectors={sectors}
+          pipelineMode={pipelineMode}
+          pipelineRunner={canDraft ? reasoningPipelineRunner : undefined}
+        />
         {!isMobile && (
           <RightRail
             state={state}

@@ -12,8 +12,15 @@ import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { useSignOut } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
-import { isReviewStep, type StepId } from '@/lib/ai/reasoning/steps'
-import { estimatePipelineCost, MIN_N, MAX_N_PHASE1, MAX_REGENERATION_ATTEMPTS, MASTER_REVIEW_ATTEMPT } from '@/lib/ai/reasoning/budget'
+import { isReviewStep, type PipelineMode, type StepId } from '@/lib/ai/reasoning/steps'
+import {
+  estimatePipelineCost,
+  estimateExpressCost,
+  MIN_N,
+  MAX_N_PHASE1,
+  MAX_REGENERATION_ATTEMPTS,
+  MASTER_REVIEW_ATTEMPT,
+} from '@/lib/ai/reasoning/budget'
 import type { ContextGatherVerdict, EvidenceGatherUnit, SubElementFailure } from '@/lib/ai/reasoning/contracts'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 import { ContextGatherAnswerBox } from './ContextGatherAnswerBox'
@@ -99,6 +106,11 @@ export function ReasoningPipelinePage() {
   const [question, setQuestion] = useState('')
   const [n, setN] = useState(MIN_N)
   const [dryRun, setDryRun] = useState(true)
+  // "Thorough" (existing 22-step behavior, default) vs "Express" (7-step
+  // streamlined variant — no review panels, no evidence, no context-gather
+  // pauses). Threaded into every step fetch (see the loop effect below) and
+  // into ReasoningStagesList so the checklist renders the right steps.
+  const [mode, setMode] = useState<PipelineMode>('thorough')
   // Decision 019 verification stage 3 (A/B the review panel): threaded
   // alongside dryRun end-to-end, but generation stays real — only every
   // review-gate call is replaced server-side with an auto-pass verdict (see
@@ -172,10 +184,11 @@ export function ReasoningPipelinePage() {
               runId: runIdRef.current,
               capN: n,
               dryRun,
-              panelsOff,
+              panelsOff: mode === 'express' ? true : panelsOff, // express auto-skips panels
               devForceNeedsInput,
               attempt: layerAttemptRef.current,
               run: runRef.current,
+              mode,
             }),
             signal: controller.signal,
           })
@@ -282,7 +295,7 @@ export function ReasoningPipelinePage() {
       cancelled = true
       controller.abort()
     }
-  }, [phase, step, n, dryRun, panelsOff, devForceNeedsInput])
+  }, [phase, step, n, dryRun, panelsOff, devForceNeedsInput, mode])
 
   function start() {
     if (!question.trim()) return
@@ -296,7 +309,7 @@ export function ReasoningPipelinePage() {
     setPendingGather(null)
     setPendingEvidenceGather(null)
     layerAttemptRef.current = 1
-    setStep('context-gather-pre')
+    setStep(mode === 'express' ? 'frame-generate' : 'context-gather-pre')
     setPhase('running')
   }
 
@@ -424,7 +437,7 @@ export function ReasoningPipelinePage() {
     }
   }
 
-  const cost = estimatePipelineCost(n, panelsOff)
+  const cost = mode === 'express' ? estimateExpressCost(n) : estimatePipelineCost(n, panelsOff)
   const peakConcurrent = panelsOff ? 4 * n : 9 * n
   const nOptions = Array.from({ length: MAX_N_PHASE1 - MIN_N + 1 }, (_, i) => MIN_N + i)
 
@@ -463,6 +476,51 @@ export function ReasoningPipelinePage() {
 
         {phase === 'form' && (
           <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '18px 20px', marginTop: 24 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <button
+                type="button"
+                onClick={() => setMode('thorough')}
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: '10px 14px',
+                  borderRadius: 9,
+                  border: mode === 'thorough' ? '2px solid var(--ink)' : '1px solid var(--rule)',
+                  background: mode === 'thorough' ? 'var(--amber-tint)' : 'var(--white)',
+                  color: 'var(--ink)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div>Thorough</div>
+                <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-subtle)', marginTop: 2 }}>
+                  22 steps · 6 review gates · evidence search · ~5-10 min
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('express')}
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: '10px 14px',
+                  borderRadius: 9,
+                  border: mode === 'express' ? '2px solid var(--ink)' : '1px solid var(--rule)',
+                  background: mode === 'express' ? 'var(--amber-tint)' : 'var(--white)',
+                  color: 'var(--ink)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div>Express</div>
+                <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-subtle)', marginTop: 2 }}>
+                  7 steps · no review panels · no evidence · ~30-60 sec
+                </div>
+              </button>
+            </div>
+
             <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Question</label>
             <textarea
               value={question}
@@ -521,7 +579,7 @@ export function ReasoningPipelinePage() {
               Dry run (no real AI calls — exercises the 22-step state machine and UI for free)
             </label>
 
-            {dryRun && (
+            {dryRun && mode === 'thorough' && (
               <label
                 style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, marginLeft: 22, fontSize: 12, color: 'var(--ink-subtle)', cursor: 'pointer' }}
               >
@@ -535,15 +593,17 @@ export function ReasoningPipelinePage() {
               </label>
             )}
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: 'var(--ink-subtle)', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={panelsOff}
-                onChange={(e) => setPanelsOff(e.target.checked)}
-                style={{ accentColor: 'var(--amber)', margin: 0 }}
-              />
-              Panels off (auto-pass every review gate — real generation, no reviewer calls; for A/B comparison against a panels-on run)
-            </label>
+            {mode === 'thorough' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: 'var(--ink-subtle)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={panelsOff}
+                  onChange={(e) => setPanelsOff(e.target.checked)}
+                  style={{ accentColor: 'var(--amber)', margin: 0 }}
+                />
+                Panels off (auto-pass every review gate — real generation, no reviewer calls; for A/B comparison against a panels-on run)
+              </label>
+            )}
 
             {!dryRun && (
               <div style={{ fontSize: 11.5, color: 'var(--warning-text)', marginTop: 8, lineHeight: 1.45 }}>
@@ -584,7 +644,7 @@ export function ReasoningPipelinePage() {
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <ReasoningStagesList run={run} currentStep={step} running={phase === 'running'} />
+              <ReasoningStagesList run={run} currentStep={step} running={phase === 'running'} mode={mode} />
             </div>
 
             {phase === 'awaiting-input' && pendingGather && (
