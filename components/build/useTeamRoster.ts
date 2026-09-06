@@ -44,7 +44,7 @@ export function displayNameFor(p: Pick<RosterPerson, 'username' | 'email'>): str
 // "active now" / "active 12m ago" / "active 3d ago" — team-panel-v2 item 4's
 // exact wording. Mirrors lib/dashboard/houses.ts's editedLabel shape.
 export function formatLastActive(iso: string | null | undefined): string {
-  if (!iso) return 'never active here'
+  if (!iso) return 'No activity yet'
   const diffMs = Date.now() - new Date(iso).getTime()
   const min = 60_000
   const hr = 60 * min

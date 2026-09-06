@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
+import { useAuthedPage } from '@/components/useAuthedPage'
 import { Card, SectionLabel, Badge, Dot, mono, ago, statusMeta, modelHref, fmtTokens } from './AiMonitor'
 import type { TargetDetail, LanePosition, LogEvent, ProbeResult } from '@/lib/ai/router'
 
@@ -95,6 +96,8 @@ function Position({ name, pos }: { name: string; pos: LanePosition }) {
 
 export function ModelDetail({ name }: { name: string }) {
   const router = useRouter()
+  const { accountType, caps } = useAuthedPage()
+  const showClassroom = caps.canCreateClasses || accountType === 'student'
   const [detail, setDetail] = useState<TargetDetail | null>(null)
   const [probe, setProbe] = useState<ProbeResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -165,7 +168,7 @@ export function ModelDetail({ name }: { name: string }) {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} active="admin" />
+      <DashboardHeader onSignOut={handleSignOut} active="admin" showClassroom={showClassroom} classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'} />
 
       <div className="container" style={{ paddingBlock: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
         <Link href="/admin" style={{ ...mono, color: 'var(--ink-subtle)' }}>

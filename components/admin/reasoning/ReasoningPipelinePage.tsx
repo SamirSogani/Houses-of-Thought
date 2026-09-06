@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
-import { useSignOut } from '@/components/useAuthedPage'
+import { useAuthedPage } from '@/components/useAuthedPage'
 import { RATE_LIMITED_CODE, RATE_LIMITED_COPY } from '@/lib/ai/findings'
 import { isReviewStep, type PipelineMode, type StepId } from '@/lib/ai/reasoning/steps'
 import {
@@ -101,7 +101,8 @@ const RATE_LIMIT_RETRY_DELAYS_MS = [5_000, 15_000]
 const MAX_STEP_ATTEMPTS = RATE_LIMIT_RETRY_DELAYS_MS.length + 1
 
 export function ReasoningPipelinePage() {
-  const signOut = useSignOut()
+  const { accountType, caps, signOut } = useAuthedPage()
+  const showClassroom = caps.canCreateClasses || accountType === 'student'
   const [phase, setPhase] = useState<Phase>('form')
   const [question, setQuestion] = useState('')
   const [n, setN] = useState(MIN_N)
@@ -443,7 +444,7 @@ export function ReasoningPipelinePage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={() => void signOut()} active="admin" />
+      <DashboardHeader onSignOut={() => void signOut()} active="admin" showClassroom={showClassroom} classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'} />
 
       <div className="container" style={{ paddingBlock: 32, maxWidth: 820 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>

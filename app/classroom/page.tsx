@@ -123,7 +123,7 @@ export default function ClassroomPage() {
 
   return (
     <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} />
+      <DashboardHeader onSignOut={handleSignOut} showClassroom active="classroom" />
 
       <main style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>

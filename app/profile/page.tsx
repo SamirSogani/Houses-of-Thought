@@ -7,6 +7,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { ProfileForm } from '@/components/profile/ProfileForm'
 import Footer from '@/components/sections/Footer'
 import { rowToProfile, type ProfileData, type ProfileRow } from '@/lib/profile/data'
+import { capabilitiesFor } from '@/lib/auth/capabilities'
 
 // Columns selected for the form — keep in sync with ProfileRow.
 const PROFILE_COLUMNS =
@@ -79,7 +80,12 @@ export default function ProfilePage() {
 
   return (
     <div className="acct-vh-min" style={{ display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} active="profile" />
+      <DashboardHeader
+        onSignOut={handleSignOut}
+        active="profile"
+        showClassroom={initial.accountType === 'teacher' || initial.accountType === 'student'}
+        classroomHref={capabilitiesFor(initial.accountType).canCreateClasses ? '/classroom' : '/classes'}
+      />
 
       <main style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(28px, 4vw, 48px)', maxWidth: 900 }}>

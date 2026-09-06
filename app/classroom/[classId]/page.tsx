@@ -112,7 +112,7 @@ export default function ClassRosterPage({ params }: { params: Promise<{ classId:
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={handleSignOut} />
+      <DashboardHeader onSignOut={handleSignOut} showClassroom active="classroom" />
 
       <main style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>

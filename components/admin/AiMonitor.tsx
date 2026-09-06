@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSignOut } from '@/components/useAuthedPage'
+import { useAuthedPage } from '@/components/useAuthedPage'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import type { RouterSnapshot, LaneStep, ProbeResult, TargetStatus } from '@/lib/ai/router'
 // Type-only imports — these modules are server-only at runtime.
@@ -223,7 +223,8 @@ export function AiMonitor() {
     load()
   }, [load])
 
-  const signOut = useSignOut()
+  const { accountType, caps, signOut } = useAuthedPage()
+  const showClassroom = caps.canCreateClasses || accountType === 'student'
 
   const probeByName = new Map((probe ?? []).map((p) => [p.name, p]))
 
@@ -241,7 +242,7 @@ export function AiMonitor() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={() => void signOut()} active="admin" />
+      <DashboardHeader onSignOut={() => void signOut()} active="admin" showClassroom={showClassroom} classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'} />
 
       <div className="container" style={{ paddingBlock: 32, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* title + actions */}

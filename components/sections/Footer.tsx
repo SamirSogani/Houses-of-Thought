@@ -7,17 +7,15 @@ const linkGroups = [
   {
     heading: 'Product',
     links: [
-      { label: 'Try it', href: '/try' },
-      { label: 'Examples', href: '/examples' },
+      { label: 'Dashboard', href: '/dashboard' },
       { label: 'Framework', href: '/framework' },
+      { label: 'Examples', href: '/examples' },
     ],
   },
   {
     heading: 'Learn',
     links: [
-      { label: 'How it works', href: '/how-it-works' },
       { label: 'For Educators', href: '/educators' },
-      { label: 'Our Story', href: '/story' },
       { label: 'FAQ', href: '/faq' },
     ],
   },

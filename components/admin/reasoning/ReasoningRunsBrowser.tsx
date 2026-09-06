@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
-import { useSignOut } from '@/components/useAuthedPage'
+import { useAuthedPage } from '@/components/useAuthedPage'
 import { ReasoningStagesList, type RunState } from './ReasoningStagesList'
 import { FinalAnswerCard } from './FinalAnswerCard'
 import type { StepId } from '@/lib/ai/reasoning/steps'
@@ -77,7 +77,8 @@ function formatTime(iso: string): string {
 }
 
 export function ReasoningRunsBrowser() {
-  const signOut = useSignOut()
+  const { accountType, caps, signOut } = useAuthedPage()
+  const showClassroom = caps.canCreateClasses || accountType === 'student'
   const [runs, setRuns] = useState<RunSummary[] | null>(null)
   const [listError, setListError] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -142,7 +143,7 @@ export function ReasoningRunsBrowser() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={() => void signOut()} active="admin" />
+      <DashboardHeader onSignOut={() => void signOut()} active="admin" showClassroom={showClassroom} classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'} />
 
       <div className="container" style={{ paddingBlock: 32, maxWidth: 820 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>

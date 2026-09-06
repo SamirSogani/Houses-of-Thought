@@ -71,13 +71,8 @@ export function DashboardHeader({
         {/* Left: brand */}
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, justifySelf: 'start' }}>
           <LogoMark />
-          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
-              Houses of Thought
-            </span>
-            <span className="mono acct-dash-sub" style={{ fontSize: 9, color: 'var(--ink-subtle)', marginTop: 2 }}>
-              Intellectual Blueprint
-            </span>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+            Houses of Thought
           </span>
         </Link>
 

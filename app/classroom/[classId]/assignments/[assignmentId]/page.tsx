@@ -101,7 +101,7 @@ export default function AssignmentDetailPage({ params }: { params: Promise<{ cla
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={() => void signOut()} />
+      <DashboardHeader onSignOut={() => void signOut()} showClassroom active="classroom" />
 
       <main id="main" style={{ flex: '1 1 auto' }}>
         <div className="container" style={{ paddingBlock: 'clamp(32px, 5vw, 56px)' }}>

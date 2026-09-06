@@ -129,10 +129,15 @@ function WelcomeContent() {
 }
 
 export default function WelcomePage() {
-  const { signOut } = useAuthedPage()
+  const { accountType, caps, signOut } = useAuthedPage()
+  const isClassroom = caps.canCreateClasses || accountType === 'student'
   return (
     <>
-      <DashboardHeader onSignOut={signOut} />
+      <DashboardHeader
+        onSignOut={signOut}
+        showClassroom={isClassroom}
+        classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'}
+      />
 
       {/* acct-vh-header = dvh-safe `calc(100vh - 73px)` (account-responsive.css). */}
       <main

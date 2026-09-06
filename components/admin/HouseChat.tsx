@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useSignOut } from '@/components/useAuthedPage'
+import { useAuthedPage } from '@/components/useAuthedPage'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { createClient } from '@/lib/supabase/client'
 import { blankState } from '@/lib/build/persistence'
@@ -58,7 +58,8 @@ export function HouseChat() {
   // nothing already running.
   const [concludeNext, setConcludeNext] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
-  const signOut = useSignOut()
+  const { accountType, caps, signOut } = useAuthedPage()
+  const showClassroom = caps.canCreateClasses || accountType === 'student'
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -163,7 +164,7 @@ export function HouseChat() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--parchment)' }}>
-      <DashboardHeader onSignOut={() => void signOut()} active="admin" />
+      <DashboardHeader onSignOut={() => void signOut()} active="admin" showClassroom={showClassroom} classroomHref={caps.canCreateClasses ? '/classroom' : '/classes'} />
 
       <div className="container" style={{ paddingBlock: 32, maxWidth: 760 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
