@@ -4,7 +4,6 @@ import MarketingFooter from '@/components/marketing/Footer'
 import MarketingCTASection from '@/components/marketing/CTASection'
 import Hero from '@/components/marketing/Hero'
 import WhySection from '@/components/marketing/WhySection'
-import SocialProof from '@/components/marketing/SocialProof'
 import DemoVideo from '@/components/marketing/DemoVideo'
 import DiagramTeaser from '@/components/marketing/DiagramTeaser'
 import ExamplesTeaser from '@/components/marketing/ExamplesTeaser'
@@ -23,7 +22,6 @@ export default function Home() {
       <main id="main">
         <Hero />
         <WhySection />
-        <SocialProof />
 
         {/* Demo video — placeholder until a real recording is ready */}
         <section style={{ paddingBlock: 'var(--section-py)', borderTop: '1px solid var(--dusk-rule)' }}>
