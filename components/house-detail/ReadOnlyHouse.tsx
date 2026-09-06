@@ -200,7 +200,7 @@ export function ReadOnlyHouse({ house: h, purpose, conclusion, reasoning, detail
         <div style={{ ...monoLabel, margin: '22px 0 12px' }}>The three scores</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <AxisRow name="Evidence" score={s.evidence} measures={axisMeasures.Evidence} driver={`${h.evidence.length} sourced facts`} />
-          <AxisRow name="Logic" score={s.logic} measures={axisMeasures.Logic} driver={`${h.assumptions.length} assumptions, conclusion set, ${implTotal} implications`} />
+          <AxisRow name="Logic" score={s.logic} measures={axisMeasures.Logic} driver={`${h.assumptions.length} assumptions, ${h.conclusion?.length ? 'conclusion set' : 'no conclusion'}, ${implTotal} implications`} />
           <AxisRow name="Coverage" score={s.coverage} measures={axisMeasures.Coverage} driver={`${h.perspectives.length} perspectives`} />
         </div>
         <div style={{ marginTop: 14, background: 'var(--parchment)', border: '1px solid var(--rule)', borderRadius: 10, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>

@@ -38,7 +38,7 @@ export function ReviewLayer({
 
   const axes = [
     { name: 'Evidence', score: strength.evidence, measures: axisMeasures.Evidence, driver: `${state.evidence.length} sourced facts` },
-    { name: 'Logic', score: strength.logic, measures: axisMeasures.Logic, driver: `${state.assumptions.length} assumptions, conclusion set, ${implTotal} implications` },
+    { name: 'Logic', score: strength.logic, measures: axisMeasures.Logic, driver: `${state.assumptions.length} assumptions, ${state.conclusion?.trim() ? 'conclusion set' : 'no conclusion'}, ${implTotal} implications` },
     { name: 'Coverage', score: strength.coverage, measures: axisMeasures.Coverage, driver: `${state.perspectives.length} perspectives` },
   ]
 

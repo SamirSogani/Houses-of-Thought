@@ -137,7 +137,7 @@ export default function Footer() {
             color: 'var(--ink-subtle)',
           }}
         >
-          <span>Sheet 99 / Footer</span>
+          <span>Houses of Thought</span>
           <span>© 2026 Houses of Thought</span>
         </div>
       </div>

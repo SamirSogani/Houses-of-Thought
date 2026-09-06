@@ -15,7 +15,6 @@ import {
 } from '@/lib/profile/data'
 import { SectionCard, FieldLabel, TextInput, TextArea } from './primitives'
 import { AccountTypeSelector } from './AccountTypeSelector'
-import { DeleteAccountModal } from './DeleteAccountModal'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -28,7 +27,6 @@ const twoCol: React.CSSProperties = {
 export function ProfileForm({ initial, userId }: { initial: ProfileData; userId: string }) {
   const [profile, setProfile] = useState<ProfileData>(initial)
   const [save, setSave] = useState<SaveState>('saved')
-  const [deleteOpen, setDeleteOpen] = useState(false)
   // The specific username the DB rejected as taken (23505); autosaveRow excludes
   // it so every OTHER field keeps saving while the inline error stands.
   const [taken, setTaken] = useState<string | null>(null)
@@ -174,7 +172,7 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
             Personal Foundational Point of View
           </h2>
           <p className="mono" style={{ fontSize: 10, color: 'var(--amber-text)', marginTop: 8 }}>
-            Element 4.2 · These perspectives persist across all your houses.
+            These perspectives persist across all your houses.
           </p>
         </div>
         <div className="acct-card-grid" style={twoCol}>
@@ -188,21 +186,13 @@ export function ProfileForm({ initial, userId }: { initial: ProfileData; userId:
 
         {/* Danger Zone */}
         <SectionCard accent="var(--warning)">
-          <FieldLabel label="Danger Zone" helper="Permanently delete your account and all associated data. This action cannot be undone." color="var(--warning)" />
-          <button
-            type="button"
-            onClick={() => setDeleteOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14, color: '#fff', background: 'var(--warning)', borderRadius: 8, padding: '10px 16px' }}
-          >
-            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8a1 1 0 001 .9h3.8a1 1 0 001-.9l.6-8" stroke="#fff" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Delete Account
-          </button>
+          <FieldLabel label="Danger Zone" helper="Account deletion" color="var(--warning)" />
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink-mid)' }}>
+            Self-service account deletion is not yet available. To request deletion of your account and associated data, visit our{' '}
+            <Link href="/contact" style={{ color: 'var(--warning)', textDecoration: 'underline' }}>contact page</Link>.
+          </p>
         </SectionCard>
       </div>
-
-      {deleteOpen && <DeleteAccountModal onClose={() => setDeleteOpen(false)} />}
     </>
   )
 }

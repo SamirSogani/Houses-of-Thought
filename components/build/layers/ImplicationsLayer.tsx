@@ -80,7 +80,7 @@ export function ImplicationsLayer({ state, dispatch }: { state: State; dispatch:
                   <RemoveButton title="Remove implication" onClick={() => dispatch({ type: 'REMOVE_IMPLICATION', kind, id: it.id })} style={{ width: 20, height: 20, fontSize: 13 }} />
                 </div>
               ))}
-              <AddRow label={`+ Add a ${label.toLowerCase()} implication`} onClick={() => dispatch({ type: 'ADD_IMPLICATION', kind })} />
+              <AddRow label={`+ Add ${kind === 'unc' ? 'an' : 'a'} ${label.toLowerCase()} implication`} onClick={() => dispatch({ type: 'ADD_IMPLICATION', kind })} />
             </div>
           </div>
         )

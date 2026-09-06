@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import Header from '@/components/Header'
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
+import { useAuthedPage } from '@/components/useAuthedPage'
 
 const options = [
   {
@@ -128,9 +129,10 @@ function WelcomeContent() {
 }
 
 export default function WelcomePage() {
+  const { signOut } = useAuthedPage()
   return (
     <>
-      <Header />
+      <DashboardHeader onSignOut={signOut} />
 
       {/* acct-vh-header = dvh-safe `calc(100vh - 73px)` (account-responsive.css). */}
       <main
