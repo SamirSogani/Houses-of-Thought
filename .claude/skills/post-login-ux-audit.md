@@ -1,6 +1,6 @@
 ---
 name: post-login-ux-audit
-description: Deep post-login UX audit of Houses of Thought through 10 personas × 8 viewpoints
+description: Deep post-login UX audit of Houses of Thought through 10 personas and 8 viewpoints
 user_invocable: true
 ---
 
@@ -12,7 +12,6 @@ personas across 8 evaluation lenses, producing a matrix of findings and an
 actionable remediation plan. The personas span the full audience — students,
 educators, individuals navigating personal decisions, and business users.
 
----
 
 ## Scope — post-login surfaces only
 
@@ -36,7 +35,6 @@ The audit covers every route and flow a logged-in user can reach:
 Pre-login pages (marketing, `/try`, auth) are **out of scope** — use the
 `ux-audit` skill for full-site audits.
 
----
 
 ## The 10 Personas
 
@@ -179,7 +177,6 @@ noting where their particular needs are met or missed.
 - **Test:** Can they complete a full house build? Is the blueprint rail usable?
   Does the canvas scroll correctly? Can they reach all actions?
 
----
 
 ## The 8 Evaluation Lenses
 
@@ -268,7 +265,6 @@ stop after finding one issue per page.
 - Test at `mobile` and `tablet` viewports — does layout adapt, or just shrink?
 - Are images lazy-loaded? Do large assets block interaction?
 
----
 
 ## Execution protocol
 
@@ -349,7 +345,6 @@ Design: clean, scannable, editorial. Use:
 
 After publishing, send the artifact link to the user.
 
----
 
 ## Finding template
 
@@ -367,7 +362,6 @@ experience, not just what's technically wrong.
 - **Recommendation:** Specific, actionable fix (not "make it better")
 ```
 
----
 
 ## Running the audit
 
