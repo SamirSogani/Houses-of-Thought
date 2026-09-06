@@ -20,6 +20,7 @@ import MarketingHeader from '@/components/marketing/Header'
 import MarketingFooter from '@/components/marketing/Footer'
 import MarketingCTASection from '@/components/marketing/CTASection'
 import Constellation from '@/components/marketing/Constellation'
+import DemoVideo from '@/components/marketing/DemoVideo'
 import { CONSTELLATION_LAYERS, CONSTELLATION_STANDARDS } from '@/lib/marketing/constellation'
 
 export const metadata: Metadata = pageMetadata({
@@ -92,6 +93,23 @@ export default function HowItWorksPage() {
 
             <div style={{ marginTop: 48 }}>
               <Constellation variant="interactive" />
+            </div>
+          </div>
+        </section>
+
+        {/* Demo video — placeholder until a real recording is ready */}
+        <section style={{ paddingBlock: 'var(--section-py)', borderTop: '1px solid var(--dusk-rule)' }}>
+          <div className="container">
+            <div style={{ maxWidth: '52ch' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--amber)' }}>
+                Watch it work
+              </p>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(24px, 3vw, 32px)', color: 'var(--dusk-ink)', marginTop: 10 }}>
+                A full house, built start to finish.
+              </h2>
+            </div>
+            <div style={{ marginTop: 24, maxWidth: 800 }}>
+              <DemoVideo />
             </div>
           </div>
         </section>

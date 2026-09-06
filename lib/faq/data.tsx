@@ -3,7 +3,16 @@
 // source of truth: an answer edited here updates both the page and the
 // structured data, so they can never disagree.
 
-export type FaqItem = { question: string; answer: string }
+import type { ReactNode } from 'react'
+
+export type FaqItem = {
+  question: string
+  /** Plain-text answer, used for JSON-LD structured data. */
+  answer: string
+  /** Optional rich answer with links/markup, rendered in place of `answer`
+   *  when present. The plain `answer` still drives the JSON-LD. */
+  richAnswer?: ReactNode
+}
 export type FaqGroup = { label: string; items: FaqItem[] }
 
 export const faqGroups: FaqGroup[] = [
@@ -50,6 +59,23 @@ export const faqGroups: FaqGroup[] = [
   {
     label: 'AI & accuracy',
     items: [
+      {
+        question: 'How is this different from ChatGPT?',
+        answer:
+          'ChatGPT gives you one answer. Houses of Thought walks seven layers of structured reasoning — perspectives, evidence, assumptions, and a conclusion — and checks six of those layers against nine independent standards before the run moves on. You see the thinking, not just the output. See the full comparison at /compare.',
+        richAnswer: (
+          <>
+            ChatGPT gives you one answer. Houses of Thought walks seven layers of
+            structured reasoning — perspectives, evidence, assumptions, and a
+            conclusion — and checks six of those layers against nine independent
+            standards before the run moves on. You see the thinking, not just the
+            output.{' '}
+            <a href="/compare" style={{ color: 'var(--amber-text)', fontWeight: 600 }}>
+              See the full comparison →
+            </a>
+          </>
+        ),
+      },
       {
         question: 'What does the AI do, and what does it not do?',
         answer:

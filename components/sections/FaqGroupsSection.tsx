@@ -71,7 +71,7 @@ function AccordionItem({
             maxWidth: '64ch',
           }}
         >
-          {item.answer}
+          {item.richAnswer ?? item.answer}
         </p>
       </div>
     </div>

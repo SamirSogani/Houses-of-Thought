@@ -1,6 +1,10 @@
 // Home: problem/value framing, between the hero and the diagram teaser. No
 // competitor named on this page (redesign brief) — this is about what the
-// method itself does differently, not what it's not.
+// method itself does differently, not what it's not. The /compare link at the
+// bottom is deliberately subtle (a text link, not nav) so it's findable
+// without cluttering the marketing surface.
+
+import Link from 'next/link'
 
 const PILLARS = [
   {
@@ -40,6 +44,13 @@ export default function WhySection() {
             </div>
           ))}
         </div>
+
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--dusk-ink-subtle)', marginTop: 24 }}>
+          Wondering how this compares to ChatGPT or other AI tools?{' '}
+          <Link href="/compare" style={{ color: 'var(--amber)', fontWeight: 600 }}>
+            See the comparison →
+          </Link>
+        </p>
       </div>
     </section>
   )
