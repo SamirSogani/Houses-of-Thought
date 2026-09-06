@@ -29,6 +29,8 @@ import { DraftCard } from './rail/DraftCard'
 import type { SuggestCache } from './rail/CopilotPanel'
 import { useInterviewSession } from './rail/InterviewCard'
 import { useSectors } from './sectors/useSectors'
+import { OnboardingTour } from './OnboardingTour'
+import { createClient } from '@/lib/supabase/client'
 
 const UNDO_CAP = 30
 const UNDO_CHIP_MS = 6_000
@@ -46,6 +48,7 @@ export function BuildHousePage({
   draftEntry = false,
   viewerCollaborator = false,
   team = null,
+  hasSeenTour = true,
   onSignOut,
   onSave,
 }: {
@@ -81,6 +84,10 @@ export function BuildHousePage({
   // the RightRail Team tab when set; hidden entirely otherwise (teacher view,
   // strawman attack, a stranger who somehow reached this far).
   team?: TeamContext | null
+  // Onboarding tour (September 2026 UX audit, item 1). True = the user has
+  // already seen (or skipped) the tour. Defaults to true so the tour never
+  // shows for callers that don't pass the flag (e.g. the /house local draft).
+  hasSeenTour?: boolean
   onSignOut: () => void
   // Persistence adapter. Must REJECT on failure — a SaveError-shaped `code`
   // ('save-failed' | 'stale-write' | 'signed-out') drives the status machine.
@@ -134,6 +141,22 @@ export function BuildHousePage({
   // <1024px: the side rails swap for a step strip + a co-pilot drawer. UI-only
   // state, so it lives here rather than in the reducer.
   const isMobile = useIsMobile()
+  // Onboarding tour (September 2026 UX audit, item 1). Shown once per user on
+  // their very first house. Local state tracks dismissal; the flag is persisted
+  // server-side on dismiss.
+  const [showTour, setShowTour] = useState(!hasSeenTour && !readOnly && !strawman)
+  const dismissTour = useCallback(() => {
+    setShowTour(false)
+    // Fire-and-forget profile update — a failure just means the tour shows once
+    // more next session, which is harmless.
+    void (async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase.from('profiles').update({ has_seen_builder_tour: true }).eq('id', user.id)
+      }
+    })()
+  }, [])
   const [railOpen, setRailOpen] = useState(false)
   const canvasRef = useRef<HTMLElement>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -504,6 +527,7 @@ export function BuildHousePage({
       {isMobile && !railOpen && (
         <button
           type="button"
+          className="bhp-mobile-copilot"
           onClick={() => setRailOpen(true)}
           aria-label="Open co-pilot"
           style={{
@@ -570,6 +594,9 @@ export function BuildHousePage({
           Undo remove (⌘Z)
         </button>
       )}
+
+      {/* Onboarding tour (September 2026 UX audit, item 1). */}
+      {showTour && <OnboardingTour onDismiss={dismissTour} />}
 
       <Toast message={state.toast} />
     </div>

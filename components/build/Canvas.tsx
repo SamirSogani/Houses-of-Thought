@@ -37,6 +37,7 @@ import { SECTOR_META } from '@/lib/sectors/types'
 import type { SectorsState } from './sectors/useSectors'
 import type { ImplicationsSectorAnalysis, PerspectivesSectorAnalysis } from '@/lib/sectors/types'
 import { houseIsBlank } from './rail/DraftCard'
+import { LayerEmptyState } from './LayerEmptyState'
 import { PipelineLayerIndicator, layerPipelineStatus } from './PipelineLayerStatus'
 import type { ReasoningPipelineRunner } from './useReasoningPipelineRunner'
 
@@ -311,6 +312,17 @@ export const Canvas = forwardRef<
                     )}
                   </>
                 )}
+
+                {/* Contextual empty states (September 2026 UX audit, item 2).
+                    Shown when a layer has no user content yet; each layer's own
+                    component still renders beneath (with its "+ Add" rows) so the
+                    user can start adding immediately. Step 5 has its own built-in
+                    empty state and step 7 always shows the strength score. */}
+                {s === 1 && state.concepts.length === 0 && !state.question.trim() && !state.purpose.trim() && <LayerEmptyState step={1} />}
+                {s === 2 && state.perspectives.length === 0 && !activePerspective && <LayerEmptyState step={2} />}
+                {s === 3 && state.evidence.length === 0 && <LayerEmptyState step={3} />}
+                {s === 4 && state.assumptions.length === 0 && <LayerEmptyState step={4} />}
+                {s === 6 && state.pos.length === 0 && state.neg.length === 0 && state.unc.length === 0 && <LayerEmptyState step={6} />}
 
                 {s === 1 && <FrameLayer state={state} dispatch={dispatch} conceptsOnly />}
                 {s === 2 &&

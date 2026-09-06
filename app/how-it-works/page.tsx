@@ -72,6 +72,37 @@ export default function HowItWorksPage() {
       <MarketingHeader />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main id="main">
+        {/* TL;DR callout — the three-sentence summary a scanning visitor reads
+            before deciding whether to scroll (September 2026 UX audit, item 4). */}
+        <section style={{ paddingBlock: 'clamp(40px, 7vw, 72px) 0' }}>
+          <div className="container">
+            <div
+              style={{
+                background: 'var(--dusk-rule-soft)',
+                borderLeft: '4px solid var(--amber)',
+                borderRadius: '0 14px 14px 0',
+                padding: 'clamp(24px, 4vw, 36px)',
+                maxWidth: '56ch',
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 500,
+                  fontSize: 'clamp(20px, 2.8vw, 26px)',
+                  lineHeight: 1.4,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--dusk-ink)',
+                  margin: 0,
+                }}
+              >
+                You ask a question. The system builds perspectives, gathers
+                evidence, and stress-tests the reasoning. You own the conclusion.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section style={{ paddingBlock: 'clamp(56px, 9vw, 100px)' }}>
           <div className="container">
             <div style={{ maxWidth: '62ch' }}>

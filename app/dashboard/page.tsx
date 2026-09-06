@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { HouseCard, CreateHouseCard } from '@/components/dashboard/HouseCard'
 import Footer from '@/components/sections/Footer'
@@ -308,6 +309,70 @@ export default function DashboardPage() {
               {notice}
             </p>
           )}
+
+          {/* Continue where you left off — most recently edited house with
+              content (September 2026 UX audit, item 3). */}
+          {(() => {
+            const recent = houses.find((h) => h.status !== 'empty')
+            if (!recent) return null
+            return (
+              <Link
+                href={`/build/${recent.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 20,
+                  marginTop: 'clamp(24px, 3vw, 36px)',
+                  padding: 'clamp(16px, 2.5vw, 22px)',
+                  background: 'var(--amber-tint)',
+                  border: '1px solid var(--amber)',
+                  borderRadius: 'var(--radius-card)',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--ink)'
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(20,33,58,0.08)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--amber)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="mono" style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--amber-text)', margin: 0 }}>
+                    Continue where you left off
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 'clamp(17px, 2.2vw, 22px)', letterSpacing: '-0.01em', color: 'var(--ink)', margin: '6px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {recent.title ?? 'Untitled House'}
+                  </p>
+                  {recent.question && (
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--ink-mid)', margin: '4px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {recent.question}
+                    </p>
+                  )}
+                  <p className="mono" style={{ fontSize: 9, color: 'var(--ink-subtle)', margin: '8px 0 0' }}>
+                    {recent.editedLabel}
+                  </p>
+                </div>
+                <span
+                  style={{
+                    flex: '0 0 auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: 'var(--ink)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Continue building
+                  <span aria-hidden="true">→</span>
+                </span>
+              </Link>
+            )
+          })()}
 
           {/* Assigned work (students only; self-hides when empty) */}
           <div style={{ marginTop: 'clamp(24px, 3vw, 36px)' }}>

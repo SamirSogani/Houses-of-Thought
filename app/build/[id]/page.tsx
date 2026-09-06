@@ -43,6 +43,8 @@ export default function BuildHouseRoute({
   // Draft Mode (decision 016): cosmetic gate; the /api/ai/draft route re-checks
   // canAuthorDraft server-side.
   const [draftEligible, setDraftEligible] = useState(false)
+  // Onboarding tour flag (September 2026 UX audit, item 1).
+  const [hasSeenTour, setHasSeenTour] = useState(true)
   // Optimistic-concurrency token: the parent row's updated_at at load, advanced
   // on every successful save. A save presenting a stale token aborts with
   // 'stale-write' before touching any child rows (see saveHouse).
@@ -60,7 +62,7 @@ export default function BuildHouseRoute({
       if (!active || !user) return
 
       const [{ data: profile }, { data: houseRow }, { data: collabRow }, loadedHouse] = await Promise.all([
-        supabase.from('profiles').select('account_type').eq('id', user.id).single(),
+        supabase.from('profiles').select('account_type, has_seen_builder_tour').eq('id', user.id).single(),
         supabase.from('houses').select('owner_id, is_strawman, assignment_id, turned_in').eq('id', id).single(),
         // Mechanism 1: this caller's own membership row, if any (house_collaborators
         // RLS lets a user always read their own row, even before can_access_house
@@ -96,6 +98,7 @@ export default function BuildHouseRoute({
       else if (isAssignment && !notOwner) state.mode = 'learn'
       setModeLocked(caps.forcedMode !== null || (isAssignment && !notOwner))
       setDraftEligible(caps.canAuthorDraft && !isAssignment)
+      setHasSeenTour(profile?.has_seen_builder_tour !== false)
       // Read-only whenever you're not the owner AND not an 'editor' collaborator
       // (teacher on a student's house, student attacking a strawman, a 'viewer'
       // collaborator) — and for the owner's own turned-in submission until they
@@ -146,6 +149,7 @@ export default function BuildHouseRoute({
       draftEntry={draftParam === '1'}
       viewerCollaborator={viewerCollaborator}
       team={team}
+      hasSeenTour={hasSeenTour}
       onSignOut={() => void signOut()}
       // Read-only view: skip persistence so a teacher's stray edit never fails a
       // write it was never allowed to make. Otherwise: guarded save presenting
