@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import { HouseCard, CreateHouseCard } from '@/components/dashboard/HouseCard'
+import { DashboardFilters } from '@/components/dashboard/DashboardFilters'
+import { BulkDeleteModal } from '@/components/dashboard/BulkDeleteModal'
 import Footer from '@/components/sections/Footer'
 import { rowToSummary, type HouseRow, type HouseSummary } from '@/lib/dashboard/houses'
 import { useAuthedPage, CenterNotice } from '@/components/useAuthedPage'
@@ -38,6 +40,12 @@ export default function DashboardPage() {
   const [hasMemberships, setHasMemberships] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Filtered/sorted view of owned houses (driven by DashboardFilters).
+  const [filteredHouses, setFilteredHouses] = useState<HouseSummary[]>([])
+  // Bulk-select state.
+  const [selectable, setSelectable] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
 
   // Route protection is handled by proxy.ts, so by the time this renders
   // the user is authenticated; here we only load their houses.
@@ -271,6 +279,39 @@ export default function DashboardPage() {
     }
   }
 
+  // The "Continue where you left off" house — never selectable.
+  const continueHouse = houses?.find((h) => h.status !== 'empty') ?? null
+  const continueHouseId = continueHouse?.id ?? null
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function exitSelectMode() {
+    setSelectable(false)
+    setSelectedIds(new Set())
+    setShowBulkDelete(false)
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    const supabase = createClient()
+    const { error } = await supabase.from('houses').delete().in('id', ids)
+    if (!error) {
+      setHouses((hs) => (hs ?? []).filter((h) => !selectedIds.has(h.id)))
+      exitSelectMode()
+    } else {
+      setError('Could not delete the selected houses. Please try again.')
+      setShowBulkDelete(false)
+    }
+  }
+
   if (houses === null) {
     return <CenterNotice>Loading your houses…</CenterNotice>
   }
@@ -374,6 +415,17 @@ export default function DashboardPage() {
             )
           })()}
 
+          {/* Filters bar: search, status pills, sort, select toggle */}
+          {houses.length > 0 && (
+            <DashboardFilters
+              houses={houses}
+              continueHouseId={continueHouseId}
+              selectable={selectable}
+              onToggleSelectable={() => selectable ? exitSelectMode() : setSelectable(true)}
+              onFiltered={setFilteredHouses}
+            />
+          )}
+
           {/* Assigned work (students only; self-hides when empty) */}
           <div style={{ marginTop: 'clamp(24px, 3vw, 36px)' }}>
             <StudentAssignments />
@@ -389,19 +441,30 @@ export default function DashboardPage() {
               marginTop: 'clamp(24px, 3vw, 36px)',
             }}
           >
-            {houses.map((h) => (
-              <HouseCard
-                key={h.id}
-                house={h}
-                href={`/build/${h.id}`}
-                graded={gradedIds.has(h.id)}
-                onRename={handleRename}
-                onDelete={handleDelete}
-                onTurnIn={handleTurnIn}
-                onGetShareLink={handleGetShareLink}
-                onRevokeShareLink={handleRevokeShareLink}
-              />
-            ))}
+            {filteredHouses.length === 0 && houses.length > 0 && (
+              <p className="mono" style={{ fontSize: 12, color: 'var(--ink-subtle)', gridColumn: '1 / -1', padding: '24px 0' }}>
+                No houses match your filters.
+              </p>
+            )}
+            {filteredHouses.map((h) => {
+              const isContinueHouse = h.id === continueHouseId
+              return (
+                <HouseCard
+                  key={h.id}
+                  house={h}
+                  href={`/build/${h.id}`}
+                  graded={gradedIds.has(h.id)}
+                  selectable={selectable && !isContinueHouse}
+                  selected={selectedIds.has(h.id)}
+                  onToggle={toggleSelect}
+                  onRename={handleRename}
+                  onDelete={handleDelete}
+                  onTurnIn={handleTurnIn}
+                  onGetShareLink={handleGetShareLink}
+                  onRevokeShareLink={handleRevokeShareLink}
+                />
+              )
+            })}
             <CreateHouseCard onClick={() => handleCreate()} disabled={creating} />
             {canDraft && (
               <CreateHouseCard
@@ -445,7 +508,56 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+        {/* Bulk-select bottom bar */}
+        {selectable && selectedIds.size > 0 && (
+          <div
+            style={{
+              position: 'sticky',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 40,
+              background: 'var(--white)',
+              borderTop: '1px solid var(--rule)',
+              boxShadow: '0 -4px 16px rgba(20,33,58,0.06)',
+              padding: '12px clamp(24px, 5vw, 48px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <span className="mono" style={{ fontSize: 12, color: 'var(--ink)' }}>
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowBulkDelete(true)}
+              style={{
+                height: 38,
+                padding: '0 18px',
+                borderRadius: 'var(--radius-btn)',
+                fontWeight: 600,
+                fontSize: 14,
+                color: '#fff',
+                background: 'var(--warning)',
+                cursor: 'pointer',
+              }}
+            >
+              Delete selected
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Bulk-delete confirmation modal */}
+      {showBulkDelete && (
+        <BulkDeleteModal
+          count={selectedIds.size}
+          onConfirm={handleBulkDelete}
+          onClose={() => setShowBulkDelete(false)}
+        />
+      )}
 
       <Footer />
     </div>

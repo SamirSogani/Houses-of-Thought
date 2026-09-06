@@ -17,6 +17,9 @@ export function HouseCard({
   house,
   href,
   graded = false,
+  selectable = false,
+  selected = false,
+  onToggle,
   onRename,
   onDelete,
   onTurnIn,
@@ -28,6 +31,10 @@ export function HouseCard({
   // Teacher feedback exists: undo-turn-in is hidden (the dashboard blocks it
   // server-side too — bl-H2) and a "Graded" chip renders.
   graded?: boolean
+  // Bulk-select mode: the card shows a checkbox and clicking toggles selection.
+  selectable?: boolean
+  selected?: boolean
+  onToggle?: (id: string) => void
   onRename?: (id: string, title: string) => void
   onDelete?: (id: string) => void
   onTurnIn?: (id: string, turnedIn: boolean) => void
@@ -127,8 +134,44 @@ export function HouseCard({
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Bulk-select checkbox (top-left, above the card link) */}
+      {selectable && (
+        <button
+          type="button"
+          aria-label={selected ? 'Deselect house' : 'Select house'}
+          aria-pressed={selected}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onToggle?.(house.id)
+          }}
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            zIndex: 8,
+            width: 22,
+            height: 22,
+            borderRadius: 5,
+            border: `1.5px solid ${selected ? 'var(--amber)' : 'var(--rule)'}`,
+            background: selected ? 'var(--amber)' : 'var(--white)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'background 0.12s, border-color 0.12s',
+          }}
+        >
+          {selected && (
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      )}
       <Link
-        href={href}
+        href={selectable ? '#' : href}
+        onClick={selectable ? (e) => { e.preventDefault(); onToggle?.(house.id) } : undefined}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -161,6 +204,7 @@ export function HouseCard({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            paddingLeft: selectable ? 28 : 0,
             paddingRight: hasMenu ? 28 : 0,
           }}
         >
