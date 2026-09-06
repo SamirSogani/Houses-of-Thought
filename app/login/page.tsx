@@ -10,11 +10,17 @@ import type { AccountType } from '@/lib/profile/data'
 
 // Post-auth destination. Honors a ?next= param (e.g. a /join/<code> invite link
 // that bounced through login) but only for internal paths, to avoid an open
-// redirect. Read from window at click time so we don't need a Suspense boundary.
+// redirect. A ?q= param (carried from the /try conversion CTA) becomes a
+// redirect to /build?q=… so the user's original question seeds their first
+// house. Read from window at click time so we don't need a Suspense boundary.
 function nextPath(): string {
   if (typeof window === 'undefined') return '/dashboard'
-  const p = new URLSearchParams(window.location.search).get('next')
-  return p && p.startsWith('/') && !p.startsWith('//') ? p : '/dashboard'
+  const params = new URLSearchParams(window.location.search)
+  const p = params.get('next')
+  if (p && p.startsWith('/') && !p.startsWith('//')) return p
+  const q = params.get('q')
+  if (q) return `/build?q=${encodeURIComponent(q)}`
+  return '/dashboard'
 }
 
 export default function LoginPage() {

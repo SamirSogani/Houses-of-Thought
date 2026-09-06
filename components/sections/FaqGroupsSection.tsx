@@ -80,7 +80,7 @@ function AccordionItem({
 
 export default function FaqGroupsSection() {
   return (
-    <section style={{ paddingBlock: '0 var(--section-py)' }}>
+    <section style={{ paddingBlock: 0 }}>
       <div
         className="container paper-card"
         style={{ maxWidth: 820, padding: 'clamp(28px, 4vw, 48px)', display: 'flex', flexDirection: 'column', gap: 56 }}

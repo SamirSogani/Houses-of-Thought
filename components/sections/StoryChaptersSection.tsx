@@ -25,10 +25,10 @@ const chapterBodyStyle: React.CSSProperties = {
 
 export default function StoryChaptersSection() {
   return (
-    <section style={{ paddingBlock: '0 var(--section-py)' }}>
+    <section style={{ paddingBlock: 0 }}>
       <div
         className="container paper-card"
-        style={{ maxWidth: 720, padding: 'clamp(28px, 4vw, 48px)', display: 'flex', flexDirection: 'column', gap: 64 }}
+        style={{ maxWidth: 720, padding: 'clamp(28px, 4vw, 48px)', display: 'flex', flexDirection: 'column', gap: 'clamp(40px, 6vw, 64px)' }}
       >
         <article data-reveal>
           <p style={chapterLabelStyle}>01 / The spark</p>

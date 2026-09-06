@@ -8,14 +8,17 @@ import { createClient } from '@/lib/supabase/client'
 // house for the signed-in user and redirects into /build/[id], where load +
 // autosave live. This keeps entry points that link to bare /build working.
 // ?draft=1 (Draft Mode, decision 016) is carried through to the workspace.
+// ?q=… (from the /try conversion CTA → login → build redirect) pre-fills the
+// house's Frame-layer question so the user picks up where they left off.
 export default function BuildPage({
   searchParams,
 }: {
-  searchParams: Promise<{ draft?: string }>
+  searchParams: Promise<{ draft?: string; q?: string }>
 }) {
   const router = useRouter()
-  const { draft } = use(searchParams)
+  const { draft, q } = use(searchParams)
   const draftRequested = draft === '1'
+  const prefillQuestion = q?.trim() || null
 
   useEffect(() => {
     const supabase = createClient()
@@ -26,9 +29,12 @@ export default function BuildPage({
       } = await supabase.auth.getUser()
       if (!active || !user) return
 
+      const insert: Record<string, unknown> = { owner_id: user.id }
+      if (prefillQuestion) insert.question = prefillQuestion
+
       const { data, error } = await supabase
         .from('houses')
-        .insert({ owner_id: user.id })
+        .insert(insert)
         .select('id')
         .single()
       if (!active) return
@@ -42,7 +48,7 @@ export default function BuildPage({
     return () => {
       active = false
     }
-  }, [router, draftRequested])
+  }, [router, draftRequested, prefillQuestion])
 
   return (
     <main

@@ -269,7 +269,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; }
 
 /* Expands a small control's hit area to 44px without resizing the glyph.
    Only apply where neighbors are ≥ 24px apart, or the areas overlap. */
-.tap-target { position: relative; }
+.tap-target { position: relative; touch-action: manipulation; }
 .tap-target::after {
   content: '';
   position: absolute;

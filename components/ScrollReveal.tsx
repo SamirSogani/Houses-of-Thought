@@ -10,6 +10,7 @@
 // /how-it-works, /story, /faq and /educators blank without JS.
 
 import { useEffect, useLayoutEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 // useLayoutEffect runs before paint (so the class lands before the first frame
 // and revealed content doesn't flash in), but React warns when it runs during
@@ -17,10 +18,16 @@ import { useEffect, useLayoutEffect } from 'react'
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 export default function ScrollRevealInit() {
+  const pathname = usePathname()
+
   useIsomorphicLayoutEffect(() => {
     document.documentElement.classList.add('js-reveal')
   }, [])
 
+  // Re-run when the pathname changes so a client-side navigation between pages
+  // that both render <ScrollRevealInit /> picks up the new page's [data-reveal]
+  // elements. Without this, React reuses the component and the observer set up
+  // for the old page's elements is disconnected while no new one is created.
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
@@ -33,12 +40,12 @@ export default function ScrollRevealInit() {
           }
         })
       },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+      { threshold: 0.01 }
     )
 
     document.querySelectorAll('[data-reveal]').forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [])
+  }, [pathname])
 
   return null
 }
